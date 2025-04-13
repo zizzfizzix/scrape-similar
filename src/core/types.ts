@@ -39,6 +39,7 @@ export interface SidePanelConfig {
   elementDetails?: ElementDetailsPayload | null
   selectionOptions?: SelectionOptions
   currentScrapeConfig?: ScrapeConfig
+  scrapedData?: ScrapedData
 }
 
 export type ElementDetailsPayload = {

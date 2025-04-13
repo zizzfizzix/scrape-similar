@@ -302,11 +302,18 @@ const handleContentScriptMessage = async (
 
       case MESSAGE_TYPES.SCRAPE_DATA_READY:
         // Forward scraped data to UI, including the tabId
+        const scrapedData = message.payload as ScrapedData;
+        
+        // Save scraped data to session storage
+        currentData.scrapedData = scrapedData;
+        await chrome.storage.session.set({ [sessionKey]: currentData });
+        console.log(`Saved scraped data to session storage for tab ${tabId}`);
+        
         chrome.runtime.sendMessage({
           type: MESSAGE_TYPES.SCRAPE_DATA_UPDATE,
           payload: {
             tabId: tabId,
-            data: message.payload as ScrapedData,
+            data: scrapedData,
           },
         })
         sendResponse({ success: true })

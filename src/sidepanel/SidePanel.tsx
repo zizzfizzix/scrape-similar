@@ -109,7 +109,7 @@ const SidePanel: React.FC = () => {
     // --- End validation change ---
 
     console.log(`Received initial/updated data for tab ${currentExpectedTabId}:`, payload.config);
-    const { selectionOptions, elementDetails, currentScrapeConfig, initialSelectionText } = payload.config || {}; // Default to empty object
+    const { selectionOptions, elementDetails, currentScrapeConfig, initialSelectionText, scrapedData } = payload.config || {}; // Default to empty object
 
     // --- Reset state before applying new data ---
     const defaultConfig: ScrapeConfig = {
@@ -158,8 +158,17 @@ const SidePanel: React.FC = () => {
     // Update the initialOptions state
     setInitialOptions(newOptions);
 
-    // Clear potentially stale data from previous tab
-    setScrapedData([]);
+    // Load saved scraped data from session storage if available
+    if (scrapedData && scrapedData.length > 0) {
+      console.log('Loading scraped data from session storage:', scrapedData);
+      setScrapedData(scrapedData);
+      // Optionally switch to data tab if there's data
+      setActiveTab('data');
+    } else {
+      // Clear potentially stale data from previous tab
+      setScrapedData([]);
+    }
+    
     setIsLoading(false); // Ensure loading state is reset
     setExportStatus(null); // Reset export status
   }, []);
