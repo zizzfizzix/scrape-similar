@@ -162,36 +162,6 @@ const SidePanel: React.FC = () => {
     setScrapedData([]);
     setIsLoading(false); // Ensure loading state is reset
     setExportStatus(null); // Reset export status
-
-
-    // --- Request details from content script if needed ---
-    // This logic should still run if initial text exists but details don't,
-    // and only if targetTabId is actually set.
-    if (initialSelectionText && !elementDetails && !selectionOptions && currentExpectedTabId !== null) {
-      console.log('Initial config has text but no details, requesting from content script...')
-      chrome.tabs.sendMessage<Message<{ selectionText: string }>, void>(
-        currentExpectedTabId, // Use the validated ID
-        {
-          type: MESSAGE_TYPES.GET_ELEMENT_DETAILS,
-          payload: { selectionText: initialSelectionText },
-        },
-        (response) => {
-          if (chrome.runtime.lastError) {
-            console.error(
-              'Error requesting element details from content script:',
-              chrome.runtime.lastError.message,
-            )
-          } else {
-            console.log(
-              'GET_ELEMENT_DETAILS message sent successfully, response expected via standard message handler.',
-              response,
-            )
-            // Background will handle ELEMENT_DETAILS_READY and update session/send INITIAL_OPTIONS_DATA
-          }
-        },
-      )
-    }
-    // -----------------------------------------------------
   }, []);
 
   // Initialize: load presets, listen for messages, AND listen for tab activation
@@ -215,33 +185,6 @@ const SidePanel: React.FC = () => {
       console.log(`Message received in listener. Type: ${message.type}. Current expected tabId: ${currentExpectedTabId}. Message tabId: ${message.payload?.tabId}`);
 
       switch (message.type) {
-        // // Handle tabId response (This is now handled in the initial useEffect callback)
-        // case MESSAGE_TYPES.RESPONSE_SIDEPANEL_TAB_ID:
-        //   if (message.payload && message.payload.tabId) {
-        //     console.log(`MessageListener received tabId: ${message.payload.tabId}`);
-        //     // Check if targetTabId is already set to avoid redundant updates
-        //     if (targetTabId === null) {
-        //       setTargetTabId(message.payload.tabId);
-        //       // Now that we have the tabId, tell the background we are loaded for this tab
-        //       chrome.runtime.sendMessage(
-        //         { type: MESSAGE_TYPES.SIDEPANEL_LOADED, payload: { tabId: message.payload.tabId } },
-        //         (initResponse) => {
-        //           if (chrome.runtime.lastError) {
-        //             console.error('Error sending SIDEPANEL_LOADED from listener:', chrome.runtime.lastError);
-        //             return;
-        //           }
-        //           console.log('SIDEPANEL_LOADED (from listener) message sent, background responded:', initResponse);
-        //           // Handle the initial data sent back immediately
-        //           if (initResponse && initResponse.type === MESSAGE_TYPES.INITIAL_OPTIONS_DATA) {
-        //             handleInitialData(initResponse.payload);
-        //           }
-        //         }
-        //       );
-        //     }
-        //   } else {
-        //     console.error('Received invalid RESPONSE_SIDEPANEL_TAB_ID message:', message);
-        //   }
-        //   break;
 
         // Replace INITIAL_OPTIONS with INITIAL_OPTIONS_DATA
         case MESSAGE_TYPES.INITIAL_OPTIONS_DATA:

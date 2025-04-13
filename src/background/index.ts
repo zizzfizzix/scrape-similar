@@ -108,64 +108,78 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   const targetTabId = tab.id
 
   if (info.menuItemId === 'scrape-similar') {
-    console.log('Scrape similar selected, opening side panel and saving initial selection')
+    console.log('Scrape similar selected, initiating side panel open process...')
 
-    // --- Step 1: Remove synchronous open call --- 
-    /*
-    chrome.sidePanel.open({ tabId: targetTabId })
-        .then(() => {
-             console.log(`Side panel open initiated for tab ${targetTabId} via context menu.`);
-        })
-        .catch((error) => {
-             console.error(`Error initiating side panel open for tab ${targetTabId} via context menu:`, error);
-             // Do not return here, still try to save session data
-        });
-    */
-    // ----------------------------------------------
+    // --- Step 1: Open Side Panel Immediately (satisfies user gesture) ---
+    try {
+      // No await here, let it open in the background while we fetch data
+      chrome.sidePanel.open({ tabId: targetTabId });
+      console.log(`Side panel open initiated synchronously for tab ${targetTabId} via context menu.`);
+    } catch (error) {
+      console.error(`Error initiating synchronous side panel open for tab ${targetTabId}:`, error);
+      // If opening fails immediately, stop the process.
+      return; 
+    }
+    // --------------------------------------------------------------------
 
-    // --- Step 2: Save initial selection info asynchronously ---
-    // Remove async IIFE, use the main async listener context
-    // (async () => {
-        const sessionKey = getSessionKey(targetTabId)
-        const initialSelectionInfo: Partial<SidePanelConfig> = {
-          initialSelectionText: info.selectionText || '',
-          elementDetails: undefined,
-          selectionOptions: undefined,
-        }
+    // --- Step 2: Request element details from content script asynchronously ---
+    let fetchedElementDetails: ElementDetailsPayload = null;
+    try {
+      // Now we can safely await the details
+      const response = await chrome.tabs.sendMessage(targetTabId, {
+        type: MESSAGE_TYPES.REQUEST_CACHED_ELEMENT_DETAILS
+      });
+      if (response?.success && response.payload) {
+        fetchedElementDetails = response.payload;
+        console.log(`[ContextMenu] Received element details from content script:`, fetchedElementDetails);
+      } else {
+        console.warn(`[ContextMenu] Content script did not return element details. Error: ${response?.error}`);
+      }
+    } catch (error) {
+      console.error(`[ContextMenu] Error requesting element details from content script for tab ${targetTabId}:`, error);
+      // Proceed even without details, side panel will load with minimal state.
+    }
+    // -----------------------------------------------------------------------
 
-        try {
-          // Get existing data if any
-          const result = await chrome.storage.session.get(sessionKey)
-          const existingData = result[sessionKey] || {}
-          const updatedData = { ...existingData, ...initialSelectionInfo }
+    // --- Step 3: Save initial selection info (including fetched details) ---
+    const sessionKey = getSessionKey(targetTabId)
+    // Construct initial info using both context menu info and fetched details
+    const initialSelectionInfo: Partial<SidePanelConfig> = {
+      initialSelectionText: info.selectionText || fetchedElementDetails?.text || '', // Use fetched text if available
+      elementDetails: fetchedElementDetails, // Store the full details
+      selectionOptions: undefined, // Keep this undefined for now
+    }
 
-          // Add logging before set
-          console.log(`[ContextMenu] Attempting to save to session key "${sessionKey}":`, updatedData);
-          // Save updated data
-          await chrome.storage.session.set({ [sessionKey]: updatedData })
-          // Add logging after set
-          console.log(`[ContextMenu] Successfully saved initial selection to session for tab ${targetTabId}`)
+    try {
+      // Get existing data if any
+      const result = await chrome.storage.session.get(sessionKey)
+      const existingData = result[sessionKey] || {}
+      // Merge new initial data with existing data (if any)
+      const updatedData = { ...existingData, ...initialSelectionInfo }
 
-          // --- Step 3: Enable and configure the panel for this tab AFTER saving data ---
-          try {
-              await chrome.sidePanel.setOptions({
-                  tabId: targetTabId,
-                  path: `sidepanel.html?tabId=${targetTabId}`, // Ensure correct path is set
-                  enabled: true
-              });
-              console.log(`Side panel configured and enabled for tab ${targetTabId} via context menu.`);
-          } catch (error) {
-              console.error(`Error enabling side panel for tab ${targetTabId} via context menu:`, error);
-          }
-          // --------------------------------------------------------------------------
+      console.log(`[ContextMenu] Attempting to save merged session state to key "${sessionKey}":`, updatedData);
+      await chrome.storage.session.set({ [sessionKey]: updatedData })
+      console.log(`[ContextMenu] Successfully saved merged session state for tab ${targetTabId}`)
 
-        } catch (error) {
-          console.error(
-            `[ContextMenu] Error saving initial selection session data for tab ${targetTabId}:`, // Added context tag
-            error,
-          )
-        }
-    // })(); // Remove IIFE closing
+      // --- Step 4: Configure/Enable panel (might be redundant if already open, but good practice) ---
+      try {
+          await chrome.sidePanel.setOptions({
+              tabId: targetTabId,
+              path: `sidepanel.html?tabId=${targetTabId}`, // Ensure correct path is set
+              enabled: true
+          });
+          console.log(`Side panel configured/enabled for tab ${targetTabId} via context menu.`);
+      } catch (error) {
+          console.error(`Error setting side panel options for tab ${targetTabId} via context menu:`, error);
+      }
+      // --------------------------------------------------------------------------------------
+
+    } catch (error) {
+      console.error(
+        `[ContextMenu] Error saving initial session data for tab ${targetTabId}:`,
+        error,
+      )
+    }
   }
 })
 

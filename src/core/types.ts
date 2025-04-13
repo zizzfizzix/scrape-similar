@@ -65,14 +65,15 @@ export const MESSAGE_TYPES = {
   SCRAPE_DATA_READY: 'scrape-data-ready',
   CONTENT_SCRIPT_ERROR: 'content-script-error',
   CONTENT_SCRIPT_LOADED: 'content-script-loaded',
+  ELEMENT_DETAILS_READY: 'element-details-ready',
 
   // From background to content script
   GET_SELECTION_OPTIONS: 'get-selection-options',
   GET_ELEMENT_DETAILS: 'get-element-details',
+  REQUEST_CACHED_ELEMENT_DETAILS: 'request-cached-element-details',
   START_SCRAPE: 'start-scrape',
   HIGHLIGHT_ELEMENTS: 'highlight-elements',
   CONTEXT_MENU_ACTION_TRIGGERED: 'context-menu-action-triggered',
-  ELEMENT_DETAILS_READY: 'element-details-ready',
 
   // From UI to background
   REQUEST_SCRAPE: 'request-scrape',

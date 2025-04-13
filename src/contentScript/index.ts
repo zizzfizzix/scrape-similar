@@ -1,6 +1,6 @@
 console.log('CONTENT SCRIPT TOP LEVEL EXECUTION START')
 
-import { MESSAGE_TYPES, Message, ScrapeConfig } from '../core/types'
+import { MESSAGE_TYPES, Message, ScrapeConfig, ElementDetailsPayload } from '../core/types'
 import { findElements, getSelectorSuggestions, scrapePage } from '../core/scraper'
 
 console.info('Modern Scraper content script is running')
@@ -82,34 +82,43 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
         break
       }
 
-      case MESSAGE_TYPES.GET_SELECTION_OPTIONS: {
-        console.log('Getting selection options...')
-        console.log('Right-clicked element:', lastRightClickedElement)
-        console.log('Selection text from payload:', message.payload?.selectionText)
+      // Handle request from Background script for cached details from last right-click
+      case MESSAGE_TYPES.REQUEST_CACHED_ELEMENT_DETAILS: {
+        console.log('Background script requested cached element details...');
+        if (lastRightClickedElementDetails) {
+          const payload: ElementDetailsPayload = {
+            xpath: lastRightClickedElementDetails.xpath,
+            css: lastRightClickedElementDetails.css,
+            text: lastRightClickedElementDetails.text
+          };
+          console.log('Sending cached details to background:', payload);
+          sendResponse({ success: true, payload: payload });
+        } else {
+          console.warn('No cached element details available for background request.');
+          sendResponse({ success: false, payload: null, error: 'No cached element details.' });
+        }
+        // Required: Signal async response
+        return true;
+      }
 
-        // Get current selection if available
-        const selection = window.getSelection()
-        console.log('Current window selection:', selection && selection.toString())
+      // Handle explicit request for element details (likely from SidePanel)
+      case MESSAGE_TYPES.GET_ELEMENT_DETAILS: {
+        console.log('SidePanel requested element details (GET_ELEMENT_DETAILS)...');
+        console.log('Using cached right-click details:', lastRightClickedElementDetails);
 
-        const options = getSelectionOptions(message.payload?.selectionText)
-
-        console.log('Sending options back to background:', options)
-        chrome.runtime.sendMessage(
-          {
-            type: MESSAGE_TYPES.SELECTION_OPTIONS_READY,
-            payload: options,
-          },
-          (response) => {
-            console.log('Background response after sending options:', response)
-            if (chrome.runtime.lastError) {
-              console.error('Error sending options to background:', chrome.runtime.lastError)
-            }
-          },
-        )
-
-        // Send response to confirm receipt
-        sendResponse({ received: true })
-        break
+        if (lastRightClickedElementDetails) {
+          const payload: ElementDetailsPayload = {
+            xpath: lastRightClickedElementDetails.xpath,
+            css: lastRightClickedElementDetails.css,
+            text: lastRightClickedElementDetails.text
+          };
+          sendResponse({ success: true, payload: payload });
+        } else {
+          console.warn('No cached right-click details available for GET_ELEMENT_DETAILS.');
+          sendResponse({ success: false, payload: null, error: 'No element details captured from the last right-click.' });
+        }
+        // Required: Signal async response
+        return true;
       }
 
       case MESSAGE_TYPES.START_SCRAPE: {
@@ -135,6 +144,14 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
         sendResponse({ received: true })
         break
       }
+      // Add a default case for unhandled messages
+      default: {
+        console.log('Unhandled message type in content script:', message.type);
+        // Optionally send a response indicating not handled, or do nothing
+        // sendResponse({ received: false, error: `Unhandled message type: ${message.type}` });
+        // No return true here, as it's synchronous handling (or no handling)
+        break;
+      }
     }
   } catch (error) {
     console.error('Error in content script:', error)
@@ -144,7 +161,9 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
     })
   }
 
-  return true // Indicate asynchronous response handling
+  // Return true ONLY if sendResponse will be called asynchronously in any switch case.
+  // REQUEST_CACHED_ELEMENT_DETAILS and GET_ELEMENT_DETAILS use it.
+  // return true; // Handled within cases
 })
 console.log('CONTENT SCRIPT MESSAGE LISTENER ADDED')
 
