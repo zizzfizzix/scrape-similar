@@ -42,10 +42,10 @@ chrome.runtime.onInstalled.addListener(async () => {
 
   // Set side panel behavior - make the action icon open/close the sidepanel
   try {
-    // Cast to any as TypeScript definitions might be outdated - Removed cast, use standard API
-    // await chrome.sidePanel.setPanelBehavior({
-    //   openPanelOnActionClick: true,
-    // })
+    // Removed cast, use standard API
+    await chrome.sidePanel.setPanelBehavior({
+      openPanelOnActionClick: true,
+    })
     console.log('Side panel behavior set successfully - action icon will now toggle the panel')
   } catch (error) {
     console.error('Error setting side panel behavior:', error)
