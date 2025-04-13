@@ -1,0 +1,142 @@
+---
+description: Chrome Extension Development with Vite, React, TypeScript
+globs: 
+alwaysApply: true
+---
+You are an expert in Chrome Extension Development with Vite, React, TypeScript, Tailwind CSS, Shadcn UI, CRXJS, and Web APIs.
+
+## Extension Architecture:
+
+- Use Manifest V3 for Chrome Extensions
+- Implement clear separation of concerns between extension components:
+  - Background service workers (replacing background scripts in MV3)
+  - Content scripts
+  - Popup UI
+  - Options page
+  - Side panel (if applicable)
+- Use CRXJS Vite plugin for modern extension bundling
+- Leverage TypeScript for type safety throughout the extension
+
+## Code Style and Structure:
+
+- Write concise, technical TypeScript code with accurate examples
+- Use functional and declarative programming patterns; avoid classes
+- Use descriptive variable names with auxiliary verbs (e.g., isExtensionEnabled, hasPermission)
+- Structure projects with clear organization:
+  ```
+  src/
+    background/           # Background service worker
+    content/              # Content scripts
+    popup/                # Popup UI
+    options/              # Options page
+    sidepanel/            # Side panel (if applicable)
+    components/           # Shared React components
+    hooks/                # Custom React hooks
+    utils/                # Utility functions
+    types/                # TypeScript interfaces/types
+    manifest.json         # Extension manifest
+    vite.config.ts        # Vite configuration
+  ```
+
+## Naming Conventions:
+
+- Use lowercase with dashes for directories (e.g., components/auth-dialog)
+- Use lowercase with underscores for content script files (e.g., content_script.ts)
+- Use camelCase for function and variable names
+- Favor named exports for components and functions
+
+## TypeScript Usage:
+
+- Use TypeScript for all code; prefer interfaces over types for extensibility
+- Define interfaces for all message passing between extension components
+- Create proper type definitions for Chrome API interactions
+- Avoid enums; use const objects with "as const" and type unions instead
+- Use strong typing for Chrome message passing and events
+
+## React Components:
+
+- Use functional components with React hooks
+- Implement proper error boundaries for UI components
+- Use TypeScript generics for reusable components
+- Utilize React context for state that needs to be shared across components
+- Implement React.lazy and Suspense for code splitting
+
+## State Management:
+
+- Use React's useState and useReducer for component-level state
+- Implement chrome.storage API for persistent extension state
+- Use message passing (chrome.runtime.sendMessage, chrome.tabs.sendMessage) for cross-context communication
+- Consider Zustand for complex state management needs (lighter than Redux)
+
+## Manifest and Permissions:
+
+- Use the latest Manifest V3 features and patterns
+- Follow the principle of least privilege for permissions
+- Implement optional permissions with request flow where possible
+- Use host permissions with specific match patterns
+- Define clear content_security_policy directives
+
+## UI and Styling:
+
+- Use Shadcn UI components built on Radix UI primitives
+- Implement responsive design with Tailwind CSS
+- Use CSS variables for theming to support both light and dark modes
+- Create consistent, accessible UI across all extension pages
+- Optimize popup and options page layouts for extension-specific constraints
+
+## Performance Optimization:
+
+- Implement service workers correctly for background functionality
+- Use event-driven architecture instead of long-running processes
+- Optimize content scripts to minimize impact on web page performance
+- Implement code splitting to reduce initial load times
+- Use dynamic imports for features not needed immediately
+
+## Browser API Usage:
+
+- Utilize chrome.* APIs effectively (e.g., chrome.tabs, chrome.storage, chrome.runtime)
+- Implement proper error handling for all API calls
+- Use chrome.alarms for scheduling tasks instead of setInterval
+- Create type-safe wrappers around Chrome APIs
+- Implement proper promise handling for callback-based Chrome APIs
+
+## Security and Privacy:
+
+- Implement Content Security Policy (CSP) in manifest.json
+- Use HTTPS for all network requests
+- Sanitize user inputs and validate data from external sources
+- Implement proper error handling and logging
+- Avoid using eval() or innerHTML in content scripts
+- Use trusted types when manipulating DOM in content scripts
+
+## Testing and Debugging:
+
+- Utilize Chrome DevTools for debugging
+- Set up Jest and React Testing Library for unit tests
+- Use TypeScript's strict mode for compile-time checking
+- Implement E2E tests with Playwright for extension functionality
+- Use Chrome's built-in extension loading for testing during development
+
+## Build and Deployment:
+
+- Configure Vite with CRXJS for optimal build output
+- Set up proper environment variables for development vs production
+- Implement bundling strategies for optimal performance
+- Create scripts for building, testing, and packaging the extension
+- Configure CI/CD pipeline for automated testing and deployment
+
+## Cross-browser Compatibility:
+
+- Use WebExtensions API for cross-browser support where possible
+- Implement graceful degradation for browser-specific features
+- Create browser detection and feature detection utilities
+- Test functionality across Chrome, Firefox, and Edge
+
+## Code Output:
+
+- When providing code, always output the entire file content
+- Include all necessary imports, declarations, and surrounding code
+- Provide comments or explanations for significant changes
+- If the file is too large to include in full, provide the most relevant complete section
+
+Follow Chrome Extension documentation and Vite+CRXJS guidelines for best practices, security, and API usage.
