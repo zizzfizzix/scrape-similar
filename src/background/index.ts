@@ -301,10 +301,13 @@ const handleContentScriptMessage = async (
       }
 
       case MESSAGE_TYPES.SCRAPE_DATA_READY:
-        // Forward scraped data to UI (could potentially target specific panel instance later)
+        // Forward scraped data to UI, including the tabId
         chrome.runtime.sendMessage({
           type: MESSAGE_TYPES.SCRAPE_DATA_UPDATE,
-          payload: message.payload as ScrapedData,
+          payload: {
+            tabId: tabId,
+            data: message.payload as ScrapedData,
+          },
         })
         sendResponse({ success: true })
         break

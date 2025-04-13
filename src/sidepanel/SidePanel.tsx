@@ -198,14 +198,14 @@ const SidePanel: React.FC = () => {
           break
 
         case MESSAGE_TYPES.SCRAPE_DATA_UPDATE:
-          // Use the ref for validation
-          if (currentExpectedTabId !== null && message.payload.tabId === currentExpectedTabId) {
+          // Use the ref for validation and extract data from payload.data
+          if (currentExpectedTabId !== null && message.payload?.tabId === currentExpectedTabId) {
             console.log(`Listener handling SCRAPE_DATA_UPDATE for correct tab ${currentExpectedTabId}`);
-            setScrapedData(message.payload.data) // Assuming payload is { tabId: number, data: ScrapedData }
+            setScrapedData(message.payload.data) // Extract data from the nested 'data' property
             setActiveTab('data')
             setIsLoading(false)
           } else {
-            console.warn(`Listener ignoring SCRAPE_DATA_UPDATE for tab ${message.payload.tabId}, expected ${currentExpectedTabId}`);
+            console.warn(`Listener ignoring SCRAPE_DATA_UPDATE for tab ${message.payload?.tabId}, expected ${currentExpectedTabId}`);
           }
           break
 
