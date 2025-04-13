@@ -266,14 +266,6 @@ const handleContentScriptMessage = async (
         await chrome.storage.session.set({ [sessionKey]: currentData })
         console.log(`Updated element details in session for tab ${tabId}`)
 
-        // Send updated data to the side panel for this tab
-        chrome.runtime.sendMessage({
-          type: MESSAGE_TYPES.INITIAL_OPTIONS_DATA, // Use a specific type for sending full data
-          payload: {
-            tabId: tabId,
-            config: currentData,
-          },
-        })
         sendResponse({ success: true })
         break
       }
@@ -285,16 +277,7 @@ const handleContentScriptMessage = async (
         // Update session data
         currentData.selectionOptions = selectionOptions
         await chrome.storage.session.set({ [sessionKey]: currentData })
-        console.log(`Updated selection options in session for tab ${tabId}`)
 
-        // Send updated data to the side panel for this tab
-        chrome.runtime.sendMessage({
-          type: MESSAGE_TYPES.INITIAL_OPTIONS_DATA, // Use a specific type for sending full data
-          payload: {
-            tabId: tabId,
-            config: currentData,
-          },
-        })
         sendResponse({ success: true })
         // Removed old logic that only sent options
         break
@@ -309,13 +292,6 @@ const handleContentScriptMessage = async (
         await chrome.storage.session.set({ [sessionKey]: currentData });
         console.log(`Saved scraped data to session storage for tab ${tabId}`);
         
-        chrome.runtime.sendMessage({
-          type: MESSAGE_TYPES.SCRAPE_DATA_UPDATE,
-          payload: {
-            tabId: tabId,
-            data: scrapedData,
-          },
-        })
         sendResponse({ success: true })
         break
 

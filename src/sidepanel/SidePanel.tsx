@@ -270,14 +270,39 @@ const SidePanel: React.FC = () => {
       );
     };
 
+    // Listen for storage changes to update UI when session storage is modified
+    const storageChangeListener = (changes: { [key: string]: chrome.storage.StorageChange }, areaName: string) => {
+      const currentTabId = targetTabIdRef.current;
+      if (!currentTabId || areaName !== 'session') return;
+      
+      // Check if this change applies to our current tab's data
+      const sessionKey = `sidepanel_config_${currentTabId}`;
+      
+      if (changes[sessionKey]) {
+        console.log(`Storage change detected for current tab ${currentTabId}:`, changes[sessionKey]);
+        const newValue = changes[sessionKey].newValue;
+        
+        // Use the new value directly instead of making an additional request
+        if (newValue) {
+          console.log('Updating UI directly with storage change data:', newValue);
+          handleInitialData({
+            tabId: currentTabId,
+            config: newValue
+          });
+        }
+      }
+    };
+
     chrome.runtime.onMessage.addListener(messageListener);
     chrome.tabs.onActivated.addListener(tabActivationListener);
+    chrome.storage.onChanged.addListener(storageChangeListener);
 
     // Cleanup listeners on component unmount
     return () => {
       console.log('SidePanel unmounting, removing listeners...');
       chrome.runtime.onMessage.removeListener(messageListener);
       chrome.tabs.onActivated.removeListener(tabActivationListener);
+      chrome.storage.onChanged.removeListener(storageChangeListener);
     };
     // Dependencies: only handleInitialData (which itself has limited/no dependencies now)
   }, [handleInitialData]);
