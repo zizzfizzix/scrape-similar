@@ -392,6 +392,39 @@ const SidePanel: React.FC = () => {
     })
   }
 
+  // Handle CSV export
+  const handleCsvExport = () => {
+    if (!scrapedData.length) return;
+
+    // Get headers from the first row
+    const headers = Object.keys(scrapedData[0]);
+    
+    // Create CSV content
+    const csvContent = [
+      // Headers row - wrap each header in quotes
+      headers.map(header => `"${header.replace(/"/g, '""')}"`).join(','),
+      // Data rows - always wrap in quotes and escape existing quotes
+      ...scrapedData.map(row => 
+        headers.map(header => {
+          const value = row[header] || '';
+          const escapedValue = value.replace(/"/g, '""');
+          return `"${escapedValue}"`;
+        }).join(',')
+      )
+    ].join('\n');
+
+    // Create blob and download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `scraper-export-${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
   // Handle loading a preset
   const handleLoadPreset = (preset: Preset) => {
     // Use the config change handler to update state and save
@@ -480,7 +513,16 @@ const SidePanel: React.FC = () => {
               <h3>Scraped Data {scrapedData.length > 0 ? `(${scrapedData.length})` : ''}</h3>
               <DataTable data={scrapedData} onHighlight={handleHighlight} config={config} />
               {scrapedData.length > 0 && (
-                <ExportButton onExport={handleExport} isLoading={isLoading} status={exportStatus} />
+                <div className="export-buttons">
+                  <ExportButton onExport={handleExport} isLoading={isLoading} status={exportStatus} />
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={handleCsvExport}
+                  >
+                    Export CSV
+                  </button>
+                </div>
               )}
             </div>
           </div>

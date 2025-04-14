@@ -331,3 +331,9 @@ a {
   border-radius: 4px;
   color: #666;
 }
+
+.export-buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
