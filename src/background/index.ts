@@ -23,6 +23,14 @@ chrome.runtime.onInstalled.addListener(async () => {
   // Initialize storage
   await initializeStorage()
 
+  // Set storage.session access level to allow content scripts access
+  try {
+    await chrome.storage.session.setAccessLevel({ accessLevel: 'TRUSTED_AND_UNTRUSTED_CONTEXTS' });
+    console.log('Set storage.session access level to allow content scripts access');
+  } catch (error) {
+    console.error('Error setting storage.session access level:', error);
+  }
+
   // Create context menu item
   chrome.contextMenus.create(
     {
@@ -257,6 +265,13 @@ const handleContentScriptMessage = async (
     let currentData = (result[sessionKey] || {}) as Partial<SidePanelConfig>
 
     switch (message.type) {
+      case 'GET_MY_TAB_ID': {
+        // Simple handler to return the tab ID from the sender
+        console.log(`Content script in tab ${tabId} requested its own tab ID`);
+        sendResponse({ tabId });
+        break;
+      }
+      
       case MESSAGE_TYPES.ELEMENT_DETAILS_READY: {
         const elementDetails = message.payload as ElementDetailsPayload | null
         console.log(`Received element details for tab ${tabId}:`, elementDetails)
@@ -269,31 +284,6 @@ const handleContentScriptMessage = async (
         sendResponse({ success: true })
         break
       }
-
-      case MESSAGE_TYPES.SELECTION_OPTIONS_READY: {
-        const selectionOptions = message.payload as SelectionOptions
-        console.log(`Received selection options for tab ${tabId}:`, selectionOptions)
-
-        // Update session data
-        currentData.selectionOptions = selectionOptions
-        await chrome.storage.session.set({ [sessionKey]: currentData })
-
-        sendResponse({ success: true })
-        // Removed old logic that only sent options
-        break
-      }
-
-      case MESSAGE_TYPES.SCRAPE_DATA_READY:
-        // Forward scraped data to UI, including the tabId
-        const scrapedData = message.payload as ScrapedData;
-        
-        // Save scraped data to session storage
-        currentData.scrapedData = scrapedData;
-        await chrome.storage.session.set({ [sessionKey]: currentData });
-        console.log(`Saved scraped data to session storage for tab ${tabId}`);
-        
-        sendResponse({ success: true })
-        break
 
       case MESSAGE_TYPES.CONTENT_SCRIPT_ERROR:
         console.error(`Content script error in tab ${tabId}:`, message.payload)
@@ -317,56 +307,6 @@ const handleUiMessage = async (
   sendResponse: (response?: any) => void,
 ) => {
   switch (message.type) {
-    case MESSAGE_TYPES.GET_ACTIVE_TAB_ID: {
-      // Use async/await to get the active tab
-      (async () => {
-        try {
-          let queryOptions = { active: true, lastFocusedWindow: true };
-          let [tab] = await chrome.tabs.query(queryOptions);
-
-          if (tab && tab.id) {
-            const activeTabId = tab.id;
-            console.log(`Responding to GET_ACTIVE_TAB_ID with active tabId: ${activeTabId}`);
-            sendResponse({ tabId: activeTabId }); // Send tabId back
-          } else {
-            console.error('Could not find active tab in last focused window.');
-            sendResponse({ error: 'Could not find active tab' });
-          }
-        } catch (error) {
-           console.error('Error querying for active tab:', error);
-           sendResponse({ error: 'Could not determine active tab' });
-        }
-      })(); // Immediately invoke the async function
-      
-      return true; // Indicate async response is expected
-    }
-
-    case MESSAGE_TYPES.REQUEST_SCRAPE: {
-      const { tabId, config } = message.payload as { tabId: number; config: ScrapeConfig }
-
-      // Send message to content script to start scraping
-      chrome.tabs.sendMessage(tabId, {
-        type: MESSAGE_TYPES.START_SCRAPE,
-        payload: config,
-      })
-      break
-    }
-
-    case MESSAGE_TYPES.REQUEST_HIGHLIGHT: {
-      const { tabId, selector, language } = message.payload as {
-        tabId: number
-        selector: string
-        language: string
-      }
-
-      // Send message to content script to highlight elements
-      chrome.tabs.sendMessage(tabId, {
-        type: MESSAGE_TYPES.HIGHLIGHT_ELEMENTS,
-        payload: { selector, language },
-      })
-      break
-    }
-
     case MESSAGE_TYPES.EXPORT_TO_SHEETS: {
       const data = message.payload as ScrapedData
       console.log('Requesting export to sheets')
@@ -394,7 +334,7 @@ const handleUiMessage = async (
 
           // Store the export result in session storage
           try {
-            // Get active tab ID - we need this to update the right storage
+            // Get active tab ID directly - we need this to update the right storage
             let queryOptions = { active: true, lastFocusedWindow: true };
             let [tab] = await chrome.tabs.query(queryOptions);
             
@@ -429,7 +369,7 @@ const handleUiMessage = async (
         
         // Store error in session storage
         try {
-          // Get active tab ID
+          // Get active tab ID directly
           let queryOptions = { active: true, lastFocusedWindow: true };
           let [tab] = await chrome.tabs.query(queryOptions);
           
@@ -469,9 +409,6 @@ const handleUiMessage = async (
       console.warn(`Unhandled UI message type: ${message.type}`)
       sendResponse({ warning: 'Unhandled message type' })
   }
-  // Default return true if not handled by specific async cases above
-  // This might be needed if some UI messages expect an async response later
-  // return true; // Removed - return true only when needed for async responses
 }
 
 // Export data to Google Sheets

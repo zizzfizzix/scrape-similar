@@ -101,39 +101,80 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
         return true;
       }
 
-      // Handle explicit request for element details (likely from SidePanel)
-      case MESSAGE_TYPES.GET_ELEMENT_DETAILS: {
-        console.log('SidePanel requested element details (GET_ELEMENT_DETAILS)...');
-        console.log('Using cached right-click details:', lastRightClickedElementDetails);
-
-        if (lastRightClickedElementDetails) {
-          const payload: ElementDetailsPayload = {
-            xpath: lastRightClickedElementDetails.xpath,
-            css: lastRightClickedElementDetails.css,
-            text: lastRightClickedElementDetails.text
-          };
-          sendResponse({ success: true, payload: payload });
-        } else {
-          console.warn('No cached right-click details available for GET_ELEMENT_DETAILS.');
-          sendResponse({ success: false, payload: null, error: 'No element details captured from the last right-click.' });
-        }
-        // Required: Signal async response
-        return true;
-      }
-
       case MESSAGE_TYPES.START_SCRAPE: {
-        console.log('Starting scrape with config:', message.payload)
+        console.log('Starting scrape with config (direct from UI):', message.payload)
         const config = message.payload as ScrapeConfig
         const data = scrapePage(config)
 
         console.log('Scrape complete, data:', data)
-        chrome.runtime.sendMessage({
-          type: MESSAGE_TYPES.SCRAPE_DATA_READY,
-          payload: data,
-        })
-
-        sendResponse({ received: true })
-        break
+        
+        // Get our tab ID (we need this for storage key)
+        chrome.runtime.sendMessage({ type: 'GET_MY_TAB_ID' }, (tabResponse) => {
+          if (chrome.runtime.lastError || !tabResponse || !tabResponse.tabId) {
+            console.error('Error getting tab ID:', chrome.runtime.lastError?.message || 'No valid response');
+            // No fallback, just report error
+            sendResponse({
+              success: false,
+              error: 'Failed to get tab ID required for storage'
+            });
+            return;
+          }
+          
+          const tabId = tabResponse.tabId;
+          const sessionKey = `sidepanel_config_${tabId}`;
+          
+          // Try to access session storage directly
+          chrome.storage.session.get(sessionKey, (result) => {
+            if (chrome.runtime.lastError) {
+              console.error('Error accessing session storage:', chrome.runtime.lastError);
+              // No fallback, just report error
+              sendResponse({
+                success: false,
+                error: 'Cannot access storage from content script: ' + chrome.runtime.lastError.message
+              });
+              return;
+            }
+            
+            try {
+              const currentData = result[sessionKey] || {};
+              
+              // Update with new scraped data
+              const updatedData = {
+                ...currentData,
+                scrapedData: data
+              };
+              
+              // Save directly to storage
+              console.log(`Content script directly saving scraped data to session storage for tab ${tabId}:`, data.length, 'items');
+              chrome.storage.session.set({ [sessionKey]: updatedData }, () => {
+                if (chrome.runtime.lastError) {
+                  console.error('Error saving to session storage:', chrome.runtime.lastError);
+                  // No fallback, just report error
+                  sendResponse({
+                    success: false,
+                    error: 'Failed to save data to storage: ' + chrome.runtime.lastError.message
+                  });
+                } else {
+                  // Respond directly to the UI that sent this message
+                  sendResponse({ 
+                    success: true, 
+                    message: `Scraped ${data.length} items successfully and stored in session.` 
+                  });
+                }
+              });
+            } catch (error) {
+              console.error('Error updating session storage:', error);
+              // No fallback, just report error
+              sendResponse({
+                success: false,
+                error: 'Error updating session storage: ' + (error as Error).message
+              });
+            }
+          });
+        });
+        
+        // Signal that we'll respond asynchronously
+        return true;
       }
 
       case MESSAGE_TYPES.HIGHLIGHT_ELEMENTS: {
@@ -141,7 +182,11 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
         const { selector, language } = message.payload as { selector: string; language: string }
         highlightMatchingElements(selector, language)
 
-        sendResponse({ received: true })
+        // Respond directly to the UI that sent this message
+        sendResponse({ 
+          success: true, 
+          message: 'Elements highlighted successfully.' 
+        })
         break
       }
       // Add a default case for unhandled messages
@@ -160,10 +205,6 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
       payload: (error as Error).message,
     })
   }
-
-  // Return true ONLY if sendResponse will be called asynchronously in any switch case.
-  // REQUEST_CACHED_ELEMENT_DETAILS and GET_ELEMENT_DETAILS use it.
-  // return true; // Handled within cases
 })
 console.log('CONTENT SCRIPT MESSAGE LISTENER ADDED')
 

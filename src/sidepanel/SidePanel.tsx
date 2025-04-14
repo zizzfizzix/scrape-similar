@@ -56,13 +56,15 @@ const SidePanel: React.FC = () => {
 
   // Request tabId from background script on mount
   useEffect(() => {
-    console.log('SidePanel mounted, requesting tabId from background...');
-    chrome.runtime.sendMessage({ type: MESSAGE_TYPES.GET_ACTIVE_TAB_ID }, (response) => {
+    console.log('SidePanel mounted, requesting tabId directly from chrome.tabs API...');
+    
+    // Use chrome.tabs API directly instead of messaging
+    chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
       if (chrome.runtime.lastError) {
-        console.error('Error requesting tabId:', chrome.runtime.lastError.message);
-      } else if (response && response.tabId) {
-        console.log(`Received initial tabId: ${response.tabId}`);
-        const newTabId = response.tabId;
+        console.error('Error querying tabs:', chrome.runtime.lastError.message);
+      } else if (tabs && tabs[0] && tabs[0].id) {
+        console.log(`Got initial tabId directly: ${tabs[0].id}`);
+        const newTabId = tabs[0].id;
         
         // Update ref directly for immediate use
         targetTabIdRef.current = newTabId;
@@ -95,7 +97,7 @@ const SidePanel: React.FC = () => {
           }
         });
       } else {
-        console.error('Received invalid response for tabId request:', response);
+        console.error('No active tab found in last focused window');
       }
     });
   }, []);
@@ -344,27 +346,40 @@ const SidePanel: React.FC = () => {
     if (!targetTabId) return
 
     setIsLoading(true)
-    chrome.runtime.sendMessage({
-      type: MESSAGE_TYPES.REQUEST_SCRAPE,
-      payload: {
-        tabId: targetTabId,
-        config,
-      },
-    })
+    
+    // Send message directly to content script using chrome.tabs API
+    chrome.tabs.sendMessage(targetTabId, {
+      type: MESSAGE_TYPES.START_SCRAPE,
+      payload: config,
+    }, (response) => {
+      // Reset loading state when we get a response
+      console.log('Received scrape response from content script:', response);
+      
+      if (response?.success) {
+        // The storage listener will handle updating the UI with the scraped data
+        console.log('Scrape successful, storage listener will update UI.');
+      } else if (response?.error) {
+        console.error('Error during scrape:', response.error);
+        // Consider adding error state/display
+      }
+      
+      // Always reset loading state on response
+      setIsLoading(false);
+    });
   }
 
   // Handle highlight request
   const handleHighlight = (selector: string, language: string) => {
     if (!targetTabId) return
 
-    chrome.runtime.sendMessage({
-      type: MESSAGE_TYPES.REQUEST_HIGHLIGHT,
+    // Send message directly to content script using chrome.tabs API
+    chrome.tabs.sendMessage(targetTabId, {
+      type: MESSAGE_TYPES.HIGHLIGHT_ELEMENTS,
       payload: {
-        tabId: targetTabId,
         selector,
         language,
       },
-    })
+    });
   }
 
   // Handle export request
@@ -372,6 +387,7 @@ const SidePanel: React.FC = () => {
     setIsLoading(true)
     setExportStatus(null)
 
+    // This operation can't be done directly by sidepanel, so we still need to message background
     chrome.runtime.sendMessage({
       type: MESSAGE_TYPES.EXPORT_TO_SHEETS,
       payload: scrapedData,
