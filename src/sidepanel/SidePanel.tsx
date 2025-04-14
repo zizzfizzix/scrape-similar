@@ -63,6 +63,10 @@ const SidePanel: React.FC = () => {
       } else if (response && response.tabId) {
         console.log(`Received initial tabId: ${response.tabId}`);
         const newTabId = response.tabId;
+        
+        // Update ref directly for immediate use
+        targetTabIdRef.current = newTabId;
+        // Also update state for component re-renders
         setTargetTabId(newTabId);
         
         // Once we have the tab ID, load data directly from storage
@@ -130,15 +134,14 @@ const SidePanel: React.FC = () => {
 
   // Function to handle incoming initial/updated config data
   const handleInitialData = useCallback((payload: { tabId: number; config: Partial<SidePanelConfig> }) => {
-    // --- Use the ref for validation ---
+    // Only compare with targetTabIdRef if it has been set
     const currentExpectedTabId = targetTabIdRef.current;
-    if (payload.tabId !== currentExpectedTabId) {
+    if (currentExpectedTabId !== null && payload.tabId !== currentExpectedTabId) {
       console.warn(`handleInitialData called for wrong tab ${payload.tabId}, expected ${currentExpectedTabId}`);
       return;
     }
-    // --- End validation change ---
 
-    console.log(`Received initial/updated data for tab ${currentExpectedTabId}:`, payload.config);
+    console.log(`Processing data for tab ${payload.tabId}:`, payload.config);
     const { selectionOptions, elementDetails, currentScrapeConfig, initialSelectionText, scrapedData, exportStatus } = payload.config || {}; // Default to empty object
 
     // --- Reset state before applying new data ---
@@ -252,7 +255,11 @@ const SidePanel: React.FC = () => {
     const tabActivationListener = (activeInfo: chrome.tabs.TabActiveInfo) => {
       console.log(`SidePanel detected tab activation: ${activeInfo.tabId}`);
       const newTabId = activeInfo.tabId;
-      setTargetTabId(newTabId); // Update state (which updates ref via its effect)
+      
+      // Update ref directly for immediate use
+      targetTabIdRef.current = newTabId;
+      // Also update state for component re-renders
+      setTargetTabId(newTabId);
 
       // Load data directly from storage for the new tab
       const sessionKey = `sidepanel_config_${newTabId}`;
@@ -296,6 +303,8 @@ const SidePanel: React.FC = () => {
             // Use the new value directly instead of making an additional request
             if (newValue) {
               console.log('Updating UI directly with storage change data:', newValue);
+              
+              // Pass the current tab ID from the ref to ensure consistency
               handleInitialData({
                 tabId: currentTabId,
                 config: newValue
