@@ -308,3 +308,26 @@ a {
   display: flex;
   gap: 8px;
 }
+
+/* Scraped Data Section */
+.scraped-data-section {
+  margin-top: 24px;
+  border-top: 1px solid #e0e0e0;
+  padding-top: 16px;
+}
+
+.scraped-data-section h3 {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  color: #333;
+  text-transform: none;
+  font-weight: 500;
+}
+
+.scraped-data-section .empty-data {
+  text-align: center;
+  padding: 20px;
+  background-color: #f9f9f9;
+  border-radius: 4px;
+  color: #666;
+}

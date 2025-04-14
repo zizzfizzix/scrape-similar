@@ -197,8 +197,6 @@ const SidePanel: React.FC = () => {
     if (scrapedData && scrapedData.length > 0) {
       console.log('Loading scraped data from session storage:', scrapedData);
       setScrapedData(scrapedData);
-      // Optionally switch to data tab if there's data
-      setActiveTab('data');
     } else {
       // Clear potentially stale data from previous tab
       setScrapedData([]);
@@ -457,13 +455,6 @@ const SidePanel: React.FC = () => {
             Configuration
           </button>
           <button
-            className={activeTab === 'data' ? 'active' : ''}
-            onClick={() => setActiveTab('data')}
-            disabled={scrapedData.length === 0}
-          >
-            Data ({scrapedData.length})
-          </button>
-          <button
             className={activeTab === 'presets' ? 'active' : ''}
             onClick={() => setActiveTab('presets')}
           >
@@ -483,13 +474,15 @@ const SidePanel: React.FC = () => {
               isLoading={isLoading}
               initialOptions={initialOptions}
             />
-          </div>
-        )}
-
-        {activeTab === 'data' && (
-          <div className="data-panel">
-            <DataTable data={scrapedData} onHighlight={handleHighlight} config={config} />
-            <ExportButton onExport={handleExport} isLoading={isLoading} status={exportStatus} />
+            
+            {/* Scraped Data section moved under configuration */}
+            <div className="scraped-data-section">
+              <h3>Scraped Data {scrapedData.length > 0 ? `(${scrapedData.length})` : ''}</h3>
+              <DataTable data={scrapedData} onHighlight={handleHighlight} config={config} />
+              {scrapedData.length > 0 && (
+                <ExportButton onExport={handleExport} isLoading={isLoading} status={exportStatus} />
+              )}
+            </div>
           </div>
         )}
 
