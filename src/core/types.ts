@@ -40,6 +40,11 @@ export interface SidePanelConfig {
   selectionOptions?: SelectionOptions
   currentScrapeConfig?: ScrapeConfig
   scrapedData?: ScrapedData
+  exportStatus?: {
+    success?: boolean
+    url?: string
+    error?: string
+  } | null
 }
 
 export type ElementDetailsPayload = {
@@ -69,33 +74,20 @@ export const MESSAGE_TYPES = {
   ELEMENT_DETAILS_READY: 'element-details-ready',
 
   // From background to content script
-  GET_SELECTION_OPTIONS: 'get-selection-options',
   GET_ELEMENT_DETAILS: 'get-element-details',
   REQUEST_CACHED_ELEMENT_DETAILS: 'request-cached-element-details',
   START_SCRAPE: 'start-scrape',
   HIGHLIGHT_ELEMENTS: 'highlight-elements',
   CONTEXT_MENU_ACTION_TRIGGERED: 'context-menu-action-triggered',
 
-  // From UI to background
+  // From UI to background - only messages that require content script interaction
   REQUEST_SCRAPE: 'request-scrape',
   REQUEST_HIGHLIGHT: 'request-highlight',
   EXPORT_TO_SHEETS: 'export-to-google-sheets',
-  SAVE_PRESET: 'save-preset',
-  LOAD_PRESETS: 'load-presets',
-  DELETE_PRESET: 'delete-preset',
 
-  // From background to UI
-  SCRAPE_DATA_UPDATE: 'scrape-data-update',
+  // From background to UI - removed direct data message types
   EXPORT_STATUS_UPDATE: 'export-status-update',
-  PRESETS_UPDATED: 'presets-updated',
-  INITIAL_OPTIONS: 'initial-options',
-
-  // Added for tab-specific side panel
-  SIDEPANEL_LOADED: 'sidepanel-loaded',
-  UPDATE_PANEL_CONFIG: 'update-panel-config',
-  INITIAL_OPTIONS_DATA: 'initial-options-data',
 
   // For Sidepanel Tab ID Management
-  REQUEST_SIDEPANEL_TAB_ID: 'request-sidepanel-tab-id', // Sidepanel -> Background
-  RESPONSE_SIDEPANEL_TAB_ID: 'response-sidepanel-tab-id', // Background -> Sidepanel
+  GET_ACTIVE_TAB_ID: 'get-active-tab-id', // Sidepanel -> Background (renamed to clarify purpose)
 }

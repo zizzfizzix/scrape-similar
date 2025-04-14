@@ -3,14 +3,14 @@ import { Preset } from './types'
 
 // Storage keys
 export const STORAGE_KEYS = {
-  PRESETS: 'presets',
+  GLOBAL_PRESETS: 'global_presets',
 }
 
 // Get presets from storage
 export const getPresets = async (): Promise<Preset[]> => {
   try {
-    const result = await chrome.storage.local.get(STORAGE_KEYS.PRESETS)
-    return result[STORAGE_KEYS.PRESETS] || []
+    const result = await chrome.storage.sync.get(STORAGE_KEYS.GLOBAL_PRESETS)
+    return result[STORAGE_KEYS.GLOBAL_PRESETS] || []
   } catch (error) {
     console.error('Error getting presets from storage:', error)
     return []
@@ -32,7 +32,7 @@ export const savePreset = async (preset: Preset): Promise<boolean> => {
       presets.push(preset)
     }
 
-    await chrome.storage.local.set({ [STORAGE_KEYS.PRESETS]: presets })
+    await chrome.storage.sync.set({ [STORAGE_KEYS.GLOBAL_PRESETS]: presets })
     return true
   } catch (error) {
     console.error('Error saving preset to storage:', error)
@@ -46,7 +46,7 @@ export const deletePreset = async (presetId: string): Promise<boolean> => {
     const presets = await getPresets()
     const updatedPresets = presets.filter((p) => p.id !== presetId)
 
-    await chrome.storage.local.set({ [STORAGE_KEYS.PRESETS]: updatedPresets })
+    await chrome.storage.sync.set({ [STORAGE_KEYS.GLOBAL_PRESETS]: updatedPresets })
     return true
   } catch (error) {
     console.error('Error deleting preset from storage:', error)
@@ -61,7 +61,7 @@ export const initializeStorage = async (): Promise<void> => {
 
     // Only initialize if storage is empty
     if (presets.length === 0) {
-      await chrome.storage.local.set({ [STORAGE_KEYS.PRESETS]: [] })
+      await chrome.storage.sync.set({ [STORAGE_KEYS.GLOBAL_PRESETS]: [] })
     }
   } catch (error) {
     console.error('Error initializing storage:', error)

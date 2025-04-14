@@ -9,6 +9,7 @@ import {
   ElementDetailsPayload,
   Message,
 } from '../core/types'
+import { STORAGE_KEYS, getPresets, savePreset, deletePreset } from '../core/storage'
 import ConfigForm from './components/ConfigForm'
 import DataTable from './components/DataTable'
 import PresetsManager from './components/PresetsManager'
@@ -35,6 +36,18 @@ const SidePanel: React.FC = () => {
     url?: string
     error?: string
   } | null>(null)
+  
+  // Helper function to create default state
+  const createDefaultState = (): Partial<SidePanelConfig> => {
+    return {
+      initialSelectionText: undefined,
+      elementDetails: undefined,
+      selectionOptions: undefined,
+      currentScrapeConfig: undefined,
+      scrapedData: [],
+      exportStatus: null
+    };
+  };
 
   // Keep the ref updated whenever the state changes
   useEffect(() => {
@@ -44,48 +57,65 @@ const SidePanel: React.FC = () => {
   // Request tabId from background script on mount
   useEffect(() => {
     console.log('SidePanel mounted, requesting tabId from background...');
-    chrome.runtime.sendMessage({ type: MESSAGE_TYPES.REQUEST_SIDEPANEL_TAB_ID }, (response) => {
+    chrome.runtime.sendMessage({ type: MESSAGE_TYPES.GET_ACTIVE_TAB_ID }, (response) => {
       if (chrome.runtime.lastError) {
         console.error('Error requesting tabId:', chrome.runtime.lastError.message);
       } else if (response && response.tabId) {
         console.log(`Received initial tabId: ${response.tabId}`);
-        setTargetTabId(response.tabId);
-        // Now that we have the tabId, tell the background we are loaded for this tab
-        chrome.runtime.sendMessage(
-          { type: MESSAGE_TYPES.SIDEPANEL_LOADED, payload: { tabId: response.tabId } },
-          (initResponse) => {
-            if (chrome.runtime.lastError) {
-              console.error('Error sending SIDEPANEL_LOADED:', chrome.runtime.lastError);
-              return;
-            }
-            console.log('SIDEPANEL_LOADED message sent, background responded:', initResponse);
-            // Handle the initial data sent back immediately
-            if (initResponse && initResponse.type === MESSAGE_TYPES.INITIAL_OPTIONS_DATA) {
-              if (initResponse.payload.tabId === targetTabIdRef.current) {
-                handleInitialData(initResponse.payload);
-              } else {
-                console.warn(`Initial SIDEPANEL_LOADED response for wrong tab ${initResponse.payload.tabId}, expected ${targetTabIdRef.current}`);
-              }
-            }
+        const newTabId = response.tabId;
+        setTargetTabId(newTabId);
+        
+        // Once we have the tab ID, load data directly from storage
+        const sessionKey = `sidepanel_config_${newTabId}`;
+        chrome.storage.session.get(sessionKey, (result) => {
+          if (chrome.runtime.lastError) {
+            console.error('Error loading initial data from storage:', chrome.runtime.lastError);
+            return;
           }
-        );
+          
+          if (result[sessionKey]) {
+            console.log('Initial data loaded from storage:', result[sessionKey]);
+            handleInitialData({
+              tabId: newTabId,
+              config: result[sessionKey]
+            });
+          } else {
+            console.log(`No initial data found in storage for tab ${newTabId}, using default state`);
+            
+            // Just use default state without saving it to storage
+            const defaultState = createDefaultState();
+            handleInitialData({
+              tabId: newTabId,
+              config: defaultState
+            });
+          }
+        });
       } else {
         console.error('Received invalid response for tabId request:', response);
       }
     });
   }, []);
 
-  // Debounced function to save config changes to background session storage
+  // Debounced function to save config changes directly to session storage
   const debouncedSaveConfig = useCallback(
     debounce((newConfig: ScrapeConfig, tabId: number) => {
-      console.log(`Debounced save for tab ${tabId}:`, newConfig)
-      chrome.runtime.sendMessage({
-        type: MESSAGE_TYPES.UPDATE_PANEL_CONFIG,
-        payload: {
-          tabId,
-          config: { currentScrapeConfig: newConfig } as Partial<SidePanelConfig>,
-        },
-      })
+      console.log(`Debounced save for tab ${tabId}:`, newConfig);
+      const sessionKey = `sidepanel_config_${tabId}`;
+      
+      // Get current storage data first to merge properly
+      chrome.storage.session.get(sessionKey, (result) => {
+        const currentData = result[sessionKey] || {};
+        
+        // Update with new config
+        const updatedData = { 
+          ...currentData, 
+          currentScrapeConfig: newConfig 
+        };
+        
+        // Save directly to storage
+        console.log(`Saving config directly to session storage:`, updatedData);
+        chrome.storage.session.set({ [sessionKey]: updatedData });
+      });
     }, 500), // 500ms debounce interval
     [],
   )
@@ -109,7 +139,7 @@ const SidePanel: React.FC = () => {
     // --- End validation change ---
 
     console.log(`Received initial/updated data for tab ${currentExpectedTabId}:`, payload.config);
-    const { selectionOptions, elementDetails, currentScrapeConfig, initialSelectionText, scrapedData } = payload.config || {}; // Default to empty object
+    const { selectionOptions, elementDetails, currentScrapeConfig, initialSelectionText, scrapedData, exportStatus } = payload.config || {}; // Default to empty object
 
     // --- Reset state before applying new data ---
     const defaultConfig: ScrapeConfig = {
@@ -169,16 +199,33 @@ const SidePanel: React.FC = () => {
       setScrapedData([]);
     }
     
+    // Handle export status if available
+    if (exportStatus) {
+      console.log('Setting export status from session storage:', exportStatus);
+      setExportStatus(exportStatus);
+    } else {
+      setExportStatus(null);
+    }
+    
     setIsLoading(false); // Ensure loading state is reset
-    setExportStatus(null); // Reset export status
   }, []);
 
   // Initialize: load presets, listen for messages, AND listen for tab activation
   useEffect(() => {
-    // Load presets
-    chrome.runtime.sendMessage({ type: MESSAGE_TYPES.LOAD_PRESETS }, (loadedPresets) => {
-      setPresets(loadedPresets || [])
-    })
+    // Load presets from storage directly
+    const loadPresets = async () => {
+      try {
+        // Get presets directly using the helper function
+        const loadedPresets = await getPresets();
+        console.log('Presets loaded directly from storage:', loadedPresets);
+        setPresets(loadedPresets);
+      } catch (error) {
+        console.error('Error loading presets:', error);
+        setPresets([]);
+      }
+    };
+    
+    loadPresets();
 
     // Listen for messages from background script
     const messageListener = (
@@ -194,45 +241,6 @@ const SidePanel: React.FC = () => {
       console.log(`Message received in listener. Type: ${message.type}. Current expected tabId: ${currentExpectedTabId}. Message tabId: ${message.payload?.tabId}`);
 
       switch (message.type) {
-
-        // Replace INITIAL_OPTIONS with INITIAL_OPTIONS_DATA
-        case MESSAGE_TYPES.INITIAL_OPTIONS_DATA:
-          // Use the ref for validation
-          if (currentExpectedTabId !== null && message.payload.tabId === currentExpectedTabId) {
-            console.log(`Listener handling INITIAL_OPTIONS_DATA for correct tab ${currentExpectedTabId}`);
-            handleInitialData(message.payload)
-          } else {
-            console.warn(`Listener ignoring INITIAL_OPTIONS_DATA for tab ${message.payload.tabId}, expected ${currentExpectedTabId}`);
-          }
-          break
-
-        case MESSAGE_TYPES.SCRAPE_DATA_UPDATE:
-          // Use the ref for validation and extract data from payload.data
-          if (currentExpectedTabId !== null && message.payload?.tabId === currentExpectedTabId) {
-            console.log(`Listener handling SCRAPE_DATA_UPDATE for correct tab ${currentExpectedTabId}`);
-            setScrapedData(message.payload.data) // Extract data from the nested 'data' property
-            setActiveTab('data')
-            setIsLoading(false)
-          } else {
-            console.warn(`Listener ignoring SCRAPE_DATA_UPDATE for tab ${message.payload?.tabId}, expected ${currentExpectedTabId}`);
-          }
-          break
-
-        case MESSAGE_TYPES.EXPORT_STATUS_UPDATE:
-          // Use the ref for validation
-          if (currentExpectedTabId !== null && message.payload.tabId === currentExpectedTabId) {
-            setExportStatus(message.payload.status) // Assuming payload is { tabId: number, status: ExportResult }
-            setIsLoading(false)
-          } else {
-              console.warn(`Listener ignoring EXPORT_STATUS_UPDATE for tab ${message.payload.tabId}, expected ${currentExpectedTabId}`);
-          }
-          break
-
-        case MESSAGE_TYPES.PRESETS_UPDATED:
-          // Update presets (not tab-specific, usually)
-          setPresets(message.payload)
-          break
-
         default:
           // Optional: Log unhandled message types
           // console.log("SidePanel listener received unhandled message type:", message.type);
@@ -246,49 +254,64 @@ const SidePanel: React.FC = () => {
       const newTabId = activeInfo.tabId;
       setTargetTabId(newTabId); // Update state (which updates ref via its effect)
 
-      // Send SIDEPANEL_LOADED immediately after activation is detected and state is set
-      // The background will use this message to send back the correct INITIAL_OPTIONS_DATA
-      console.log(`SidePanel sending SIDEPANEL_LOADED for newly activated tab ${newTabId}`);
-      chrome.runtime.sendMessage(
-        { type: MESSAGE_TYPES.SIDEPANEL_LOADED, payload: { tabId: newTabId } },
-        (response) => {
-          if (chrome.runtime.lastError) {
-            console.error(`Error sending SIDEPANEL_LOADED on tab activation for tab ${newTabId}:`, chrome.runtime.lastError);
-            return;
-          }
-          console.log(`SIDEPANEL_LOADED message sent on tab activation for tab ${newTabId}, background responded:`, response);
-           // Handle immediate response if background sends data directly here
-           // Check type and use ref for validation
-           if (response && response.type === MESSAGE_TYPES.INITIAL_OPTIONS_DATA) {
-               if (response.payload.tabId === targetTabIdRef.current) { // Check against ref *after* potential state update
-                   handleInitialData(response.payload);
-               } else {
-                   console.warn(`Tab activation SIDEPANEL_LOADED response for wrong tab ${response.payload.tabId}, expected ${targetTabIdRef.current}`);
-               }
-           }
+      // Load data directly from storage for the new tab
+      const sessionKey = `sidepanel_config_${newTabId}`;
+      chrome.storage.session.get(sessionKey, (result) => {
+        if (chrome.runtime.lastError) {
+          console.error(`Error loading data from storage for tab ${newTabId}:`, chrome.runtime.lastError);
+          return;
         }
-      );
+        
+        if (result[sessionKey]) {
+          console.log(`Data loaded from storage for newly activated tab ${newTabId}:`, result[sessionKey]);
+          handleInitialData({
+            tabId: newTabId,
+            config: result[sessionKey]
+          });
+        } else {
+          console.log(`No data found in storage for newly activated tab ${newTabId}, using default state`);
+          
+          // Just use default state without saving it to storage
+          const defaultState = createDefaultState();
+          handleInitialData({
+            tabId: newTabId,
+            config: defaultState
+          });
+        }
+      });
     };
 
-    // Listen for storage changes to update UI when session storage is modified
+    // Listen for storage changes to update UI when storage is modified
     const storageChangeListener = (changes: { [key: string]: chrome.storage.StorageChange }, areaName: string) => {
-      const currentTabId = targetTabIdRef.current;
-      if (!currentTabId || areaName !== 'session') return;
+      // Handle session storage changes (tab-specific data)
+      if (areaName === 'session') {
+        const currentTabId = targetTabIdRef.current;
+        if (currentTabId) {
+          const sessionKey = `sidepanel_config_${currentTabId}`;
+          
+          if (changes[sessionKey]) {
+            console.log(`Storage change detected for current tab ${currentTabId}:`, changes[sessionKey]);
+            const newValue = changes[sessionKey].newValue;
+            
+            // Use the new value directly instead of making an additional request
+            if (newValue) {
+              console.log('Updating UI directly with storage change data:', newValue);
+              handleInitialData({
+                tabId: currentTabId,
+                config: newValue
+              });
+            }
+          }
+        }
+      }
       
-      // Check if this change applies to our current tab's data
-      const sessionKey = `sidepanel_config_${currentTabId}`;
-      
-      if (changes[sessionKey]) {
-        console.log(`Storage change detected for current tab ${currentTabId}:`, changes[sessionKey]);
-        const newValue = changes[sessionKey].newValue;
-        
-        // Use the new value directly instead of making an additional request
-        if (newValue) {
-          console.log('Updating UI directly with storage change data:', newValue);
-          handleInitialData({
-            tabId: currentTabId,
-            config: newValue
-          });
+      // Handle synced storage changes (global presets)
+      if (areaName === 'sync' && changes[STORAGE_KEYS.GLOBAL_PRESETS]) {
+        console.log('Global presets updated in synced storage:', changes[STORAGE_KEYS.GLOBAL_PRESETS]);
+        const newPresets = changes[STORAGE_KEYS.GLOBAL_PRESETS].newValue;
+        if (newPresets) {
+          console.log('Updating presets in UI from synced storage change');
+          setPresets(newPresets);
         }
       }
     };
@@ -353,8 +376,8 @@ const SidePanel: React.FC = () => {
     setActiveTab('config')
   }
 
-  // Handle saving a preset
-  const handleSavePreset = (name: string) => {
+  // Handle saving a preset directly to storage
+  const handleSavePreset = async (name: string) => {
     const preset: Preset = {
       id: Date.now().toString(),
       name,
@@ -362,24 +385,45 @@ const SidePanel: React.FC = () => {
       createdAt: Date.now(),
     }
 
-    chrome.runtime.sendMessage({
-      type: MESSAGE_TYPES.SAVE_PRESET,
-      payload: preset,
-    })
+    try {
+      // Save directly to storage
+      const success = await savePreset(preset);
+      
+      if (success) {
+        // Get updated presets to refresh UI
+        const updatedPresets = await getPresets();
+        setPresets(updatedPresets);
+        console.log('Preset saved successfully and UI updated');
+      } else {
+        console.error('Failed to save preset');
+      }
+    } catch (error) {
+      console.error('Error saving preset:', error);
+    }
   }
 
-  // Handle deleting a preset
-  const handleDeletePreset = (presetId: string) => {
-    chrome.runtime.sendMessage({
-      type: MESSAGE_TYPES.DELETE_PRESET,
-      payload: presetId,
-    })
+  // Handle deleting a preset directly from storage
+  const handleDeletePreset = async (presetId: string) => {
+    try {
+      // Delete directly from storage
+      const success = await deletePreset(presetId);
+      
+      if (success) {
+        // Get updated presets to refresh UI
+        const updatedPresets = await getPresets();
+        setPresets(updatedPresets);
+        console.log('Preset deleted successfully and UI updated');
+      } else {
+        console.error('Failed to delete preset');
+      }
+    } catch (error) {
+      console.error('Error deleting preset:', error);
+    }
   }
 
   return (
     <div className="side-panel">
       <header className="header">
-        <h1>Modern Scraper</h1>
         <div className="tabs">
           <button
             className={activeTab === 'config' ? 'active' : ''}

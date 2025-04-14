@@ -9,7 +9,7 @@ import {
   ExportResult,
   Preset,
 } from '../core/types'
-import { getPresets, initializeStorage, savePreset, deletePreset } from '../core/storage'
+import { getPresets, initializeStorage, savePreset, deletePreset, STORAGE_KEYS } from '../core/storage'
 
 console.log('background is running')
 
@@ -62,7 +62,7 @@ chrome.action.onClicked.addListener(async (tab) => {
     // Ensure the panel is enabled and configured for this tab before the browser automatically opens it
     await chrome.sidePanel.setOptions({
       tabId,
-      path: `sidepanel.html?tabId=${tabId}`, // Pass tabId for context
+      path: `sidepanel.html`,
       enabled: true
     })
     console.log(`Side panel options set for tab ${tabId} via action click`)
@@ -165,7 +165,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       try {
           await chrome.sidePanel.setOptions({
               tabId: targetTabId,
-              path: `sidepanel.html?tabId=${targetTabId}`, // Ensure correct path is set
+              path: `sidepanel.html`,
               enabled: true
           });
           console.log(`Side panel configured/enabled for tab ${targetTabId} via context menu.`);
@@ -317,7 +317,7 @@ const handleUiMessage = async (
   sendResponse: (response?: any) => void,
 ) => {
   switch (message.type) {
-    case MESSAGE_TYPES.REQUEST_SIDEPANEL_TAB_ID: {
+    case MESSAGE_TYPES.GET_ACTIVE_TAB_ID: {
       // Use async/await to get the active tab
       (async () => {
         try {
@@ -326,7 +326,7 @@ const handleUiMessage = async (
 
           if (tab && tab.id) {
             const activeTabId = tab.id;
-            console.log(`Responding to REQUEST_SIDEPANEL_TAB_ID with active tabId: ${activeTabId}`);
+            console.log(`Responding to GET_ACTIVE_TAB_ID with active tabId: ${activeTabId}`);
             sendResponse({ tabId: activeTabId }); // Send tabId back
           } else {
             console.error('Could not find active tab in last focused window.');
@@ -392,119 +392,77 @@ const handleUiMessage = async (
           // Export to Google Sheets
           const exportResult = await exportToGoogleSheets(tokenString, data)
 
-          // Send result back to UI
-          chrome.runtime.sendMessage({
-            type: MESSAGE_TYPES.EXPORT_STATUS_UPDATE,
-            payload: exportResult,
-          })
+          // Store the export result in session storage
+          try {
+            // Get active tab ID - we need this to update the right storage
+            let queryOptions = { active: true, lastFocusedWindow: true };
+            let [tab] = await chrome.tabs.query(queryOptions);
+            
+            if (tab && tab.id) {
+              const activeTabId = tab.id;
+              const sessionKey = getSessionKey(activeTabId);
+              
+              // Get current storage data
+              const result = await chrome.storage.session.get(sessionKey);
+              const currentData = result[sessionKey] || {};
+              
+              // Update with export status
+              const updatedData = { 
+                ...currentData, 
+                exportStatus: exportResult 
+              };
+              
+              // Save to storage
+              console.log(`Saving export status to session for tab ${activeTabId}:`, exportResult);
+              await chrome.storage.session.set({ [sessionKey]: updatedData });
+            } else {
+              console.error('Could not determine active tab for export status update');
+            }
+          } catch (error) {
+            console.error('Error saving export status to session storage:', error);
+          }
+          
           sendResponse(exportResult) // Respond to original message
         })
       } catch (error) {
         console.error('Error exporting to Google Sheets:', error)
-        chrome.runtime.sendMessage({
-          type: MESSAGE_TYPES.EXPORT_STATUS_UPDATE,
-          payload: {
-            success: false,
-            error: (error as Error).message,
-          },
-        })
+        
+        // Store error in session storage
+        try {
+          // Get active tab ID
+          let queryOptions = { active: true, lastFocusedWindow: true };
+          let [tab] = await chrome.tabs.query(queryOptions);
+          
+          if (tab && tab.id) {
+            const activeTabId = tab.id;
+            const sessionKey = getSessionKey(activeTabId);
+            
+            // Get current storage data
+            const result = await chrome.storage.session.get(sessionKey);
+            const currentData = result[sessionKey] || {};
+            
+            // Update with export error
+            const errorResult = {
+              success: false,
+              error: (error as Error).message
+            };
+            
+            const updatedData = { 
+              ...currentData, 
+              exportStatus: errorResult 
+            };
+            
+            // Save to storage
+            console.log(`Saving export error to session for tab ${activeTabId}:`, errorResult);
+            await chrome.storage.session.set({ [sessionKey]: updatedData });
+          } else {
+            console.error('Could not determine active tab for export error update');
+          }
+        } catch (storageError) {
+          console.error('Error saving export error to session storage:', storageError);
+        }
       }
       break
-    }
-
-    case MESSAGE_TYPES.SAVE_PRESET: {
-      const preset = message.payload
-      const success = await savePreset(preset)
-
-      if (success) {
-        const presets = await getPresets()
-        chrome.runtime.sendMessage({
-          type: MESSAGE_TYPES.PRESETS_UPDATED,
-          payload: presets,
-        })
-      }
-      break
-    }
-
-    case MESSAGE_TYPES.LOAD_PRESETS: {
-      const presets = await getPresets()
-      sendResponse(presets)
-      break
-    }
-
-    case MESSAGE_TYPES.DELETE_PRESET: {
-      const presetId = message.payload
-      const success = await deletePreset(presetId)
-
-      if (success) {
-        const presets = await getPresets()
-        chrome.runtime.sendMessage({
-          type: MESSAGE_TYPES.PRESETS_UPDATED,
-          payload: presets,
-        })
-      }
-      break
-    }
-
-    case MESSAGE_TYPES.SIDEPANEL_LOADED: {
-      const { tabId } = message.payload as { tabId: number }
-      if (!tabId) {
-        console.error('SIDEPANEL_LOADED message received without tabId')
-        sendResponse({ error: 'Missing tabId in payload' })
-        return
-      }
-      console.log(`Side panel loaded for tab ${tabId}`)
-      const sessionKey = getSessionKey(tabId)
-      try {
-        const result = await chrome.storage.session.get(sessionKey)
-        const config = result[sessionKey] || {}
-        console.log(`Sending initial config data to side panel for tab ${tabId}`, config)
-        // Send the stored config back to the specific side panel instance
-        // Use sendResponse to reply directly to the sender (the specific side panel instance)
-        sendResponse({
-          type: MESSAGE_TYPES.INITIAL_OPTIONS_DATA,
-          payload: {
-            tabId: tabId,
-            config: config,
-          },
-        })
-      } catch (error) {
-        console.error(`Error retrieving session data for tab ${tabId} on load:`, error)
-        sendResponse({ success: false, error: (error as Error).message })
-      }
-      // Return true because sendResponse is called asynchronously within the try/catch
-      return true
-    }
-
-    case MESSAGE_TYPES.UPDATE_PANEL_CONFIG: {
-      const { tabId, config } = message.payload as {
-        tabId: number
-        config: Partial<SidePanelConfig>
-      }
-      if (!tabId) {
-        console.error('UPDATE_PANEL_CONFIG message received without tabId')
-        sendResponse({ error: 'Missing tabId in payload' })
-        return
-      }
-      console.log(`Updating panel config for tab ${tabId}:`, config)
-      const sessionKey = getSessionKey(tabId)
-      try {
-        const result = await chrome.storage.session.get(sessionKey)
-        const currentData = result[sessionKey] || {}
-        const updatedData = { ...currentData, ...config } // Merge changes
-
-        // Add logging before set
-        console.log(`[UI Update] Attempting to save to session key "${sessionKey}":`, updatedData);
-        await chrome.storage.session.set({ [sessionKey]: updatedData })
-        // Add logging after set
-        console.log(`[UI Update] Successfully updated session config for tab ${tabId}`)
-        sendResponse({ success: true })
-      } catch (error) {
-        console.error(`[UI Update] Error updating session config for tab ${tabId}:`, error) // Added context tag
-        sendResponse({ success: false, error: (error as Error).message })
-      }
-      // Return true because the response is async (await)
-      return true
     }
 
     default:
@@ -606,25 +564,3 @@ const exportToGoogleSheets = async (token: string, data: ScrapedData): Promise<E
     }
   }
 }
-
-// // Ensure the side panel is enabled and open for a specific tab
-// const openSidePanel = async (tabId: number) => {
-//   console.log(`Ensuring side panel is open for tab: ${tabId}`)
-//   try {
-//     // First, ensure it's enabled and has the correct path for this tab
-//     await chrome.sidePanel.setOptions({
-//       tabId,
-//       path: `sidepanel.html?tabId=${tabId}`, // Pass tabId for context
-//       enabled: true,
-//     })
-//     console.log(`Side panel options set for tab ${tabId}`)
-
-//     // Then, explicitly open it for this tab
-//     await chrome.sidePanel.open({ tabId })
-//     console.log(`Side panel explicitly opened for tab ${tabId}`)
-//   } catch (error) {
-//     console.error(`Error opening side panel for tab ${tabId}:`, error)
-//     // Consider if fallback is still needed/desired
-//     // openInFallbackTab(tabId);
-//   }
-// }
