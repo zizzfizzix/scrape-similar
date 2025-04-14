@@ -308,33 +308,34 @@ const handleUiMessage = async (
 ) => {
   switch (message.type) {
     case MESSAGE_TYPES.EXPORT_TO_SHEETS: {
-      const data = message.payload as ScrapedData
-      console.log('Requesting export to sheets')
-      try {
-        // Get auth token
-        chrome.identity.getAuthToken({ interactive: true }, async (result) => {
-          if (chrome.runtime.lastError || !result || !result.token) {
-            const errorMsg =
-              chrome.runtime.lastError?.message || 'Failed to get authentication token'
-            console.error('Error getting auth token:', errorMsg)
-            chrome.runtime.sendMessage({
-              type: MESSAGE_TYPES.EXPORT_STATUS_UPDATE,
-              payload: {
-                success: false,
-                error: errorMsg,
-              },
-            })
-            return
-          }
+      const data = message.payload as ScrapedData;
+      console.log('Requesting export to sheets');
+      
+      // Direct token request with callback
+      chrome.identity.getAuthToken({ interactive: true }, async (token) => {
+        if (chrome.runtime.lastError) {
+          console.error('Error getting auth token:', chrome.runtime.lastError);
+          const errorMessage = chrome.runtime.lastError.message || 'Unknown OAuth error';
+          sendResponse({
+            success: false,
+            error: errorMessage
+          });
+          return;
+        }
+        
+        if (!token) {
+          sendResponse({
+            success: false,
+            error: 'Failed to get authentication token'
+          });
+          return;
+        }
 
-          const tokenString = result.token
-
-          // Export to Google Sheets
-          const exportResult = await exportToGoogleSheets(tokenString, data)
+        try {
+          const exportResult = await exportToGoogleSheets(token.toString(), data);
 
           // Store the export result in session storage
           try {
-            // Get active tab ID directly - we need this to update the right storage
             let queryOptions = { active: true, lastFocusedWindow: true };
             let [tab] = await chrome.tabs.query(queryOptions);
             
@@ -342,11 +343,9 @@ const handleUiMessage = async (
               const activeTabId = tab.id;
               const sessionKey = getSessionKey(activeTabId);
               
-              // Get current storage data
               const result = await chrome.storage.session.get(sessionKey);
               const currentData = result[sessionKey] || {};
               
-              // Update with export status
               const updatedData = { 
                 ...currentData, 
                 exportStatus: exportResult 
@@ -355,54 +354,45 @@ const handleUiMessage = async (
               // Save to storage
               console.log(`Saving export status to session for tab ${activeTabId}:`, exportResult);
               await chrome.storage.session.set({ [sessionKey]: updatedData });
-            } else {
-              console.error('Could not determine active tab for export status update');
             }
           } catch (error) {
             console.error('Error saving export status to session storage:', error);
           }
           
-          sendResponse(exportResult) // Respond to original message
-        })
-      } catch (error) {
-        console.error('Error exporting to Google Sheets:', error)
-        
-        // Store error in session storage
-        try {
-          // Get active tab ID directly
-          let queryOptions = { active: true, lastFocusedWindow: true };
-          let [tab] = await chrome.tabs.query(queryOptions);
+          sendResponse(exportResult);
+        } catch (error) {
+          const errorResult = {
+            success: false,
+            error: (error as Error).message
+          };
           
-          if (tab && tab.id) {
-            const activeTabId = tab.id;
-            const sessionKey = getSessionKey(activeTabId);
+          // Store error in session storage
+          try {
+            let queryOptions = { active: true, lastFocusedWindow: true };
+            let [tab] = await chrome.tabs.query(queryOptions);
             
-            // Get current storage data
-            const result = await chrome.storage.session.get(sessionKey);
-            const currentData = result[sessionKey] || {};
-            
-            // Update with export error
-            const errorResult = {
-              success: false,
-              error: (error as Error).message
-            };
-            
-            const updatedData = { 
-              ...currentData, 
-              exportStatus: errorResult 
-            };
-            
-            // Save to storage
-            console.log(`Saving export error to session for tab ${activeTabId}:`, errorResult);
-            await chrome.storage.session.set({ [sessionKey]: updatedData });
-          } else {
-            console.error('Could not determine active tab for export error update');
+            if (tab && tab.id) {
+              const activeTabId = tab.id;
+              const sessionKey = getSessionKey(activeTabId);
+              
+              const result = await chrome.storage.session.get(sessionKey);
+              const currentData = result[sessionKey] || {};
+              
+              const updatedData = { 
+                ...currentData, 
+                exportStatus: errorResult 
+              };
+              
+              await chrome.storage.session.set({ [sessionKey]: updatedData });
+            }
+          } catch (storageError) {
+            console.error('Error saving export error to session storage:', storageError);
           }
-        } catch (storageError) {
-          console.error('Error saving export error to session storage:', storageError);
+          
+          sendResponse(errorResult);
         }
-      }
-      break
+      });
+      break;
     }
 
     default:
@@ -413,10 +403,8 @@ const handleUiMessage = async (
 
 // Export data to Google Sheets
 const exportToGoogleSheets = async (token: string, data: ScrapedData): Promise<ExportResult> => {
-  // Updated return type
   try {
     if (!data || !data.length) {
-      // Added null check for data
       return { success: false, error: 'No data to export' }
     }
 
@@ -426,78 +414,119 @@ const exportToGoogleSheets = async (token: string, data: ScrapedData): Promise<E
     // Create sheet values (header row + data rows)
     const values = [headers, ...data.map((row) => headers.map((header) => row[header] || ''))]
 
-    // Create a new spreadsheet
-    const createResponse = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        properties: {
-          title: `Modern Scraper Export - ${new Date().toLocaleString()}`, // More descriptive title
-        },
-        // No need to predefine sheets if we append
-      }),
-    })
-
-    if (!createResponse.ok) {
-      const errorData = await createResponse.json().catch(() => ({})) // Try to get error details
-      console.error(
-        'Failed to create spreadsheet:',
-        createResponse.status,
-        createResponse.statusText,
-        errorData,
-      )
-      throw new Error(
-        `Failed to create spreadsheet: ${createResponse.statusText} ${JSON.stringify(errorData)}`,
-      )
-    }
-
-    const spreadsheet = await createResponse.json()
-    const spreadsheetId = spreadsheet.spreadsheetId
-    const spreadsheetUrl = spreadsheet.spreadsheetUrl
-
-    // Update values in the sheet
-    const updateResponse = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/Sheet1!A1:append?valueInputOption=USER_ENTERED`,
-      {
-        method: 'POST',
+    // Helper function to make authenticated requests
+    const makeRequest = async (url: string, options: RequestInit) => {
+      const response = await fetch(url, {
+        ...options,
         headers: {
+          ...options.headers,
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
+      });
+
+      if (response.status === 401) {
+        await chrome.identity.removeCachedAuthToken({ token });
+        throw new Error('Authentication token expired');
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          `API request failed: ${response.statusText} ${JSON.stringify(errorData)}`
+        );
+      }
+
+      return response.json();
+    };
+
+    // Create a new spreadsheet
+    const spreadsheet = await makeRequest('https://sheets.googleapis.com/v4/spreadsheets', {
+      method: 'POST',
+      body: JSON.stringify({
+        properties: {
+          title: `Modern Scraper Export - ${new Date().toLocaleString()}`,
+        }
+      }),
+    });
+
+    const spreadsheetId = spreadsheet.spreadsheetId;
+    const spreadsheetUrl = spreadsheet.spreadsheetUrl;
+
+    // Get the sheet ID from the created spreadsheet
+    const sheetId = spreadsheet.sheets[0].properties.sheetId;
+
+    // Update values in the sheet first
+    await makeRequest(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/Sheet1!A1:append?valueInputOption=USER_ENTERED`,
+      {
+        method: 'POST',
         body: JSON.stringify({
-          range: 'Sheet1!A1', // Required for append body, though redundant with URL
+          range: 'Sheet1!A1',
           majorDimension: 'ROWS',
           values,
         }),
-      },
-    )
+      }
+    );
 
-    if (!updateResponse.ok) {
-      const errorData = await updateResponse.json().catch(() => ({})) // Try to get error details
-      console.error(
-        'Failed to update spreadsheet:',
-        updateResponse.status,
-        updateResponse.statusText,
-        errorData,
-      )
-      throw new Error(
-        `Failed to update spreadsheet: ${updateResponse.statusText} ${JSON.stringify(errorData)}`,
-      )
-    }
+    // Then format the header row and auto-resize using the correct sheet ID
+    await makeRequest(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          requests: [
+            {
+              repeatCell: {
+                range: {
+                  sheetId: sheetId,
+                  startRowIndex: 0,
+                  endRowIndex: 1,
+                  startColumnIndex: 0,
+                  endColumnIndex: headers.length
+                },
+                cell: {
+                  userEnteredFormat: {
+                    backgroundColor: { red: 0.95, green: 0.95, blue: 0.95 },
+                    textFormat: { bold: true }
+                  }
+                },
+                fields: 'userEnteredFormat(backgroundColor,textFormat)'
+              }
+            },
+            {
+              autoResizeDimensions: {
+                dimensions: {
+                  sheetId: sheetId,
+                  dimension: 'COLUMNS',
+                  startIndex: 0,
+                  endIndex: headers.length
+                }
+              }
+            }
+          ]
+        })
+      }
+    );
 
-    console.log(`Successfully exported data to Google Sheet: ${spreadsheetUrl}`)
+    console.log(`Successfully exported data to Google Sheet: ${spreadsheetUrl}`);
     return {
       success: true,
       url: spreadsheetUrl,
-    }
+    };
   } catch (error) {
-    console.error('Error exporting to Google Sheets:', error)
+    console.error('Error exporting to Google Sheets:', error);
+    
+    if ((error as Error).message.includes('Authentication token expired')) {
+      return {
+        success: false,
+        error: 'Authentication expired. Please try again.',
+      };
+    }
+    
     return {
       success: false,
       error: (error as Error).message,
-    }
+    };
   }
-}
+};

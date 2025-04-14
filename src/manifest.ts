@@ -9,6 +9,7 @@ export default defineManifest({
   description: packageData.description,
   version: packageData.version,
   manifest_version: 3,
+  key: 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAu6ONFPt3ct0twLsACoeS7JjXkpEznkKkuh9uTApNa8EToDneOS0JPcD4cD3KEaO+SlsLPjU0JVkqX4/XBM6meSw4UIRydJCEf4UbCD+PR61FyuPq7Gp67Kd9jF0Oet7a/4nE7cNrBhz98CwifvI4MlIQWWK5jwwpAhVf0rQDjpG38H8+t2blGTlH8aP4+S/74qLN2fLILP7rIiovq4uvskBjJ4RwM3d6azdp0eCqrBDF6xAfTqp/8k+ZZ6wzGMsmKQI+yAdRhpsa0gfcFNnnu+ATErKHCL0seQB4kE4pHmA4q0ii70z6nOYO/NlT2wEmOvtfouuhvBGOGbChv9sHgQIDAQAB',
   icons: {
     16: 'img/logo-16.png',
     32: 'img/logo-34.png',
@@ -43,7 +44,7 @@ export default defineManifest({
   permissions: ['sidePanel', 'storage', 'contextMenus', 'identity', 'activeTab'],
   host_permissions: ['http://*/*', 'https://*/*'],
   oauth2: {
-    client_id: '${process.env.GOOGLE_CLIENT_ID || "YOUR_CLIENT_ID_HERE"}',
-    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    client_id: '98006111902-k2bbkhk8n3nvouh7l6l6r8pft12odjdj.apps.googleusercontent.com',
+    scopes: ['https://www.googleapis.com/auth/drive.file'],
   },
 })
