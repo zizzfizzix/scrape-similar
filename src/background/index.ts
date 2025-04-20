@@ -16,6 +16,49 @@ console.log('background is running')
 // Helper to generate session storage key for a tab
 const getSessionKey = (tabId: number): string => `sidepanel_config_${tabId}`
 
+// Helper to check if a tab URL is eligible for script injection
+const isInjectableUrl = (url?: string) => {
+  if (!url) return false;
+  return (
+    url.startsWith('http://') ||
+    url.startsWith('https://')
+  );
+};
+
+// Inject content script into all eligible tabs
+const injectContentScriptToAllTabs = async () => {
+  // Get all tabs
+  const tabs = await chrome.tabs.query({});
+  
+  // Get content scripts from manifest
+  const contentScripts = chrome.runtime.getManifest().content_scripts;
+  if (!contentScripts?.length) return;
+
+  // Get injectable tabs and script files
+  const injectableTabs = tabs.filter(tab => tab.id && isInjectableUrl(tab.url));
+  const scriptFiles = contentScripts
+    .filter(script => script.js?.length)
+    .flatMap(script => script.js as string[]);
+
+  // Inject scripts into each eligible tab
+  for (const tab of injectableTabs) {
+    for (const file of scriptFiles) {
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id! },
+          files: [file]
+        });
+      } catch (error) {
+        // Ignore errors for restricted pages
+        console.warn(
+          `Failed to inject content script into tab ${tab.id} with url ${tab.url}:`,
+          (error as chrome.runtime.LastError).message
+        );
+      }
+    }
+  }
+};
+
 // Initialize extension when installed or updated
 chrome.runtime.onInstalled.addListener(async () => {
   console.log('Modern Scraper extension installed')
@@ -58,7 +101,15 @@ chrome.runtime.onInstalled.addListener(async () => {
   } catch (error) {
     console.error('Error setting side panel behavior:', error)
   }
+
+  // Inject content script into all tabs on install/update
+  injectContentScriptToAllTabs();
 })
+
+// Inject content script into all tabs on browser startup (extension enabled)
+chrome.runtime.onStartup.addListener(() => {
+  injectContentScriptToAllTabs();
+});
 
 // Handle action button clicks to toggle sidepanel
 chrome.action.onClicked.addListener(async (tab) => {

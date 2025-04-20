@@ -14,20 +14,10 @@ export default defineConfig(({ mode }) => {
       outDir: 'build',
       sourcemap: true,
       rollupOptions: {
-        input: {
-          sidepanel: resolve(__dirname, 'sidepanel.html'),
-          contentScript: resolve(__dirname, 'src/contentScript/index.ts'),
-          background: resolve(__dirname, 'src/background/index.ts'),
-        },
         output: {
           chunkFileNames: 'assets/chunk-[hash].js',
-          format: 'es',
-          entryFileNames: 'assets/[name].js',
         },
       },
-      // Make dynamic imports work in MV3
-      target: 'esnext',
-      modulePreload: false,
     },
 
     // Ensure dynamic imports use relative paths

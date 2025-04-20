@@ -40,7 +40,7 @@ export default defineManifest({
       matches: ['<all_urls>'],
     },
   ],
-  permissions: ['sidePanel', 'storage', 'contextMenus', 'identity', 'activeTab'],
+  permissions: ['sidePanel', 'storage', 'scripting', 'contextMenus', 'identity'],
   host_permissions: ['http://*/*', 'https://*/*'],
   oauth2: {
     client_id: '98006111902-k2bbkhk8n3nvouh7l6l6r8pft12odjdj.apps.googleusercontent.com',
