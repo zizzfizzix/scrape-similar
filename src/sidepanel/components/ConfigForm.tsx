@@ -278,7 +278,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
           disabled={isLoading || !config.mainSelector || config.columns.length === 0}
         >
           {isLoading ? <span className="spinner"></span> : null}
-          Scrape Data
+          Run Scrape ▶
         </button>
       </div>
     </div>

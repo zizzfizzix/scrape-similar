@@ -8,10 +8,6 @@ interface DataTableProps {
 }
 
 const DataTable: React.FC<DataTableProps> = ({ data, config, onHighlight }) => {
-  // If no data, show message
-  if (!data || data.length === 0) {
-    return <div className="empty-data">No data available. Run a scrape first.</div>
-  }
 
   // Get column headers from first row
   const columns = Object.keys(data[0])

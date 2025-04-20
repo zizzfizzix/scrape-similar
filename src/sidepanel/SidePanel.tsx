@@ -493,22 +493,24 @@ const SidePanel: React.FC = () => {
             onSavePreset={handleSavePreset}
             onDeletePreset={handleDeletePreset}
           />
-          <div className="scraped-data-section">
-            <h3>Scraped Data {scrapedData.length > 0 ? `(${scrapedData.length})` : ''}</h3>
-            <DataTable data={scrapedData} onHighlight={handleHighlight} config={config} />
-            {scrapedData.length > 0 && (
-              <div className="export-buttons">
-                <ExportButton onExport={handleExport} isLoading={isLoading} status={exportStatus} />
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={handleCsvExport}
-                >
-                  Export CSV
-                </button>
-              </div>
-            )}
-          </div>
+          {scrapedData.length > 0 && (
+            <div className="scraped-data-section">
+              <h3>Extracted Data</h3>
+              <DataTable data={scrapedData} onHighlight={handleHighlight} config={config} />
+              {scrapedData.length > 0 && (
+                <div className="export-buttons">
+                  <ExportButton onExport={handleExport} isLoading={isLoading} status={exportStatus} />
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={handleCsvExport}
+                  >
+                    Export CSV
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </main>
     </div>
