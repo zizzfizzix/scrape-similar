@@ -197,6 +197,50 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
         // No return true here, as it's synchronous handling (or no handling)
         break;
       }
+
+      // Handle request to save last right-clicked element details to storage
+      case 'SAVE_ELEMENT_DETAILS_TO_STORAGE': {
+        if (!lastRightClickedElementDetails) {
+          console.warn('No lastRightClickedElementDetails to save.');
+          sendResponse({ success: false, error: 'No element details in memory.' });
+          break;
+        }
+        // At this point, lastRightClickedElementDetails is not null due to the guard above
+        const details = lastRightClickedElementDetails!;
+        // Get tabId
+        chrome.runtime.sendMessage({ type: 'GET_MY_TAB_ID' }, (tabResponse) => {
+          if (!tabResponse || !tabResponse.tabId) {
+            console.error('Could not get tabId for saving element details.');
+            sendResponse({ success: false, error: 'No tabId.' });
+            return;
+          }
+          const tabId = tabResponse.tabId;
+          const sessionKey = `sidepanel_config_${tabId}`;
+          chrome.storage.session.get(sessionKey, (result) => {
+            const existingData = result[sessionKey] || {};
+            const existingConfig = existingData.currentScrapeConfig || {};
+            const updatedConfig = {
+              ...existingConfig,
+              mainSelector: details.xpath,
+              language: 'xpath',
+            };
+            const updatedData = {
+              ...existingData,
+              currentScrapeConfig: updatedConfig,
+              elementDetails: details,
+            };
+            chrome.storage.session.set({ [sessionKey]: updatedData }, () => {
+              if (chrome.runtime.lastError) {
+                console.error('Error saving element details to storage:', chrome.runtime.lastError);
+                sendResponse({ success: false, error: chrome.runtime.lastError.message });
+              } else {
+                sendResponse({ success: true });
+              }
+            });
+          });
+        });
+        return true;
+      }
     }
   } catch (error) {
     console.error('Error in content script:', error)

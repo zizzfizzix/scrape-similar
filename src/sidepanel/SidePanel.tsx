@@ -161,7 +161,13 @@ const SidePanel: React.FC = () => {
     // Set config from storage if available
     if (currentScrapeConfig) {
       console.log('Loading config from session storage:', currentScrapeConfig)
-      newConfig = currentScrapeConfig;
+      newConfig = {
+        ...defaultConfig,
+        ...currentScrapeConfig,
+        columns: Array.isArray(currentScrapeConfig.columns) && currentScrapeConfig.columns.length > 0
+          ? currentScrapeConfig.columns
+          : defaultConfig.columns,
+      };
     } else if (elementDetails?.xpath) {
       // Fallback: If no saved config, but element details exist (e.g., from context menu),
       // initialize config with the XPath from the selected element.
