@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { ColumnDefinition, ScrapeConfig, SelectionOptions } from '../../core/types'
 
 interface ConfigFormProps {
@@ -20,6 +20,23 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
 }) => {
   // Local state for adding a new column
   const [newColumnName, setNewColumnName] = useState('')
+
+  const columnsListRef = useRef<HTMLDivElement>(null)
+  const prevColumnsCount = useRef(config.columns.length)
+  const [shouldScrollToEnd, setShouldScrollToEnd] = useState(false)
+
+  useEffect(() => {
+    if (shouldScrollToEnd && config.columns.length > prevColumnsCount.current) {
+      if (columnsListRef.current) {
+        columnsListRef.current.scrollTo({
+          left: columnsListRef.current.scrollWidth,
+          behavior: 'smooth',
+        })
+      }
+      setShouldScrollToEnd(false)
+    }
+    prevColumnsCount.current = config.columns.length
+  }, [config.columns.length, shouldScrollToEnd])
 
   // Handle main selector change
   const handleMainSelectorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -95,7 +112,8 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
   return (
     <div className="config-form">
       <div className="form-group">
-        <label htmlFor="mainSelector">Main Selector:</label>
+        <label htmlFor="mainSelector">Main Selector</label>
+        <p className="form-help">This selector identifies the main elements to scrape.</p>
         <div className="selector-input-group">
           <input
             type="text"
@@ -121,7 +139,6 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
             Test
           </button>
         </div>
-        <p className="form-help">This selector identifies the main elements to scrape.</p>
 
         {initialOptions?.previewData && initialOptions.previewData.length > 0 && (
           <div className="preview-box">
@@ -139,76 +156,81 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
       </div>
 
       <div className="form-group">
-        <label>Columns:</label>
-        <div className="columns-list">
-          {config.columns.map((column, index) => (
-            <div key={index} className="column-item">
-              <input
-                type="text"
-                value={column.name}
-                onChange={(e) => handleColumnNameChange(index, e.target.value)}
-                placeholder="Column name"
-              />
-              <input
-                type="text"
-                value={column.selector}
-                onChange={(e) => handleColumnSelectorChange(index, e.target.value)}
-                placeholder="Selector"
-              />
-              <select
-                value={column.language}
-                onChange={(e) =>
-                  handleColumnLanguageChange(index, e.target.value as 'xpath' | 'css')
-                }
-                aria-label="Column selector language"
-              >
-                <option value="xpath">XPath</option>
-                <option value="css">CSS</option>
-              </select>
-              <div className="column-actions">
-                <button
-                  type="button"
-                  className="icon-button"
-                  onClick={() => onHighlight(column.selector, column.language)}
-                  disabled={!column.selector}
-                  title="Test selector"
-                >
-                  🔍
-                </button>
-                <button
-                  type="button"
-                  className="icon-button"
-                  onClick={() => removeColumn(index)}
-                  disabled={config.columns.length <= 1}
-                  title="Remove column"
-                >
-                  ❌
-                </button>
-              </div>
-            </div>
-          ))}
-
-          <div className="add-column">
-            <input
-              type="text"
-              value={newColumnName}
-              onChange={(e) => setNewColumnName(e.target.value)}
-              placeholder="New column name"
-            />
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={addColumn}
-              disabled={!newColumnName.trim()}
-            >
-              Add Column
-            </button>
-          </div>
-        </div>
+        <label>Columns</label>
         <p className="form-help">
           Define what data to extract from each main element. Use "." to get the text content of the
           element itself, or "@attr" to get an attribute.
         </p>
+        <div className="columns-row">
+          <div className="columns-list" ref={columnsListRef}>
+            {config.columns.map((column, index) => (
+              <div key={index} className="column-item">
+                <input
+                  type="text"
+                  value={column.name}
+                  onChange={(e) => handleColumnNameChange(index, e.target.value)}
+                  placeholder="Column name"
+                />
+                <input
+                  type="text"
+                  value={column.selector}
+                  onChange={(e) => handleColumnSelectorChange(index, e.target.value)}
+                  placeholder="Selector"
+                />
+                <select
+                  value={column.language}
+                  onChange={(e) =>
+                    handleColumnLanguageChange(index, e.target.value as 'xpath' | 'css')
+                  }
+                  aria-label="Column selector language"
+                >
+                  <option value="xpath">XPath</option>
+                  <option value="css">CSS</option>
+                </select>
+                <div className="column-actions">
+                  <button
+                    type="button"
+                    className="icon-button"
+                    onClick={() => onHighlight(column.selector, column.language)}
+                    disabled={!column.selector}
+                    title="Test selector"
+                  >
+                    🔍
+                  </button>
+                  <button
+                    type="button"
+                    className="icon-button"
+                    onClick={() => removeColumn(index)}
+                    disabled={config.columns.length <= 1}
+                    title="Remove column"
+                  >
+                    ❌
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="add-column">
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => {
+                const defaultName = `Column ${config.columns.length + 1}`
+                onChange({
+                  ...config,
+                  columns: [
+                    ...config.columns,
+                    { name: defaultName, selector: '.', language: 'xpath' },
+                  ],
+                })
+                setShouldScrollToEnd(true)
+              }}
+              title="Add column"
+            >
+              ➕
+            </button>
+          </div>
+        </div>
       </div>
 
       <div className="form-actions">

@@ -38,17 +38,12 @@ code {
 .form-help {
   font-size: 12px;
   color: #666;
-  margin-top: 4px;
 }
 
 .add-column {
   display: flex;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.add-column input {
-  flex: 1;
+  flex-direction: row;
+  margin-left: 12px;
 }
 
 .preview-box {
@@ -126,4 +121,11 @@ code {
   text-align: center;
   color: #666;
   font-style: italic;
+}
+
+.columns-row {
+  display: flex;
+  margin: 16px 0;
+  justify-content: space-between;
+  width: 100%;
 }
