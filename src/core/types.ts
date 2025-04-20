@@ -40,11 +40,6 @@ export interface SidePanelConfig {
   selectionOptions?: SelectionOptions
   currentScrapeConfig?: ScrapeConfig
   scrapedData?: ScrapedData
-  exportStatus?: {
-    success?: boolean
-    url?: string
-    error?: string
-  } | null
 }
 
 export type ElementDetailsPayload = {

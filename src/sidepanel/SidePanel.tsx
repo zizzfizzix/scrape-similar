@@ -15,6 +15,7 @@ import DataTable from './components/DataTable'
 import PresetsManager from './components/PresetsManager'
 import ExportButton from './components/ExportButton'
 import './SidePanel.css'
+import slugify from 'slugify'
 
 const SidePanel: React.FC = () => {
   // State
@@ -30,13 +31,23 @@ const SidePanel: React.FC = () => {
   })
   const [scrapedData, setScrapedData] = useState<ScrapedData>([])
   const [presets, setPresets] = useState<Preset[]>([])
-  const [isLoading, setIsLoading] = useState<boolean>(false)
+  const [isScraping, setIsScraping] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
   const [exportStatus, setExportStatus] = useState<{
     success?: boolean
     url?: string
     error?: string
   } | null>(null)
+  const [tabUrl, setTabUrl] = useState<string | null>(null);
   
+  // Memoized export filename (regenerates if tabUrl changes)
+  const exportFilename = React.useMemo(() => {
+    const dateTime = new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').split('Z')[0];
+    const urlForSlug = tabUrl || 'unknown-url';
+    const slugifiedUrl = slugify(urlForSlug, { lower: true, strict: true });
+    return `Data export for ${slugifiedUrl} at ${dateTime}`;
+  }, [tabUrl]);
+
   // Helper function to create default state
   const createDefaultState = (): Partial<SidePanelConfig> => {
     return {
@@ -45,7 +56,6 @@ const SidePanel: React.FC = () => {
       selectionOptions: undefined,
       currentScrapeConfig: undefined,
       scrapedData: [],
-      exportStatus: null
     };
   };
 
@@ -54,31 +64,25 @@ const SidePanel: React.FC = () => {
     targetTabIdRef.current = targetTabId;
   }, [targetTabId]);
 
-  // Request tabId from background script on mount
+  // Request tabId and tabUrl from chrome.tabs API on mount
   useEffect(() => {
-    console.log('SidePanel mounted, requesting tabId directly from chrome.tabs API...');
-    
-    // Use chrome.tabs API directly instead of messaging
+    console.log('SidePanel mounted, requesting tabId and URL from chrome.tabs API...');
     chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
       if (chrome.runtime.lastError) {
         console.error('Error querying tabs:', chrome.runtime.lastError.message);
       } else if (tabs && tabs[0] && tabs[0].id) {
         console.log(`Got initial tabId directly: ${tabs[0].id}`);
         const newTabId = tabs[0].id;
-        
-        // Update ref directly for immediate use
+        const newTabUrl = tabs[0].url || '';
         targetTabIdRef.current = newTabId;
-        // Also update state for component re-renders
         setTargetTabId(newTabId);
-        
-        // Once we have the tab ID, load data directly from storage
+        setTabUrl(newTabUrl);
         const sessionKey = `sidepanel_config_${newTabId}`;
         chrome.storage.session.get(sessionKey, (result) => {
           if (chrome.runtime.lastError) {
             console.error('Error loading initial data from storage:', chrome.runtime.lastError);
             return;
           }
-          
           if (result[sessionKey]) {
             console.log('Initial data loaded from storage:', result[sessionKey]);
             handleInitialData({
@@ -87,8 +91,6 @@ const SidePanel: React.FC = () => {
             });
           } else {
             console.log(`No initial data found in storage for tab ${newTabId}, using default state`);
-            
-            // Just use default state without saving it to storage
             const defaultState = createDefaultState();
             handleInitialData({
               tabId: newTabId,
@@ -144,7 +146,7 @@ const SidePanel: React.FC = () => {
     }
 
     console.log(`Processing data for tab ${payload.tabId}:`, payload.config);
-    const { selectionOptions, elementDetails, currentScrapeConfig, initialSelectionText, scrapedData, exportStatus } = payload.config || {}; // Default to empty object
+    const { selectionOptions, elementDetails, currentScrapeConfig, initialSelectionText, scrapedData } = payload.config || {}; // Default to empty object
 
     // --- Reset state before applying new data ---
     const defaultConfig: ScrapeConfig = {
@@ -202,15 +204,9 @@ const SidePanel: React.FC = () => {
       setScrapedData([]);
     }
     
-    // Handle export status if available
-    if (exportStatus) {
-      console.log('Setting export status from session storage:', exportStatus);
-      setExportStatus(exportStatus);
-    } else {
-      setExportStatus(null);
-    }
-    
-    setIsLoading(false); // Ensure loading state is reset
+    setExportStatus(null);
+    setIsScraping(false);
+    setIsExporting(false);
   }, []);
 
   // Initialize: load presets, listen for messages, AND listen for tab activation
@@ -342,27 +338,18 @@ const SidePanel: React.FC = () => {
   // Handle scrape request
   const handleScrape = () => {
     if (!targetTabId) return
-
-    setIsLoading(true)
-    
-    // Send message directly to content script using chrome.tabs API
+    setIsScraping(true)
     chrome.tabs.sendMessage(targetTabId, {
       type: MESSAGE_TYPES.START_SCRAPE,
       payload: config,
     }, (response) => {
-      // Reset loading state when we get a response
       console.log('Received scrape response from content script:', response);
-      
       if (response?.success) {
-        // The storage listener will handle updating the UI with the scraped data
         console.log('Scrape successful, storage listener will update UI.');
       } else if (response?.error) {
         console.error('Error during scrape:', response.error);
-        // Consider adding error state/display
       }
-      
-      // Always reset loading state on response
-      setIsLoading(false);
+      setIsScraping(false);
     });
   }
 
@@ -382,29 +369,27 @@ const SidePanel: React.FC = () => {
 
   // Handle export request
   const handleExport = () => {
-    setIsLoading(true)
+    setIsExporting(true)
     setExportStatus(null)
-
-    // This operation can't be done directly by sidepanel, so we still need to message background
     chrome.runtime.sendMessage({
       type: MESSAGE_TYPES.EXPORT_TO_SHEETS,
-      payload: scrapedData,
+      payload: {
+        filename: exportFilename,
+        scrapedData: scrapedData,
+      },
+    }, (response) => {
+      setIsExporting(false);
+      setExportStatus(response);
     })
   }
 
   // Handle CSV export
   const handleCsvExport = () => {
     if (!scrapedData.length) return;
-
-    // Get headers from the first row
     const headers = Object.keys(scrapedData[0]);
-    
-    // Create CSV content
     const csvContent = [
-      // Headers row - wrap each header in quotes
       headers.map(header => `"${header.replace(/"/g, '""')}"`).join(','),
-      // Data rows - always wrap in quotes and escape existing quotes
-      ...scrapedData.map(row => 
+      ...scrapedData.map(row =>
         headers.map(header => {
           const value = row[header] || '';
           const escapedValue = value.replace(/"/g, '""');
@@ -412,13 +397,12 @@ const SidePanel: React.FC = () => {
         }).join(',')
       )
     ].join('\n');
-
-    // Create blob and download
+    const filename = `${exportFilename}.csv`;
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `scraper-export-${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', filename);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -486,7 +470,7 @@ const SidePanel: React.FC = () => {
             onChange={handleConfigChange}
             onScrape={handleScrape}
             onHighlight={handleHighlight}
-            isLoading={isLoading}
+            isLoading={isScraping}
             initialOptions={initialOptions}
             presets={presets}
             onLoadPreset={handleLoadPreset}
@@ -499,7 +483,7 @@ const SidePanel: React.FC = () => {
               <DataTable data={scrapedData} onHighlight={handleHighlight} config={config} />
               {scrapedData.length > 0 && (
                 <div className="export-buttons">
-                  <ExportButton onExport={handleExport} isLoading={isLoading} status={exportStatus} />
+                  <ExportButton onExport={handleExport} isLoading={isExporting} status={exportStatus} />
                   <button
                     type="button"
                     className="btn btn-secondary"

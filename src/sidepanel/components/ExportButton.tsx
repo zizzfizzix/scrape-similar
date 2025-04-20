@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useRef } from 'react'
 
 interface ExportStatus {
   success?: boolean
@@ -13,32 +13,35 @@ interface ExportButtonProps {
 }
 
 const ExportButton: React.FC<ExportButtonProps> = ({ onExport, isLoading, status }) => {
-  return (
-    <div className="export-section">
-      <button type="button" className="btn btn-primary" onClick={onExport} disabled={isLoading}>
-        {isLoading ? <span className="spinner"></span> : null}
-        Export to Google Sheets
-      </button>
+  let buttonLabel = 'Export to Google Sheets'
+  let buttonClass = 'btn btn-primary'
+  let buttonDisabled = isLoading
+  let onClick = onExport
 
-      {status && (
-        <div className={`export-status ${status.success ? 'success' : 'error'}`}>
-          {status.success ? (
-            <>
-              <p>✅ Data successfully exported to Google Sheets!</p>
-              {status.url && (
-                <p>
-                  <a href={status.url} target="_blank" rel="noopener noreferrer">
-                    Open spreadsheet
-                  </a>
-                </p>
-              )}
-            </>
-          ) : (
-            <p>❌ Error exporting data: {status.error || 'Unknown error'}</p>
-          )}
-        </div>
-      )}
-    </div>
+  if (status) {
+    if (status.success && status.url) {
+      buttonLabel = 'Open Sheet \u{1F517}' // Unicode external link icon
+      buttonClass = 'btn btn-primary export-ok'
+      buttonDisabled = false
+      onClick = () => window.open(status.url, '_blank', 'noopener,noreferrer')
+    } else {
+      buttonLabel = 'Error, Retry'
+      buttonClass = 'btn btn-danger export-error'
+      buttonDisabled = false
+      onClick = onExport
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      className={buttonClass}
+      onClick={onClick}
+      disabled={buttonDisabled}
+    >
+      {isLoading ? <span className="spinner"></span> : null}
+      {buttonLabel}
+    </button>
   )
 }
 

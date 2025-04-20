@@ -308,10 +308,17 @@ const handleUiMessage = async (
 ) => {
   switch (message.type) {
     case MESSAGE_TYPES.EXPORT_TO_SHEETS: {
-      const data = message.payload as ScrapedData;
-      console.log('Requesting export to sheets');
-      
-      // Direct token request with callback
+      // Require filename in payload
+      const { filename, scrapedData } = message?.payload as { filename: string, scrapedData: ScrapedData };
+      if (!filename) {
+        sendResponse({ success: false, error: 'Filename is required for export' });
+        return;
+      }
+      if (!scrapedData || !Array.isArray(scrapedData) || scrapedData.length === 0) {
+        sendResponse({ success: false, error: 'No data to export' });
+        return;
+      }
+      console.log('Requesting export to sheets with filename:', filename);
       chrome.identity.getAuthToken({ interactive: true }, async (token) => {
         if (chrome.runtime.lastError) {
           console.error('Error getting auth token:', chrome.runtime.lastError);
@@ -322,7 +329,6 @@ const handleUiMessage = async (
           });
           return;
         }
-        
         if (!token) {
           sendResponse({
             success: false,
@@ -330,65 +336,14 @@ const handleUiMessage = async (
           });
           return;
         }
-
         try {
-          const exportResult = await exportToGoogleSheets(token.toString(), data);
-
-          // Store the export result in session storage
-          try {
-            let queryOptions = { active: true, lastFocusedWindow: true };
-            let [tab] = await chrome.tabs.query(queryOptions);
-            
-            if (tab && tab.id) {
-              const activeTabId = tab.id;
-              const sessionKey = getSessionKey(activeTabId);
-              
-              const result = await chrome.storage.session.get(sessionKey);
-              const currentData = result[sessionKey] || {};
-              
-              const updatedData = { 
-                ...currentData, 
-                exportStatus: exportResult 
-              };
-              
-              // Save to storage
-              console.log(`Saving export status to session for tab ${activeTabId}:`, exportResult);
-              await chrome.storage.session.set({ [sessionKey]: updatedData });
-            }
-          } catch (error) {
-            console.error('Error saving export status to session storage:', error);
-          }
-          
+          const exportResult = await exportToGoogleSheets(token.toString(), scrapedData, filename);
           sendResponse(exportResult);
         } catch (error) {
           const errorResult = {
             success: false,
             error: (error as Error).message
           };
-          
-          // Store error in session storage
-          try {
-            let queryOptions = { active: true, lastFocusedWindow: true };
-            let [tab] = await chrome.tabs.query(queryOptions);
-            
-            if (tab && tab.id) {
-              const activeTabId = tab.id;
-              const sessionKey = getSessionKey(activeTabId);
-              
-              const result = await chrome.storage.session.get(sessionKey);
-              const currentData = result[sessionKey] || {};
-              
-              const updatedData = { 
-                ...currentData, 
-                exportStatus: errorResult 
-              };
-              
-              await chrome.storage.session.set({ [sessionKey]: updatedData });
-            }
-          } catch (storageError) {
-            console.error('Error saving export error to session storage:', storageError);
-          }
-          
           sendResponse(errorResult);
         }
       });
@@ -402,7 +357,7 @@ const handleUiMessage = async (
 }
 
 // Export data to Google Sheets
-const exportToGoogleSheets = async (token: string, data: ScrapedData): Promise<ExportResult> => {
+const exportToGoogleSheets = async (token: string, data: ScrapedData, filename: string): Promise<ExportResult> => {
   try {
     if (!data || !data.length) {
       return { success: false, error: 'No data to export' }
@@ -445,7 +400,7 @@ const exportToGoogleSheets = async (token: string, data: ScrapedData): Promise<E
       method: 'POST',
       body: JSON.stringify({
         properties: {
-          title: `Modern Scraper Export - ${new Date().toLocaleString()}`,
+          title: filename,
         }
       }),
     });
