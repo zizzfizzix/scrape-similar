@@ -233,27 +233,6 @@ const SidePanel: React.FC = () => {
     
     loadPresets();
 
-    // Listen for messages from background script
-    const messageListener = (
-      message: any,
-      sender: chrome.runtime.MessageSender,
-      sendResponse: (response?: any) => void,
-    ) => {
-      // --- Use the ref for validation ---
-      const currentExpectedTabId = targetTabIdRef.current;
-      // Allow specific messages even if tabId isn't set yet (like the initial response)
-      // The main check will be inside the specific message type handlers
-
-      console.log(`Message received in listener. Type: ${message.type}. Current expected tabId: ${currentExpectedTabId}. Message tabId: ${message.payload?.tabId}`);
-
-      switch (message.type) {
-        default:
-          // Optional: Log unhandled message types
-          // console.log("SidePanel listener received unhandled message type:", message.type);
-          break
-      }
-    }
-
     // Listen for tab activation
     const tabActivationListener = (activeInfo: chrome.tabs.TabActiveInfo) => {
       console.log(`SidePanel detected tab activation: ${activeInfo.tabId}`);
@@ -328,14 +307,12 @@ const SidePanel: React.FC = () => {
       }
     };
 
-    chrome.runtime.onMessage.addListener(messageListener);
     chrome.tabs.onActivated.addListener(tabActivationListener);
     chrome.storage.onChanged.addListener(storageChangeListener);
 
     // Cleanup listeners on component unmount
     return () => {
       console.log('SidePanel unmounting, removing listeners...');
-      chrome.runtime.onMessage.removeListener(messageListener);
       chrome.tabs.onActivated.removeListener(tabActivationListener);
       chrome.storage.onChanged.removeListener(storageChangeListener);
     };

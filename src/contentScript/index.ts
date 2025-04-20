@@ -24,6 +24,8 @@ notifyBackgroundScriptLoaded()
 
 // Track the currently highlighted elements
 let highlightedElements: HTMLElement[] = []
+// Store the tabId for this content script instance
+let tabId: number | null = null
 // Store the last right-clicked element
 let lastRightClickedElement: HTMLElement | null = null
 // Store the last right-clicked element details (XPath, selector)
@@ -34,6 +36,16 @@ interface ElementDetails {
   html: string
 }
 let lastRightClickedElementDetails: ElementDetails | null = null
+
+// Request tabId on initialization and throw if not available
+chrome.runtime.sendMessage({ type: 'GET_MY_TAB_ID' }, (response) => {
+  if (chrome.runtime.lastError || !response || typeof response.tabId !== 'number') {
+    console.error('Failed to get tabId on content script initialization:', chrome.runtime.lastError?.message || response)
+    throw new Error('Content script cannot function without tabId.');
+  }
+  tabId = response.tabId;
+  console.log('Content script initialized with tabId:', tabId);
+})
 
 // Handle right-click for later element selection
 const rightClickListener = (event: MouseEvent) => {
@@ -108,69 +120,58 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
 
         console.log('Scrape complete, data:', data)
         
-        // Get our tab ID (we need this for storage key)
-        chrome.runtime.sendMessage({ type: 'GET_MY_TAB_ID' }, (tabResponse) => {
-          if (chrome.runtime.lastError || !tabResponse || !tabResponse.tabId) {
-            console.error('Error getting tab ID:', chrome.runtime.lastError?.message || 'No valid response');
-            // No fallback, just report error
+        // Use cached tabId
+        if (tabId === null) {
+          const errMsg = 'tabId not initialized in content script.';
+          console.error(errMsg);
+          sendResponse({ success: false, error: errMsg });
+          return;
+        }
+        const sessionKey = `sidepanel_config_${tabId}`;
+        
+        // Try to access session storage directly
+        chrome.storage.session.get(sessionKey, (result) => {
+          if (chrome.runtime.lastError) {
+            console.error('Error accessing session storage:', chrome.runtime.lastError);
             sendResponse({
               success: false,
-              error: 'Failed to get tab ID required for storage'
+              error: 'Cannot access storage from content script: ' + chrome.runtime.lastError.message
             });
             return;
           }
           
-          const tabId = tabResponse.tabId;
-          const sessionKey = `sidepanel_config_${tabId}`;
-          
-          // Try to access session storage directly
-          chrome.storage.session.get(sessionKey, (result) => {
-            if (chrome.runtime.lastError) {
-              console.error('Error accessing session storage:', chrome.runtime.lastError);
-              // No fallback, just report error
-              sendResponse({
-                success: false,
-                error: 'Cannot access storage from content script: ' + chrome.runtime.lastError.message
-              });
-              return;
-            }
+          try {
+            const currentData = result[sessionKey] || {};
             
-            try {
-              const currentData = result[sessionKey] || {};
-              
-              // Update with new scraped data
-              const updatedData = {
-                ...currentData,
-                scrapedData: data
-              };
-              
-              // Save directly to storage
-              console.log(`Content script directly saving scraped data to session storage for tab ${tabId}:`, data.length, 'items');
-              chrome.storage.session.set({ [sessionKey]: updatedData }, () => {
-                if (chrome.runtime.lastError) {
-                  console.error('Error saving to session storage:', chrome.runtime.lastError);
-                  // No fallback, just report error
-                  sendResponse({
-                    success: false,
-                    error: 'Failed to save data to storage: ' + chrome.runtime.lastError.message
-                  });
-                } else {
-                  // Respond directly to the UI that sent this message
-                  sendResponse({ 
-                    success: true, 
-                    message: `Scraped ${data.length} items successfully and stored in session.` 
-                  });
-                }
-              });
-            } catch (error) {
-              console.error('Error updating session storage:', error);
-              // No fallback, just report error
-              sendResponse({
-                success: false,
-                error: 'Error updating session storage: ' + (error as Error).message
-              });
-            }
-          });
+            // Update with new scraped data
+            const updatedData = {
+              ...currentData,
+              scrapedData: data
+            };
+            
+            // Save directly to storage
+            console.log(`Content script directly saving scraped data to session storage for tab ${tabId}:`, data.length, 'items');
+            chrome.storage.session.set({ [sessionKey]: updatedData }, () => {
+              if (chrome.runtime.lastError) {
+                console.error('Error saving to session storage:', chrome.runtime.lastError);
+                sendResponse({
+                  success: false,
+                  error: 'Failed to save data to storage: ' + chrome.runtime.lastError.message
+                });
+              } else {
+                sendResponse({ 
+                  success: true, 
+                  message: `Scraped ${data.length} items successfully and stored in session.` 
+                });
+              }
+            });
+          } catch (error) {
+            console.error('Error updating session storage:', error);
+            sendResponse({
+              success: false,
+              error: 'Error updating session storage: ' + (error as Error).message
+            });
+          }
         });
         
         // Signal that we'll respond asynchronously
@@ -205,38 +206,35 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
           sendResponse({ success: false, error: 'No element details in memory.' });
           break;
         }
+        if (tabId === null) {
+          const errMsg = 'tabId not initialized in content script.';
+          console.error(errMsg);
+          sendResponse({ success: false, error: errMsg });
+          break;
+        }
         // At this point, lastRightClickedElementDetails is not null due to the guard above
         const details = lastRightClickedElementDetails!;
-        // Get tabId
-        chrome.runtime.sendMessage({ type: 'GET_MY_TAB_ID' }, (tabResponse) => {
-          if (!tabResponse || !tabResponse.tabId) {
-            console.error('Could not get tabId for saving element details.');
-            sendResponse({ success: false, error: 'No tabId.' });
-            return;
-          }
-          const tabId = tabResponse.tabId;
-          const sessionKey = `sidepanel_config_${tabId}`;
-          chrome.storage.session.get(sessionKey, (result) => {
-            const existingData = result[sessionKey] || {};
-            const existingConfig = existingData.currentScrapeConfig || {};
-            const updatedConfig = {
-              ...existingConfig,
-              mainSelector: details.xpath,
-              language: 'xpath',
-            };
-            const updatedData = {
-              ...existingData,
-              currentScrapeConfig: updatedConfig,
-              elementDetails: details,
-            };
-            chrome.storage.session.set({ [sessionKey]: updatedData }, () => {
-              if (chrome.runtime.lastError) {
-                console.error('Error saving element details to storage:', chrome.runtime.lastError);
-                sendResponse({ success: false, error: chrome.runtime.lastError.message });
-              } else {
-                sendResponse({ success: true });
-              }
-            });
+        const sessionKey = `sidepanel_config_${tabId}`;
+        chrome.storage.session.get(sessionKey, (result) => {
+          const existingData = result[sessionKey] || {};
+          const existingConfig = existingData.currentScrapeConfig || {};
+          const updatedConfig = {
+            ...existingConfig,
+            mainSelector: details.xpath,
+            language: 'xpath',
+          };
+          const updatedData = {
+            ...existingData,
+            currentScrapeConfig: updatedConfig,
+            elementDetails: details,
+          };
+          chrome.storage.session.set({ [sessionKey]: updatedData }, () => {
+            if (chrome.runtime.lastError) {
+              console.error('Error saving element details to storage:', chrome.runtime.lastError);
+              sendResponse({ success: false, error: chrome.runtime.lastError.message });
+            } else {
+              sendResponse({ success: true });
+            }
           });
         });
         return true;
