@@ -479,66 +479,37 @@ const SidePanel: React.FC = () => {
 
   return (
     <div className="side-panel">
-      <header className="header">
-        <div className="tabs">
-          <button
-            className={activeTab === 'config' ? 'active' : ''}
-            onClick={() => setActiveTab('config')}
-          >
-            Configuration
-          </button>
-          <button
-            className={activeTab === 'presets' ? 'active' : ''}
-            onClick={() => setActiveTab('presets')}
-          >
-            Presets
-          </button>
-        </div>
-      </header>
-
       <main className="content">
-        {activeTab === 'config' && (
-          <div className="config-panel">
-            <ConfigForm
-              config={config}
-              onChange={handleConfigChange}
-              onScrape={handleScrape}
-              onHighlight={handleHighlight}
-              isLoading={isLoading}
-              initialOptions={initialOptions}
-            />
-            
-            {/* Scraped Data section moved under configuration */}
-            <div className="scraped-data-section">
-              <h3>Scraped Data {scrapedData.length > 0 ? `(${scrapedData.length})` : ''}</h3>
-              <DataTable data={scrapedData} onHighlight={handleHighlight} config={config} />
-              {scrapedData.length > 0 && (
-                <div className="export-buttons">
-                  <ExportButton onExport={handleExport} isLoading={isLoading} status={exportStatus} />
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={handleCsvExport}
-                  >
-                    Export CSV
-                  </button>
-                </div>
-              )}
-            </div>
+        <div className="config-panel">
+          <ConfigForm
+            config={config}
+            onChange={handleConfigChange}
+            onScrape={handleScrape}
+            onHighlight={handleHighlight}
+            isLoading={isLoading}
+            initialOptions={initialOptions}
+            presets={presets}
+            onLoadPreset={handleLoadPreset}
+            onSavePreset={handleSavePreset}
+            onDeletePreset={handleDeletePreset}
+          />
+          <div className="scraped-data-section">
+            <h3>Scraped Data {scrapedData.length > 0 ? `(${scrapedData.length})` : ''}</h3>
+            <DataTable data={scrapedData} onHighlight={handleHighlight} config={config} />
+            {scrapedData.length > 0 && (
+              <div className="export-buttons">
+                <ExportButton onExport={handleExport} isLoading={isLoading} status={exportStatus} />
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={handleCsvExport}
+                >
+                  Export CSV
+                </button>
+              </div>
+            )}
           </div>
-        )}
-
-        {activeTab === 'presets' && (
-          <div className="presets-panel">
-            <PresetsManager
-              presets={presets}
-              onLoad={handleLoadPreset}
-              onSave={handleSavePreset}
-              onDelete={handleDeletePreset}
-              currentConfig={config}
-            />
-          </div>
-        )}
+        </div>
       </main>
     </div>
   )

@@ -81,22 +81,24 @@ const PresetsManager: React.FC<PresetsManagerProps> = ({
       </div>
 
       <div className="presets-list">
-        <h3>Saved Presets</h3>
+        <label>Saved Presets</label>
 
         {presets.length === 0 ? (
           <div className="no-presets">No presets saved yet.</div>
         ) : (
           presets.map((preset) => (
             <div key={preset.id} className="preset-item" onClick={(e) => e.stopPropagation()}>
-              <div className="preset-header">
-                <span className="preset-title">{preset.name}</span>
-                <span className="preset-meta">{formatDate(preset.createdAt)}</span>
-              </div>
-              <div className="preset-info">
-                <div>
-                  Main selector: <code>{preset.config.mainSelector}</code>
+              <div className="preset-details">
+                <div className="preset-header">
+                  <span className="preset-title">{preset.name}</span>
+                  <span className="preset-meta">{formatDate(preset.createdAt)}</span>
                 </div>
-                <div>Columns: {preset.config.columns.length}</div>
+                <div className="preset-info">
+                  <div>
+                    Main selector: <code>{preset.config.mainSelector}</code>
+                  </div>
+                  <div>Columns: {preset.config.columns.length}</div>
+                </div>
               </div>
               <div className="preset-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => onLoad(preset)}>
@@ -107,7 +109,7 @@ const PresetsManager: React.FC<PresetsManagerProps> = ({
                   className={confirmDelete === preset.id ? 'btn btn-danger' : 'btn btn-secondary'}
                   onClick={() => handleDeleteClick(preset.id)}
                 >
-                  {confirmDelete === preset.id ? 'Confirm Delete' : 'Delete'}
+                  {confirmDelete === preset.id ? 'Confirm' : 'Delete'}
                 </button>
               </div>
             </div>

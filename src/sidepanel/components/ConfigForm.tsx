@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { ColumnDefinition, ScrapeConfig, SelectionOptions } from '../../core/types'
+import { ColumnDefinition, ScrapeConfig, SelectionOptions, Preset } from '../../core/types'
+import PresetsManager from './PresetsManager'
 
 interface ConfigFormProps {
   config: ScrapeConfig
@@ -8,6 +9,10 @@ interface ConfigFormProps {
   onHighlight: (selector: string, language: string) => void
   isLoading: boolean
   initialOptions: SelectionOptions | null
+  presets: Preset[]
+  onLoadPreset: (preset: Preset) => void
+  onSavePreset: (name: string) => void
+  onDeletePreset: (presetId: string) => void
 }
 
 const ConfigForm: React.FC<ConfigFormProps> = ({
@@ -17,6 +22,10 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
   onHighlight,
   isLoading,
   initialOptions,
+  presets,
+  onLoadPreset,
+  onSavePreset,
+  onDeletePreset,
 }) => {
   // Local state for adding a new column
   const [newColumnName, setNewColumnName] = useState('')
@@ -24,6 +33,9 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
   const columnsListRef = useRef<HTMLDivElement>(null)
   const prevColumnsCount = useRef(config.columns.length)
   const [shouldScrollToEnd, setShouldScrollToEnd] = useState(false)
+
+  // Accordion state for presets
+  const [showPresets, setShowPresets] = useState(false)
 
   useEffect(() => {
     if (shouldScrollToEnd && config.columns.length > prevColumnsCount.current) {
@@ -231,6 +243,31 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
             </button>
           </div>
         </div>
+      </div>
+
+      {/* Presets Accordion */}
+      <div className="form-group">
+        <button
+          type="button"
+          className="btn btn-secondary accordion-button"
+          onClick={() => setShowPresets((prev) => !prev)}
+          aria-expanded={showPresets}
+          aria-controls="presets-panel"
+        >
+          Presets
+          <span>{showPresets ? '▼' : '▶'}</span>
+        </button>
+        {showPresets && (
+          <div className="presets-panel">
+            <PresetsManager
+              presets={presets}
+              onLoad={onLoadPreset}
+              onSave={onSavePreset}
+              onDelete={onDeletePreset}
+              currentConfig={config}
+            />
+          </div>
+        )}
       </div>
 
       <div className="form-actions">
