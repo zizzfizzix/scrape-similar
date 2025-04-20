@@ -39,6 +39,7 @@ const SidePanel: React.FC = () => {
     error?: string
   } | null>(null)
   const [tabUrl, setTabUrl] = useState<string | null>(null);
+  const [showPresets, setShowPresets] = useState(false);
   
   // Memoized export filename (regenerates if tabUrl changes)
   const exportFilename = React.useMemo(() => {
@@ -332,11 +333,11 @@ const SidePanel: React.FC = () => {
       chrome.tabs.onActivated.removeListener(tabActivationListener);
       chrome.storage.onChanged.removeListener(storageChangeListener);
     };
-    // Dependencies: only handleInitialData (which itself has limited/no dependencies now)
   }, [handleInitialData]);
 
   // Handle scrape request
   const handleScrape = () => {
+    setShowPresets(false); // Collapse presets accordion
     if (!targetTabId) return
     setIsScraping(true)
     chrome.tabs.sendMessage(targetTabId, {
@@ -476,6 +477,8 @@ const SidePanel: React.FC = () => {
             onLoadPreset={handleLoadPreset}
             onSavePreset={handleSavePreset}
             onDeletePreset={handleDeletePreset}
+            showPresets={showPresets}
+            setShowPresets={setShowPresets}
           />
           {scrapedData.length > 0 && (
             <div className="scraped-data-section">

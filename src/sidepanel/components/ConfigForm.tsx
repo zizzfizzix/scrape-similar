@@ -13,6 +13,8 @@ interface ConfigFormProps {
   onLoadPreset: (preset: Preset) => void
   onSavePreset: (name: string) => void
   onDeletePreset: (presetId: string) => void
+  showPresets: boolean
+  setShowPresets: React.Dispatch<React.SetStateAction<boolean>>
 }
 
 const ConfigForm: React.FC<ConfigFormProps> = ({
@@ -26,6 +28,8 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
   onLoadPreset,
   onSavePreset,
   onDeletePreset,
+  showPresets,
+  setShowPresets,
 }) => {
   // Local state for adding a new column
   const [newColumnName, setNewColumnName] = useState('')
@@ -33,9 +37,6 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
   const columnsListRef = useRef<HTMLDivElement>(null)
   const prevColumnsCount = useRef(config.columns.length)
   const [shouldScrollToEnd, setShouldScrollToEnd] = useState(false)
-
-  // Accordion state for presets
-  const [showPresets, setShowPresets] = useState(false)
 
   useEffect(() => {
     if (shouldScrollToEnd && config.columns.length > prevColumnsCount.current) {
