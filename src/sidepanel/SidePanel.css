@@ -380,3 +380,13 @@ a {
   font-size: 1.1rem;
   margin-bottom: 0.5rem;
 }
+
+.sidepanel-error-alert {
+  border-left: 4px solid #e53e3e; /* red */
+  background: #fff5f5;
+  color: #c53030;
+  padding: 1rem;
+  border-radius: 0.375rem;
+  margin-bottom: 1rem;
+  font-size: 1rem;
+}

@@ -46,6 +46,7 @@ const SidePanel: React.FC = () => {
   } | null>(null)
   const [tabUrl, setTabUrl] = useState<string | null>(null)
   const [showPresets, setShowPresets] = useState(false)
+  const [contentScriptCommsError, setContentScriptCommsError] = useState<string | null>(null)
 
   // Memoized export filename (regenerates if tabUrl changes)
   const exportFilename = React.useMemo(() => {
@@ -379,7 +380,8 @@ const SidePanel: React.FC = () => {
 
   // Handle scrape request
   const handleScrape = () => {
-    setShowPresets(false) // Collapse presets accordion
+    setShowPresets(false)
+    setContentScriptCommsError(null)
     if (!targetTabId) return
     setIsScraping(true)
     chrome.tabs.sendMessage(
@@ -389,10 +391,15 @@ const SidePanel: React.FC = () => {
         payload: config,
       },
       (response) => {
-        console.log('Received scrape response from content script:', response)
-        if (response?.success) {
-          console.log('Scrape successful, storage listener will update UI.')
-        } else if (response?.error) {
+        if (!response && chrome.runtime.lastError) {
+          setContentScriptCommsError(
+            'Could not connect to the content script. Please reload the page or ensure the extension is enabled for this site.',
+          )
+          setIsScraping(false)
+          return
+        }
+        if (response?.error) {
+          setContentScriptCommsError(response.error)
           console.error('Error during scrape:', response.error)
         }
         setIsScraping(false)
@@ -402,16 +409,22 @@ const SidePanel: React.FC = () => {
 
   // Handle highlight request
   const handleHighlight = (selector: string, language: string) => {
+    setContentScriptCommsError(null)
     if (!targetTabId) return
-
-    // Send message directly to content script using chrome.tabs API
-    chrome.tabs.sendMessage(targetTabId, {
-      type: MESSAGE_TYPES.HIGHLIGHT_ELEMENTS,
-      payload: {
-        selector,
-        language,
+    chrome.tabs.sendMessage(
+      targetTabId,
+      {
+        type: MESSAGE_TYPES.HIGHLIGHT_ELEMENTS,
+        payload: { selector, language },
       },
-    })
+      (response) => {
+        if (!response && chrome.runtime.lastError) {
+          setContentScriptCommsError(
+            'Could not connect to the content script. Please reload the page or ensure the extension is enabled for this site.',
+          )
+        }
+      },
+    )
   }
 
   // Handle export request
@@ -526,6 +539,11 @@ const SidePanel: React.FC = () => {
   return (
     <div className="side-panel">
       <main className="content">
+        {contentScriptCommsError && (
+          <div className="sidepanel-error-alert">
+            <strong>Error:</strong> {contentScriptCommsError}
+          </div>
+        )}
         <div className="config-panel">
           <ConfigForm
             config={config}
