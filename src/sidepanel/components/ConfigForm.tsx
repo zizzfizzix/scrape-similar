@@ -234,15 +234,6 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                   <button
                     type="button"
                     className="icon-button"
-                    onClick={() => onHighlight(column.selector, column.language)}
-                    disabled={!column.selector}
-                    title="Test selector"
-                  >
-                    🔍
-                  </button>
-                  <button
-                    type="button"
-                    className="icon-button"
                     onClick={() => removeColumn(index)}
                     disabled={config.columns.length <= 1}
                     title="Remove column"
