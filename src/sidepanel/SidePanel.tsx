@@ -16,6 +16,15 @@ import PresetsManager from './components/PresetsManager'
 import ExportButton from './components/ExportButton'
 import './SidePanel.css'
 import slugify from 'slugify'
+import { isInjectableUrl } from '../lib/isInjectableUrl'
+
+// Simple splash screen component
+const SplashScreen: React.FC = () => (
+  <div className="splash-screen">
+    <h2>Not supported</h2>
+    <p>Please switch to a regular website tab (http/https) to use the extension.</p>
+  </div>
+);
 
 const SidePanel: React.FC = () => {
   // State
@@ -243,6 +252,16 @@ const SidePanel: React.FC = () => {
       // Also update state for component re-renders
       setTargetTabId(newTabId);
 
+      // Get the new tab's URL and update tabUrl state
+      chrome.tabs.get(newTabId, (tab) => {
+        if (chrome.runtime.lastError) {
+          console.error('Error getting tab info:', chrome.runtime.lastError);
+          setTabUrl(null);
+        } else {
+          setTabUrl(tab.url || '');
+        }
+      });
+
       // Load data directly from storage for the new tab
       const sessionKey = `sidepanel_config_${newTabId}`;
       chrome.storage.session.get(sessionKey, (result) => {
@@ -307,16 +326,31 @@ const SidePanel: React.FC = () => {
       }
     };
 
+    // Listen for tab URL changes in the current tab
+    const tabUpdateListener = (tabId: number) => {
+      if (tabId === targetTabId) {
+        chrome.tabs.get(tabId, (updatedTab) => {
+          if (chrome.runtime.lastError) {
+            setTabUrl('');
+          } else {
+            setTabUrl(updatedTab.url || '');
+          }
+        });
+      }
+    };
+
     chrome.tabs.onActivated.addListener(tabActivationListener);
     chrome.storage.onChanged.addListener(storageChangeListener);
+    chrome.tabs.onUpdated.addListener(tabUpdateListener);
 
     // Cleanup listeners on component unmount
     return () => {
       console.log('SidePanel unmounting, removing listeners...');
       chrome.tabs.onActivated.removeListener(tabActivationListener);
       chrome.storage.onChanged.removeListener(storageChangeListener);
+      chrome.tabs.onUpdated.removeListener(tabUpdateListener);
     };
-  }, [handleInitialData]);
+  }, [targetTabId, handleInitialData]);
 
   // Handle scrape request
   const handleScrape = () => {
@@ -443,6 +477,16 @@ const SidePanel: React.FC = () => {
     } catch (error) {
       console.error('Error deleting preset:', error);
     }
+  }
+
+  if (tabUrl !== null && !isInjectableUrl(tabUrl)) {
+    return (
+      <div className="side-panel">
+        <main className="content">
+          <SplashScreen />
+        </main>
+      </div>
+    );
   }
 
   return (

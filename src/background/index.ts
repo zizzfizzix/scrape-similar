@@ -10,20 +10,12 @@ import {
   Preset,
 } from '../core/types'
 import { getPresets, initializeStorage, savePreset, deletePreset, STORAGE_KEYS } from '../core/storage'
+import { isInjectableUrl } from '../lib/isInjectableUrl'
 
 console.log('background is running')
 
 // Helper to generate session storage key for a tab
 const getSessionKey = (tabId: number): string => `sidepanel_config_${tabId}`
-
-// Helper to check if a tab URL is eligible for script injection
-const isInjectableUrl = (url?: string) => {
-  if (!url) return false;
-  return (
-    url.startsWith('http://') ||
-    url.startsWith('https://')
-  );
-};
 
 // Inject content script into all eligible tabs
 const injectContentScriptToAllTabs = async () => {
