@@ -1,7 +1,6 @@
-import { defineConfig } from 'vite'
 import { crx } from '@crxjs/vite-plugin'
 import react from '@vitejs/plugin-react'
-import { resolve } from 'path'
+import { defineConfig } from 'vite'
 
 // @ts-ignore - Import manifest with type assertion
 import manifest from './src/manifest'
