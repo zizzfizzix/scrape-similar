@@ -161,14 +161,34 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       console.error(`Error opening side panel for tab ${targetTabId}:`, error)
     }
 
-    // Tell content script to save element details to storage
+    // Tell content script to save element details to storage, then trigger scrape
     try {
-      await chrome.tabs.sendMessage(targetTabId, {
+      const saveResp = await chrome.tabs.sendMessage(targetTabId, {
         type: MESSAGE_TYPES.SAVE_ELEMENT_DETAILS_TO_STORAGE,
       })
+      if (!saveResp?.success)
+        throw new Error('Failed to save element details: ' + (saveResp?.error || 'Unknown error'))
       console.log('Told content script to save element details to storage.')
+
+      // Fetch the latest config from session storage
+      const sessionKey = getSessionKey(targetTabId)
+      const result = await chrome.storage.session.get(sessionKey)
+      const currentData = result[sessionKey] || {}
+      const config = currentData.currentScrapeConfig
+      if (config) {
+        // Send START_SCRAPE to content script
+        const scrapeResp = await chrome.tabs.sendMessage(targetTabId, {
+          type: MESSAGE_TYPES.START_SCRAPE,
+          payload: config,
+        })
+        if (!scrapeResp?.success)
+          throw new Error('Failed to trigger scrape: ' + (scrapeResp?.error || 'Unknown error'))
+        console.log('Scrape triggered successfully.')
+      } else {
+        console.warn('No currentScrapeConfig found in session storage, cannot auto-scrape.')
+      }
     } catch (error) {
-      console.error('Error sending SAVE_ELEMENT_DETAILS_TO_STORAGE to content script:', error)
+      console.error('Error in right-click scrape flow:', error)
     }
   }
 })
