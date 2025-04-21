@@ -5,11 +5,13 @@ interface DataTableProps {
   data: ScrapedData
   config: ScrapeConfig
   onHighlight: (selector: string, language: string) => void
+  columnOrder?: string[]
 }
 
-const DataTable: React.FC<DataTableProps> = ({ data, config, onHighlight }) => {
-  // Get column headers from first row
-  const columns = Object.keys(data[0])
+const DataTable: React.FC<DataTableProps> = ({ data, config, onHighlight, columnOrder }) => {
+  // Use columnOrder if provided, otherwise fallback to config.columns order
+  const columns =
+    columnOrder && columnOrder.length > 0 ? columnOrder : config.columns.map((col) => col.name)
 
   // Highlight a row by using the main selector with index
   const handleHighlightRow = (rowIndex: number) => {

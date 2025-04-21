@@ -18,6 +18,11 @@ export interface ScrapedRow {
 
 export type ScrapedData = ScrapedRow[]
 
+export interface ScrapedDataResult {
+  data: ScrapedData
+  columnOrder: string[]
+}
+
 export interface Preset {
   id: string
   name: string

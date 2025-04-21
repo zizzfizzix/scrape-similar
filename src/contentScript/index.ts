@@ -91,8 +91,10 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
         console.log('Starting scrape with config (direct from UI):', message.payload)
         const config = message.payload as ScrapeConfig
         const data = scrapePage(config)
+        const columnOrder = config.columns.map((col) => col.name)
+        const scrapedDataResult = { data, columnOrder }
 
-        console.log('Scrape complete, data:', data)
+        console.log('Scrape complete, data:', scrapedDataResult)
 
         // Use cached tabId
         if (tabId === null) {
@@ -121,7 +123,7 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
             // Update with new scraped data
             const updatedData = {
               ...currentData,
-              scrapedData: data,
+              scrapedData: scrapedDataResult,
             }
 
             // Save directly to storage
@@ -140,6 +142,7 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
               } else {
                 sendResponse({
                   success: true,
+                  data: scrapedDataResult,
                   message: `Scraped ${data.length} items successfully and stored in session.`,
                 })
               }

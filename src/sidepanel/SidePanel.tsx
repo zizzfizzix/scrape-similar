@@ -5,7 +5,7 @@ import {
   MESSAGE_TYPES,
   Preset,
   ScrapeConfig,
-  ScrapedData,
+  ScrapedDataResult,
   SelectionOptions,
   SidePanelConfig,
 } from '../core/types'
@@ -46,7 +46,7 @@ const SidePanel: React.FC = () => {
     language: 'xpath',
     columns: [{ name: 'Text', selector: '.', language: 'xpath' }],
   })
-  const [scrapedData, setScrapedData] = useState<ScrapedData>([])
+  const [scrapedData, setScrapedData] = useState<ScrapedDataResult | null>(null)
   const [presets, setPresets] = useState<Preset[]>([])
   const [isScraping, setIsScraping] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
@@ -235,12 +235,15 @@ const SidePanel: React.FC = () => {
       setInitialOptions(newOptions)
 
       // Load saved scraped data from session storage if available
-      if (scrapedData && scrapedData.length > 0) {
-        console.log('Loading scraped data from session storage:', scrapedData)
-        setScrapedData(scrapedData)
+      if (
+        scrapedData &&
+        typeof scrapedData === 'object' &&
+        'data' in scrapedData &&
+        'columnOrder' in scrapedData
+      ) {
+        setScrapedData(scrapedData as ScrapedDataResult)
       } else {
-        // Clear potentially stale data from previous tab
-        setScrapedData([])
+        setScrapedData(null)
       }
 
       setExportStatus(null)
@@ -443,16 +446,25 @@ const SidePanel: React.FC = () => {
     )
   }
 
-  // Handle export request
+  // Handle export request (Google Sheets)
   const handleExport = () => {
     setIsExporting(true)
     setExportStatus(null)
+    const columns = scrapedData?.columnOrder || []
+    const orderedData =
+      scrapedData?.data.map((row: Record<string, string>) => {
+        const orderedRow: { [key: string]: string } = {}
+        columns.forEach((header) => {
+          orderedRow[header] = row[header] || ''
+        })
+        return orderedRow
+      }) || []
     chrome.runtime.sendMessage(
       {
         type: MESSAGE_TYPES.EXPORT_TO_SHEETS,
         payload: {
           filename: exportFilename,
-          scrapedData: scrapedData,
+          scrapedData: orderedData,
         },
       },
       (response) => {
@@ -464,12 +476,12 @@ const SidePanel: React.FC = () => {
 
   // Handle CSV export
   const handleCsvExport = () => {
-    if (!scrapedData.length) return
-    const headers = Object.keys(scrapedData[0])
+    if (!scrapedData || !scrapedData.data.length) return
+    const columns = scrapedData.columnOrder || []
     const csvContent = [
-      headers.map((header) => `"${header.replace(/"/g, '""')}"`).join(','),
-      ...scrapedData.map((row) =>
-        headers
+      columns.map((header) => `"${header.replace(/"/g, '""')}"`).join(','),
+      ...scrapedData.data.map((row: Record<string, string>) =>
+        columns
           .map((header) => {
             const value = row[header] || ''
             const escapedValue = value.replace(/"/g, '""')
@@ -509,12 +521,12 @@ const SidePanel: React.FC = () => {
 
   // Handle copy to clipboard as TSV
   const handleCopyTsv = async () => {
-    if (!scrapedData.length) return
-    const headers = Object.keys(scrapedData[0])
+    if (!scrapedData || !scrapedData.data.length) return
+    const columns = scrapedData.columnOrder || []
     const tsvContent = [
-      headers.join('\t'),
-      ...scrapedData.map((row) =>
-        headers
+      columns.join('\t'),
+      ...scrapedData.data.map((row: Record<string, string>) =>
+        columns
           .map((header) => {
             const value = row[header] || ''
             return escapeTsvField(String(value))
@@ -617,43 +629,46 @@ const SidePanel: React.FC = () => {
             showPresets={showPresets}
             setShowPresets={setShowPresets}
           />
-          {scrapedData.length > 0 && (
+          {scrapedData && (
             <div className="scraped-data-section">
               <h3>Extracted Data</h3>
-              <DataTable data={scrapedData} onHighlight={handleHighlight} config={config} />
-              {scrapedData.length > 0 && (
-                <div className="export-buttons">
-                  <ExportButton
-                    onExport={handleExport}
-                    isLoading={isExporting}
-                    status={exportStatus}
-                  />
-                  <button
-                    type="button"
-                    className={`btn btn-secondary${saveCsvState === 'success' ? ' btn-success' : ''}${saveCsvState === 'failure' ? ' btn-failure' : ''}`}
-                    onClick={handleCsvExport}
-                    disabled={saveCsvState !== 'idle'}
-                  >
-                    {saveCsvState === 'success'
-                      ? 'Saved'
-                      : saveCsvState === 'failure'
-                        ? 'Failed'
-                        : 'Save CSV'}
-                  </button>
-                  <button
-                    type="button"
-                    className={`btn btn-secondary${copyState === 'success' ? ' btn-success' : ''}${copyState === 'failure' ? ' btn-failure' : ''}`}
-                    onClick={handleCopyTsv}
-                    disabled={copyState !== 'idle'}
-                  >
-                    {copyState === 'success'
-                      ? 'Copied'
-                      : copyState === 'failure'
-                        ? 'Failed'
-                        : 'Copy to clipboard'}
-                  </button>
-                </div>
-              )}
+              <DataTable
+                data={scrapedData.data}
+                onHighlight={handleHighlight}
+                config={config}
+                columnOrder={scrapedData.columnOrder}
+              />
+              <div className="export-buttons">
+                <ExportButton
+                  onExport={handleExport}
+                  isLoading={isExporting}
+                  status={exportStatus}
+                />
+                <button
+                  type="button"
+                  className={`btn btn-secondary${saveCsvState === 'success' ? ' btn-success' : ''}${saveCsvState === 'failure' ? ' btn-failure' : ''}`}
+                  onClick={handleCsvExport}
+                  disabled={saveCsvState !== 'idle'}
+                >
+                  {saveCsvState === 'success'
+                    ? 'Saved'
+                    : saveCsvState === 'failure'
+                      ? 'Failed'
+                      : 'Save CSV'}
+                </button>
+                <button
+                  type="button"
+                  className={`btn btn-secondary${copyState === 'success' ? ' btn-success' : ''}${copyState === 'failure' ? ' btn-failure' : ''}`}
+                  onClick={handleCopyTsv}
+                  disabled={copyState !== 'idle'}
+                >
+                  {copyState === 'success'
+                    ? 'Copied'
+                    : copyState === 'failure'
+                      ? 'Failed'
+                      : 'Copy to clipboard'}
+                </button>
+              </div>
             </div>
           )}
         </div>
