@@ -107,29 +107,92 @@ export const evaluateXPath = (xpath: string, contextNode: Node = document): HTML
 }
 
 /**
- * Generate XPath for a node, considering its position among siblings
+ * Returns the index of the element among siblings with the same tag name.
+ * Only returns an index if there are multiple siblings of the same tag.
+ */
+const getElementIndex = (node: Element): number | null => {
+  if (!node.parentNode) return null
+  const siblings = Array.from(node.parentNode.children).filter(
+    (sibling) => sibling.nodeName === node.nodeName,
+  )
+  if (siblings.length > 1) {
+    return siblings.indexOf(node) + 1
+  }
+  return null
+}
+
+/**
+ * Generates a general XPath for a node, only adding indices when necessary.
+ * Only considers ELEMENT_NODEs.
  */
 export const generateXPath = (node: Node): string => {
-  if (!node || !node.parentNode) {
+  if (!node || !node.parentNode || node.nodeType !== Node.ELEMENT_NODE) {
     return ''
   }
-
   if (node === document.body) {
     return '/html/body'
   }
+  const element = node as Element
+  const tag = element.nodeName.toLowerCase()
+  const index = getElementIndex(element)
+  const segment = index ? `${tag}[${index}]` : tag
+  return node.parentNode ? `${generateXPath(node.parentNode)}/${segment}` : `/${segment}`
+}
 
-  // Get position among siblings of same type
-  let position = 1
-  let sibling = node.previousSibling
+/**
+ * Helper to evaluate an XPath and return the number of matches.
+ */
+const countXPathMatches = (xpath: string, contextNode: Node = document): number => {
+  try {
+    const result = document.evaluate(
+      xpath,
+      contextNode,
+      null,
+      XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
+      null,
+    )
+    return result.snapshotLength
+  } catch {
+    return 0
+  }
+}
 
-  while (sibling) {
-    if (sibling.nodeType === Node.ELEMENT_NODE && sibling.nodeName === node.nodeName) {
-      position++
+/**
+ * Minimizes an XPath by removing unnecessary predicates and leading segments,
+ * while ensuring it still uniquely identifies the node.
+ * Returns the shortest unique XPath for the node.
+ */
+export const minimizeXPath = (node: Element): string => {
+  let xpath = generateXPath(node)
+  const xpathLastPredicateRegex = /^(.*)(\[\d+\])([^\[\]]*)$/
+  const xpathFirstSegmentRegex = /^(\/+[^\/]+)(.*)$/
+  let result: RegExpExecArray | null
+  let selection: number | undefined
+
+  // Remove last predicate until we match more than one node
+  while ((result = xpathLastPredicateRegex.exec(xpath))) {
+    selection = countXPathMatches(xpath)
+    if (selection > 1) {
+      break
     }
-    sibling = sibling.previousSibling
+    xpath = result[1] + result[3]
   }
 
-  return `${generateXPath(node.parentNode)}/${node.nodeName.toLowerCase()}[${position}]`
+  if (selection === undefined) {
+    return xpath
+  }
+
+  // Trim the front of the path until we have the smallest XPath that returns the same number of elements
+  while ((result = xpathFirstSegmentRegex.exec(xpath))) {
+    const trimmed = '/' + result[2]
+    const trimmedCount = countXPathMatches(trimmed)
+    if (trimmedCount !== selection) {
+      break
+    }
+    xpath = trimmed
+  }
+
+  return xpath
 }
 
 /**
@@ -171,11 +234,11 @@ export const generateCssSelector = (element: HTMLElement): string => {
 }
 
 /**
- * Get selector suggestions for a given element
+ * Get selector suggestions for a given element, using minimized XPath.
  */
 export const getSelectorSuggestions = (element: HTMLElement): { xpath: string; css: string } => {
   return {
-    xpath: generateXPath(element),
+    xpath: minimizeXPath(element),
     css: generateCssSelector(element),
   }
 }
