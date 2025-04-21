@@ -18,8 +18,8 @@ import './SidePanel.css'
 // Simple splash screen component
 const SplashScreen: React.FC = () => (
   <div className="splash-screen">
-    <h2>Not supported</h2>
-    <p>Please switch to a regular website tab (http/https) to use the extension.</p>
+    <h2>Unsupported URL</h2>
+    <p>For security reasons this extension can't work on chrome:// and Chrome Web Store URLs.</p>
   </div>
 )
 

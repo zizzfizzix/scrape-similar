@@ -1,4 +1,4 @@
 export const isInjectableUrl = (url?: string): boolean => {
   if (!url) return false
-  return url.startsWith('http://') || url.startsWith('https://')
+  return !url.startsWith('chrome://') && !url.startsWith('https://chromewebstore.google.com/')
 }
