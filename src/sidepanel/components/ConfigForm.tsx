@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Preset, ScrapeConfig, SelectionOptions } from '../../core/types'
+import { MESSAGE_TYPES, Preset, ScrapeConfig, SelectionOptions } from '../../core/types'
 import PresetsManager from './PresetsManager'
 
 interface ConfigFormProps {
@@ -37,6 +37,9 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
   const columnsListRef = useRef<HTMLDivElement>(null)
   const prevColumnsCount = useRef(config.columns.length)
   const [shouldScrollToEnd, setShouldScrollToEnd] = useState(false)
+  const [guessButtonState, setGuessButtonState] = useState<
+    'idle' | 'generating' | 'success' | 'failure'
+  >('idle')
 
   useEffect(() => {
     if (shouldScrollToEnd && config.columns.length > prevColumnsCount.current) {
@@ -120,6 +123,41 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
   // Test main selector (highlight matching elements)
   const testSelector = () => {
     onHighlight(config.mainSelector, config.language)
+  }
+
+  // Handler to guess config from selector
+  const handleGuessConfig = async () => {
+    if (!config.mainSelector) return
+    setGuessButtonState('generating')
+    try {
+      chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
+        const tab = tabs[0]
+        if (!tab?.id) {
+          setGuessButtonState('failure')
+          setTimeout(() => setGuessButtonState('idle'), 1500)
+          return
+        }
+        chrome.tabs.sendMessage(
+          tab.id,
+          {
+            type: MESSAGE_TYPES.GUESS_CONFIG_FROM_SELECTOR,
+            payload: { mainSelector: config.mainSelector, language: config.language },
+          },
+          (response) => {
+            if (response && response.success === true) {
+              setGuessButtonState('success')
+              setTimeout(() => setGuessButtonState('idle'), 1500)
+            } else {
+              setGuessButtonState('failure')
+              setTimeout(() => setGuessButtonState('idle'), 1500)
+            }
+          },
+        )
+      })
+    } catch (err) {
+      setGuessButtonState('failure')
+      setTimeout(() => setGuessButtonState('idle'), 1500)
+    }
   }
 
   return (
@@ -226,6 +264,23 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
           <div className="add-column">
             <button
               type="button"
+              className={`btn btn-primary${guessButtonState === 'success' ? ' btn-success' : ''}${guessButtonState === 'failure' ? ' btn-failure' : ''}`}
+              onClick={handleGuessConfig}
+              disabled={guessButtonState === 'generating' || !config.mainSelector}
+              title="Auto-generate configuration from selector"
+            >
+              {guessButtonState === 'generating' ? (
+                <span className="spinner"></span>
+              ) : guessButtonState === 'success' ? (
+                '✔️'
+              ) : guessButtonState === 'failure' ? (
+                '❌'
+              ) : (
+                '🪄'
+              )}
+            </button>
+            <button
+              type="button"
               className="btn btn-secondary"
               onClick={() => {
                 const defaultName = `Column ${config.columns.length + 1}`
@@ -278,8 +333,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
           onClick={onScrape}
           disabled={isLoading || !config.mainSelector || config.columns.length === 0}
         >
-          {isLoading ? <span className="spinner"></span> : null}
-          Run Scrape ▶
+          {isLoading ? <span className="spinner"></span> : 'Run Scrape ▶'}
         </button>
       </div>
     </div>

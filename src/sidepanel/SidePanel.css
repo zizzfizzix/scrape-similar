@@ -195,7 +195,6 @@ a {
   border-radius: 50%;
   border-top-color: #fff;
   animation: spin 1s linear infinite;
-  margin-right: 8px;
   vertical-align: middle;
 }
 

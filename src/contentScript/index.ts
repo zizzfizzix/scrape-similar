@@ -1,6 +1,11 @@
 console.log('CONTENT SCRIPT TOP LEVEL EXECUTION START')
 
-import { findElements, getSelectorSuggestions, scrapePage } from '../core/scraper'
+import {
+  findElements,
+  getSelectorSuggestions,
+  guessScrapeConfigForElement,
+  scrapePage,
+} from '../core/scraper'
 import { ElementDetailsPayload, MESSAGE_TYPES, Message, ScrapeConfig } from '../core/types'
 
 console.info('Modern Scraper content script is running')
@@ -60,6 +65,29 @@ const rightClickListener = (event: MouseEvent) => {
       css: selectors.css,
       text: lastRightClickedElement.textContent || '',
       html: lastRightClickedElement.outerHTML,
+    }
+
+    // Guess and save ScrapeConfig to session storage
+    try {
+      const guessedConfig = guessScrapeConfigForElement(lastRightClickedElement)
+      const sessionKey = `sidepanel_config_${tabId}`
+      chrome.storage.session.get(sessionKey, (result) => {
+        const existingData = result[sessionKey] || {}
+        const updatedData = {
+          ...existingData,
+          currentScrapeConfig: guessedConfig,
+          elementDetails: lastRightClickedElementDetails,
+        }
+        chrome.storage.session.set({ [sessionKey]: updatedData }, () => {
+          if (chrome.runtime.lastError) {
+            console.error('Error saving guessed ScrapeConfig to storage:', chrome.runtime.lastError)
+          } else {
+            console.log('Guessed ScrapeConfig saved to session storage:', guessedConfig)
+          }
+        })
+      })
+    } catch (err) {
+      console.error('Error guessing or saving ScrapeConfig:', err)
     }
   }
 }
@@ -239,6 +267,42 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
           chrome.storage.session.set({ [sessionKey]: updatedData }, () => {
             if (chrome.runtime.lastError) {
               console.error('Error saving element details to storage:', chrome.runtime.lastError)
+              sendResponse({ success: false, error: chrome.runtime.lastError.message })
+            } else {
+              sendResponse({ success: true })
+            }
+          })
+        })
+        return true
+      }
+
+      case MESSAGE_TYPES.GUESS_CONFIG_FROM_SELECTOR: {
+        // Guess config from selector and update storage
+        const { mainSelector, language } = message.payload || {}
+        if (!mainSelector || !language) {
+          sendResponse({ success: false, error: 'Missing mainSelector or language' })
+          break
+        }
+        const elements = findElements(mainSelector, language)
+        if (elements.length === 0) {
+          sendResponse({ success: false, error: 'No elements found for selector' })
+          break
+        }
+        const guessed = guessScrapeConfigForElement(elements[0])
+        const updatedConfig = {
+          ...guessed,
+          mainSelector,
+          language,
+        }
+        const sessionKey = `sidepanel_config_${tabId}`
+        chrome.storage.session.get(sessionKey, (result) => {
+          const existingData = result[sessionKey] || {}
+          const updatedData = {
+            ...existingData,
+            currentScrapeConfig: updatedConfig,
+          }
+          chrome.storage.session.set({ [sessionKey]: updatedData }, () => {
+            if (chrome.runtime.lastError) {
               sendResponse({ success: false, error: chrome.runtime.lastError.message })
             } else {
               sendResponse({ success: true })

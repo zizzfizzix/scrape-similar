@@ -45,7 +45,8 @@ code {
 
 .add-column {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
+  justify-content: space-between;
   margin-left: 12px;
 }
 

@@ -71,6 +71,7 @@ export const MESSAGE_TYPES = {
   START_SCRAPE: 'start-scrape',
   HIGHLIGHT_ELEMENTS: 'highlight-elements',
   CONTEXT_MENU_ACTION_TRIGGERED: 'context-menu-action-triggered',
+  GUESS_CONFIG_FROM_SELECTOR: 'guess-config-from-selector',
 
   EXPORT_TO_SHEETS: 'export-to-google-sheets',
 
