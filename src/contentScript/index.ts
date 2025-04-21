@@ -10,6 +10,7 @@ console.info('Modern Scraper content script is running')
 
 // Track the currently highlighted elements
 let highlightedElements: HTMLElement[] = []
+let highlightRemovalTimeout: ReturnType<typeof setTimeout> | null = null
 // Store the tabId for this content script instance
 let tabId: number | null = null
 // Store the last right-clicked element
@@ -423,6 +424,15 @@ const highlightMatchingElements = (selector: string, language: string) => {
   if (elements.length > 0) {
     elements[0].scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
+
+  // Automatically remove highlights after 3 seconds
+  if (highlightRemovalTimeout) {
+    clearTimeout(highlightRemovalTimeout)
+  }
+  highlightRemovalTimeout = setTimeout(() => {
+    removeHighlights()
+    highlightRemovalTimeout = null
+  }, 3000)
 }
 
 // Remove all highlights
