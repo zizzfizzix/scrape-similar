@@ -120,11 +120,6 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
     })
   }
 
-  // Test main selector (highlight matching elements)
-  const testSelector = () => {
-    onHighlight(config.mainSelector, config.language)
-  }
-
   // Handler to guess config from selector
   const handleGuessConfig = async () => {
     if (!config.mainSelector) return
@@ -171,6 +166,11 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
             id="mainSelector"
             value={config.mainSelector}
             onChange={handleMainSelectorChange}
+            onBlur={() => {
+              if (config.mainSelector) {
+                onHighlight(config.mainSelector, config.language)
+              }
+            }}
             placeholder="Enter XPath or CSS selector"
           />
           <select
@@ -181,14 +181,6 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
             <option value="xpath">XPath</option>
             <option value="css">CSS</option>
           </select>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={testSelector}
-            disabled={!config.mainSelector}
-          >
-            Test
-          </button>
         </div>
 
         {initialOptions?.previewData && initialOptions.previewData.length > 0 && (
