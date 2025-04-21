@@ -23,6 +23,17 @@ const SplashScreen: React.FC = () => (
   </div>
 )
 
+// Clipboard utility
+const copyToClipboard = async (text: string) => {
+  try {
+    await navigator.clipboard.writeText(text)
+    return true
+  } catch (err) {
+    console.error('Failed to copy:', err)
+    return false
+  }
+}
+
 const SidePanel: React.FC = () => {
   // State
   const [activeTab, setActiveTab] = useState<'config' | 'data' | 'presets'>('config')
@@ -47,6 +58,11 @@ const SidePanel: React.FC = () => {
   const [tabUrl, setTabUrl] = useState<string | null>(null)
   const [showPresets, setShowPresets] = useState(false)
   const [contentScriptCommsError, setContentScriptCommsError] = useState<string | null>(null)
+  const [isCopied, setIsCopied] = useState(false)
+  // Copy button state: 'idle' | 'success' | 'failure'
+  const [copyState, setCopyState] = useState<'idle' | 'success' | 'failure'>('idle')
+  // Save CSV button state: 'idle' | 'success' | 'failure'
+  const [saveCsvState, setSaveCsvState] = useState<'idle' | 'success' | 'failure'>('idle')
 
   // Memoized export filename (regenerates if tabUrl changes)
   const exportFilename = React.useMemo(() => {
@@ -463,15 +479,57 @@ const SidePanel: React.FC = () => {
       ),
     ].join('\n')
     const filename = `${exportFilename}.csv`
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.setAttribute('href', url)
-    link.setAttribute('download', filename)
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
+    try {
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.setAttribute('href', url)
+      link.setAttribute('download', filename)
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+      setSaveCsvState('success')
+      setTimeout(() => setSaveCsvState('idle'), 1500)
+    } catch (e) {
+      setSaveCsvState('failure')
+      setTimeout(() => setSaveCsvState('idle'), 1500)
+    }
+  }
+
+  // Escaping function for TSV fields
+  // source: https://en.wikipedia.org/wiki/Tab-separated_values#Character_escaping
+  const escapeTsvField = (value: string) => {
+    return value
+      .replace(/\\/g, '\\\\') // backslash
+      .replace(/\t/g, '\\t') // tab
+      .replace(/\n/g, '\\n') // line feed
+      .replace(/\r/g, '\\r') // carriage return
+  }
+
+  // Handle copy to clipboard as TSV
+  const handleCopyTsv = async () => {
+    if (!scrapedData.length) return
+    const headers = Object.keys(scrapedData[0])
+    const tsvContent = [
+      headers.join('\t'),
+      ...scrapedData.map((row) =>
+        headers
+          .map((header) => {
+            const value = row[header] || ''
+            return escapeTsvField(String(value))
+          })
+          .join('\t'),
+      ),
+    ].join('\n')
+    const success = await copyToClipboard(tsvContent)
+    if (success) {
+      setCopyState('success')
+      setTimeout(() => setCopyState('idle'), 1500)
+    } else {
+      setCopyState('failure')
+      setTimeout(() => setCopyState('idle'), 1500)
+    }
   }
 
   // Handle loading a preset
@@ -570,8 +628,29 @@ const SidePanel: React.FC = () => {
                     isLoading={isExporting}
                     status={exportStatus}
                   />
-                  <button type="button" className="btn btn-secondary" onClick={handleCsvExport}>
-                    Export CSV
+                  <button
+                    type="button"
+                    className={`btn btn-secondary${saveCsvState === 'success' ? ' btn-success' : ''}${saveCsvState === 'failure' ? ' btn-failure' : ''}`}
+                    onClick={handleCsvExport}
+                    disabled={saveCsvState !== 'idle'}
+                  >
+                    {saveCsvState === 'success'
+                      ? 'Saved'
+                      : saveCsvState === 'failure'
+                        ? 'Failed'
+                        : 'Save CSV'}
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn btn-secondary${copyState === 'success' ? ' btn-success' : ''}${copyState === 'failure' ? ' btn-failure' : ''}`}
+                    onClick={handleCopyTsv}
+                    disabled={copyState !== 'idle'}
+                  >
+                    {copyState === 'success'
+                      ? 'Copied'
+                      : copyState === 'failure'
+                        ? 'Failed'
+                        : 'Copy to clipboard'}
                   </button>
                 </div>
               )}
