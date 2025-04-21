@@ -1,15 +1,12 @@
+import { initializeStorage } from '../core/storage'
 import {
-  MESSAGE_TYPES,
-  Message,
-  ScrapedData,
-  ScrapeConfig,
-  SelectionOptions,
-  SidePanelConfig,
   ElementDetailsPayload,
   ExportResult,
-  Preset,
+  Message,
+  MESSAGE_TYPES,
+  ScrapedData,
+  SidePanelConfig,
 } from '../core/types'
-import { getPresets, initializeStorage, savePreset, deletePreset, STORAGE_KEYS } from '../core/storage'
 import { isInjectableUrl } from '../lib/isInjectableUrl'
 
 console.log('background is running')
@@ -20,17 +17,17 @@ const getSessionKey = (tabId: number): string => `sidepanel_config_${tabId}`
 // Inject content script into all eligible tabs
 const injectContentScriptToAllTabs = async () => {
   // Get all tabs
-  const tabs = await chrome.tabs.query({});
-  
+  const tabs = await chrome.tabs.query({})
+
   // Get content scripts from manifest
-  const contentScripts = chrome.runtime.getManifest().content_scripts;
-  if (!contentScripts?.length) return;
+  const contentScripts = chrome.runtime.getManifest().content_scripts
+  if (!contentScripts?.length) return
 
   // Get injectable tabs and script files
-  const injectableTabs = tabs.filter(tab => tab.id && isInjectableUrl(tab.url));
+  const injectableTabs = tabs.filter((tab) => tab.id && isInjectableUrl(tab.url))
   const scriptFiles = contentScripts
-    .filter(script => script.js?.length)
-    .flatMap(script => script.js as string[]);
+    .filter((script) => script.js?.length)
+    .flatMap((script) => script.js as string[])
 
   // Inject scripts into each eligible tab
   for (const tab of injectableTabs) {
@@ -38,18 +35,18 @@ const injectContentScriptToAllTabs = async () => {
       try {
         await chrome.scripting.executeScript({
           target: { tabId: tab.id! },
-          files: [file]
-        });
+          files: [file],
+        })
       } catch (error) {
         // Ignore errors for restricted pages
         console.warn(
           `Failed to inject content script into tab ${tab.id} with url ${tab.url}:`,
-          (error as chrome.runtime.LastError).message
-        );
+          (error as chrome.runtime.LastError).message,
+        )
       }
     }
   }
-};
+}
 
 // Initialize extension when installed or updated
 chrome.runtime.onInstalled.addListener(async () => {
@@ -60,10 +57,10 @@ chrome.runtime.onInstalled.addListener(async () => {
 
   // Set storage.session access level to allow content scripts access
   try {
-    await chrome.storage.session.setAccessLevel({ accessLevel: 'TRUSTED_AND_UNTRUSTED_CONTEXTS' });
-    console.log('Set storage.session access level to allow content scripts access');
+    await chrome.storage.session.setAccessLevel({ accessLevel: 'TRUSTED_AND_UNTRUSTED_CONTEXTS' })
+    console.log('Set storage.session access level to allow content scripts access')
   } catch (error) {
-    console.error('Error setting storage.session access level:', error);
+    console.error('Error setting storage.session access level:', error)
   }
 
   // Create context menu item
@@ -95,13 +92,13 @@ chrome.runtime.onInstalled.addListener(async () => {
   }
 
   // Inject content script into all tabs on install/update
-  injectContentScriptToAllTabs();
+  injectContentScriptToAllTabs()
 })
 
 // Inject content script into all tabs on browser startup (extension enabled)
 chrome.runtime.onStartup.addListener(() => {
-  injectContentScriptToAllTabs();
-});
+  injectContentScriptToAllTabs()
+})
 
 // Handle action button clicks to toggle sidepanel
 chrome.action.onClicked.addListener(async (tab) => {
@@ -114,14 +111,14 @@ chrome.action.onClicked.addListener(async (tab) => {
     await chrome.sidePanel.setOptions({
       tabId,
       path: `sidepanel.html`,
-      enabled: true
+      enabled: true,
     })
     console.log(`Side panel options set for tab ${tabId} via action click`)
 
     // --- Ensure a session state exists for this tab ---
     try {
-      const sessionKey = getSessionKey(tabId);
-      const result = await chrome.storage.session.get(sessionKey);
+      const sessionKey = getSessionKey(tabId)
+      const result = await chrome.storage.session.get(sessionKey)
       // Only save default state if NO config exists yet for this tab
       if (!result[sessionKey]) {
         const defaultPanelState: Partial<SidePanelConfig> = {
@@ -129,14 +126,14 @@ chrome.action.onClicked.addListener(async (tab) => {
           elementDetails: undefined,
           selectionOptions: undefined,
           currentScrapeConfig: undefined, // Start with no specific config
-        };
-        console.log(`[ActionClick] No session state found for tab ${tabId}. Saving default state.`);
-        await chrome.storage.session.set({ [sessionKey]: defaultPanelState });
+        }
+        console.log(`[ActionClick] No session state found for tab ${tabId}. Saving default state.`)
+        await chrome.storage.session.set({ [sessionKey]: defaultPanelState })
       } else {
-        console.log(`[ActionClick] Session state already exists for tab ${tabId}. Not overwriting.`);
+        console.log(`[ActionClick] Session state already exists for tab ${tabId}. Not overwriting.`)
       }
     } catch (error) {
-      console.error(`[ActionClick] Error ensuring session state for tab ${tabId}:`, error);
+      console.error(`[ActionClick] Error ensuring session state for tab ${tabId}:`, error)
     }
     // -------------------------------------------------
 
@@ -159,22 +156,24 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   const targetTabId = tab.id
 
   if (info.menuItemId === 'scrape-similar') {
-    console.log('Scrape similar selected, opening side panel and triggering element details save...')
+    console.log(
+      'Scrape similar selected, opening side panel and triggering element details save...',
+    )
 
     // Always open the side panel (safe even if already open)
     try {
-      await chrome.sidePanel.open({ tabId: targetTabId });
-      console.log(`Side panel opened for tab ${targetTabId}`);
+      await chrome.sidePanel.open({ tabId: targetTabId })
+      console.log(`Side panel opened for tab ${targetTabId}`)
     } catch (error) {
-      console.error(`Error opening side panel for tab ${targetTabId}:`, error);
+      console.error(`Error opening side panel for tab ${targetTabId}:`, error)
     }
 
     // Tell content script to save element details to storage
     try {
-      await chrome.tabs.sendMessage(targetTabId, { type: 'SAVE_ELEMENT_DETAILS_TO_STORAGE' });
-      console.log('Told content script to save element details to storage.');
+      await chrome.tabs.sendMessage(targetTabId, { type: 'SAVE_ELEMENT_DETAILS_TO_STORAGE' })
+      console.log('Told content script to save element details to storage.')
     } catch (error) {
-      console.error('Error sending SAVE_ELEMENT_DETAILS_TO_STORAGE to content script:', error);
+      console.error('Error sending SAVE_ELEMENT_DETAILS_TO_STORAGE to content script:', error)
     }
   }
 })
@@ -239,11 +238,11 @@ const handleContentScriptMessage = async (
     switch (message.type) {
       case 'GET_MY_TAB_ID': {
         // Simple handler to return the tab ID from the sender
-        console.log(`Content script in tab ${tabId} requested its own tab ID`);
-        sendResponse({ tabId });
-        break;
+        console.log(`Content script in tab ${tabId} requested its own tab ID`)
+        sendResponse({ tabId })
+        break
       }
-      
+
       case MESSAGE_TYPES.ELEMENT_DETAILS_READY: {
         const elementDetails = message.payload as ElementDetailsPayload | null
         console.log(`Received element details for tab ${tabId}:`, elementDetails)
@@ -281,45 +280,48 @@ const handleUiMessage = async (
   switch (message.type) {
     case MESSAGE_TYPES.EXPORT_TO_SHEETS: {
       // Require filename in payload
-      const { filename, scrapedData } = message?.payload as { filename: string, scrapedData: ScrapedData };
+      const { filename, scrapedData } = message?.payload as {
+        filename: string
+        scrapedData: ScrapedData
+      }
       if (!filename) {
-        sendResponse({ success: false, error: 'Filename is required for export' });
-        return;
+        sendResponse({ success: false, error: 'Filename is required for export' })
+        return
       }
       if (!scrapedData || !Array.isArray(scrapedData) || scrapedData.length === 0) {
-        sendResponse({ success: false, error: 'No data to export' });
-        return;
+        sendResponse({ success: false, error: 'No data to export' })
+        return
       }
-      console.log('Requesting export to sheets with filename:', filename);
+      console.log('Requesting export to sheets with filename:', filename)
       chrome.identity.getAuthToken({ interactive: true }, async (token) => {
         if (chrome.runtime.lastError) {
-          console.error('Error getting auth token:', chrome.runtime.lastError);
-          const errorMessage = chrome.runtime.lastError.message || 'Unknown OAuth error';
+          console.error('Error getting auth token:', chrome.runtime.lastError)
+          const errorMessage = chrome.runtime.lastError.message || 'Unknown OAuth error'
           sendResponse({
             success: false,
-            error: errorMessage
-          });
-          return;
+            error: errorMessage,
+          })
+          return
         }
         if (!token) {
           sendResponse({
             success: false,
-            error: 'Failed to get authentication token'
-          });
-          return;
+            error: 'Failed to get authentication token',
+          })
+          return
         }
         try {
-          const exportResult = await exportToGoogleSheets(token.toString(), scrapedData, filename);
-          sendResponse(exportResult);
+          const exportResult = await exportToGoogleSheets(token.toString(), scrapedData, filename)
+          sendResponse(exportResult)
         } catch (error) {
           const errorResult = {
             success: false,
-            error: (error as Error).message
-          };
-          sendResponse(errorResult);
+            error: (error as Error).message,
+          }
+          sendResponse(errorResult)
         }
-      });
-      break;
+      })
+      break
     }
 
     default:
@@ -329,7 +331,11 @@ const handleUiMessage = async (
 }
 
 // Export data to Google Sheets
-const exportToGoogleSheets = async (token: string, data: ScrapedData, filename: string): Promise<ExportResult> => {
+const exportToGoogleSheets = async (
+  token: string,
+  data: ScrapedData,
+  filename: string,
+): Promise<ExportResult> => {
   try {
     if (!data || !data.length) {
       return { success: false, error: 'No data to export' }
@@ -350,22 +356,20 @@ const exportToGoogleSheets = async (token: string, data: ScrapedData, filename: 
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-      });
+      })
 
       if (response.status === 401) {
-        await chrome.identity.removeCachedAuthToken({ token });
-        throw new Error('Authentication token expired');
+        await chrome.identity.removeCachedAuthToken({ token })
+        throw new Error('Authentication token expired')
       }
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(
-          `API request failed: ${response.statusText} ${JSON.stringify(errorData)}`
-        );
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(`API request failed: ${response.statusText} ${JSON.stringify(errorData)}`)
       }
 
-      return response.json();
-    };
+      return response.json()
+    }
 
     // Create a new spreadsheet
     const spreadsheet = await makeRequest('https://sheets.googleapis.com/v4/spreadsheets', {
@@ -373,15 +377,15 @@ const exportToGoogleSheets = async (token: string, data: ScrapedData, filename: 
       body: JSON.stringify({
         properties: {
           title: filename,
-        }
+        },
       }),
-    });
+    })
 
-    const spreadsheetId = spreadsheet.spreadsheetId;
-    const spreadsheetUrl = spreadsheet.spreadsheetUrl;
+    const spreadsheetId = spreadsheet.spreadsheetId
+    const spreadsheetUrl = spreadsheet.spreadsheetUrl
 
     // Get the sheet ID from the created spreadsheet
-    const sheetId = spreadsheet.sheets[0].properties.sheetId;
+    const sheetId = spreadsheet.sheets[0].properties.sheetId
 
     // Update values in the sheet first
     await makeRequest(
@@ -393,8 +397,8 @@ const exportToGoogleSheets = async (token: string, data: ScrapedData, filename: 
           majorDimension: 'ROWS',
           values,
         }),
-      }
-    );
+      },
+    )
 
     // Then format the header row and auto-resize using the correct sheet ID
     await makeRequest(
@@ -410,16 +414,16 @@ const exportToGoogleSheets = async (token: string, data: ScrapedData, filename: 
                   startRowIndex: 0,
                   endRowIndex: 1,
                   startColumnIndex: 0,
-                  endColumnIndex: headers.length
+                  endColumnIndex: headers.length,
                 },
                 cell: {
                   userEnteredFormat: {
                     backgroundColor: { red: 0.95, green: 0.95, blue: 0.95 },
-                    textFormat: { bold: true }
-                  }
+                    textFormat: { bold: true },
+                  },
                 },
-                fields: 'userEnteredFormat(backgroundColor,textFormat)'
-              }
+                fields: 'userEnteredFormat(backgroundColor,textFormat)',
+              },
             },
             {
               autoResizeDimensions: {
@@ -427,33 +431,33 @@ const exportToGoogleSheets = async (token: string, data: ScrapedData, filename: 
                   sheetId: sheetId,
                   dimension: 'COLUMNS',
                   startIndex: 0,
-                  endIndex: headers.length
-                }
-              }
-            }
-          ]
-        })
-      }
-    );
+                  endIndex: headers.length,
+                },
+              },
+            },
+          ],
+        }),
+      },
+    )
 
-    console.log(`Successfully exported data to Google Sheet: ${spreadsheetUrl}`);
+    console.log(`Successfully exported data to Google Sheet: ${spreadsheetUrl}`)
     return {
       success: true,
       url: spreadsheetUrl,
-    };
+    }
   } catch (error) {
-    console.error('Error exporting to Google Sheets:', error);
-    
+    console.error('Error exporting to Google Sheets:', error)
+
     if ((error as Error).message.includes('Authentication token expired')) {
       return {
         success: false,
         error: 'Authentication expired. Please try again.',
-      };
+      }
     }
-    
+
     return {
       success: false,
       error: (error as Error).message,
-    };
+    }
   }
-};
+}

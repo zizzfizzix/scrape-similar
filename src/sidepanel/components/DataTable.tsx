@@ -1,5 +1,5 @@
 import React from 'react'
-import { ScrapedData, ScrapeConfig } from '../../core/types'
+import { ScrapeConfig, ScrapedData } from '../../core/types'
 
 interface DataTableProps {
   data: ScrapedData
@@ -8,7 +8,6 @@ interface DataTableProps {
 }
 
 const DataTable: React.FC<DataTableProps> = ({ data, config, onHighlight }) => {
-
   // Get column headers from first row
   const columns = Object.keys(data[0])
 

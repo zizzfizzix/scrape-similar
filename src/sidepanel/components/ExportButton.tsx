@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react'
+import React from 'react'
 
 interface ExportStatus {
   success?: boolean
@@ -33,12 +33,7 @@ const ExportButton: React.FC<ExportButtonProps> = ({ onExport, isLoading, status
   }
 
   return (
-    <button
-      type="button"
-      className={buttonClass}
-      onClick={onClick}
-      disabled={buttonDisabled}
-    >
+    <button type="button" className={buttonClass} onClick={onClick} disabled={buttonDisabled}>
       {isLoading ? <span className="spinner"></span> : null}
       {buttonLabel}
     </button>

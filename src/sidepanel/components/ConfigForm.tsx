@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react'
-import { ColumnDefinition, ScrapeConfig, SelectionOptions, Preset } from '../../core/types'
+import React, { useEffect, useRef, useState } from 'react'
+import { Preset, ScrapeConfig, SelectionOptions } from '../../core/types'
 import PresetsManager from './PresetsManager'
 
 interface ConfigFormProps {

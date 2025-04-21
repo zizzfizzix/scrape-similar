@@ -1,4 +1,4 @@
-import { ColumnDefinition, ScrapedData, ScrapedRow, ScrapeConfig, SelectorLanguage } from './types'
+import { ColumnDefinition, ScrapeConfig, ScrapedData, ScrapedRow, SelectorLanguage } from './types'
 
 /**
  * Scrape data from the page based on the provided configuration
