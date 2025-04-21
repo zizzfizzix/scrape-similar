@@ -1,31 +1,12 @@
-console.log('CONTENT SCRIPT TOP LEVEL EXECUTION START')
-
 import {
   findElements,
   getSelectorSuggestions,
   guessScrapeConfigForElement,
   scrapePage,
 } from '../core/scraper'
-import { ElementDetailsPayload, MESSAGE_TYPES, Message, ScrapeConfig } from '../core/types'
+import { MESSAGE_TYPES, Message, ScrapeConfig } from '../core/types'
 
 console.info('Modern Scraper content script is running')
-
-// Notify background script that content script has loaded
-function notifyBackgroundScriptLoaded() {
-  console.log('Notifying background script that content script is ready')
-  chrome.runtime.sendMessage(
-    {
-      type: 'CONTENT_SCRIPT_LOADED',
-      payload: { location: window.location.href },
-    },
-    (response) => {
-      console.log('Background script responded to load notification:', response)
-    },
-  )
-}
-
-// Execute this when content script loads
-notifyBackgroundScriptLoaded()
 
 // Track the currently highlighted elements
 let highlightedElements: HTMLElement[] = []
@@ -105,45 +86,6 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
 
   try {
     switch (message.type) {
-      case MESSAGE_TYPES.CONTEXT_MENU_ACTION_TRIGGERED: {
-        console.log('Context menu action triggered, sending cached details back.')
-        if (lastRightClickedElementDetails) {
-          chrome.runtime.sendMessage({
-            type: MESSAGE_TYPES.ELEMENT_DETAILS_READY,
-            payload: lastRightClickedElementDetails,
-          })
-          console.log('Sent element details:', lastRightClickedElementDetails)
-        } else {
-          console.warn('No cached element details found to send.')
-          // Optionally send a message indicating no details were found
-          chrome.runtime.sendMessage({
-            type: MESSAGE_TYPES.ELEMENT_DETAILS_READY,
-            payload: null, // Explicitly send null
-          })
-        }
-        sendResponse({ received: true })
-        break
-      }
-
-      // Handle request from Background script for cached details from last right-click
-      case MESSAGE_TYPES.REQUEST_CACHED_ELEMENT_DETAILS: {
-        console.log('Background script requested cached element details...')
-        if (lastRightClickedElementDetails) {
-          const payload: ElementDetailsPayload = {
-            xpath: lastRightClickedElementDetails.xpath,
-            css: lastRightClickedElementDetails.css,
-            text: lastRightClickedElementDetails.text,
-          }
-          console.log('Sending cached details to background:', payload)
-          sendResponse({ success: true, payload: payload })
-        } else {
-          console.warn('No cached element details available for background request.')
-          sendResponse({ success: false, payload: null, error: 'No cached element details.' })
-        }
-        // Required: Signal async response
-        return true
-      }
-
       case MESSAGE_TYPES.START_SCRAPE: {
         console.log('Starting scrape with config (direct from UI):', message.payload)
         const config = message.payload as ScrapeConfig
@@ -236,7 +178,7 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
       }
 
       // Handle request to save last right-clicked element details to storage
-      case 'SAVE_ELEMENT_DETAILS_TO_STORAGE': {
+      case MESSAGE_TYPES.SAVE_ELEMENT_DETAILS_TO_STORAGE: {
         if (!lastRightClickedElementDetails) {
           console.warn('No lastRightClickedElementDetails to save.')
           sendResponse({ success: false, error: 'No element details in memory.' })
@@ -314,10 +256,6 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
     }
   } catch (error) {
     console.error('Error in content script:', error)
-    chrome.runtime.sendMessage({
-      type: MESSAGE_TYPES.CONTENT_SCRIPT_ERROR,
-      payload: (error as Error).message,
-    })
   }
 })
 console.log('CONTENT SCRIPT MESSAGE LISTENER ADDED')

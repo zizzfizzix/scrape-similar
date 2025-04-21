@@ -1,12 +1,5 @@
 import { initializeStorage } from '../core/storage'
-import {
-  ElementDetailsPayload,
-  ExportResult,
-  Message,
-  MESSAGE_TYPES,
-  ScrapedData,
-  SidePanelConfig,
-} from '../core/types'
+import { ExportResult, Message, MESSAGE_TYPES, ScrapedData, SidePanelConfig } from '../core/types'
 import { isInjectableUrl } from '../lib/isInjectableUrl'
 
 console.log('background is running')
@@ -170,7 +163,9 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
     // Tell content script to save element details to storage
     try {
-      await chrome.tabs.sendMessage(targetTabId, { type: 'SAVE_ELEMENT_DETAILS_TO_STORAGE' })
+      await chrome.tabs.sendMessage(targetTabId, {
+        type: MESSAGE_TYPES.SAVE_ELEMENT_DETAILS_TO_STORAGE,
+      })
       console.log('Told content script to save element details to storage.')
     } catch (error) {
       console.error('Error sending SAVE_ELEMENT_DETAILS_TO_STORAGE to content script:', error)
@@ -193,13 +188,6 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
 // Handle messages from content scripts and UI
 chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) => {
   console.log('Background received message:', message, 'from sender:', sender)
-
-  // Handle content script loaded notification
-  if (message.type === 'CONTENT_SCRIPT_LOADED') {
-    console.log('Content script loaded notification received')
-    sendResponse({ acknowledged: true })
-    return true
-  }
 
   // Handle messages from content script (always have sender.tab)
   if (sender.tab && sender.tab.id) {
@@ -242,24 +230,6 @@ const handleContentScriptMessage = async (
         sendResponse({ tabId })
         break
       }
-
-      case MESSAGE_TYPES.ELEMENT_DETAILS_READY: {
-        const elementDetails = message.payload as ElementDetailsPayload | null
-        console.log(`Received element details for tab ${tabId}:`, elementDetails)
-
-        // Update session data instead
-        currentData.elementDetails = elementDetails || undefined
-        await chrome.storage.session.set({ [sessionKey]: currentData })
-        console.log(`Updated element details in session for tab ${tabId}`)
-
-        sendResponse({ success: true })
-        break
-      }
-
-      case MESSAGE_TYPES.CONTENT_SCRIPT_ERROR:
-        console.error(`Content script error in tab ${tabId}:`, message.payload)
-        sendResponse({ success: false, error: message.payload })
-        break
 
       default:
         console.warn(`Unhandled content script message type for tab ${tabId}: ${message.type}`)
