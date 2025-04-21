@@ -6,7 +6,7 @@ interface ConfigFormProps {
   config: ScrapeConfig
   onChange: (config: ScrapeConfig) => void
   onScrape: () => void
-  onHighlight: (selector: string, language: string) => void
+  onHighlight: (selector: string) => void
   isLoading: boolean
   initialOptions: SelectionOptions | null
   presets: Preset[]
@@ -62,14 +62,6 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
     })
   }
 
-  // Handle language change
-  const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    onChange({
-      ...config,
-      language: e.target.value as 'xpath' | 'css',
-    })
-  }
-
   // Handle column name change
   const handleColumnNameChange = (index: number, value: string) => {
     const newColumns = [...config.columns]
@@ -90,23 +82,13 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
     })
   }
 
-  // Handle column language change
-  const handleColumnLanguageChange = (index: number, value: 'xpath' | 'css') => {
-    const newColumns = [...config.columns]
-    newColumns[index] = { ...newColumns[index], language: value }
-    onChange({
-      ...config,
-      columns: newColumns,
-    })
-  }
-
   // Add a new column
   const addColumn = () => {
     if (!newColumnName.trim()) return
 
     onChange({
       ...config,
-      columns: [...config.columns, { name: newColumnName, selector: '.', language: 'xpath' }],
+      columns: [...config.columns, { name: newColumnName, selector: '.' }],
     })
 
     setNewColumnName('')
@@ -136,7 +118,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
           tab.id,
           {
             type: MESSAGE_TYPES.GUESS_CONFIG_FROM_SELECTOR,
-            payload: { mainSelector: config.mainSelector, language: config.language },
+            payload: { mainSelector: config.mainSelector },
           },
           (response) => {
             if (response && response.success === true) {
@@ -168,19 +150,11 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
             onChange={handleMainSelectorChange}
             onBlur={() => {
               if (config.mainSelector) {
-                onHighlight(config.mainSelector, config.language)
+                onHighlight(config.mainSelector)
               }
             }}
-            placeholder="Enter XPath or CSS selector"
+            placeholder="Enter XPath selector"
           />
-          <select
-            value={config.language}
-            onChange={handleLanguageChange}
-            aria-label="Selector language"
-          >
-            <option value="xpath">XPath</option>
-            <option value="css">CSS</option>
-          </select>
         </div>
 
         {initialOptions?.previewData && initialOptions.previewData.length > 0 && (
@@ -220,16 +194,6 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                   onChange={(e) => handleColumnSelectorChange(index, e.target.value)}
                   placeholder="Selector"
                 />
-                <select
-                  value={column.language}
-                  onChange={(e) =>
-                    handleColumnLanguageChange(index, e.target.value as 'xpath' | 'css')
-                  }
-                  aria-label="Column selector language"
-                >
-                  <option value="xpath">XPath</option>
-                  <option value="css">CSS</option>
-                </select>
                 <div className="column-actions">
                   <button
                     type="button"
@@ -269,10 +233,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                 const defaultName = `Column ${config.columns.length + 1}`
                 onChange({
                   ...config,
-                  columns: [
-                    ...config.columns,
-                    { name: defaultName, selector: '.', language: 'xpath' },
-                  ],
+                  columns: [...config.columns, { name: defaultName, selector: '.' }],
                 })
                 setShouldScrollToEnd(true)
               }}

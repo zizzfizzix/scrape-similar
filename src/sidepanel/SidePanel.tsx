@@ -43,8 +43,7 @@ const SidePanel: React.FC = () => {
   const [initialOptions, setInitialOptions] = useState<SelectionOptions | null>(null)
   const [config, setConfig] = useState<ScrapeConfig>({
     mainSelector: '',
-    language: 'xpath',
-    columns: [{ name: 'Text', selector: '.', language: 'xpath' }],
+    columns: [{ name: 'Text', selector: '.' }],
   })
   const [scrapedData, setScrapedData] = useState<ScrapedDataResult | null>(null)
   const [presets, setPresets] = useState<Preset[]>([])
@@ -184,8 +183,7 @@ const SidePanel: React.FC = () => {
       // --- Reset state before applying new data ---
       const defaultConfig: ScrapeConfig = {
         mainSelector: '',
-        language: 'xpath',
-        columns: [{ name: 'Text', selector: '.', language: 'xpath' }],
+        columns: [{ name: 'Text', selector: '.' }],
       }
       let newConfig = defaultConfig
       let newOptions: SelectionOptions | null = null // Explicitly allow null
@@ -208,7 +206,6 @@ const SidePanel: React.FC = () => {
         newConfig = {
           ...defaultConfig, // Start with default columns
           mainSelector: elementDetails.xpath,
-          language: 'xpath',
         }
       }
       // Update the config state
@@ -222,10 +219,7 @@ const SidePanel: React.FC = () => {
         // Construct initialOptions from elementDetails if selectionOptions not available
         console.log('Constructing initialOptions from elementDetails')
         const options: SelectionOptions = {
-          selectors: {
-            xpath: elementDetails.xpath,
-            css: elementDetails.css,
-          },
+          xpath: elementDetails.xpath,
           selectedText: initialSelectionText || elementDetails.text,
           previewData: [], // Preview might need separate handling or message
         }
@@ -427,14 +421,14 @@ const SidePanel: React.FC = () => {
   }
 
   // Handle highlight request
-  const handleHighlight = (selector: string, language: string) => {
+  const handleHighlight = (selector: string) => {
     setContentScriptCommsError(null)
     if (!targetTabId) return
     chrome.tabs.sendMessage(
       targetTabId,
       {
         type: MESSAGE_TYPES.HIGHLIGHT_ELEMENTS,
-        payload: { selector, language },
+        payload: { selector },
       },
       (response) => {
         if (!response && chrome.runtime.lastError) {

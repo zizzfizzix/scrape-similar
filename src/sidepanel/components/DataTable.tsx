@@ -4,7 +4,7 @@ import { ScrapeConfig, ScrapedData } from '../../core/types'
 interface DataTableProps {
   data: ScrapedData
   config: ScrapeConfig
-  onHighlight: (selector: string, language: string) => void
+  onHighlight: (selector: string) => void
   columnOrder?: string[]
 }
 
@@ -15,16 +15,8 @@ const DataTable: React.FC<DataTableProps> = ({ data, config, onHighlight, column
 
   // Highlight a row by using the main selector with index
   const handleHighlightRow = (rowIndex: number) => {
-    // This is a simplified approach - in a real implementation, we might
-    // need to track the actual DOM elements corresponding to each row
-    if (config.language === 'xpath') {
-      // For XPath, we add position filtering
-      const rowSelector = `(${config.mainSelector})[${rowIndex + 1}]`
-      onHighlight(rowSelector, 'xpath')
-    } else {
-      // For CSS, we add :nth-child if possible
-      onHighlight(`${config.mainSelector}:nth-child(${rowIndex + 1})`, 'css')
-    }
+    const rowSelector = `(${config.mainSelector})[${rowIndex + 1}]`
+    onHighlight(rowSelector)
   }
 
   return (

@@ -1,7 +1,7 @@
 import {
-  findElements,
-  getSelectorSuggestions,
+  evaluateXPath,
   guessScrapeConfigForElement,
+  minimizeXPath,
   scrapePage,
 } from '../core/scraper'
 import { MESSAGE_TYPES, Message, ScrapeConfig } from '../core/types'
@@ -18,7 +18,6 @@ let lastRightClickedElement: HTMLElement | null = null
 // Store the last right-clicked element details (XPath, selector)
 interface ElementDetails {
   xpath: string
-  css: string
   text: string
   html: string
 }
@@ -41,10 +40,9 @@ chrome.runtime.sendMessage({ type: 'GET_MY_TAB_ID' }, (response) => {
 const rightClickListener = (event: MouseEvent) => {
   lastRightClickedElement = event.target as HTMLElement
   if (lastRightClickedElement) {
-    const selectors = getSelectorSuggestions(lastRightClickedElement)
+    const selector = minimizeXPath(lastRightClickedElement)
     lastRightClickedElementDetails = {
-      xpath: selectors.xpath,
-      css: selectors.css,
+      xpath: selector,
       text: lastRightClickedElement.textContent || '',
       html: lastRightClickedElement.outerHTML,
     }
@@ -162,8 +160,8 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
 
       case MESSAGE_TYPES.HIGHLIGHT_ELEMENTS: {
         console.log('Highlighting elements:', message.payload)
-        const { selector, language } = message.payload as { selector: string; language: string }
-        highlightMatchingElements(selector, language)
+        const { selector } = message.payload as { selector: string }
+        highlightMatchingElements(selector)
 
         // Respond directly to the UI that sent this message
         sendResponse({
@@ -203,7 +201,6 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
           const updatedConfig = {
             ...existingConfig,
             mainSelector: details.xpath,
-            language: 'xpath',
           }
           const updatedData = {
             ...existingData,
@@ -224,12 +221,12 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
 
       case MESSAGE_TYPES.GUESS_CONFIG_FROM_SELECTOR: {
         // Guess config from selector and update storage
-        const { mainSelector, language } = message.payload || {}
-        if (!mainSelector || !language) {
-          sendResponse({ success: false, error: 'Missing mainSelector or language' })
+        const { mainSelector } = message.payload || {}
+        if (!mainSelector) {
+          sendResponse({ success: false, error: 'Missing mainSelector' })
           break
         }
-        const elements = findElements(mainSelector, language)
+        const elements = evaluateXPath(mainSelector)
         if (elements.length === 0) {
           sendResponse({ success: false, error: 'No elements found for selector' })
           break
@@ -238,7 +235,6 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
         const updatedConfig = {
           ...guessed,
           mainSelector,
-          language,
         }
         const sessionKey = `sidepanel_config_${tabId}`
         chrome.storage.session.get(sessionKey, (result) => {
@@ -278,23 +274,19 @@ const getSelectionOptions = (selectionText?: string) => {
         console.log('Using stored XPath selector:', details.xpath)
 
         // Generate preview data for these selectors
-        const elements = findElements(details.xpath, 'xpath')
+        const elements = evaluateXPath(details.xpath)
         const previewData = extractPreviewData(elements.slice(0, 3).map((el) => el as HTMLElement))
 
         // Try a quick scrape with a basic configuration
         const quickScrapeConfig = {
           mainSelector: details.xpath,
-          language: 'xpath' as const,
-          columns: [{ name: 'Text', selector: '.', language: 'xpath' as const }],
+          columns: [{ name: 'Text', selector: '.' }],
         }
 
         const quickScrapeResult = scrapePage(quickScrapeConfig)
 
         return {
-          selectors: {
-            xpath: details.xpath,
-            css: details.css,
-          },
+          xpath: details.xpath,
           selectedText: selectionText || details.text,
           previewData,
           quickScrapeResult,
@@ -335,18 +327,17 @@ const getSelectionOptions = (selectionText?: string) => {
   }
 
   // Get selector suggestions for the target element
-  const selectorSuggestions = getSelectorSuggestions(targetElement)
+  const selectorSuggestions = minimizeXPath(targetElement)
   console.log('Generated selector suggestions:', selectorSuggestions)
 
-  // Generate preview data for these selectors
+  // Generate preview data for the suggested XPath selector
   const previewData = generatePreviewData(targetElement, selectorSuggestions)
   console.log('Generated preview data:', previewData)
 
   // Try a quick scrape with a basic configuration to demonstrate
   const quickScrapeConfig = {
-    mainSelector: selectorSuggestions.xpath,
-    language: 'xpath' as const,
-    columns: [{ name: 'Text', selector: '.', language: 'xpath' as const }],
+    mainSelector: selectorSuggestions,
+    columns: [{ name: 'Text', selector: '.' }],
   }
 
   const quickScrapeResult = scrapePage(quickScrapeConfig)
@@ -361,20 +352,13 @@ const getSelectionOptions = (selectionText?: string) => {
 }
 
 // Generate preview data for the suggested selectors
-const generatePreviewData = (element: HTMLElement, selectors: { xpath: string; css: string }) => {
+const generatePreviewData = (element: HTMLElement, selector: string) => {
   // Try to find similar elements using XPath selector
-  const xpathElements = findElements(selectors.xpath, 'xpath')
+  const xpathElements = evaluateXPath(selector)
   if (xpathElements.length > 1) {
     // Found multiple elements with XPath, good for preview
     return extractPreviewData(xpathElements.slice(0, 3).map((el) => el as HTMLElement))
   }
-
-  // Try CSS selector if XPath didn't find multiple elements
-  const cssElements = findElements(selectors.css, 'css')
-  if (cssElements.length > 1) {
-    return extractPreviewData(cssElements.slice(0, 3).map((el) => el as HTMLElement))
-  }
-
   // If no good selectors, just return the current element
   return extractPreviewData([element])
 }
@@ -393,12 +377,12 @@ const extractPreviewData = (elements: HTMLElement[]) => {
 }
 
 // Highlight matching elements in the page
-const highlightMatchingElements = (selector: string, language: string) => {
+const highlightMatchingElements = (selector: string) => {
   // Remove previous highlights
   removeHighlights()
 
   // Find elements matching the selector
-  const elements = findElements(selector, language === 'xpath' ? 'xpath' : 'css')
+  const elements = evaluateXPath(selector)
 
   // Apply highlights
   elements.forEach((element) => {

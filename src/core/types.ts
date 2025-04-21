@@ -1,14 +1,10 @@
-export type SelectorLanguage = 'xpath' | 'css'
-
 export interface ColumnDefinition {
   name: string
   selector: string
-  language: SelectorLanguage
 }
 
 export interface ScrapeConfig {
   mainSelector: string
-  language: SelectorLanguage
   columns: ColumnDefinition[]
 }
 
@@ -31,10 +27,7 @@ export interface Preset {
 }
 
 export interface SelectionOptions {
-  selectors: {
-    xpath: string
-    css: string
-  }
+  xpath: string
   selectedText?: string
   previewData?: ScrapedRow[]
 }
@@ -49,7 +42,6 @@ export interface SidePanelConfig {
 
 export type ElementDetailsPayload = {
   xpath: string
-  css: string
   text?: string
 } | null
 

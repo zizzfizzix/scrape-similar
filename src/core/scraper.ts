@@ -1,15 +1,15 @@
-import { ColumnDefinition, ScrapeConfig, ScrapedData, ScrapedRow, SelectorLanguage } from './types'
+import { ColumnDefinition, ScrapeConfig, ScrapedData, ScrapedRow } from './types'
 
 /**
  * Scrape data from the page based on the provided configuration
  */
 export const scrapePage = (config: ScrapeConfig): ScrapedData => {
   try {
-    const { mainSelector, language, columns } = config
+    const { mainSelector, columns } = config
     const results: ScrapedRow[] = []
 
     // Find all primary elements using the main selector
-    const primaryElements = findElements(mainSelector, language)
+    const primaryElements = evaluateXPath(mainSelector)
 
     // For each primary element, extract data for each column
     primaryElements.forEach((element) => {
@@ -30,17 +30,6 @@ export const scrapePage = (config: ScrapeConfig): ScrapedData => {
   } catch (error) {
     console.error('Error scraping page:', error)
     return []
-  }
-}
-
-/**
- * Find elements using the provided selector and language
- */
-export const findElements = (selector: string, language: SelectorLanguage): HTMLElement[] => {
-  if (language === 'xpath') {
-    return evaluateXPath(selector)
-  } else {
-    return Array.from(document.querySelectorAll(selector)) as HTMLElement[]
   }
 }
 
@@ -81,7 +70,7 @@ export const evaluateXPathValues = (
  */
 export const extractData = (element: HTMLElement, column: ColumnDefinition): string => {
   try {
-    const { selector, language } = column
+    const { selector } = column
 
     // Special case: if selector is '.', extract text content of the element itself
     if (selector === '.') {
@@ -94,23 +83,14 @@ export const extractData = (element: HTMLElement, column: ColumnDefinition): str
       return element.getAttribute(attributeName) || ''
     }
 
-    // Otherwise, find child elements or values and extract from the first match
-    if (language === 'xpath') {
-      const values = evaluateXPathValues(selector, element)
-      if (values.length > 0) {
-        // If it's an element, return its textContent; otherwise, return the string value
-        const first = values[0]
-        if (typeof first === 'string') return first.trim()
-        if (first instanceof HTMLElement) return first.textContent?.trim() || ''
-      }
-      return ''
-    } else {
-      const childElements = Array.from(element.querySelectorAll(selector)) as HTMLElement[]
-      if (childElements.length > 0) {
-        return childElements[0].textContent?.trim() || ''
-      }
-      return ''
+    const values = evaluateXPathValues(selector, element)
+    if (values.length > 0) {
+      // If it's an element, return its textContent; otherwise, return the string value
+      const first = values[0]
+      if (typeof first === 'string') return first.trim()
+      if (first instanceof HTMLElement) return first.textContent?.trim() || ''
     }
+    return ''
   } catch (error) {
     console.error('Error extracting data:', error)
     return ''
@@ -234,54 +214,6 @@ export const minimizeXPath = (node: Element): string => {
 }
 
 /**
- * Generate CSS selector for an element
- */
-export const generateCssSelector = (element: HTMLElement): string => {
-  // Generate unique selector based on ID, classes, and position
-  if (element.id) {
-    return `#${element.id}`
-  }
-
-  // Try with class names if they're not too common
-  if (element.className) {
-    const classes = element.className.split(' ').filter((c) => c.trim())
-    if (classes.length > 0) {
-      const selector = `.${classes.join('.')}`
-      if (document.querySelectorAll(selector).length === 1) {
-        return selector
-      }
-    }
-  }
-
-  // Fall back to tag name and position
-  let selector = element.tagName.toLowerCase()
-  let parent = element.parentElement
-
-  if (parent) {
-    // Add parent information for more specificity
-    if (parent.id) {
-      return `#${parent.id} > ${selector}`
-    }
-
-    // Try adding nth-child for specificity
-    const index = Array.from(parent.children).indexOf(element) + 1
-    return `${generateCssSelector(parent)} > ${selector}:nth-child(${index})`
-  }
-
-  return selector
-}
-
-/**
- * Get selector suggestions for a given element, using minimized XPath.
- */
-export const getSelectorSuggestions = (element: HTMLElement): { xpath: string; css: string } => {
-  return {
-    xpath: minimizeXPath(element),
-    css: generateCssSelector(element),
-  }
-}
-
-/**
  * Guess a ScrapeConfig for a given element, inspired by bit155 logic but modernized.
  * Handles tables, links, images, lists, and default cases.
  */
@@ -291,7 +223,6 @@ export const guessScrapeConfigForElement = (element: HTMLElement): ScrapeConfig 
       'tr, a, img, dt, li, button, input, textarea, select, h1, h2, h3, h4, h5, h6, article, section, main, aside, figure',
     ) as HTMLElement) || element
   let tagName = ancestor.tagName.toLowerCase()
-  let language: SelectorLanguage = 'xpath'
   let mainSelector = minimizeXPath(ancestor)
   let columns: ColumnDefinition[] = []
 
@@ -302,7 +233,6 @@ export const guessScrapeConfigForElement = (element: HTMLElement): ScrapeConfig 
       .map((attr) => ({
         name: attr.name,
         selector: `@${attr.name}`,
-        language: 'xpath' as const,
       }))
 
   switch (tagName) {
@@ -314,13 +244,11 @@ export const guessScrapeConfigForElement = (element: HTMLElement): ScrapeConfig 
         columns = ths.map((th, i) => ({
           name: getText(th) || `Column ${i + 1}`,
           selector: `*[${i + 1}]`,
-          language: 'xpath' as const,
         }))
       } else {
         columns = tds.map((_, i) => ({
           name: `Column ${i + 1}`,
           selector: `*[${i + 1}]`,
-          language: 'xpath' as const,
         }))
       }
       mainSelector += '[td]'
@@ -328,71 +256,68 @@ export const guessScrapeConfigForElement = (element: HTMLElement): ScrapeConfig 
     }
     case 'a':
       columns = [
-        { name: 'Anchor text', selector: '.', language: 'xpath' as const },
-        { name: 'URL', selector: '@href', language: 'xpath' as const },
-        { name: 'Rel', selector: '@rel', language: 'xpath' as const },
-        { name: 'Target', selector: '@target', language: 'xpath' as const },
+        { name: 'Anchor text', selector: '.' },
+        { name: 'URL', selector: '@href' },
+        { name: 'Rel', selector: '@rel' },
+        { name: 'Target', selector: '@target' },
         ...getDataAttributes(ancestor),
       ]
       break
     case 'img':
       columns = [
-        { name: 'Alt Text', selector: '@alt', language: 'xpath' as const },
-        { name: 'Source', selector: '@src', language: 'xpath' as const },
-        { name: 'Title', selector: '@title', language: 'xpath' as const },
+        { name: 'Alt Text', selector: '@alt' },
+        { name: 'Source', selector: '@src' },
+        { name: 'Title', selector: '@title' },
         ...getDataAttributes(ancestor),
       ]
       break
     case 'button':
       columns = [
-        { name: 'Text', selector: '.', language: 'xpath' as const },
-        { name: 'Value', selector: '@value', language: 'xpath' as const },
-        { name: 'ARIA Label', selector: '@aria-label', language: 'xpath' as const },
-        { name: 'Disabled', selector: '@disabled', language: 'xpath' as const },
+        { name: 'Text', selector: '.' },
+        { name: 'Value', selector: '@value' },
+        { name: 'ARIA Label', selector: '@aria-label' },
+        { name: 'Disabled', selector: '@disabled' },
         ...getDataAttributes(ancestor),
       ]
       break
     case 'input': {
       const type = ancestor.getAttribute('type') || ''
       columns = [
-        { name: 'Value', selector: '@value', language: 'xpath' as const },
-        { name: 'Placeholder', selector: '@placeholder', language: 'xpath' as const },
-        { name: 'Name', selector: '@name', language: 'xpath' as const },
-        { name: 'Type', selector: '@type', language: 'xpath' as const },
+        { name: 'Value', selector: '@value' },
+        { name: 'Placeholder', selector: '@placeholder' },
+        { name: 'Name', selector: '@name' },
+        { name: 'Type', selector: '@type' },
         ...getDataAttributes(ancestor),
       ]
       if (type === 'checkbox' || type === 'radio') {
-        columns.push({ name: 'Checked', selector: '@checked', language: 'xpath' as const })
+        columns.push({ name: 'Checked', selector: '@checked' })
       }
       break
     }
     case 'textarea':
       columns = [
-        { name: 'Value', selector: '.', language: 'xpath' as const },
-        { name: 'Placeholder', selector: '@placeholder', language: 'xpath' as const },
-        { name: 'Name', selector: '@name', language: 'xpath' as const },
+        { name: 'Value', selector: '.' },
+        { name: 'Placeholder', selector: '@placeholder' },
+        { name: 'Name', selector: '@name' },
         ...getDataAttributes(ancestor),
       ]
       break
     case 'select':
       columns = [
-        { name: 'Selected Option', selector: 'option[@selected]', language: 'xpath' as const },
-        { name: 'Name', selector: '@name', language: 'xpath' as const },
+        { name: 'Selected Option', selector: 'option[@selected]' },
+        { name: 'Name', selector: '@name' },
         ...getDataAttributes(ancestor),
       ]
       break
     case 'dt':
       columns = [
-        { name: 'Term', selector: '.', language: 'xpath' as const },
-        { name: 'Definition', selector: './following-sibling::dd', language: 'xpath' as const },
+        { name: 'Term', selector: '.' },
+        { name: 'Definition', selector: './following-sibling::dd' },
         ...getDataAttributes(ancestor),
       ]
       break
     case 'li':
-      columns = [
-        { name: 'List Item', selector: '.', language: 'xpath' as const },
-        ...getDataAttributes(ancestor),
-      ]
+      columns = [{ name: 'List Item', selector: '.' }, ...getDataAttributes(ancestor)]
       break
     case 'h1':
     case 'h2':
@@ -401,8 +326,8 @@ export const guessScrapeConfigForElement = (element: HTMLElement): ScrapeConfig 
     case 'h5':
     case 'h6':
       columns = [
-        { name: 'Heading', selector: '.', language: 'xpath' as const },
-        { name: 'ARIA Label', selector: '@aria-label', language: 'xpath' as const },
+        { name: 'Heading', selector: '.' },
+        { name: 'ARIA Label', selector: '@aria-label' },
         ...getDataAttributes(ancestor),
       ]
       break
@@ -411,8 +336,8 @@ export const guessScrapeConfigForElement = (element: HTMLElement): ScrapeConfig 
     case 'main':
     case 'aside':
       columns = [
-        { name: 'Text', selector: '.', language: 'xpath' as const },
-        { name: 'ARIA Label', selector: '@aria-label', language: 'xpath' as const },
+        { name: 'Text', selector: '.' },
+        { name: 'ARIA Label', selector: '@aria-label' },
       ]
       // Try to find the first heading inside
       const heading = ancestor.querySelector('h1,h2,h3,h4,h5,h6')
@@ -420,59 +345,58 @@ export const guessScrapeConfigForElement = (element: HTMLElement): ScrapeConfig 
         columns.push({
           name: 'Headline',
           selector: heading.tagName.toLowerCase(),
-          language: 'xpath' as const,
         })
       }
       columns.push(...getDataAttributes(ancestor))
       break
     case 'figure':
       columns = [
-        { name: 'Image Source', selector: './/img/@src', language: 'xpath' as const },
-        { name: 'Image Alt', selector: './/img/@alt', language: 'xpath' as const },
-        { name: 'Image Title', selector: './/img/@title', language: 'xpath' as const },
-        { name: 'Caption', selector: 'figcaption', language: 'xpath' as const },
-        { name: 'Code', selector: 'pre|code', language: 'xpath' as const },
-        { name: 'Blockquote', selector: 'blockquote', language: 'xpath' as const },
-        { name: 'Paragraph', selector: 'p', language: 'xpath' as const },
-        { name: 'Figure Text', selector: '.', language: 'xpath' as const },
+        { name: 'Image Source', selector: './/img/@src' },
+        { name: 'Image Alt', selector: './/img/@alt' },
+        { name: 'Image Title', selector: './/img/@title' },
+        { name: 'Caption', selector: 'figcaption' },
+        { name: 'Code', selector: 'pre|code' },
+        { name: 'Blockquote', selector: 'blockquote' },
+        { name: 'Paragraph', selector: 'p' },
+        { name: 'Figure Text', selector: '.' },
         ...getDataAttributes(ancestor),
       ]
       break
     case 'blockquote':
       columns = [
-        { name: 'Quote', selector: '.', language: 'xpath' as const },
-        { name: 'Citation', selector: '@cite', language: 'xpath' as const },
-        { name: 'Footer', selector: 'footer', language: 'xpath' as const },
-        { name: 'Cite Element', selector: 'cite', language: 'xpath' as const },
+        { name: 'Quote', selector: '.' },
+        { name: 'Citation', selector: '@cite' },
+        { name: 'Footer', selector: 'footer' },
+        { name: 'Cite Element', selector: 'cite' },
         ...getDataAttributes(ancestor),
       ]
       break
     case 'pre':
     case 'code':
       columns = [
-        { name: 'Code', selector: '.', language: 'xpath' as const },
-        { name: 'Language', selector: '@data-language', language: 'xpath' as const },
-        { name: 'Class', selector: '@class', language: 'xpath' as const },
+        { name: 'Code', selector: '.' },
+        { name: 'Language', selector: '@data-language' },
+        { name: 'Class', selector: '@class' },
         ...getDataAttributes(ancestor),
       ]
       // If parent is figure, add figcaption
       if (ancestor.parentElement?.tagName.toLowerCase() === 'figure') {
-        columns.push({ name: 'Caption', selector: 'figcaption', language: 'xpath' as const })
+        columns.push({ name: 'Caption', selector: 'figcaption' })
       }
       break
     case 'colgroup':
       columns = [
-        { name: 'Span', selector: '@span', language: 'xpath' as const },
-        { name: 'Class', selector: '@class', language: 'xpath' as const },
-        { name: 'Style', selector: '@style', language: 'xpath' as const },
+        { name: 'Span', selector: '@span' },
+        { name: 'Class', selector: '@class' },
+        { name: 'Style', selector: '@style' },
         ...getDataAttributes(ancestor),
       ]
       break
     case 'col':
       columns = [
-        { name: 'Span', selector: '@span', language: 'xpath' as const },
-        { name: 'Class', selector: '@class', language: 'xpath' as const },
-        { name: 'Style', selector: '@style', language: 'xpath' as const },
+        { name: 'Span', selector: '@span' },
+        { name: 'Class', selector: '@class' },
+        { name: 'Style', selector: '@style' },
         ...getDataAttributes(ancestor),
       ]
       break
@@ -481,17 +405,15 @@ export const guessScrapeConfigForElement = (element: HTMLElement): ScrapeConfig 
       const ths = Array.from(ancestor.querySelectorAll('th'))
       const cols = Array.from(ancestor.querySelectorAll('col'))
       columns = [
-        ...(caption ? [{ name: 'Caption', selector: 'caption', language: 'xpath' as const }] : []),
+        ...(caption ? [{ name: 'Caption', selector: 'caption' }] : []),
         ...ths.map((th, i) => ({
           name: getText(th) || `Column ${i + 1}`,
           selector: `.//tr/td[${i + 1}]`,
-          language: 'xpath' as const,
         })),
-        { name: 'Col Count', selector: 'count(col)', language: 'xpath' as const },
+        { name: 'Col Count', selector: 'count(col)' },
         ...cols.map((col, i) => ({
           name: `Col ${i + 1} Span`,
           selector: `.//col[${i + 1}]/@span`,
-          language: 'xpath' as const,
         })),
         ...getDataAttributes(ancestor),
       ]
@@ -499,82 +421,74 @@ export const guessScrapeConfigForElement = (element: HTMLElement): ScrapeConfig 
     }
     case 'ul':
     case 'ol':
-      columns = [
-        { name: 'List Item', selector: 'li', language: 'xpath' as const },
-        ...getDataAttributes(ancestor),
-      ]
+      columns = [{ name: 'List Item', selector: 'li' }, ...getDataAttributes(ancestor)]
       break
     case 'dl':
       columns = [
-        { name: 'Term', selector: 'dt', language: 'xpath' as const },
-        { name: 'Definition', selector: 'dd', language: 'xpath' as const },
+        { name: 'Term', selector: 'dt' },
+        { name: 'Definition', selector: 'dd' },
         ...getDataAttributes(ancestor),
       ]
       break
     case 'form':
       columns = [
-        { name: 'Action', selector: '@action', language: 'xpath' as const },
-        { name: 'Method', selector: '@method', language: 'xpath' as const },
-        { name: 'Input Names', selector: './/input/@name', language: 'xpath' as const },
-        { name: 'Input Types', selector: './/input/@type', language: 'xpath' as const },
+        { name: 'Action', selector: '@action' },
+        { name: 'Method', selector: '@method' },
+        { name: 'Input Names', selector: './/input/@name' },
+        { name: 'Input Types', selector: './/input/@type' },
         ...getDataAttributes(ancestor),
       ]
       break
     case 'nav':
       columns = [
-        { name: 'Text', selector: '.', language: 'xpath' as const },
-        { name: 'ARIA Label', selector: '@aria-label', language: 'xpath' as const },
-        { name: 'Links', selector: 'a/@href', language: 'xpath' as const },
+        { name: 'Text', selector: '.' },
+        { name: 'ARIA Label', selector: '@aria-label' },
+        { name: 'Links', selector: 'a/@href' },
         ...getDataAttributes(ancestor),
       ]
       break
     case 'header':
     case 'footer':
       columns = [
-        { name: 'Text', selector: '.', language: 'xpath' as const },
-        { name: 'ARIA Label', selector: '@aria-label', language: 'xpath' as const },
+        { name: 'Text', selector: '.' },
+        { name: 'ARIA Label', selector: '@aria-label' },
         ...getDataAttributes(ancestor),
       ]
       break
     case 'video':
     case 'audio':
       columns = [
-        { name: 'Source', selector: 'source/@src', language: 'xpath' as const },
-        { name: 'Poster', selector: '@poster', language: 'xpath' as const },
-        { name: 'Controls', selector: '@controls', language: 'xpath' as const },
-        { name: 'Captions', selector: 'track/@src', language: 'xpath' as const },
+        { name: 'Source', selector: 'source/@src' },
+        { name: 'Poster', selector: '@poster' },
+        { name: 'Controls', selector: '@controls' },
+        { name: 'Captions', selector: 'track/@src' },
         ...getDataAttributes(ancestor),
       ]
       break
     case 'details':
       columns = [
-        { name: 'Summary', selector: 'summary', language: 'xpath' as const },
-        { name: 'Details', selector: '.', language: 'xpath' as const },
+        { name: 'Summary', selector: 'summary' },
+        { name: 'Details', selector: '.' },
         ...getDataAttributes(ancestor),
       ]
       break
     case 'summary':
-      columns = [
-        { name: 'Summary', selector: '.', language: 'xpath' as const },
-        ...getDataAttributes(ancestor),
-      ]
+      columns = [{ name: 'Summary', selector: '.' }, ...getDataAttributes(ancestor)]
       break
     default:
       if (ancestor.hasAttribute('aria-label')) {
         columns.push({
           name: 'ARIA Label',
           selector: '@aria-label',
-          language: 'xpath' as const,
         })
       }
-      columns.push({ name: 'Text', selector: '.', language: 'xpath' as const })
+      columns.push({ name: 'Text', selector: '.' })
       columns.push(...getDataAttributes(ancestor))
       break
   }
 
   return {
     mainSelector,
-    language,
     columns,
   }
 }
