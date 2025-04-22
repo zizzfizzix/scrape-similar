@@ -46,4 +46,13 @@ export default defineManifest({
     client_id: '98006111902-k2bbkhk8n3nvouh7l6l6r8pft12odjdj.apps.googleusercontent.com',
     scopes: ['https://www.googleapis.com/auth/drive.file'],
   },
+  commands: {
+    _execute_action: {
+      suggested_key: {
+        default: 'Ctrl+Shift+S',
+        mac: 'Command+Shift+S',
+      },
+      description: 'Toggle Scrape Similar',
+    },
+  },
 })

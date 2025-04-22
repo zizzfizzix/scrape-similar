@@ -10,8 +10,9 @@ import {
 } from '@/components/ui/drawer'
 import { ModeToggle } from '@/components/ui/mode-toggle'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { Cog } from 'lucide-react'
+import { Clipboard, Cog } from 'lucide-react'
 import * as React from 'react'
+import { useCallback } from 'react'
 
 interface FooterProps {
   className?: string
@@ -57,7 +58,29 @@ export const Footer: React.FC<FooterProps> = ({ className }) => {
                 <span className="text-sm font-medium">Theme</span>
                 <ModeToggle />
               </div>
-              {/* Add more settings rows here as needed */}
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-sm font-medium">Keyboard shortcut</span>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center gap-2"
+                      aria-label="Go to Chrome shortcut settings"
+                      onClick={useCallback(() => {
+                        const url = 'chrome://extensions/shortcuts#:~:text=Scrape%20Similar'
+                        navigator.clipboard.writeText(url)
+                        window.open('about:blank', '_blank')
+                      }, [])}
+                    >
+                      <Clipboard className="size-4 ml-1" />
+                      Copy settings address
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Paste in a new tab to open settings</TooltipContent>
+                </Tooltip>
+              </div>
             </div>
           </div>
           <DrawerFooter>
