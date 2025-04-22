@@ -16,9 +16,10 @@ import { useCallback } from 'react'
 
 interface FooterProps {
   className?: string
+  onResetSystemPresets?: () => void
 }
 
-export const Footer: React.FC<FooterProps> = ({ className }) => {
+export const Footer: React.FC<FooterProps> = ({ className, onResetSystemPresets }) => {
   const [isDrawerOpen, setIsDrawerOpen] = React.useState(false)
 
   return (
@@ -80,6 +81,18 @@ export const Footer: React.FC<FooterProps> = ({ className }) => {
                   </TooltipTrigger>
                   <TooltipContent>Paste in a new tab to open settings</TooltipContent>
                 </Tooltip>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-sm font-medium">System presets</span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={onResetSystemPresets}
+                  aria-label="Reset system presets"
+                >
+                  Reset
+                </Button>
               </div>
             </div>
           </div>

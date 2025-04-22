@@ -69,3 +69,9 @@ export const MESSAGE_TYPES = {
   // From sidepanel to background
   EXPORT_TO_SHEETS: 'export-to-google-sheets',
 }
+
+export interface SystemPresetStatusMap {
+  [presetId: string]: boolean
+}
+
+export const SYSTEM_PRESET_STATUS_KEY = 'system_preset_status' as const

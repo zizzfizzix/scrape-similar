@@ -9,7 +9,15 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Footer } from '@/components/ui/footer'
 import { Toaster } from '@/components/ui/sonner'
-import { STORAGE_KEYS, deletePreset, getPresets, savePreset } from '@/core/storage'
+import {
+  STORAGE_KEYS,
+  deletePreset,
+  getAllPresets,
+  getSystemPresetStatus,
+  savePreset,
+  setSystemPresetStatus,
+} from '@/core/storage'
+import { SYSTEM_PRESETS } from '@/core/system_presets'
 import {
   MESSAGE_TYPES,
   Preset,
@@ -260,12 +268,10 @@ const SidePanel: React.FC = () => {
 
   // Initialize: load presets, listen for messages, AND listen for tab activation
   useEffect(() => {
-    // Load presets from storage directly
+    // Load presets (system + user, respecting status)
     const loadPresets = async () => {
       try {
-        // Get presets directly using the helper function
-        const loadedPresets = await getPresets()
-        console.log('Presets loaded directly from storage:', loadedPresets)
+        const loadedPresets = await getAllPresets()
         setPresets(loadedPresets)
       } catch (error) {
         console.error('Error loading presets:', error)
@@ -362,17 +368,13 @@ const SidePanel: React.FC = () => {
         }
       }
 
-      // Handle synced storage changes (global presets)
-      if (areaName === 'sync' && changes[STORAGE_KEYS.GLOBAL_PRESETS]) {
-        console.log(
-          'Global presets updated in synced storage:',
-          changes[STORAGE_KEYS.GLOBAL_PRESETS],
-        )
-        const newPresets = changes[STORAGE_KEYS.GLOBAL_PRESETS].newValue
-        if (newPresets) {
-          console.log('Updating presets in UI from synced storage change')
-          setPresets(newPresets)
-        }
+      // Handle synced storage changes (global presets or system preset status)
+      if (
+        areaName === 'sync' &&
+        (changes[STORAGE_KEYS.GLOBAL_PRESETS] || changes['system_preset_status'])
+      ) {
+        // Reload all presets
+        getAllPresets().then(setPresets)
       }
     }
 
@@ -483,7 +485,7 @@ const SidePanel: React.FC = () => {
     try {
       const success = await savePreset(preset)
       if (success) {
-        const updatedPresets = await getPresets()
+        const updatedPresets = await getAllPresets()
         setPresets(updatedPresets)
         console.log('Preset saved successfully and UI updated')
       } else {
@@ -494,19 +496,41 @@ const SidePanel: React.FC = () => {
     }
   }
 
+  // Hide system preset or delete user preset
   const handleDeletePreset = async (presetId: string) => {
+    // Check if this is a system preset
+    const isSystemPreset = SYSTEM_PRESETS.some((p) => p.id === presetId)
+    if (isSystemPreset) {
+      // Hide system preset by setting enabled=false in status map
+      const statusMap = await getSystemPresetStatus()
+      statusMap[presetId] = false
+      await setSystemPresetStatus(statusMap)
+      // Reload all presets
+      const updatedPresets = await getAllPresets()
+      setPresets(updatedPresets)
+      return
+    }
+    // Otherwise, delete user preset as before
     try {
       const success = await deletePreset(presetId)
       if (success) {
-        const updatedPresets = await getPresets()
+        const updatedPresets = await getAllPresets()
         setPresets(updatedPresets)
-        console.log('Preset deleted successfully and UI updated')
+        console.log('Preset deleted/hidden successfully and UI updated')
       } else {
         console.error('Failed to delete preset')
       }
     } catch (error) {
       console.error('Error deleting preset:', error)
     }
+  }
+
+  // Reset (enable) all system presets
+  const handleResetSystemPresets = async () => {
+    await setSystemPresetStatus({}) // Clear all disables
+    const updatedPresets = await getAllPresets()
+    setPresets(updatedPresets)
+    toast.success('System presets have been reset.')
   }
 
   const handleExport = () => {
@@ -698,7 +722,7 @@ const SidePanel: React.FC = () => {
           )}
         </div>
       </main>
-      <Footer />
+      <Footer onResetSystemPresets={handleResetSystemPresets} />
     </div>
   )
 }

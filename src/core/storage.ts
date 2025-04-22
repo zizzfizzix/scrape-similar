@@ -1,5 +1,6 @@
 /// <reference types="chrome" />
-import { Preset } from './types'
+import { SYSTEM_PRESETS } from './system_presets'
+import { Preset, SYSTEM_PRESET_STATUS_KEY, SystemPresetStatusMap } from './types'
 
 // Storage keys
 export const STORAGE_KEYS = {
@@ -66,4 +67,33 @@ export const initializeStorage = async (): Promise<void> => {
   } catch (error) {
     console.error('Error initializing storage:', error)
   }
+}
+
+// Get system preset status map from storage
+export const getSystemPresetStatus = async (): Promise<SystemPresetStatusMap> => {
+  try {
+    const result = await chrome.storage.sync.get(SYSTEM_PRESET_STATUS_KEY)
+    return result[SYSTEM_PRESET_STATUS_KEY] || {}
+  } catch (error) {
+    console.error('Error getting system preset status from storage:', error)
+    return {}
+  }
+}
+
+// Set system preset status map in storage
+export const setSystemPresetStatus = async (statusMap: SystemPresetStatusMap): Promise<void> => {
+  try {
+    await chrome.storage.sync.set({ [SYSTEM_PRESET_STATUS_KEY]: statusMap })
+  } catch (error) {
+    console.error('Error setting system preset status in storage:', error)
+  }
+}
+
+// Merge system presets with user presets, respecting status map
+export const getAllPresets = async (): Promise<Preset[]> => {
+  const [userPresets, statusMap] = await Promise.all([getPresets(), getSystemPresetStatus()])
+  // Filter system presets by status (enabled by default)
+  const enabledSystemPresets = SYSTEM_PRESETS.filter((preset) => statusMap[preset.id] !== false)
+  // Merge: user presets first, then system presets
+  return [...userPresets, ...enabledSystemPresets]
 }

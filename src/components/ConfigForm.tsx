@@ -1,3 +1,4 @@
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Command,
@@ -20,6 +21,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { SYSTEM_PRESETS } from '@/core/system_presets'
 import { MESSAGE_TYPES, Preset, ScrapeConfig, SelectionOptions } from '@/core/types'
 import { Check, ChevronsUpDown, Info, Plus, Trash2, Wand, X } from 'lucide-react'
 import React, { useEffect, useRef, useState } from 'react'
@@ -266,37 +268,47 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                     )}
                     {presets
                       .filter((p) => p.name.toLowerCase().includes(search.toLowerCase()))
-                      .map((preset) => (
-                        <CommandItem
-                          key={preset.id}
-                          value={preset.name}
-                          onSelect={() => handleSelectPreset(preset)}
-                          className="flex items-center justify-between group"
-                        >
-                          <span>{preset.name}</span>
-                          <div className="flex items-center gap-1">
-                            {selectedPresetId === preset.id && <Check className="ml-2 h-4 w-4" />}
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="ml-2 p-1 rounded hover:bg-destructive/10 text-destructive opacity-70 hover:opacity-100 focus:outline-none"
-                                  aria-label={`Delete preset ${preset.name}`}
-                                  disabled={isSaving}
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleRequestDeletePreset(preset)
-                                  }}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>Delete preset</TooltipContent>
-                            </Tooltip>
-                          </div>
-                        </CommandItem>
-                      ))}
+                      .map((preset) => {
+                        const isSystemPreset = SYSTEM_PRESETS.some((sys) => sys.id === preset.id)
+                        return (
+                          <CommandItem
+                            key={preset.id}
+                            value={preset.name}
+                            onSelect={() => handleSelectPreset(preset)}
+                            className="flex items-center justify-between group"
+                          >
+                            <span className="flex items-center gap-2">
+                              {preset.name}
+                              {isSystemPreset && (
+                                <Badge variant="secondary" className="ml-2">
+                                  System
+                                </Badge>
+                              )}
+                            </span>
+                            <div className="flex items-center gap-1">
+                              {selectedPresetId === preset.id && <Check className="ml-2 h-4 w-4" />}
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="ml-2 p-1 rounded hover:bg-destructive/10 text-destructive opacity-70 hover:opacity-100 focus:outline-none"
+                                    aria-label={`Delete preset ${preset.name}`}
+                                    disabled={isSaving}
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleRequestDeletePreset(preset)
+                                    }}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Delete preset</TooltipContent>
+                              </Tooltip>
+                            </div>
+                          </CommandItem>
+                        )
+                      })}
                   </CommandGroup>
                 </CommandList>
               </Command>
