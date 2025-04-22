@@ -1,8 +1,7 @@
+import { ThemeProvider } from '@/components/theme-provider'
+import SidePanel from '@/sidepanel/SidePanel'
+import '@/styles/global.css'
 import { createRoot } from 'react-dom/client'
-import './index.css'
-import SidePanel from './SidePanel'
-
-console.log('Sidepanel script loading...')
 
 // Get the root element
 const appElement = document.getElementById('app')
@@ -11,6 +10,9 @@ if (!appElement) {
 } else {
   // Create React root and render
   const root = createRoot(appElement)
-  root.render(<SidePanel />)
-  console.log('React app rendered in sidepanel')
+  root.render(
+    <ThemeProvider>
+      <SidePanel />
+    </ThemeProvider>,
+  )
 }

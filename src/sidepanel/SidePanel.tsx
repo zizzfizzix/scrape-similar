@@ -1,6 +1,15 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
-import slugify from 'slugify'
-import { STORAGE_KEYS, deletePreset, getPresets, savePreset } from '../core/storage'
+import ConfigForm from '@/components/ConfigForm'
+import DataTable from '@/components/DataTable'
+import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Footer } from '@/components/ui/footer'
+import { Toaster } from '@/components/ui/sonner'
+import { STORAGE_KEYS, deletePreset, getPresets, savePreset } from '@/core/storage'
 import {
   MESSAGE_TYPES,
   Preset,
@@ -8,18 +17,21 @@ import {
   ScrapedDataResult,
   SelectionOptions,
   SidePanelConfig,
-} from '../core/types'
-import { isInjectableUrl } from '../lib/isInjectableUrl'
-import ConfigForm from './components/ConfigForm'
-import DataTable from './components/DataTable'
-import ExportButton from './components/ExportButton'
-import './SidePanel.css'
+} from '@/core/types'
+import { isInjectableUrl } from '@/lib/isInjectableUrl'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
+import slugify from 'slugify'
+import { toast } from 'sonner'
 
 // Simple splash screen component
 const SplashScreen: React.FC = () => (
-  <div className="splash-screen">
-    <h2>Unsupported URL</h2>
-    <p>For security reasons this extension can't work on chrome:// and Chrome Web Store URLs.</p>
+  <div className="flex flex-1 items-center justify-center w-full min-w-0">
+    <div className="flex flex-col items-center justify-center text-center w-full max-w-md mx-auto">
+      <h2 className="text-2xl mb-4">Unsupported URL</h2>
+      <p className="text-lg mb-2">
+        For security reasons this extension can't work on chrome:// and Chrome Web Store URLs.
+      </p>
+    </div>
   </div>
 )
 
@@ -57,13 +69,10 @@ const SidePanel: React.FC = () => {
   const [tabUrl, setTabUrl] = useState<string | null>(null)
   const [showPresets, setShowPresets] = useState(false)
   const [contentScriptCommsError, setContentScriptCommsError] = useState<string | null>(null)
-  const [isCopied, setIsCopied] = useState(false)
-  // Copy button state: 'idle' | 'success' | 'failure'
-  const [copyState, setCopyState] = useState<'idle' | 'success' | 'failure'>('idle')
-  // Save CSV button state: 'idle' | 'success' | 'failure'
-  const [saveCsvState, setSaveCsvState] = useState<'idle' | 'success' | 'failure'>('idle')
   // Track last scrape row count for button feedback
   const [lastScrapeRowCount, setLastScrapeRowCount] = useState<number | null>(null)
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const dataTableRef = useRef<HTMLDivElement | null>(null)
 
   // Memoized export filename (regenerates if tabUrl changes)
   const exportFilename = React.useMemo(() => {
@@ -393,6 +402,13 @@ const SidePanel: React.FC = () => {
     }
   }, [targetTabId, handleInitialData])
 
+  // Show toast when contentScriptCommsError changes
+  React.useEffect(() => {
+    if (contentScriptCommsError) {
+      toast.error(contentScriptCommsError)
+    }
+  }, [contentScriptCommsError])
+
   // Handle scrape request
   const handleScrape = () => {
     setShowPresets(false)
@@ -425,6 +441,13 @@ const SidePanel: React.FC = () => {
     )
   }
 
+  // Scroll table into view when it appears (first time or after clearing)
+  React.useEffect(() => {
+    if (scrapedData && scrapedData.data.length > 0 && dataTableRef.current) {
+      dataTableRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [scrapedData?.data.length])
+
   // Handle highlight request
   const handleHighlight = (selector: string) => {
     setContentScriptCommsError(null)
@@ -445,8 +468,49 @@ const SidePanel: React.FC = () => {
     )
   }
 
-  // Handle export request (Google Sheets)
+  const handleLoadPreset = (preset: Preset) => {
+    handleConfigChange(preset.config)
+    setActiveTab('config')
+  }
+
+  const handleSavePreset = async (name: string) => {
+    const preset: Preset = {
+      id: Date.now().toString(),
+      name,
+      config,
+      createdAt: Date.now(),
+    }
+    try {
+      const success = await savePreset(preset)
+      if (success) {
+        const updatedPresets = await getPresets()
+        setPresets(updatedPresets)
+        console.log('Preset saved successfully and UI updated')
+      } else {
+        console.error('Failed to save preset')
+      }
+    } catch (error) {
+      console.error('Error saving preset:', error)
+    }
+  }
+
+  const handleDeletePreset = async (presetId: string) => {
+    try {
+      const success = await deletePreset(presetId)
+      if (success) {
+        const updatedPresets = await getPresets()
+        setPresets(updatedPresets)
+        console.log('Preset deleted successfully and UI updated')
+      } else {
+        console.error('Failed to delete preset')
+      }
+    } catch (error) {
+      console.error('Error deleting preset:', error)
+    }
+  }
+
   const handleExport = () => {
+    if (!scrapedData) return
     setIsExporting(true)
     setExportStatus(null)
     const columns = scrapedData?.columnOrder || []
@@ -469,11 +533,30 @@ const SidePanel: React.FC = () => {
       (response) => {
         setIsExporting(false)
         setExportStatus(response)
+        if (response?.success && response.url) {
+          toast.success('Exported to Google Sheets', {
+            description: (
+              <span>
+                <a
+                  href={response.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline text-primary"
+                >
+                  Open Sheet
+                </a>
+              </span>
+            ),
+          })
+          setIsDropdownOpen(false)
+        } else {
+          toast.error(response?.error || 'Export failed')
+          setIsDropdownOpen(false)
+        }
       },
     )
   }
 
-  // Handle CSV export
   const handleCsvExport = () => {
     if (!scrapedData || !scrapedData.data.length) return
     const columns = scrapedData.columnOrder || []
@@ -500,25 +583,18 @@ const SidePanel: React.FC = () => {
       link.click()
       document.body.removeChild(link)
       URL.revokeObjectURL(url)
-      setSaveCsvState('success')
-      setTimeout(() => setSaveCsvState('idle'), 1500)
+      toast.success('CSV file saved')
+      setIsDropdownOpen(false)
     } catch (e) {
-      setSaveCsvState('failure')
-      setTimeout(() => setSaveCsvState('idle'), 1500)
+      toast.error('Failed to save CSV')
+      setIsDropdownOpen(false)
     }
   }
 
-  // Escaping function for TSV fields
   // source: https://en.wikipedia.org/wiki/Tab-separated_values#Character_escaping
-  const escapeTsvField = (value: string) => {
-    return value
-      .replace(/\\/g, '\\\\') // backslash
-      .replace(/\t/g, '\\t') // tab
-      .replace(/\n/g, '\\n') // line feed
-      .replace(/\r/g, '\\r') // carriage return
-  }
+  const escapeTsvField = (value: string) =>
+    value.replace(/\\/g, '\\\\').replace(/\t/g, '\\t').replace(/\n/g, '\\n').replace(/\r/g, '\\r')
 
-  // Handle copy to clipboard as TSV
   const handleCopyTsv = async () => {
     if (!scrapedData || !scrapedData.data.length) return
     const columns = scrapedData.columnOrder || []
@@ -533,87 +609,32 @@ const SidePanel: React.FC = () => {
           .join('\t'),
       ),
     ].join('\n')
-    const success = await copyToClipboard(tsvContent)
-    if (success) {
-      setCopyState('success')
-      setTimeout(() => setCopyState('idle'), 1500)
-    } else {
-      setCopyState('failure')
-      setTimeout(() => setCopyState('idle'), 1500)
-    }
-  }
-
-  // Handle loading a preset
-  const handleLoadPreset = (preset: Preset) => {
-    // Use the config change handler to update state and save
-    handleConfigChange(preset.config)
-    setActiveTab('config')
-  }
-
-  // Handle saving a preset directly to storage
-  const handleSavePreset = async (name: string) => {
-    const preset: Preset = {
-      id: Date.now().toString(),
-      name,
-      config,
-      createdAt: Date.now(),
-    }
-
     try {
-      // Save directly to storage
-      const success = await savePreset(preset)
-
-      if (success) {
-        // Get updated presets to refresh UI
-        const updatedPresets = await getPresets()
-        setPresets(updatedPresets)
-        console.log('Preset saved successfully and UI updated')
-      } else {
-        console.error('Failed to save preset')
-      }
-    } catch (error) {
-      console.error('Error saving preset:', error)
-    }
-  }
-
-  // Handle deleting a preset directly from storage
-  const handleDeletePreset = async (presetId: string) => {
-    try {
-      // Delete directly from storage
-      const success = await deletePreset(presetId)
-
-      if (success) {
-        // Get updated presets to refresh UI
-        const updatedPresets = await getPresets()
-        setPresets(updatedPresets)
-        console.log('Preset deleted successfully and UI updated')
-      } else {
-        console.error('Failed to delete preset')
-      }
-    } catch (error) {
-      console.error('Error deleting preset:', error)
+      await copyToClipboard(tsvContent)
+      toast.success('Copied to clipboard')
+      setIsDropdownOpen(false)
+    } catch {
+      toast.error('Failed to copy')
+      setIsDropdownOpen(false)
     }
   }
 
   if (tabUrl !== null && !isInjectableUrl(tabUrl)) {
     return (
-      <div className="side-panel">
-        <main className="content">
+      <div className="flex flex-col h-screen font-sans min-w-0 max-w-full w-full box-border">
+        <main className="flex-1 flex min-w-0 w-full">
           <SplashScreen />
         </main>
+        <Footer />
       </div>
     )
   }
 
   return (
-    <div className="side-panel">
-      <main className="content">
-        {contentScriptCommsError && (
-          <div className="sidepanel-error-alert">
-            <strong>Error:</strong> {contentScriptCommsError}
-          </div>
-        )}
-        <div className="config-panel">
+    <div className="flex flex-col h-screen font-sans overflow-visible min-w-0 max-w-full w-full box-border">
+      <Toaster />
+      <main className="flex-1 overflow-y-auto p-4 w-full min-w-0 box-border">
+        <div className="flex flex-col gap-10 w-full min-w-0 box-border">
           <ConfigForm
             config={config}
             onChange={handleConfigChange}
@@ -631,49 +652,53 @@ const SidePanel: React.FC = () => {
             onClearLastScrapeRowCount={() => setLastScrapeRowCount(null)}
           />
           {scrapedData && scrapedData.data.length > 0 && (
-            <div className="scraped-data-section">
-              <h3>Extracted Data</h3>
+            <div className="flex flex-col gap-6" ref={dataTableRef}>
+              <div className="flex items-center justify-between gap-4">
+                <h2 className="text-2xl font-bold">Extracted Data</h2>
+                <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline">Export</Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      onSelect={(e) => {
+                        e.preventDefault()
+                        if (!isExporting) handleExport()
+                      }}
+                      disabled={isExporting}
+                    >
+                      {isExporting ? 'Exporting…' : 'Export to Google Sheets'}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={(e) => {
+                        e.preventDefault()
+                        handleCsvExport()
+                      }}
+                    >
+                      Save as CSV
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={(e) => {
+                        e.preventDefault()
+                        handleCopyTsv()
+                      }}
+                    >
+                      Copy to clipboard
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
               <DataTable
                 data={scrapedData.data}
                 onHighlight={handleHighlight}
                 config={config}
                 columnOrder={scrapedData.columnOrder}
               />
-              <div className="export-buttons">
-                <ExportButton
-                  onExport={handleExport}
-                  isLoading={isExporting}
-                  status={exportStatus}
-                />
-                <button
-                  type="button"
-                  className={`btn btn-secondary${saveCsvState === 'success' ? ' btn-success' : ''}${saveCsvState === 'failure' ? ' btn-failure' : ''}`}
-                  onClick={handleCsvExport}
-                  disabled={saveCsvState !== 'idle'}
-                >
-                  {saveCsvState === 'success'
-                    ? 'Saved'
-                    : saveCsvState === 'failure'
-                      ? 'Failed'
-                      : 'Save CSV'}
-                </button>
-                <button
-                  type="button"
-                  className={`btn btn-secondary${copyState === 'success' ? ' btn-success' : ''}${copyState === 'failure' ? ' btn-failure' : ''}`}
-                  onClick={handleCopyTsv}
-                  disabled={copyState !== 'idle'}
-                >
-                  {copyState === 'success'
-                    ? 'Copied'
-                    : copyState === 'failure'
-                      ? 'Failed'
-                      : 'Copy to clipboard'}
-                </button>
-              </div>
             </div>
           )}
         </div>
       </main>
+      <Footer />
     </div>
   )
 }

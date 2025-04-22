@@ -1,6 +1,8 @@
 import { crx } from '@crxjs/vite-plugin'
+import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
+import tsconfigPaths from 'vite-tsconfig-paths'
 
 // @ts-ignore - Import manifest with type assertion
 import manifest from './src/manifest'
@@ -29,6 +31,6 @@ export default defineConfig(({ mode }) => {
       },
     },
 
-    plugins: [crx({ manifest }), react()],
+    plugins: [crx({ manifest }), react(), tsconfigPaths(), tailwindcss()],
   }
 })
