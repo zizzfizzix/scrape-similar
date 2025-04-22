@@ -62,6 +62,8 @@ const SidePanel: React.FC = () => {
   const [copyState, setCopyState] = useState<'idle' | 'success' | 'failure'>('idle')
   // Save CSV button state: 'idle' | 'success' | 'failure'
   const [saveCsvState, setSaveCsvState] = useState<'idle' | 'success' | 'failure'>('idle')
+  // Track last scrape row count for button feedback
+  const [lastScrapeRowCount, setLastScrapeRowCount] = useState<number | null>(null)
 
   // Memoized export filename (regenerates if tabUrl changes)
   const exportFilename = React.useMemo(() => {
@@ -404,18 +406,21 @@ const SidePanel: React.FC = () => {
         payload: config,
       },
       (response) => {
+        setIsScraping(false)
         if (!response && chrome.runtime.lastError) {
           setContentScriptCommsError(
             'Could not connect to the content script. Please reload the page or ensure the extension is enabled for this site.',
           )
-          setIsScraping(false)
+          setLastScrapeRowCount(null)
           return
         }
         if (response?.error) {
           setContentScriptCommsError(response.error)
+          setLastScrapeRowCount(null)
           console.error('Error during scrape:', response.error)
+          return
         }
-        setIsScraping(false)
+        setLastScrapeRowCount(response?.data?.data?.length ?? 0)
       },
     )
   }
@@ -622,8 +627,10 @@ const SidePanel: React.FC = () => {
             onDeletePreset={handleDeletePreset}
             showPresets={showPresets}
             setShowPresets={setShowPresets}
+            lastScrapeRowCount={lastScrapeRowCount}
+            onClearLastScrapeRowCount={() => setLastScrapeRowCount(null)}
           />
-          {scrapedData && (
+          {scrapedData && scrapedData.data.length > 0 && (
             <div className="scraped-data-section">
               <h3>Extracted Data</h3>
               <DataTable

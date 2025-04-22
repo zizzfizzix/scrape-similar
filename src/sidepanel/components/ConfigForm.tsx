@@ -15,6 +15,8 @@ interface ConfigFormProps {
   onDeletePreset: (presetId: string) => void
   showPresets: boolean
   setShowPresets: React.Dispatch<React.SetStateAction<boolean>>
+  lastScrapeRowCount: number | null
+  onClearLastScrapeRowCount?: () => void
 }
 
 const ConfigForm: React.FC<ConfigFormProps> = ({
@@ -30,6 +32,8 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
   onDeletePreset,
   showPresets,
   setShowPresets,
+  lastScrapeRowCount,
+  onClearLastScrapeRowCount,
 }) => {
   // Local state for adding a new column
   const [newColumnName, setNewColumnName] = useState('')
@@ -40,6 +44,8 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
   const [guessButtonState, setGuessButtonState] = useState<
     'idle' | 'generating' | 'success' | 'failure'
   >('idle')
+  const [scrapeButtonState, setScrapeButtonState] = useState<'idle' | 'zero-found'>('idle')
+  const zeroFoundTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     if (shouldScrollToEnd && config.columns.length > prevColumnsCount.current) {
@@ -53,6 +59,26 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
     }
     prevColumnsCount.current = config.columns.length
   }, [config.columns.length, shouldScrollToEnd])
+
+  // Watch for lastScrapeRowCount changes
+  useEffect(() => {
+    if (typeof lastScrapeRowCount === 'number') {
+      if (lastScrapeRowCount === 0) {
+        setScrapeButtonState('zero-found')
+        if (zeroFoundTimeoutRef.current) clearTimeout(zeroFoundTimeoutRef.current)
+        zeroFoundTimeoutRef.current = setTimeout(() => {
+          setScrapeButtonState('idle')
+          if (onClearLastScrapeRowCount) onClearLastScrapeRowCount()
+        }, 1500)
+      } else {
+        setScrapeButtonState('idle')
+        if (onClearLastScrapeRowCount) onClearLastScrapeRowCount()
+      }
+    }
+    return () => {
+      if (zeroFoundTimeoutRef.current) clearTimeout(zeroFoundTimeoutRef.current)
+    }
+  }, [lastScrapeRowCount, onClearLastScrapeRowCount])
 
   // Handle main selector change
   const handleMainSelectorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -277,7 +303,13 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
           onClick={onScrape}
           disabled={isLoading || !config.mainSelector || config.columns.length === 0}
         >
-          {isLoading ? <span className="spinner"></span> : 'Run Scrape ▶'}
+          {isLoading ? (
+            <span className="spinner"></span>
+          ) : scrapeButtonState === 'zero-found' ? (
+            '0 found'
+          ) : (
+            'Scrape ▶'
+          )}
         </button>
       </div>
     </div>
