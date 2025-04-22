@@ -18,7 +18,7 @@ export default defineManifest({
   },
   action: {
     default_icon: 'img/logo-light-48.png',
-    default_title: 'Open Modern Scraper',
+    default_title: 'Open Scrape Similar',
   },
   background: {
     service_worker: 'src/background/index.ts',

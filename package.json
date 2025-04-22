@@ -1,9 +1,9 @@
 {
-  "name": "modern-scraper",
-  "displayName": "Modern Scraper",
+  "name": "scrape-similar",
+  "displayName": "Scrape Similar",
   "version": "0.1.0",
   "author": "Kuba Serafinowski",
-  "description": "Modern Chrome extension to extract data from web pages into spreadsheets.",
+  "description": "Extract data from websites into spreadsheets.",
   "type": "module",
   "license": "MIT",
   "keywords": [

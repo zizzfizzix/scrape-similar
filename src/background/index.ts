@@ -43,7 +43,7 @@ const injectContentScriptToAllTabs = async () => {
 
 // Initialize extension when installed or updated
 chrome.runtime.onInstalled.addListener(async () => {
-  console.log('Modern Scraper extension installed')
+  console.log('Scrape Similar extension installed')
 
   // Initialize storage
   await initializeStorage()

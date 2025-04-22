@@ -6,7 +6,7 @@ import {
 } from '../core/scraper'
 import { MESSAGE_TYPES, Message, ScrapeConfig } from '../core/types'
 
-console.info('Modern Scraper content script is running')
+console.info('Scrape Similar content script is running')
 
 // Track the currently highlighted elements
 let highlightedElements: HTMLElement[] = []
@@ -274,14 +274,14 @@ const highlightMatchingElements = (selector: string) => {
     highlightedElements.push(element as HTMLElement)
 
     // Add highlight class
-    element.classList.add('modern-scraper-highlight')
+    element.classList.add('scrape-similar-highlight')
 
     // Create and insert highlight style if it doesn't exist
-    if (!document.getElementById('modern-scraper-highlight-style')) {
+    if (!document.getElementById('scrape-similar-highlight-style')) {
       const style = document.createElement('style')
-      style.id = 'modern-scraper-highlight-style'
+      style.id = 'scrape-similar-highlight-style'
       style.textContent = `
-        .modern-scraper-highlight {
+        .scrape-similar-highlight {
           outline: 2px solid #5c8df6 !important;
           outline-offset: 2px !important;
           background-color: rgba(92, 141, 246, 0.2) !important;
@@ -309,7 +309,7 @@ const highlightMatchingElements = (selector: string) => {
 // Remove all highlights
 const removeHighlights = () => {
   highlightedElements.forEach((element) => {
-    element.classList.remove('modern-scraper-highlight')
+    element.classList.remove('scrape-similar-highlight')
   })
 
   highlightedElements = []

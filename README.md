@@ -1,4 +1,4 @@
-# modern-scraper
+# scrape-similar
 
 > a chrome extension tools built with Vite + React, and Manifest v3
 
@@ -13,7 +13,7 @@
 run the command
 
 ```shell
-$ cd modern-scraper
+$ cd scrape-similar
 
 $ npm run dev
 ```
@@ -21,7 +21,7 @@ $ npm run dev
 ### Chrome Extension Developer Mode
 
 1. set your Chrome browser 'Developer mode' up
-2. click 'Load unpacked', and select `modern-scraper/build` folder
+2. click 'Load unpacked', and select `scrape-similar/build` folder
 
 ### Nomal FrontEnd Developer Mode
 
