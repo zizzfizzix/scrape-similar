@@ -347,7 +347,11 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
           {/* Save Preset Drawer */}
           <Drawer open={isSaveDrawerOpen} onOpenChange={setIsSaveDrawerOpen}>
             <DrawerTrigger asChild>
-              <Button variant="outline" type="button">
+              <Button
+                variant="outline"
+                type="button"
+                disabled={isSaving || !config.mainSelector || config.columns.length === 0}
+              >
                 Save
               </Button>
             </DrawerTrigger>
