@@ -169,7 +169,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
 
   // Handler to guess config from selector
   const handleGuessConfig = async () => {
-    if (!config.mainSelector) return
+    if (!config.mainSelector.trim()) return
     setGuessButtonState('generating')
     try {
       chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
@@ -350,7 +350,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
               <Button
                 variant="outline"
                 type="button"
-                disabled={isSaving || !config.mainSelector || config.columns.length === 0}
+                disabled={isSaving || !config.mainSelector.trim() || config.columns.length === 0}
               >
                 Save
               </Button>
@@ -375,7 +375,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                   disabled={
                     isSaving ||
                     !presetName.trim() ||
-                    !config.mainSelector ||
+                    !config.mainSelector.trim() ||
                     config.columns.length === 0
                   }
                   loading={isSaving}
@@ -415,7 +415,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
             placeholder="Enter XPath selector"
             ref={mainSelectorInputRef}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && config.mainSelector) {
+              if (e.key === 'Enter' && config.mainSelector.trim()) {
                 mainSelectorInputRef.current?.blur()
                 onScrape()
               }
@@ -523,7 +523,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                 <Button
                   onClick={handleGuessConfig}
                   loading={guessButtonState === 'generating'}
-                  disabled={guessButtonState === 'generating' || !config.mainSelector}
+                  disabled={guessButtonState === 'generating' || !config.mainSelector.trim()}
                   aria-label="Auto-generate configuration from selector"
                 >
                   {guessButtonState === 'success' ? (
@@ -564,7 +564,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
             className="w-full max-w-2xl"
             onClick={onScrape}
             loading={isLoading}
-            disabled={isLoading || !config.mainSelector || config.columns.length === 0}
+            disabled={isLoading || !config.mainSelector.trim() || config.columns.length === 0}
           >
             {scrapeButtonState === 'zero-found' ? '0 found' : 'Scrape'}
           </Button>

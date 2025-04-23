@@ -222,7 +222,7 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
       case MESSAGE_TYPES.GUESS_CONFIG_FROM_SELECTOR: {
         // Guess config from selector and update storage
         const { mainSelector } = message.payload || {}
-        if (!mainSelector) {
+        if (!mainSelector.trim()) {
           sendResponse({ success: false, error: 'Missing mainSelector' })
           break
         }

@@ -274,7 +274,7 @@ const handleUiMessage = async (
         filename: string
         scrapedData: ScrapedData
       }
-      if (!filename) {
+      if (!filename.trim()) {
         sendResponse({ success: false, error: 'Filename is required for export' })
         return
       }
