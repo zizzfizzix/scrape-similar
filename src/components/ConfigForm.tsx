@@ -25,6 +25,7 @@ import { SYSTEM_PRESETS } from '@/core/system_presets'
 import { MESSAGE_TYPES, Preset, ScrapeConfig, SelectionOptions } from '@/core/types'
 import { Check, ChevronsUpDown, Info, Plus, Trash2, Wand, X } from 'lucide-react'
 import React, { useEffect, useRef, useState } from 'react'
+import { toast } from 'sonner'
 
 interface ConfigFormProps {
   config: ScrapeConfig
@@ -210,6 +211,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
     setIsSaving(false)
     setPresetName('')
     setIsSaveDrawerOpen(false)
+    toast.success(`Preset "${presetName.trim()}" saved`)
   }
 
   // Load Preset handler
@@ -358,7 +360,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
             <DrawerContent>
               <DrawerHeader>
                 <DrawerTitle>Save Preset</DrawerTitle>
-                <DrawerDescription>Enter a name for your preset configuration.</DrawerDescription>
+                <DrawerDescription>Name your preset configuration.</DrawerDescription>
               </DrawerHeader>
               <div className="p-4">
                 <Input
@@ -367,6 +369,11 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                   value={presetName}
                   onChange={(e) => setPresetName(e.target.value)}
                   autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && presetName.trim()) {
+                      handleSavePreset()
+                    }
+                  }}
                 />
               </div>
               <DrawerFooter>
