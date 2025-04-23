@@ -23,7 +23,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { SYSTEM_PRESETS } from '@/core/system_presets'
 import { MESSAGE_TYPES, Preset, ScrapeConfig, SelectionOptions } from '@/core/types'
-import { Check, ChevronsUpDown, Info, Plus, Trash2, Wand, X } from 'lucide-react'
+import { Check, ChevronsUpDown, EyeOff, Info, Plus, Trash2, Wand, X } from 'lucide-react'
 import React, { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -37,11 +37,16 @@ interface ConfigFormProps {
   presets: Preset[]
   onLoadPreset: (preset: Preset) => void
   onSavePreset: (name: string) => void
-  onDeletePreset: (presetId: string) => void
+  onDeletePreset: (preset: Preset) => void
   showPresets: boolean
   setShowPresets: React.Dispatch<React.SetStateAction<boolean>>
   lastScrapeRowCount: number | null
   onClearLastScrapeRowCount?: () => void
+}
+
+// Helper to check if a preset is a system preset
+const isSystemPreset = (preset: Preset | null | undefined): boolean => {
+  return !!preset && SYSTEM_PRESETS.some((sys) => sys.id === preset.id)
 }
 
 const ConfigForm: React.FC<ConfigFormProps> = ({
@@ -55,8 +60,6 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
   onLoadPreset,
   onSavePreset,
   onDeletePreset,
-  showPresets,
-  setShowPresets,
   lastScrapeRowCount,
   onClearLastScrapeRowCount,
 }) => {
@@ -229,7 +232,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
 
   const handleConfirmDeletePreset = () => {
     if (presetToDelete) {
-      onDeletePreset(presetToDelete.id)
+      onDeletePreset(presetToDelete)
     }
     setDeleteDialogOpen(false)
     setPresetToDelete(null)
@@ -271,7 +274,6 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                     {presets
                       .filter((p) => p.name.toLowerCase().includes(search.toLowerCase()))
                       .map((preset) => {
-                        const isSystemPreset = SYSTEM_PRESETS.some((sys) => sys.id === preset.id)
                         return (
                           <CommandItem
                             key={preset.id}
@@ -281,7 +283,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                           >
                             <span className="flex items-center gap-2">
                               {preset.name}
-                              {isSystemPreset && (
+                              {isSystemPreset(preset) && (
                                 <Badge variant="secondary" className="ml-2">
                                   System
                                 </Badge>
@@ -295,17 +297,23 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                                     variant="ghost"
                                     size="icon"
                                     className="ml-2 p-1 rounded hover:bg-destructive/10 text-destructive opacity-70 hover:opacity-100 focus:outline-none"
-                                    aria-label={`Delete preset ${preset.name}`}
+                                    aria-label={`${isSystemPreset(preset) ? 'Hide' : 'Delete'} preset ${preset.name}`}
                                     disabled={isSaving}
                                     onClick={(e) => {
                                       e.stopPropagation()
                                       handleRequestDeletePreset(preset)
                                     }}
                                   >
-                                    <Trash2 className="h-4 w-4" />
+                                    {isSystemPreset(preset) ? (
+                                      <EyeOff className="h-4 w-4" />
+                                    ) : (
+                                      <Trash2 className="h-4 w-4" />
+                                    )}
                                   </Button>
                                 </TooltipTrigger>
-                                <TooltipContent>Delete preset</TooltipContent>
+                                <TooltipContent>
+                                  {isSystemPreset(preset) ? 'Hide preset' : 'Delete preset'}
+                                </TooltipContent>
                               </Tooltip>
                             </div>
                           </CommandItem>
@@ -320,13 +328,16 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
           <Drawer open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
             <DrawerContent>
               <DrawerHeader>
-                <DrawerTitle>Delete Preset</DrawerTitle>
+                <DrawerTitle>
+                  {isSystemPreset(presetToDelete) ? 'Hide Preset' : 'Delete Preset'}
+                </DrawerTitle>
                 <DrawerDescription>
-                  Are you sure you want to delete the preset
+                  Are you sure you want to {isSystemPreset(presetToDelete) ? 'hide' : 'delete'} the
+                  preset "
                   {presetToDelete ? (
-                    <span className="font-semibold text-destructive"> "{presetToDelete.name}"</span>
+                    <span className="font-semibold text-destructive">{presetToDelete.name}</span>
                   ) : null}
-                  ? This action cannot be undone.
+                  "?{isSystemPreset(presetToDelete) ? '' : ' This action cannot be undone.'}
                 </DrawerDescription>
               </DrawerHeader>
               <DrawerFooter>
@@ -336,7 +347,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                   disabled={isSaving}
                   loading={isSaving}
                 >
-                  Delete
+                  {isSystemPreset(presetToDelete) ? 'Hide' : 'Delete'}
                 </Button>
                 <DrawerClose asChild>
                   <Button variant="ghost" type="button" onClick={handleCancelDeletePreset}>

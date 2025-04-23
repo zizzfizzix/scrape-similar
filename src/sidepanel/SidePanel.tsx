@@ -497,14 +497,15 @@ const SidePanel: React.FC = () => {
   }
 
   // Hide system preset or delete user preset
-  const handleDeletePreset = async (presetId: string) => {
+  const handleDeletePreset = async (preset: Preset) => {
     // Check if this is a system preset
-    const isSystemPreset = SYSTEM_PRESETS.some((p) => p.id === presetId)
+    const isSystemPreset = SYSTEM_PRESETS.some((p) => p.id === preset.id)
     if (isSystemPreset) {
       // Hide system preset by setting enabled=false in status map
       const statusMap = await getSystemPresetStatus()
-      statusMap[presetId] = false
+      statusMap[preset.id] = false
       await setSystemPresetStatus(statusMap)
+      toast.success(`System preset "${preset.name}" hidden.`)
       // Reload all presets
       const updatedPresets = await getAllPresets()
       setPresets(updatedPresets)
@@ -512,13 +513,13 @@ const SidePanel: React.FC = () => {
     }
     // Otherwise, delete user preset as before
     try {
-      const success = await deletePreset(presetId)
+      const success = await deletePreset(preset.id)
       if (success) {
         const updatedPresets = await getAllPresets()
         setPresets(updatedPresets)
-        console.log('Preset deleted/hidden successfully and UI updated')
+        toast.success(`Preset "${preset.name}" deleted`)
       } else {
-        console.error('Failed to delete preset')
+        toast.error(`Error, preset "${preset.name}" couldn't be deleted`)
       }
     } catch (error) {
       console.error('Error deleting preset:', error)
@@ -530,7 +531,7 @@ const SidePanel: React.FC = () => {
     await setSystemPresetStatus({}) // Clear all disables
     const updatedPresets = await getAllPresets()
     setPresets(updatedPresets)
-    toast.success('System presets have been reset.')
+    toast.success('System presets have been reset')
   }
 
   const handleExport = () => {
