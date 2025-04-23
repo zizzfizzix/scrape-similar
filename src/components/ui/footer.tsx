@@ -49,7 +49,7 @@ export const Footer: React.FC<FooterProps> = ({ className, onResetSystemPresets 
           </TooltipTrigger>
           <TooltipContent>Settings</TooltipContent>
         </Tooltip>
-        <DrawerContent className="w-full right-0 fixed border-l bg-background shadow-lg flex flex-col h-auto mt-8 mb-8 rounded-lg">
+        <DrawerContent className="w-full right-0 fixed border-l bg-background shadow-lg flex flex-col h-autorounded-lg">
           <DrawerHeader>
             <DrawerTitle>Settings</DrawerTitle>
           </DrawerHeader>
