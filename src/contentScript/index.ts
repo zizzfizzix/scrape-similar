@@ -46,29 +46,6 @@ const rightClickListener = (event: MouseEvent) => {
       text: lastRightClickedElement.textContent || '',
       html: lastRightClickedElement.outerHTML,
     }
-
-    // Guess and save ScrapeConfig to session storage
-    try {
-      const guessedConfig = guessScrapeConfigForElement(lastRightClickedElement)
-      const sessionKey = `sidepanel_config_${tabId}`
-      chrome.storage.session.get(sessionKey, (result) => {
-        const existingData = result[sessionKey] || {}
-        const updatedData = {
-          ...existingData,
-          currentScrapeConfig: guessedConfig,
-          elementDetails: lastRightClickedElementDetails,
-        }
-        chrome.storage.session.set({ [sessionKey]: updatedData }, () => {
-          if (chrome.runtime.lastError) {
-            console.error('Error saving guessed ScrapeConfig to storage:', chrome.runtime.lastError)
-          } else {
-            console.log('Guessed ScrapeConfig saved to session storage:', guessedConfig)
-          }
-        })
-      })
-    } catch (err) {
-      console.error('Error guessing or saving ScrapeConfig:', err)
-    }
   }
 }
 
@@ -205,8 +182,8 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
 
       // Handle request to save last right-clicked element details to storage
       case MESSAGE_TYPES.SAVE_ELEMENT_DETAILS_TO_STORAGE: {
-        if (!lastRightClickedElementDetails) {
-          console.warn('No lastRightClickedElementDetails to save.')
+        if (!lastRightClickedElementDetails || !lastRightClickedElement) {
+          console.warn('No lastRightClickedElementDetails or element to save.')
           sendResponse({ success: false, error: 'No element details in memory.' })
           break
         }
@@ -216,30 +193,34 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
           sendResponse({ success: false, error: errMsg })
           break
         }
-        // At this point, lastRightClickedElementDetails is not null due to the guard above
-        const details = lastRightClickedElementDetails!
-        const sessionKey = `sidepanel_config_${tabId}`
-        chrome.storage.session.get(sessionKey, (result) => {
-          const existingData = result[sessionKey] || {}
-          const existingConfig = existingData.currentScrapeConfig || {}
-          const updatedConfig = {
-            ...existingConfig,
-            mainSelector: details.xpath,
-          }
-          const updatedData = {
-            ...existingData,
-            currentScrapeConfig: updatedConfig,
-            elementDetails: details,
-          }
-          chrome.storage.session.set({ [sessionKey]: updatedData }, () => {
-            if (chrome.runtime.lastError) {
-              console.error('Error saving element details to storage:', chrome.runtime.lastError)
-              sendResponse({ success: false, error: chrome.runtime.lastError.message })
-            } else {
-              sendResponse({ success: true })
+        // Guess and save ScrapeConfig to session storage only when context menu is used
+        try {
+          const guessedConfig = guessScrapeConfigForElement(lastRightClickedElement)
+          const details = lastRightClickedElementDetails
+          const sessionKey = `sidepanel_config_${tabId}`
+          chrome.storage.session.get(sessionKey, (result) => {
+            const existingData = result[sessionKey] || {}
+            const updatedData = {
+              ...existingData,
+              currentScrapeConfig: guessedConfig,
+              elementDetails: details,
             }
+            chrome.storage.session.set({ [sessionKey]: updatedData }, () => {
+              if (chrome.runtime.lastError) {
+                console.error(
+                  'Error saving guessed ScrapeConfig to storage:',
+                  chrome.runtime.lastError,
+                )
+                sendResponse({ success: false, error: chrome.runtime.lastError.message })
+              } else {
+                sendResponse({ success: true })
+              }
+            })
           })
-        })
+        } catch (err) {
+          console.error('Error guessing or saving ScrapeConfig:', err)
+          sendResponse({ success: false, error: (err as Error).message })
+        }
         return true
       }
 
