@@ -161,7 +161,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       console.error(`Error opening side panel for tab ${targetTabId}:`, error)
     }
 
-    // Tell content script to save element details to storage, then trigger scrape
+    // Tell content script to save element details to storage, then trigger highlight, then scrape
     try {
       const saveResp = await chrome.tabs.sendMessage(targetTabId, {
         type: MESSAGE_TYPES.SAVE_ELEMENT_DETAILS_TO_STORAGE,
@@ -175,7 +175,40 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       const result = await chrome.storage.session.get(sessionKey)
       const currentData = result[sessionKey] || {}
       const config = currentData.currentScrapeConfig
-      if (config) {
+      if (config && config.mainSelector) {
+        // Highlight elements before scraping
+        const highlightResp = await chrome.tabs.sendMessage(targetTabId, {
+          type: MESSAGE_TYPES.HIGHLIGHT_ELEMENTS,
+          payload: { selector: config.mainSelector },
+        })
+        if (
+          !highlightResp?.success ||
+          typeof highlightResp.matchCount !== 'number' ||
+          highlightResp.matchCount === 0
+        ) {
+          // Notify sidepanel of highlight result (even if failed)
+          await chrome.runtime.sendMessage({
+            type: MESSAGE_TYPES.HIGHLIGHT_RESULT_FROM_CONTEXT_MENU,
+            payload: {
+              tabId: targetTabId,
+              matchCount: highlightResp.matchCount,
+              error: highlightResp.error,
+              success: highlightResp.success,
+            },
+          })
+          console.warn('Highlight failed or no elements found for selector, aborting scrape.')
+          return
+        }
+        // Notify sidepanel of highlight result (success)
+        await chrome.runtime.sendMessage({
+          type: MESSAGE_TYPES.HIGHLIGHT_RESULT_FROM_CONTEXT_MENU,
+          payload: {
+            tabId: targetTabId,
+            matchCount: highlightResp.matchCount,
+            error: highlightResp.error,
+            success: highlightResp.success,
+          },
+        })
         // Send START_SCRAPE to content script
         const scrapeResp = await chrome.tabs.sendMessage(targetTabId, {
           type: MESSAGE_TYPES.START_SCRAPE,

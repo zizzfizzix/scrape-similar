@@ -655,6 +655,22 @@ const SidePanel: React.FC = () => {
     }
   }
 
+  useEffect(() => {
+    const handleRuntimeMessage = (message: any) => {
+      if (message.type === MESSAGE_TYPES.HIGHLIGHT_RESULT_FROM_CONTEXT_MENU) {
+        if (typeof message.payload?.matchCount === 'number') {
+          setHighlightMatchCount(message.payload.matchCount)
+          setHighlightError(undefined)
+        } else if (message.payload?.error) {
+          setHighlightError(message.payload.error)
+          setHighlightMatchCount(undefined)
+        }
+      }
+    }
+    chrome.runtime.onMessage.addListener(handleRuntimeMessage)
+    return () => chrome.runtime.onMessage.removeListener(handleRuntimeMessage)
+  }, [])
+
   if (tabUrl !== null && !isInjectableUrl(tabUrl)) {
     return (
       <div className="flex flex-col h-screen font-sans min-w-0 max-w-full w-full box-border">

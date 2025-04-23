@@ -68,6 +68,9 @@ export const MESSAGE_TYPES = {
 
   // From sidepanel to background
   EXPORT_TO_SHEETS: 'export-to-google-sheets',
+
+  // From background to sidepanel
+  HIGHLIGHT_RESULT_FROM_CONTEXT_MENU: 'highlight-result-from-context-menu',
 }
 
 export interface SystemPresetStatusMap {
