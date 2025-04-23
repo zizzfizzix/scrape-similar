@@ -1,3 +1,4 @@
+import log from 'loglevel'
 import { ColumnDefinition, ScrapeConfig, ScrapedData, ScrapedRow } from './types'
 
 /**
@@ -28,7 +29,7 @@ export const scrapePage = (config: ScrapeConfig): ScrapedData => {
 
     return results
   } catch (error) {
-    console.error('Error scraping page:', error)
+    log.error('Error scraping page:', error)
     return []
   }
 }
@@ -60,7 +61,7 @@ export const evaluateXPathValues = (
       }
     }
   } catch (error) {
-    console.error('Error evaluating XPath:', error)
+    log.error('Error evaluating XPath:', error)
   }
   return results
 }
@@ -92,7 +93,7 @@ export const extractData = (element: HTMLElement, column: ColumnDefinition): str
     }
     return ''
   } catch (error) {
-    console.error('Error extracting data:', error)
+    log.error('Error extracting data:', error)
     return ''
   }
 }

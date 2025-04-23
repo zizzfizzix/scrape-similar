@@ -9,6 +9,7 @@ import {
   DrawerTrigger,
 } from '@/components/ui/drawer'
 import { ModeToggle } from '@/components/ui/mode-toggle'
+import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Clipboard, Cog } from 'lucide-react'
 import * as React from 'react'
@@ -17,10 +18,64 @@ import { useCallback } from 'react'
 interface FooterProps {
   className?: string
   onResetSystemPresets?: () => void
+  debugMode?: boolean
+  onDebugModeChange?: (enabled: boolean) => void
 }
 
-export const Footer: React.FC<FooterProps> = ({ className, onResetSystemPresets }) => {
+export const Footer: React.FC<FooterProps> = ({
+  className,
+  onResetSystemPresets,
+  debugMode = false,
+  onDebugModeChange,
+}) => {
   const [isDrawerOpen, setIsDrawerOpen] = React.useState(false)
+  const [showDebugRow, setShowDebugRow] = React.useState(debugMode)
+  const clickCountRef = React.useRef(0)
+  const timerRef = React.useRef<NodeJS.Timeout | null>(null)
+
+  // On drawer open/close, show/hide debug row based on debugMode
+  React.useEffect(() => {
+    if (isDrawerOpen) {
+      setShowDebugRow(debugMode)
+      clickCountRef.current = 0
+      if (timerRef.current) {
+        clearTimeout(timerRef.current)
+        timerRef.current = null
+      }
+    } else {
+      // Only hide the debug row on drawer close if debugMode is false
+      if (!debugMode) setShowDebugRow(false)
+      clickCountRef.current = 0
+      if (timerRef.current) {
+        clearTimeout(timerRef.current)
+        timerRef.current = null
+      }
+    }
+  }, [isDrawerOpen])
+
+  // Handler for clicking the DrawerTitle
+  const handleDrawerTitleClick = () => {
+    if (showDebugRow) return
+    clickCountRef.current += 1
+    if (clickCountRef.current === 1) {
+      // Start/reset timer on first click
+      timerRef.current = setTimeout(() => {
+        clickCountRef.current = 0
+      }, 5000)
+    }
+    if (clickCountRef.current >= 5) {
+      setShowDebugRow(true)
+      clickCountRef.current = 0
+      if (timerRef.current) {
+        clearTimeout(timerRef.current)
+        timerRef.current = null
+      }
+    }
+  }
+
+  const handleDebugSwitch = (checked: boolean) => {
+    if (onDebugModeChange) onDebugModeChange(checked)
+  }
 
   return (
     <footer
@@ -51,7 +106,7 @@ export const Footer: React.FC<FooterProps> = ({ className, onResetSystemPresets 
         </Tooltip>
         <DrawerContent className="w-full right-0 fixed border-l bg-background shadow-lg flex flex-col h-autorounded-lg">
           <DrawerHeader>
-            <DrawerTitle>Settings</DrawerTitle>
+            <DrawerTitle onClick={handleDrawerTitleClick}>Settings</DrawerTitle>
           </DrawerHeader>
           <div className="flex-1 p-4">
             <div className="flex flex-col gap-4">
@@ -94,6 +149,12 @@ export const Footer: React.FC<FooterProps> = ({ className, onResetSystemPresets 
                   Reset
                 </Button>
               </div>
+              {showDebugRow && (
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-sm font-medium">Debug mode</span>
+                  <Switch checked={debugMode} onCheckedChange={handleDebugSwitch} />
+                </div>
+              )}
             </div>
           </div>
           <DrawerFooter>

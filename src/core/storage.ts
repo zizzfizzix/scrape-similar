@@ -1,4 +1,5 @@
 /// <reference types="chrome" />
+import log from 'loglevel'
 import { SYSTEM_PRESETS } from './system_presets'
 import { Preset, SYSTEM_PRESET_STATUS_KEY, SystemPresetStatusMap } from './types'
 
@@ -13,7 +14,7 @@ export const getPresets = async (): Promise<Preset[]> => {
     const result = await chrome.storage.sync.get(STORAGE_KEYS.GLOBAL_PRESETS)
     return result[STORAGE_KEYS.GLOBAL_PRESETS] || []
   } catch (error) {
-    console.error('Error getting presets from storage:', error)
+    log.error('Error getting presets from storage:', error)
     return []
   }
 }
@@ -36,7 +37,7 @@ export const savePreset = async (preset: Preset): Promise<boolean> => {
     await chrome.storage.sync.set({ [STORAGE_KEYS.GLOBAL_PRESETS]: presets })
     return true
   } catch (error) {
-    console.error('Error saving preset to storage:', error)
+    log.error('Error saving preset to storage:', error)
     return false
   }
 }
@@ -50,7 +51,7 @@ export const deletePreset = async (presetId: string): Promise<boolean> => {
     await chrome.storage.sync.set({ [STORAGE_KEYS.GLOBAL_PRESETS]: updatedPresets })
     return true
   } catch (error) {
-    console.error('Error deleting preset from storage:', error)
+    log.error('Error deleting preset from storage:', error)
     return false
   }
 }
@@ -65,7 +66,7 @@ export const initializeStorage = async (): Promise<void> => {
       await chrome.storage.sync.set({ [STORAGE_KEYS.GLOBAL_PRESETS]: [] })
     }
   } catch (error) {
-    console.error('Error initializing storage:', error)
+    log.error('Error initializing storage:', error)
   }
 }
 
@@ -75,7 +76,7 @@ export const getSystemPresetStatus = async (): Promise<SystemPresetStatusMap> =>
     const result = await chrome.storage.sync.get(SYSTEM_PRESET_STATUS_KEY)
     return result[SYSTEM_PRESET_STATUS_KEY] || {}
   } catch (error) {
-    console.error('Error getting system preset status from storage:', error)
+    log.error('Error getting system preset status from storage:', error)
     return {}
   }
 }
@@ -85,7 +86,7 @@ export const setSystemPresetStatus = async (statusMap: SystemPresetStatusMap): P
   try {
     await chrome.storage.sync.set({ [SYSTEM_PRESET_STATUS_KEY]: statusMap })
   } catch (error) {
-    console.error('Error setting system preset status in storage:', error)
+    log.error('Error setting system preset status in storage:', error)
   }
 }
 

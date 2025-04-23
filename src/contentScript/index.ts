@@ -1,3 +1,4 @@
+import log from 'loglevel'
 import {
   evaluateXPath,
   guessScrapeConfigForElement,
@@ -5,8 +6,21 @@ import {
   scrapePage,
 } from '../core/scraper'
 import { MESSAGE_TYPES, Message, ScrapeConfig } from '../core/types'
+log.setDefaultLevel('error')
 
-console.info('Scrape Similar content script is running')
+// On startup, set log level from storage
+chrome.storage.sync.get(['debugMode'], (result) => {
+  log.setLevel(result.debugMode ? 'trace' : 'error')
+})
+
+// Listen for debugMode changes in storage
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'sync' && changes.debugMode) {
+    log.setLevel(changes.debugMode.newValue ? 'trace' : 'error')
+  }
+})
+
+log.info('Scrape Similar content script is running')
 
 // Track the currently highlighted elements
 let highlightedElements: HTMLElement[] = []
@@ -26,14 +40,14 @@ let lastRightClickedElementDetails: ElementDetails | null = null
 // Request tabId on initialization and throw if not available
 chrome.runtime.sendMessage({ type: 'GET_MY_TAB_ID' }, (response) => {
   if (chrome.runtime.lastError || !response || typeof response.tabId !== 'number') {
-    console.error(
+    log.error(
       'Failed to get tabId on content script initialization:',
       chrome.runtime.lastError?.message || response,
     )
     throw new Error('Content script cannot function without tabId.')
   }
   tabId = response.tabId
-  console.log('Content script initialized with tabId:', tabId)
+  log.debug('Content script initialized with tabId:', tabId)
 })
 
 // Handle right-click for later element selection
@@ -51,30 +65,30 @@ const rightClickListener = (event: MouseEvent) => {
 
 // Listen for context menu events to capture target element
 document.addEventListener('contextmenu', (event) => {
-  console.log('Context menu event captured', event.target)
+  log.debug('Context menu event captured', event.target)
   rightClickListener(event as MouseEvent)
 })
 
-console.log('CONTENT SCRIPT ADDING MESSAGE LISTENER')
+log.debug('CONTENT SCRIPT ADDING MESSAGE LISTENER')
 // Handle messages from background script
 chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) => {
-  console.log('Content script received message:', message)
+  log.debug('Content script received message:', message)
 
   try {
     switch (message.type) {
       case MESSAGE_TYPES.START_SCRAPE: {
-        console.log('Starting scrape with config (direct from UI):', message.payload)
+        log.debug('Starting scrape with config (direct from UI):', message.payload)
         const config = message.payload as ScrapeConfig
         const data = scrapePage(config)
         const columnOrder = config.columns.map((col) => col.name)
         const scrapedDataResult = { data, columnOrder }
 
-        console.log('Scrape complete, data:', scrapedDataResult)
+        log.debug('Scrape complete, data:', scrapedDataResult)
 
         // Use cached tabId
         if (tabId === null) {
           const errMsg = 'tabId not initialized in content script.'
-          console.error(errMsg)
+          log.error(errMsg)
           sendResponse({ success: false, error: errMsg })
           return
         }
@@ -83,7 +97,7 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
         // Try to access session storage directly
         chrome.storage.session.get(sessionKey, (result) => {
           if (chrome.runtime.lastError) {
-            console.error('Error accessing session storage:', chrome.runtime.lastError)
+            log.error('Error accessing session storage:', chrome.runtime.lastError)
             sendResponse({
               success: false,
               error:
@@ -102,14 +116,14 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
             }
 
             // Save directly to storage
-            console.log(
+            log.debug(
               `Content script directly saving scraped data to session storage for tab ${tabId}:`,
               data.length,
               'items',
             )
             chrome.storage.session.set({ [sessionKey]: updatedData }, () => {
               if (chrome.runtime.lastError) {
-                console.error('Error saving to session storage:', chrome.runtime.lastError)
+                log.error('Error saving to session storage:', chrome.runtime.lastError)
                 sendResponse({
                   success: false,
                   error: 'Failed to save data to storage: ' + chrome.runtime.lastError.message,
@@ -123,7 +137,7 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
               }
             })
           } catch (error) {
-            console.error('Error updating session storage:', error)
+            log.error('Error updating session storage:', error)
             sendResponse({
               success: false,
               error: 'Error updating session storage: ' + (error as Error).message,
@@ -136,7 +150,7 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
       }
 
       case MESSAGE_TYPES.HIGHLIGHT_ELEMENTS: {
-        console.log('Highlighting elements:', message.payload)
+        log.debug('Highlighting elements:', message.payload)
         const { selector } = message.payload as { selector: string }
         let elements: any[] = []
         try {
@@ -173,7 +187,7 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
       }
       // Add a default case for unhandled messages
       default: {
-        console.log('Unhandled message type in content script:', message.type)
+        log.debug('Unhandled message type in content script:', message.type)
         // Optionally send a response indicating not handled, or do nothing
         // sendResponse({ received: false, error: `Unhandled message type: ${message.type}` });
         // No return true here, as it's synchronous handling (or no handling)
@@ -183,13 +197,13 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
       // Handle request to save last right-clicked element details to storage
       case MESSAGE_TYPES.SAVE_ELEMENT_DETAILS_TO_STORAGE: {
         if (!lastRightClickedElementDetails || !lastRightClickedElement) {
-          console.warn('No lastRightClickedElementDetails or element to save.')
+          log.warn('No lastRightClickedElementDetails or element to save.')
           sendResponse({ success: false, error: 'No element details in memory.' })
           break
         }
         if (tabId === null) {
           const errMsg = 'tabId not initialized in content script.'
-          console.error(errMsg)
+          log.error(errMsg)
           sendResponse({ success: false, error: errMsg })
           break
         }
@@ -207,10 +221,7 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
             }
             chrome.storage.session.set({ [sessionKey]: updatedData }, () => {
               if (chrome.runtime.lastError) {
-                console.error(
-                  'Error saving guessed ScrapeConfig to storage:',
-                  chrome.runtime.lastError,
-                )
+                log.error('Error saving guessed ScrapeConfig to storage:', chrome.runtime.lastError)
                 sendResponse({ success: false, error: chrome.runtime.lastError.message })
               } else {
                 sendResponse({ success: true })
@@ -218,7 +229,7 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
             })
           })
         } catch (err) {
-          console.error('Error guessing or saving ScrapeConfig:', err)
+          log.error('Error guessing or saving ScrapeConfig:', err)
           sendResponse({ success: false, error: (err as Error).message })
         }
         return true
@@ -260,10 +271,10 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
       }
     }
   } catch (error) {
-    console.error('Error in content script:', error)
+    log.error('Error in content script:', error)
   }
 })
-console.log('CONTENT SCRIPT MESSAGE LISTENER ADDED')
+log.debug('CONTENT SCRIPT MESSAGE LISTENER ADDED')
 
 // Highlight matching elements in the page
 const highlightMatchingElements = (elements: any[]) => {

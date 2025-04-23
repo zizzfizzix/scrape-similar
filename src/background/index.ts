@@ -1,8 +1,22 @@
+import log from 'loglevel'
 import { initializeStorage } from '../core/storage'
 import { ExportResult, Message, MESSAGE_TYPES, ScrapedData, SidePanelConfig } from '../core/types'
 import { isInjectableUrl } from '../lib/isInjectableUrl'
+log.setDefaultLevel('error')
 
-console.log('background is running')
+// On startup, set log level from storage
+chrome.storage.sync.get(['debugMode'], (result) => {
+  log.setLevel(result.debugMode ? 'trace' : 'error')
+})
+
+// Listen for debugMode changes in storage
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'sync' && changes.debugMode) {
+    log.setLevel(changes.debugMode.newValue ? 'trace' : 'error')
+  }
+})
+
+log.debug('background is running')
 
 // Helper to generate session storage key for a tab
 const getSessionKey = (tabId: number): string => `sidepanel_config_${tabId}`
@@ -32,7 +46,7 @@ const injectContentScriptToAllTabs = async () => {
         })
       } catch (error) {
         // Ignore errors for restricted pages
-        console.warn(
+        log.warn(
           `Failed to inject content script into tab ${tab.id} with url ${tab.url}:`,
           (error as chrome.runtime.LastError).message,
         )
@@ -43,7 +57,7 @@ const injectContentScriptToAllTabs = async () => {
 
 // Initialize extension when installed or updated
 chrome.runtime.onInstalled.addListener(async () => {
-  console.log('Scrape Similar extension installed')
+  log.debug('Scrape Similar extension installed')
 
   // Initialize storage
   await initializeStorage()
@@ -51,9 +65,9 @@ chrome.runtime.onInstalled.addListener(async () => {
   // Set storage.session access level to allow content scripts access
   try {
     await chrome.storage.session.setAccessLevel({ accessLevel: 'TRUSTED_AND_UNTRUSTED_CONTEXTS' })
-    console.log('Set storage.session access level to allow content scripts access')
+    log.debug('Set storage.session access level to allow content scripts access')
   } catch (error) {
-    console.error('Error setting storage.session access level:', error)
+    log.error('Error setting storage.session access level:', error)
   }
 
   // Create context menu item
@@ -66,9 +80,9 @@ chrome.runtime.onInstalled.addListener(async () => {
     () => {
       // Check for any errors when creating context menu
       if (chrome.runtime.lastError) {
-        console.error('Error creating context menu:', chrome.runtime.lastError)
+        log.error('Error creating context menu:', chrome.runtime.lastError)
       } else {
-        console.log('Context menu created successfully')
+        log.debug('Context menu created successfully')
       }
     },
   )
@@ -79,9 +93,9 @@ chrome.runtime.onInstalled.addListener(async () => {
     await chrome.sidePanel.setPanelBehavior({
       openPanelOnActionClick: true,
     })
-    console.log('Side panel behavior set successfully - action icon will now toggle the panel')
+    log.debug('Side panel behavior set successfully - action icon will now toggle the panel')
   } catch (error) {
-    console.error('Error setting side panel behavior:', error)
+    log.error('Error setting side panel behavior:', error)
   }
 
   // Inject content script into all tabs on install/update
@@ -98,7 +112,7 @@ chrome.action.onClicked.addListener(async (tab) => {
   if (!tab?.id) return
   const tabId = tab.id
 
-  console.log(`Action clicked for tab: ${tabId}`)
+  log.debug(`Action clicked for tab: ${tabId}`)
   try {
     // Ensure the panel is enabled and configured for this tab before the browser automatically opens it
     await chrome.sidePanel.setOptions({
@@ -106,7 +120,7 @@ chrome.action.onClicked.addListener(async (tab) => {
       path: `sidepanel.html`,
       enabled: true,
     })
-    console.log(`Side panel options set for tab ${tabId} via action click`)
+    log.debug(`Side panel options set for tab ${tabId} via action click`)
 
     // --- Ensure a session state exists for this tab ---
     try {
@@ -120,13 +134,13 @@ chrome.action.onClicked.addListener(async (tab) => {
           selectionOptions: undefined,
           currentScrapeConfig: undefined, // Start with no specific config
         }
-        console.log(`[ActionClick] No session state found for tab ${tabId}. Saving default state.`)
+        log.debug(`[ActionClick] No session state found for tab ${tabId}. Saving default state.`)
         await chrome.storage.session.set({ [sessionKey]: defaultPanelState })
       } else {
-        console.log(`[ActionClick] Session state already exists for tab ${tabId}. Not overwriting.`)
+        log.debug(`[ActionClick] Session state already exists for tab ${tabId}. Not overwriting.`)
       }
     } catch (error) {
-      console.error(`[ActionClick] Error ensuring session state for tab ${tabId}:`, error)
+      log.error(`[ActionClick] Error ensuring session state for tab ${tabId}:`, error)
     }
     // -------------------------------------------------
 
@@ -134,31 +148,29 @@ chrome.action.onClicked.addListener(async (tab) => {
     // Do NOT explicitly call open() here as it conflicts with the user gesture requirement when await is used for setOptions
     // await chrome.sidePanel.open({ tabId });
   } catch (error) {
-    console.error(`Error handling action click for tab ${tabId}:`, error)
+    log.error(`Error handling action click for tab ${tabId}:`, error)
   }
 })
 
 // Handle context menu clicks
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
-  console.log('Context menu clicked:', info, tab)
+  log.debug('Context menu clicked:', info, tab)
 
   if (!tab?.id) {
-    console.error('No tab ID available')
+    log.error('No tab ID available')
     return
   }
   const targetTabId = tab.id
 
   if (info.menuItemId === 'scrape-similar') {
-    console.log(
-      'Scrape similar selected, opening side panel and triggering element details save...',
-    )
+    log.debug('Scrape similar selected, opening side panel and triggering element details save...')
 
     // Always open the side panel (safe even if already open)
     try {
       await chrome.sidePanel.open({ tabId: targetTabId })
-      console.log(`Side panel opened for tab ${targetTabId}`)
+      log.debug(`Side panel opened for tab ${targetTabId}`)
     } catch (error) {
-      console.error(`Error opening side panel for tab ${targetTabId}:`, error)
+      log.error(`Error opening side panel for tab ${targetTabId}:`, error)
     }
 
     // Tell content script to save element details to storage, then trigger highlight, then scrape
@@ -168,7 +180,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       })
       if (!saveResp?.success)
         throw new Error('Failed to save element details: ' + (saveResp?.error || 'Unknown error'))
-      console.log('Told content script to save element details to storage.')
+      log.debug('Told content script to save element details to storage.')
 
       // Fetch the latest config from session storage
       const sessionKey = getSessionKey(targetTabId)
@@ -196,7 +208,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
               success: highlightResp.success,
             },
           })
-          console.warn('Highlight failed or no elements found for selector, aborting scrape.')
+          log.warn('Highlight failed or no elements found for selector, aborting scrape.')
           return
         }
         // Notify sidepanel of highlight result (success)
@@ -216,31 +228,31 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         })
         if (!scrapeResp?.success)
           throw new Error('Failed to trigger scrape: ' + (scrapeResp?.error || 'Unknown error'))
-        console.log('Scrape triggered successfully.')
+        log.debug('Scrape triggered successfully.')
       } else {
-        console.warn('No currentScrapeConfig found in session storage, cannot auto-scrape.')
+        log.warn('No currentScrapeConfig found in session storage, cannot auto-scrape.')
       }
     } catch (error) {
-      console.error('Error in right-click scrape flow:', error)
+      log.error('Error in right-click scrape flow:', error)
     }
   }
 })
 
 // Listen for tab removal
 chrome.tabs.onRemoved.addListener(async (tabId) => {
-  console.log(`Tab removed: ${tabId}`)
+  log.debug(`Tab removed: ${tabId}`)
   const sessionKey = getSessionKey(tabId)
   try {
     await chrome.storage.session.remove(sessionKey)
-    console.log(`Removed session data for tab ${tabId}`)
+    log.debug(`Removed session data for tab ${tabId}`)
   } catch (error) {
-    console.error(`Error removing session data for tab ${tabId}:`, error)
+    log.error(`Error removing session data for tab ${tabId}:`, error)
   }
 })
 
 // Handle messages from content scripts and UI
 chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) => {
-  console.log('Background received message:', message, 'from sender:', sender)
+  log.debug('Background received message:', message, 'from sender:', sender)
 
   // Handle messages from content script (always have sender.tab)
   if (sender.tab && sender.tab.id) {
@@ -263,11 +275,11 @@ const handleContentScriptMessage = async (
 ) => {
   const tabId = sender.tab?.id
   if (!tabId) {
-    console.error('No tab ID available for content script message')
+    log.error('No tab ID available for content script message')
     return
   }
 
-  console.log(`Handling message from content script in tab ${tabId}:`, message)
+  log.debug(`Handling message from content script in tab ${tabId}:`, message)
 
   const sessionKey = getSessionKey(tabId)
 
@@ -279,17 +291,17 @@ const handleContentScriptMessage = async (
     switch (message.type) {
       case 'GET_MY_TAB_ID': {
         // Simple handler to return the tab ID from the sender
-        console.log(`Content script in tab ${tabId} requested its own tab ID`)
+        log.debug(`Content script in tab ${tabId} requested its own tab ID`)
         sendResponse({ tabId })
         break
       }
 
       default:
-        console.warn(`Unhandled content script message type for tab ${tabId}: ${message.type}`)
+        log.warn(`Unhandled content script message type for tab ${tabId}: ${message.type}`)
         sendResponse({ warning: 'Unhandled message type' })
     }
   } catch (error) {
-    console.error(`Error handling content script message for tab ${tabId}:`, error)
+    log.error(`Error handling content script message for tab ${tabId}:`, error)
     sendResponse({ success: false, error: (error as Error).message })
   }
 }
@@ -315,10 +327,10 @@ const handleUiMessage = async (
         sendResponse({ success: false, error: 'No data to export' })
         return
       }
-      console.log('Requesting export to sheets with filename:', filename)
+      log.debug('Requesting export to sheets with filename:', filename)
       chrome.identity.getAuthToken({ interactive: true }, async (token) => {
         if (chrome.runtime.lastError) {
-          console.error('Error getting auth token:', chrome.runtime.lastError)
+          log.error('Error getting auth token:', chrome.runtime.lastError)
           const errorMessage = chrome.runtime.lastError.message || 'Unknown OAuth error'
           sendResponse({
             success: false,
@@ -348,7 +360,7 @@ const handleUiMessage = async (
     }
 
     default:
-      console.warn(`Unhandled UI message type: ${message.type}`)
+      log.warn(`Unhandled UI message type: ${message.type}`)
       sendResponse({ warning: 'Unhandled message type' })
   }
 }
@@ -463,13 +475,13 @@ const exportToGoogleSheets = async (
       },
     )
 
-    console.log(`Successfully exported data to Google Sheet: ${spreadsheetUrl}`)
+    log.debug(`Successfully exported data to Google Sheet: ${spreadsheetUrl}`)
     return {
       success: true,
       url: spreadsheetUrl,
     }
   } catch (error) {
-    console.error('Error exporting to Google Sheets:', error)
+    log.error('Error exporting to Google Sheets:', error)
 
     if ((error as Error).message.includes('Authentication token expired')) {
       return {

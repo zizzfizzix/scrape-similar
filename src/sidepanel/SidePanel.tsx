@@ -27,6 +27,7 @@ import {
   SidePanelConfig,
 } from '@/core/types'
 import { isInjectableUrl } from '@/lib/isInjectableUrl'
+import log from 'loglevel'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import slugify from 'slugify'
 import { toast } from 'sonner'
@@ -49,12 +50,17 @@ const copyToClipboard = async (text: string) => {
     await navigator.clipboard.writeText(text)
     return true
   } catch (err) {
-    console.error('Failed to copy:', err)
+    log.error('Failed to copy:', err)
     return false
   }
 }
 
-const SidePanel: React.FC = () => {
+interface SidePanelProps {
+  debugMode: boolean
+  onDebugModeChange: (enabled: boolean) => void
+}
+
+const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) => {
   // State
   const [activeTab, setActiveTab] = useState<'config' | 'data' | 'presets'>('config')
   const [targetTabId, setTargetTabId] = useState<number | null>(null)
@@ -110,12 +116,12 @@ const SidePanel: React.FC = () => {
 
   // Request tabId and tabUrl from chrome.tabs API on mount
   useEffect(() => {
-    console.log('SidePanel mounted, requesting tabId and URL from chrome.tabs API...')
+    log.debug('SidePanel mounted, requesting tabId and URL from chrome.tabs API...')
     chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
       if (chrome.runtime.lastError) {
-        console.error('Error querying tabs:', chrome.runtime.lastError.message)
+        log.error('Error querying tabs:', chrome.runtime.lastError.message)
       } else if (tabs && tabs[0] && tabs[0].id) {
-        console.log(`Got initial tabId directly: ${tabs[0].id}`)
+        log.debug(`Got initial tabId directly: ${tabs[0].id}`)
         const newTabId = tabs[0].id
         const newTabUrl = tabs[0].url || ''
         targetTabIdRef.current = newTabId
@@ -124,17 +130,17 @@ const SidePanel: React.FC = () => {
         const sessionKey = `sidepanel_config_${newTabId}`
         chrome.storage.session.get(sessionKey, (result) => {
           if (chrome.runtime.lastError) {
-            console.error('Error loading initial data from storage:', chrome.runtime.lastError)
+            log.error('Error loading initial data from storage:', chrome.runtime.lastError)
             return
           }
           if (result[sessionKey]) {
-            console.log('Initial data loaded from storage:', result[sessionKey])
+            log.debug('Initial data loaded from storage:', result[sessionKey])
             handleInitialData({
               tabId: newTabId,
               config: result[sessionKey],
             })
           } else {
-            console.log(`No initial data found in storage for tab ${newTabId}, using default state`)
+            log.debug(`No initial data found in storage for tab ${newTabId}, using default state`)
             const defaultState = createDefaultState()
             handleInitialData({
               tabId: newTabId,
@@ -143,7 +149,7 @@ const SidePanel: React.FC = () => {
           }
         })
       } else {
-        console.error('No active tab found in last focused window')
+        log.error('No active tab found in last focused window')
       }
     })
   }, [])
@@ -151,7 +157,7 @@ const SidePanel: React.FC = () => {
   // Debounced function to save config changes directly to session storage
   const debouncedSaveConfig = useCallback(
     debounce((newConfig: ScrapeConfig, tabId: number) => {
-      console.log(`Debounced save for tab ${tabId}:`, newConfig)
+      log.debug(`Debounced save for tab ${tabId}:`, newConfig)
       const sessionKey = `sidepanel_config_${tabId}`
 
       // Get current storage data first to merge properly
@@ -165,7 +171,7 @@ const SidePanel: React.FC = () => {
         }
 
         // Save directly to storage
-        console.log(`Saving config directly to session storage:`, updatedData)
+        log.debug(`Saving config directly to session storage:`, updatedData)
         chrome.storage.session.set({ [sessionKey]: updatedData })
       })
     }, 500), // 500ms debounce interval
@@ -189,13 +195,13 @@ const SidePanel: React.FC = () => {
       // Only compare with targetTabIdRef if it has been set
       const currentExpectedTabId = targetTabIdRef.current
       if (currentExpectedTabId !== null && payload.tabId !== currentExpectedTabId) {
-        console.warn(
+        log.warn(
           `handleInitialData called for wrong tab ${payload.tabId}, expected ${currentExpectedTabId}`,
         )
         return
       }
 
-      console.log(`Processing data for tab ${payload.tabId}:`, payload.config)
+      log.debug(`Processing data for tab ${payload.tabId}:`, payload.config)
       const {
         selectionOptions,
         elementDetails,
@@ -214,7 +220,7 @@ const SidePanel: React.FC = () => {
 
       // Set config from storage if available
       if (currentScrapeConfig) {
-        console.log('Loading config from session storage:', currentScrapeConfig)
+        log.debug('Loading config from session storage:', currentScrapeConfig)
         newConfig = {
           ...defaultConfig,
           ...currentScrapeConfig,
@@ -226,7 +232,7 @@ const SidePanel: React.FC = () => {
       } else if (elementDetails?.xpath) {
         // Fallback: If no saved config, but element details exist (e.g., from context menu),
         // initialize config with the XPath from the selected element.
-        console.log('Initializing config from elementDetails XPath:', elementDetails.xpath)
+        log.debug('Initializing config from elementDetails XPath:', elementDetails.xpath)
         newConfig = {
           ...defaultConfig, // Start with default columns
           mainSelector: elementDetails.xpath,
@@ -237,11 +243,11 @@ const SidePanel: React.FC = () => {
 
       // Update initial options used by the ConfigForm
       if (selectionOptions) {
-        console.log('Setting initialOptions from selectionOptions:', selectionOptions)
+        log.debug('Setting initialOptions from selectionOptions:', selectionOptions)
         newOptions = selectionOptions
       } else if (elementDetails) {
         // Construct initialOptions from elementDetails if selectionOptions not available
-        console.log('Constructing initialOptions from elementDetails')
+        log.debug('Constructing initialOptions from elementDetails')
         const options: SelectionOptions = {
           xpath: elementDetails.xpath,
           selectedText: initialSelectionText || elementDetails.text,
@@ -279,7 +285,7 @@ const SidePanel: React.FC = () => {
         const loadedPresets = await getAllPresets()
         setPresets(loadedPresets)
       } catch (error) {
-        console.error('Error loading presets:', error)
+        log.error('Error loading presets:', error)
         setPresets([])
       }
     }
@@ -288,7 +294,7 @@ const SidePanel: React.FC = () => {
 
     // Listen for tab activation
     const tabActivationListener = (activeInfo: chrome.tabs.TabActiveInfo) => {
-      console.log(`SidePanel detected tab activation: ${activeInfo.tabId}`)
+      log.debug(`SidePanel detected tab activation: ${activeInfo.tabId}`)
       const newTabId = activeInfo.tabId
 
       // Update ref directly for immediate use
@@ -299,7 +305,7 @@ const SidePanel: React.FC = () => {
       // Get the new tab's URL and update tabUrl state
       chrome.tabs.get(newTabId, (tab) => {
         if (chrome.runtime.lastError) {
-          console.error('Error getting tab info:', chrome.runtime.lastError)
+          log.error('Error getting tab info:', chrome.runtime.lastError)
           setTabUrl(null)
         } else {
           setTabUrl(tab.url || '')
@@ -310,7 +316,7 @@ const SidePanel: React.FC = () => {
       const sessionKey = `sidepanel_config_${newTabId}`
       chrome.storage.session.get(sessionKey, (result) => {
         if (chrome.runtime.lastError) {
-          console.error(
+          log.error(
             `Error loading data from storage for tab ${newTabId}:`,
             chrome.runtime.lastError,
           )
@@ -318,7 +324,7 @@ const SidePanel: React.FC = () => {
         }
 
         if (result[sessionKey]) {
-          console.log(
+          log.debug(
             `Data loaded from storage for newly activated tab ${newTabId}:`,
             result[sessionKey],
           )
@@ -327,7 +333,7 @@ const SidePanel: React.FC = () => {
             config: result[sessionKey],
           })
         } else {
-          console.log(
+          log.debug(
             `No data found in storage for newly activated tab ${newTabId}, using default state`,
           )
 
@@ -353,7 +359,7 @@ const SidePanel: React.FC = () => {
           const sessionKey = `sidepanel_config_${currentTabId}`
 
           if (changes[sessionKey]) {
-            console.log(
+            log.debug(
               `Storage change detected for current tab ${currentTabId}:`,
               changes[sessionKey],
             )
@@ -361,7 +367,7 @@ const SidePanel: React.FC = () => {
 
             // Use the new value directly instead of making an additional request
             if (newValue) {
-              console.log('Updating UI directly with storage change data:', newValue)
+              log.debug('Updating UI directly with storage change data:', newValue)
 
               // Pass the current tab ID from the ref to ensure consistency
               handleInitialData({
@@ -402,7 +408,7 @@ const SidePanel: React.FC = () => {
 
     // Cleanup listeners on component unmount
     return () => {
-      console.log('SidePanel unmounting, removing listeners...')
+      log.debug('SidePanel unmounting, removing listeners...')
       chrome.tabs.onActivated.removeListener(tabActivationListener)
       chrome.storage.onChanged.removeListener(storageChangeListener)
       chrome.tabs.onUpdated.removeListener(tabUpdateListener)
@@ -440,7 +446,7 @@ const SidePanel: React.FC = () => {
         if (response?.error) {
           setContentScriptCommsError(response.error)
           setLastScrapeRowCount(null)
-          console.error('Error during scrape:', response.error)
+          log.error('Error during scrape:', response.error)
           return
         }
         setLastScrapeRowCount(response?.data?.data?.length ?? 0)
@@ -498,12 +504,12 @@ const SidePanel: React.FC = () => {
       if (success) {
         const updatedPresets = await getAllPresets()
         setPresets(updatedPresets)
-        console.log('Preset saved successfully and UI updated')
+        log.debug('Preset saved successfully and UI updated')
       } else {
-        console.error('Failed to save preset')
+        log.error('Failed to save preset')
       }
     } catch (error) {
-      console.error('Error saving preset:', error)
+      log.error('Error saving preset:', error)
     }
   }
 
@@ -533,7 +539,7 @@ const SidePanel: React.FC = () => {
         toast.error(`Error, preset "${preset.name}" couldn't be deleted`)
       }
     } catch (error) {
-      console.error('Error deleting preset:', error)
+      log.error('Error deleting preset:', error)
     }
   }
 
@@ -677,7 +683,11 @@ const SidePanel: React.FC = () => {
         <main className="flex-1 flex min-w-0 w-full">
           <SplashScreen />
         </main>
-        <Footer />
+        <Footer
+          onResetSystemPresets={handleResetSystemPresets}
+          debugMode={debugMode}
+          onDebugModeChange={onDebugModeChange}
+        />
       </div>
     )
   }
@@ -752,7 +762,11 @@ const SidePanel: React.FC = () => {
           )}
         </div>
       </main>
-      <Footer onResetSystemPresets={handleResetSystemPresets} />
+      <Footer
+        onResetSystemPresets={handleResetSystemPresets}
+        debugMode={debugMode}
+        onDebugModeChange={onDebugModeChange}
+      />
     </div>
   )
 }
