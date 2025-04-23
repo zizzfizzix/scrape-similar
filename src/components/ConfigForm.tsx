@@ -415,7 +415,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
             placeholder="Enter XPath selector"
             ref={mainSelectorInputRef}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') {
+              if (e.key === 'Enter' && config.mainSelector) {
                 mainSelectorInputRef.current?.blur()
                 onScrape()
               }
