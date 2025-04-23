@@ -23,7 +23,17 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { SYSTEM_PRESETS } from '@/core/system_presets'
 import { MESSAGE_TYPES, Preset, ScrapeConfig, SelectionOptions } from '@/core/types'
-import { Check, ChevronsUpDown, EyeOff, Info, Plus, Trash2, Wand, X } from 'lucide-react'
+import {
+  Check,
+  ChevronsUpDown,
+  EyeOff,
+  Info,
+  OctagonAlert,
+  Plus,
+  Trash2,
+  Wand,
+  X,
+} from 'lucide-react'
 import React, { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -42,6 +52,8 @@ interface ConfigFormProps {
   setShowPresets: React.Dispatch<React.SetStateAction<boolean>>
   lastScrapeRowCount: number | null
   onClearLastScrapeRowCount?: () => void
+  highlightMatchCount?: number
+  highlightError?: string
 }
 
 // Helper to check if a preset is a system preset
@@ -62,6 +74,8 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
   onDeletePreset,
   lastScrapeRowCount,
   onClearLastScrapeRowCount,
+  highlightMatchCount,
+  highlightError,
 }) => {
   // Local state for adding a new column
   const [newColumnName, setNewColumnName] = useState('')
@@ -89,6 +103,13 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
 
   // Add ref for main selector input
   const mainSelectorInputRef = useRef<HTMLInputElement>(null)
+
+  // Add ref and state for dynamic end adornment width
+  const [endAdornmentWidth, setEndAdornmentWidth] = useState(0)
+  const endAdornmentRef = useRef<HTMLDivElement>(null)
+
+  // Derived: is mainSelector valid (highlight returned a number and no error)
+  const isMainSelectorValid = typeof highlightMatchCount === 'number' && !highlightError
 
   useEffect(() => {
     if (shouldScrollToEnd && config.columns.length > prevColumnsCount.current) {
@@ -122,6 +143,12 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
       if (zeroFoundTimeoutRef.current) clearTimeout(zeroFoundTimeoutRef.current)
     }
   }, [lastScrapeRowCount, onClearLastScrapeRowCount])
+
+  useEffect(() => {
+    if (endAdornmentRef.current) {
+      setEndAdornmentWidth(endAdornmentRef.current.offsetWidth)
+    }
+  }, [highlightError, highlightMatchCount])
 
   // Handle main selector change
   const handleMainSelectorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -266,10 +293,10 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                   autoFocus
                 />
                 <CommandList>
-                  <CommandEmpty>No presets found.</CommandEmpty>
+                  <CommandEmpty>No presets found</CommandEmpty>
                   <CommandGroup heading="Presets">
                     {presets.length === 0 && (
-                      <div className="p-2 text-sm text-muted-foreground">No presets saved.</div>
+                      <div className="p-2 text-sm text-muted-foreground">No presets saved</div>
                     )}
                     {presets
                       .filter((p) => p.name.toLowerCase().includes(search.toLowerCase()))
@@ -363,7 +390,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
               <Button
                 variant="outline"
                 type="button"
-                disabled={isSaving || !config.mainSelector.trim() || config.columns.length === 0}
+                disabled={isSaving || config.columns.length === 0 || !isMainSelectorValid}
               >
                 Save
               </Button>
@@ -393,8 +420,8 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                   disabled={
                     isSaving ||
                     !presetName.trim() ||
-                    !config.mainSelector.trim() ||
-                    config.columns.length === 0
+                    config.columns.length === 0 ||
+                    !isMainSelectorValid
                   }
                   loading={isSaving}
                 >
@@ -419,7 +446,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
         <p className="text-sm text-muted-foreground">
           This selector identifies the main elements to scrape.
         </p>
-        <div className="flex gap-2 w-full items-center relative">
+        <div className="relative w-full">
           <Input
             type="text"
             id="mainSelector"
@@ -438,9 +465,39 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                 onScrape()
               }
             }}
-            className="pr-10"
+            style={{ paddingRight: endAdornmentWidth ? endAdornmentWidth + 8 : undefined }}
           />
-          <div className="absolute right-2 top-1/2 -translate-y-1/2">
+          {/* End adornments: badges and info button */}
+          <div
+            ref={endAdornmentRef}
+            className="absolute inset-y-0 right-0 flex items-center gap-x-1 pr-1"
+          >
+            {highlightError ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <Badge
+                      variant="destructive"
+                      className="flex items-center justify-center min-w-[1.5rem] h-6 px-1.5 py-0 text-xs"
+                    >
+                      <OctagonAlert className="w-3.5 h-3.5" />
+                    </Badge>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="top" align="end">
+                  {highlightError}
+                </TooltipContent>
+              </Tooltip>
+            ) : (
+              isMainSelectorValid && (
+                <Badge
+                  variant={highlightMatchCount === 0 ? 'destructive' : 'default'}
+                  className="flex items-center justify-center min-w-[1.5rem] h-6 px-1.5 py-0 text-xs"
+                >
+                  {highlightMatchCount}
+                </Badge>
+              )
+            )}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -449,6 +506,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                   type="button"
                   tabIndex={-1}
                   aria-label="XPath reference"
+                  className="size-7 p-0.5 rounded focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-0"
                   onClick={() =>
                     window.open(
                       'https://www.stylusstudio.com/docs/v62/d_xpath15.html',
@@ -457,7 +515,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                     )
                   }
                 >
-                  <Info className="w-4 h-4" />
+                  <Info className="w-3.5 h-3.5" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="top" align="end">
@@ -541,7 +599,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                 <Button
                   onClick={handleGuessConfig}
                   loading={guessButtonState === 'generating'}
-                  disabled={guessButtonState === 'generating' || !config.mainSelector.trim()}
+                  disabled={guessButtonState === 'generating' || !isMainSelectorValid}
                   aria-label="Auto-generate configuration from selector"
                 >
                   {guessButtonState === 'success' ? (
@@ -582,7 +640,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
             className="w-full max-w-2xl"
             onClick={onScrape}
             loading={isLoading}
-            disabled={isLoading || !config.mainSelector.trim() || config.columns.length === 0}
+            disabled={isLoading || config.columns.length === 0 || !isMainSelectorValid}
           >
             {scrapeButtonState === 'zero-found' ? '0 found' : 'Scrape'}
           </Button>

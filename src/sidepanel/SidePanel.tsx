@@ -81,6 +81,8 @@ const SidePanel: React.FC = () => {
   const [lastScrapeRowCount, setLastScrapeRowCount] = useState<number | null>(null)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const dataTableRef = useRef<HTMLDivElement | null>(null)
+  const [highlightMatchCount, setHighlightMatchCount] = useState<number | undefined>(undefined)
+  const [highlightError, setHighlightError] = useState<string | undefined>(undefined)
 
   // Memoized export filename (regenerates if tabUrl changes)
   const exportFilename = React.useMemo(() => {
@@ -176,6 +178,9 @@ const SidePanel: React.FC = () => {
     if (targetTabId !== null) {
       debouncedSaveConfig(newConfig, targetTabId)
     }
+    // Reset highlight badge and error if mainSelector changes
+    setHighlightMatchCount(undefined)
+    setHighlightError(undefined)
   }
 
   // Function to handle incoming initial/updated config data
@@ -465,6 +470,12 @@ const SidePanel: React.FC = () => {
           setContentScriptCommsError(
             'Could not connect to the content script. Please reload the page or ensure the extension is enabled for this site.',
           )
+        } else if (response && response.success === false && response.error) {
+          setHighlightError(response.error)
+          setHighlightMatchCount(undefined)
+        } else if (response && typeof response.matchCount === 'number') {
+          setHighlightMatchCount(response.matchCount)
+          setHighlightError(undefined)
         }
       },
     )
@@ -675,6 +686,8 @@ const SidePanel: React.FC = () => {
             setShowPresets={setShowPresets}
             lastScrapeRowCount={lastScrapeRowCount}
             onClearLastScrapeRowCount={() => setLastScrapeRowCount(null)}
+            highlightMatchCount={highlightMatchCount}
+            highlightError={highlightError}
           />
           {scrapedData && scrapedData.data.length > 0 && (
             <div className="flex flex-col gap-6" ref={dataTableRef}>

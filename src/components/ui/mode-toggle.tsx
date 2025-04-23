@@ -35,7 +35,7 @@ export function ModeToggle() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className="min-w-[90px] justify-between">
+        <Button variant="outline" size="sm" className="justify-between">
           {themeLabel}
         </Button>
       </DropdownMenuTrigger>

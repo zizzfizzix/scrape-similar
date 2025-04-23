@@ -161,12 +161,36 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
       case MESSAGE_TYPES.HIGHLIGHT_ELEMENTS: {
         console.log('Highlighting elements:', message.payload)
         const { selector } = message.payload as { selector: string }
-        highlightMatchingElements(selector)
+        let elements: any[] = []
+        try {
+          elements = evaluateXPath(selector)
+        } catch (err) {
+          let errorMsg = 'Evaluation failed'
+          if (
+            err instanceof DOMException &&
+            err.name === 'SyntaxError' &&
+            typeof err.message === 'string' &&
+            err.message.includes("Failed to execute 'evaluate' on 'Document'")
+          ) {
+            errorMsg = 'Invalid XPath'
+          } else if (err instanceof Error) {
+            errorMsg = err.message
+          } else if (typeof err === 'string') {
+            errorMsg = err
+          }
+          sendResponse({
+            success: false,
+            error: errorMsg,
+          })
+          break
+        }
+        highlightMatchingElements(elements)
 
-        // Respond directly to the UI that sent this message
+        // Respond directly to the UI that sent this message, include match count
         sendResponse({
           success: true,
           message: 'Elements highlighted successfully.',
+          matchCount: elements.length,
         })
         break
       }
@@ -261,12 +285,9 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
 console.log('CONTENT SCRIPT MESSAGE LISTENER ADDED')
 
 // Highlight matching elements in the page
-const highlightMatchingElements = (selector: string) => {
+const highlightMatchingElements = (elements: any[]) => {
   // Remove previous highlights
   removeHighlights()
-
-  // Find elements matching the selector
-  const elements = evaluateXPath(selector)
 
   // Apply highlights
   elements.forEach((element) => {

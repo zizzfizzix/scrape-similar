@@ -42,7 +42,7 @@ export const Footer: React.FC<FooterProps> = ({ className, onResetSystemPresets 
         <Tooltip>
           <TooltipTrigger asChild>
             <DrawerTrigger asChild>
-              <Button variant="ghost" size="icon" aria-label="Settings" className="ml-auto">
+              <Button variant="ghost" size="icon" aria-label="Settings">
                 <Cog className="size-5" />
               </Button>
             </DrawerTrigger>
@@ -76,7 +76,7 @@ export const Footer: React.FC<FooterProps> = ({ className, onResetSystemPresets 
                       }, [])}
                     >
                       <Clipboard className="size-4 ml-1" />
-                      Copy settings address
+                      Copy address
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>Paste in a new tab to open settings</TooltipContent>

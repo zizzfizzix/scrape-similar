@@ -102,23 +102,19 @@ export const extractData = (element: HTMLElement, column: ColumnDefinition): str
  */
 export const evaluateXPath = (xpath: string, contextNode: Node = document): HTMLElement[] => {
   const results: HTMLElement[] = []
-  try {
-    const xpathResult = document.evaluate(
-      xpath,
-      contextNode,
-      null,
-      XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
-      null,
-    )
+  const xpathResult = document.evaluate(
+    xpath,
+    contextNode,
+    null,
+    XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
+    null,
+  )
 
-    for (let i = 0; i < xpathResult.snapshotLength; i++) {
-      const node = xpathResult.snapshotItem(i)
-      if (node instanceof HTMLElement) {
-        results.push(node)
-      }
+  for (let i = 0; i < xpathResult.snapshotLength; i++) {
+    const node = xpathResult.snapshotItem(i)
+    if (node instanceof HTMLElement) {
+      results.push(node)
     }
-  } catch (error) {
-    console.error('Error evaluating XPath:', error)
   }
 
   return results
