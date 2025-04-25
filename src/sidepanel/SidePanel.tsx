@@ -154,128 +154,121 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
     })
   }, [])
 
-  // Debounced function to save config changes directly to session storage
-  const debouncedSaveConfig = useCallback(
-    debounce((newConfig: ScrapeConfig, tabId: number) => {
-      log.debug(`Debounced save for tab ${tabId}:`, newConfig)
-      const sessionKey = `sidepanel_config_${tabId}`
+  // --- Unified utility to save all sidepanel state to session storage ---
+  const saveSidePanelState = useCallback((tabId: number, updates: Partial<SidePanelConfig>) => {
+    const sessionKey = `sidepanel_config_${tabId}`
+    chrome.storage.session.get(sessionKey, (result) => {
+      const currentData: SidePanelConfig = result[sessionKey] || {}
+      const updatedData: SidePanelConfig = {
+        ...currentData,
+        ...updates,
+      }
+      chrome.storage.session.set({ [sessionKey]: updatedData })
+    })
+  }, [])
 
-      // Get current storage data first to merge properly
-      chrome.storage.session.get(sessionKey, (result) => {
-        const currentData = result[sessionKey] || {}
-
-        // Update with new config
-        const updatedData = {
-          ...currentData,
-          currentScrapeConfig: newConfig,
-        }
-
-        // Save directly to storage
-        log.debug(`Saving config directly to session storage:`, updatedData)
-        chrome.storage.session.set({ [sessionKey]: updatedData })
-      })
-    }, 500), // 500ms debounce interval
-    [],
-  )
-
-  // Update config state and trigger debounced save
+  // --- Update config state and trigger saveSidePanelState ---
   const handleConfigChange = (newConfig: ScrapeConfig) => {
     setConfig(newConfig)
     if (targetTabId !== null) {
-      debouncedSaveConfig(newConfig, targetTabId)
+      saveSidePanelState(targetTabId, {
+        currentScrapeConfig: newConfig,
+        highlightMatchCount: undefined,
+        highlightError: undefined,
+      })
     }
-    // Reset highlight badge and error if mainSelector changes
-    setHighlightMatchCount(undefined)
-    setHighlightError(undefined)
   }
 
   // Function to handle incoming initial/updated config data
-  const handleInitialData = useCallback(
-    (payload: { tabId: number; config: Partial<SidePanelConfig> }) => {
-      // Only compare with targetTabIdRef if it has been set
-      const currentExpectedTabId = targetTabIdRef.current
-      if (currentExpectedTabId !== null && payload.tabId !== currentExpectedTabId) {
-        log.warn(
-          `handleInitialData called for wrong tab ${payload.tabId}, expected ${currentExpectedTabId}`,
-        )
-        return
+  const handleInitialData = useCallback((payload: { tabId: number; config: SidePanelConfig }) => {
+    // Only compare with targetTabIdRef if it has been set
+    const currentExpectedTabId = targetTabIdRef.current
+    if (currentExpectedTabId !== null && payload.tabId !== currentExpectedTabId) {
+      log.warn(
+        `handleInitialData called for wrong tab ${payload.tabId}, expected ${currentExpectedTabId}`,
+      )
+      return
+    }
+
+    log.debug(`Processing data for tab ${payload.tabId}:`, payload.config)
+    const {
+      selectionOptions,
+      elementDetails,
+      currentScrapeConfig,
+      initialSelectionText,
+      scrapedData,
+      highlightMatchCount,
+      highlightError,
+    } = payload.config || {} // Default to empty object
+
+    // --- Reset state before applying new data ---
+    const defaultConfig: ScrapeConfig = {
+      mainSelector: '',
+      columns: [{ name: 'Text', selector: '.' }],
+    }
+    let newConfig = defaultConfig
+    let newOptions: SelectionOptions | null = null // Explicitly allow null
+
+    // Set config from storage if available
+    if (currentScrapeConfig) {
+      log.debug('Loading config from session storage:', currentScrapeConfig)
+      newConfig = {
+        ...defaultConfig,
+        ...currentScrapeConfig,
+        columns:
+          Array.isArray(currentScrapeConfig.columns) && currentScrapeConfig.columns.length > 0
+            ? currentScrapeConfig.columns
+            : defaultConfig.columns,
       }
-
-      log.debug(`Processing data for tab ${payload.tabId}:`, payload.config)
-      const {
-        selectionOptions,
-        elementDetails,
-        currentScrapeConfig,
-        initialSelectionText,
-        scrapedData,
-      } = payload.config || {} // Default to empty object
-
-      // --- Reset state before applying new data ---
-      const defaultConfig: ScrapeConfig = {
-        mainSelector: '',
-        columns: [{ name: 'Text', selector: '.' }],
+    } else if (elementDetails?.xpath) {
+      // Fallback: If no saved config, but element details exist (e.g., from context menu),
+      // initialize config with the XPath from the selected element.
+      log.debug('Initializing config from elementDetails XPath:', elementDetails.xpath)
+      newConfig = {
+        ...defaultConfig, // Start with default columns
+        mainSelector: elementDetails.xpath,
       }
-      let newConfig = defaultConfig
-      let newOptions: SelectionOptions | null = null // Explicitly allow null
+    }
+    // Update the config state
+    setConfig(newConfig)
 
-      // Set config from storage if available
-      if (currentScrapeConfig) {
-        log.debug('Loading config from session storage:', currentScrapeConfig)
-        newConfig = {
-          ...defaultConfig,
-          ...currentScrapeConfig,
-          columns:
-            Array.isArray(currentScrapeConfig.columns) && currentScrapeConfig.columns.length > 0
-              ? currentScrapeConfig.columns
-              : defaultConfig.columns,
-        }
-      } else if (elementDetails?.xpath) {
-        // Fallback: If no saved config, but element details exist (e.g., from context menu),
-        // initialize config with the XPath from the selected element.
-        log.debug('Initializing config from elementDetails XPath:', elementDetails.xpath)
-        newConfig = {
-          ...defaultConfig, // Start with default columns
-          mainSelector: elementDetails.xpath,
-        }
+    // Update initial options used by the ConfigForm
+    if (selectionOptions) {
+      log.debug('Setting initialOptions from selectionOptions:', selectionOptions)
+      newOptions = selectionOptions
+    } else if (elementDetails) {
+      // Construct initialOptions from elementDetails if selectionOptions not available
+      log.debug('Constructing initialOptions from elementDetails')
+      const options: SelectionOptions = {
+        xpath: elementDetails.xpath,
+        selectedText: initialSelectionText || elementDetails.text,
+        previewData: [], // Preview might need separate handling or message
       }
-      // Update the config state
-      setConfig(newConfig)
+      newOptions = options
+    }
+    // Update the initialOptions state
+    setInitialOptions(newOptions)
 
-      // Update initial options used by the ConfigForm
-      if (selectionOptions) {
-        log.debug('Setting initialOptions from selectionOptions:', selectionOptions)
-        newOptions = selectionOptions
-      } else if (elementDetails) {
-        // Construct initialOptions from elementDetails if selectionOptions not available
-        log.debug('Constructing initialOptions from elementDetails')
-        const options: SelectionOptions = {
-          xpath: elementDetails.xpath,
-          selectedText: initialSelectionText || elementDetails.text,
-          previewData: [], // Preview might need separate handling or message
-        }
-        newOptions = options
-      }
-      // Update the initialOptions state
-      setInitialOptions(newOptions)
+    // Load saved scraped data from session storage if available
+    if (
+      scrapedData &&
+      typeof scrapedData === 'object' &&
+      'data' in scrapedData &&
+      'columnOrder' in scrapedData
+    ) {
+      setScrapedData(scrapedData as ScrapedDataResult)
+    } else {
+      setScrapedData(null)
+    }
 
-      // Load saved scraped data from session storage if available
-      if (
-        scrapedData &&
-        typeof scrapedData === 'object' &&
-        'data' in scrapedData &&
-        'columnOrder' in scrapedData
-      ) {
-        setScrapedData(scrapedData as ScrapedDataResult)
-      } else {
-        setScrapedData(null)
-      }
+    setExportStatus(null)
+    setIsScraping(false)
+    setIsExporting(false)
 
-      setExportStatus(null)
-      setIsScraping(false)
-      setIsExporting(false)
-    },
-    [],
-  )
+    // Restore highlight state if present
+    setHighlightMatchCount(highlightMatchCount)
+    setHighlightError(highlightError)
+  }, [])
 
   // Initialize: load presets, listen for messages, AND listen for tab activation
   useEffect(() => {
@@ -477,11 +470,15 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
             'Could not connect to the content script. Please reload the page or ensure the extension is enabled for this site.',
           )
         } else if (response && response.success === false && response.error) {
-          setHighlightError(response.error)
-          setHighlightMatchCount(undefined)
+          saveSidePanelState(targetTabId, {
+            highlightMatchCount: undefined,
+            highlightError: response.error,
+          })
         } else if (response && typeof response.matchCount === 'number') {
-          setHighlightMatchCount(response.matchCount)
-          setHighlightError(undefined)
+          saveSidePanelState(targetTabId, {
+            highlightMatchCount: response.matchCount,
+            highlightError: undefined,
+          })
         }
       },
     )
@@ -769,18 +766,6 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
       />
     </div>
   )
-}
-
-// Simple debounce function
-function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
-  let timeoutId: ReturnType<typeof setTimeout> | null = null
-
-  return (...args: Parameters<F>): void => {
-    if (timeoutId !== null) {
-      clearTimeout(timeoutId)
-    }
-    timeoutId = setTimeout(() => func(...args), waitFor)
-  }
 }
 
 export default SidePanel

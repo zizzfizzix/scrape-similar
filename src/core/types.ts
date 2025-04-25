@@ -38,6 +38,8 @@ export interface SidePanelConfig {
   selectionOptions?: SelectionOptions
   currentScrapeConfig?: ScrapeConfig
   scrapedData?: ScrapedData
+  highlightMatchCount?: number
+  highlightError?: string
 }
 
 export type ElementDetailsPayload = {
