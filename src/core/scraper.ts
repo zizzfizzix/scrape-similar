@@ -79,11 +79,23 @@ export const extractData = (element: HTMLElement, column: ColumnDefinition): str
     }
 
     // Special case: if selector starts with '@', extract attribute
-    if (selector.startsWith('@')) {
+    if (selector.startsWith('@') && !selector.includes('(')) {
       const attributeName = selector.substring(1)
       return element.getAttribute(attributeName) || ''
     }
 
+    // Try to evaluate as string first (for functions like local-name(), substring(), etc.)
+    try {
+      const stringResult = document.evaluate(selector, element, null, XPathResult.STRING_TYPE, null)
+      if (stringResult.stringValue) {
+        return stringResult.stringValue.trim()
+      }
+    } catch (stringError) {
+      // If string evaluation fails, fall back to node evaluation
+      log.debug('String XPath evaluation failed, trying node evaluation:', stringError)
+    }
+
+    // Fall back to node evaluation for selectors that return nodes
     const values = evaluateXPathValues(selector, element)
     if (values.length > 0) {
       // If it's an element, return its textContent; otherwise, return the string value
