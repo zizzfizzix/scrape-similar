@@ -11,6 +11,7 @@ import {
 import { ModeToggle } from '@/components/ui/mode-toggle'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { ANALYTICS_EVENTS, trackEvent } from '@/core/analytics'
 import { Clipboard, Cog } from 'lucide-react'
 import * as React from 'react'
 import { useCallback } from 'react'
@@ -42,6 +43,9 @@ export const Footer: React.FC<FooterProps> = ({
         clearTimeout(timerRef.current)
         timerRef.current = null
       }
+
+      // Track settings drawer opened
+      trackEvent(ANALYTICS_EVENTS.SETTINGS_OPENED)
     } else {
       // Only hide the debug row on drawer close if debugMode is false
       if (!debugMode) setShowDebugRow(false)
@@ -70,11 +74,19 @@ export const Footer: React.FC<FooterProps> = ({
         clearTimeout(timerRef.current)
         timerRef.current = null
       }
+
+      // Track hidden settings unlocked
+      trackEvent(ANALYTICS_EVENTS.HIDDEN_SETTINGS_UNLOCKED)
     }
   }
 
   const handleDebugSwitch = (checked: boolean) => {
     if (onDebugModeChange) onDebugModeChange(checked)
+
+    // Track debug mode toggle
+    trackEvent(ANALYTICS_EVENTS.DEBUG_MODE_TOGGLED, {
+      enabled: checked,
+    })
   }
 
   return (
@@ -128,6 +140,9 @@ export const Footer: React.FC<FooterProps> = ({
                         const url = 'chrome://extensions/shortcuts#:~:text=Scrape%20Similar'
                         navigator.clipboard.writeText(url)
                         window.open('about:blank', '_blank')
+
+                        // Track keyboard shortcut copied
+                        trackEvent(ANALYTICS_EVENTS.KEYBOARD_SHORTCUT_COPIED)
                       }, [])}
                     >
                       <Clipboard className="size-4 ml-1" />

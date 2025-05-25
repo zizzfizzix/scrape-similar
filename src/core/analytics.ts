@@ -19,6 +19,13 @@ export const ANALYTICS_EVENTS = {
   EXTENSION_INSTALLED: 'extension_installed',
   SIDE_PANEL_OPENED: 'side_panel_opened',
 
+  // Settings operations
+  SETTINGS_OPENED: 'settings_opened',
+  THEME_CHANGED: 'theme_changed',
+  DEBUG_MODE_TOGGLED: 'debug_mode_toggled',
+  HIDDEN_SETTINGS_UNLOCKED: 'hidden_settings_unlocked',
+  KEYBOARD_SHORTCUT_COPIED: 'keyboard_shortcut_copied',
+
   // Scraping operations
   SCRAPE_INITIATED_FROM_CONTEXT_MENU: 'scrape_initiated_from_context_menu',
   SCRAPE_COMPLETED: 'scrape_completed',

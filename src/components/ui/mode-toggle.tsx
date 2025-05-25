@@ -6,6 +6,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { ANALYTICS_EVENTS, trackEvent } from '@/core/analytics'
 import * as React from 'react'
 
 export function ModeToggle() {
@@ -13,9 +14,18 @@ export function ModeToggle() {
 
   // Sync with chrome.storage.sync
   const handleSetTheme = (newTheme: 'light' | 'dark' | 'system') => {
+    const previousTheme = theme
     setTheme(newTheme)
     if (chrome?.storage?.sync) {
       chrome.storage.sync.set({ theme: newTheme })
+    }
+
+    // Track theme change (only if it's actually different)
+    if (previousTheme !== newTheme) {
+      trackEvent(ANALYTICS_EVENTS.THEME_CHANGED, {
+        from_theme: previousTheme,
+        to_theme: newTheme,
+      })
     }
   }
 
