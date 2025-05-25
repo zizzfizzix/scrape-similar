@@ -1,8 +1,7 @@
 import { defineManifest } from '@crxjs/vite-plugin'
 import packageData from '../package.json'
 
-//@ts-ignore
-const isDev = process.env.NODE_ENV == 'development'
+const isDev = process.env.NODE_ENV === 'development'
 
 // Google APIs domains for CSP
 const googleDomains = [
@@ -11,6 +10,9 @@ const googleDomains = [
   'https://accounts.google.com',
   'https://oauth2.googleapis.com',
 ].join(' ')
+
+// Allow connecting to vite websocket in dev mode
+const devCSP = isDev ? ' ws://localhost:* http://localhost:*' : ''
 
 export default defineManifest({
   name: `${packageData.displayName || packageData.name}${isDev ? ` ➡️ Dev` : ''}`,
@@ -51,7 +53,7 @@ export default defineManifest({
   permissions: ['sidePanel', 'storage', 'scripting', 'contextMenus', 'identity'],
   host_permissions: ['http://*/*', 'https://*/*'],
   content_security_policy: {
-    extension_pages: `script-src 'self'; object-src 'self'; connect-src 'self' https://*.posthog.com ${googleDomains};`,
+    extension_pages: `script-src 'self'; object-src 'self'; connect-src 'self' https://*.posthog.com ${googleDomains}${devCSP};`,
   },
   oauth2: {
     client_id: '98006111902-k2bbkhk8n3nvouh7l6l6r8pft12odjdj.apps.googleusercontent.com',

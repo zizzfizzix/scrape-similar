@@ -65,6 +65,13 @@ export const initializeStorage = async (): Promise<void> => {
     if (presets.length === 0) {
       await chrome.storage.sync.set({ [STORAGE_KEYS.GLOBAL_PRESETS]: [] })
     }
+
+    // Check if we're in development mode
+    const isDev = process.env.NODE_ENV === 'development'
+    if (isDev) {
+      await chrome.storage.sync.set({ debugMode: isDev })
+      log.debug(`Debug setting forced to ${isDev}`)
+    }
   } catch (error) {
     log.error('Error initializing storage:', error)
   }

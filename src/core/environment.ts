@@ -18,16 +18,14 @@ let cachedEnvironment: Environment | null = null
 let environmentPromise: Promise<Environment | null> | null = null
 
 /**
- * Detects the current environment using chrome.management.getSelf()
+ * Detects the current environment using process.env.NODE_ENV
  * Returns a promise that resolves to 'development' or 'production'
  */
 const detectEnvironment = (): Promise<Environment> => {
   return new Promise((resolve) => {
-    chrome.management.getSelf((info) => {
-      const environment =
-        info.installType === 'development' ? ENVIRONMENT.DEVELOPMENT : ENVIRONMENT.PRODUCTION
-      resolve(environment)
-    })
+    const environment =
+      process.env.NODE_ENV === 'development' ? ENVIRONMENT.DEVELOPMENT : ENVIRONMENT.PRODUCTION
+    resolve(environment)
   })
 }
 
