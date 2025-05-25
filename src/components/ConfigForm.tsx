@@ -285,7 +285,14 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
               </Button>
             </PopoverTrigger>
             <PopoverContent className="p-0 w-72">
-              <Command>
+              <Command
+                filter={(value, search) => {
+                  const preset = presets.find((p) => p.id === value)
+                  if (!preset) return 0
+                  if (preset.name.toLowerCase().includes(search.toLowerCase())) return 1
+                  return 0
+                }}
+              >
                 <CommandInput
                   placeholder="Search presets..."
                   value={search}
@@ -298,54 +305,52 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                     {presets.length === 0 && (
                       <div className="p-2 text-sm text-muted-foreground">No presets saved</div>
                     )}
-                    {presets
-                      .filter((p) => p.name.toLowerCase().includes(search.toLowerCase()))
-                      .map((preset) => {
-                        return (
-                          <CommandItem
-                            key={preset.id}
-                            value={preset.name}
-                            onSelect={() => handleSelectPreset(preset)}
-                            className="flex items-center justify-between group"
-                          >
-                            <span className="flex items-center gap-2">
-                              {preset.name}
-                              {isSystemPreset(preset) && (
-                                <Badge variant="secondary" className="ml-2">
-                                  System
-                                </Badge>
-                              )}
-                            </span>
-                            <div className="flex items-center gap-1">
-                              {selectedPresetId === preset.id && <Check className="ml-2 h-4 w-4" />}
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="ml-2 p-1 rounded hover:bg-destructive/10 text-destructive opacity-70 hover:opacity-100 focus:outline-none"
-                                    aria-label={`${isSystemPreset(preset) ? 'Hide' : 'Delete'} preset ${preset.name}`}
-                                    disabled={isSaving}
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      handleRequestDeletePreset(preset)
-                                    }}
-                                  >
-                                    {isSystemPreset(preset) ? (
-                                      <EyeOff className="h-4 w-4" />
-                                    ) : (
-                                      <Trash2 className="h-4 w-4" />
-                                    )}
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  {isSystemPreset(preset) ? 'Hide preset' : 'Delete preset'}
-                                </TooltipContent>
-                              </Tooltip>
-                            </div>
-                          </CommandItem>
-                        )
-                      })}
+                    {presets.map((preset) => {
+                      return (
+                        <CommandItem
+                          key={preset.id}
+                          value={preset.id}
+                          onSelect={() => handleSelectPreset(preset)}
+                          className="flex items-center justify-between group"
+                        >
+                          <span className="flex items-center gap-2">
+                            {preset.name}
+                            {isSystemPreset(preset) && (
+                              <Badge variant="secondary" className="ml-2">
+                                System
+                              </Badge>
+                            )}
+                          </span>
+                          <div className="flex items-center gap-1">
+                            {selectedPresetId === preset.id && <Check className="ml-2 h-4 w-4" />}
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="ml-2 p-1 rounded hover:bg-destructive/10 text-destructive opacity-70 hover:opacity-100 focus:outline-none"
+                                  aria-label={`${isSystemPreset(preset) ? 'Hide' : 'Delete'} preset ${preset.name}`}
+                                  disabled={isSaving}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleRequestDeletePreset(preset)
+                                  }}
+                                >
+                                  {isSystemPreset(preset) ? (
+                                    <EyeOff className="h-4 w-4" />
+                                  ) : (
+                                    <Trash2 className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                {isSystemPreset(preset) ? 'Hide preset' : 'Delete preset'}
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </CommandItem>
+                      )
+                    })}
                   </CommandGroup>
                 </CommandList>
               </Command>
