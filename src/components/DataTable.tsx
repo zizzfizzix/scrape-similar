@@ -16,11 +16,11 @@ import React, { useEffect, useMemo, useState } from 'react'
 interface DataTableProps {
   data: ScrapedData
   config: ScrapeConfig
-  onHighlight: (selector: string) => void
+  onRowHighlight: (selector: string) => void
   columnOrder?: string[]
 }
 
-const DataTable: React.FC<DataTableProps> = ({ data, config, onHighlight, columnOrder }) => {
+const DataTable: React.FC<DataTableProps> = ({ data, config, onRowHighlight, columnOrder }) => {
   // Use columnOrder if provided, otherwise fallback to config.columns order
   const columnsOrder =
     columnOrder && columnOrder.length > 0 ? columnOrder : config.columns.map((col) => col.name)
@@ -57,7 +57,7 @@ const DataTable: React.FC<DataTableProps> = ({ data, config, onHighlight, column
                   aria-label="Highlight this element"
                   onClick={() => {
                     const rowSelector = `(${config.mainSelector})[${rowIndex + 1}]`
-                    onHighlight(rowSelector)
+                    onRowHighlight(rowSelector)
                   }}
                 >
                   <Highlighter className="size-4" />
@@ -79,7 +79,7 @@ const DataTable: React.FC<DataTableProps> = ({ data, config, onHighlight, column
       })),
     ]
     return baseColumns
-  }, [columnsOrder, config.mainSelector, onHighlight, pagination.pageIndex, pagination.pageSize])
+  }, [columnsOrder, config.mainSelector, onRowHighlight, pagination.pageIndex, pagination.pageSize])
 
   const table = useReactTable({
     data,

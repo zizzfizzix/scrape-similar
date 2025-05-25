@@ -187,6 +187,7 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
         // Track element highlighting
         trackEvent(ANALYTICS_EVENTS.ELEMENTS_HIGHLIGHTED, {
           elements_count: elements.length,
+          is_row_highlight: false,
         })
 
         // Respond directly to the UI that sent this message, include match count
@@ -197,6 +198,49 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
         })
         break
       }
+
+      case MESSAGE_TYPES.HIGHLIGHT_ROW_ELEMENT: {
+        log.debug('Highlighting row element:', message.payload)
+        const { selector } = message.payload as { selector: string }
+        let elements: any[] = []
+        try {
+          elements = evaluateXPath(selector)
+        } catch (err) {
+          let errorMsg = 'Evaluation failed'
+          if (
+            err instanceof DOMException &&
+            err.name === 'SyntaxError' &&
+            typeof err.message === 'string' &&
+            err.message.includes("Failed to execute 'evaluate' on 'Document'")
+          ) {
+            errorMsg = 'Invalid XPath'
+          } else if (err instanceof Error) {
+            errorMsg = err.message
+          } else if (typeof err === 'string') {
+            errorMsg = err
+          }
+          sendResponse({
+            success: false,
+            error: errorMsg,
+          })
+          break
+        }
+        highlightMatchingElements(elements)
+
+        // Track row element highlighting
+        trackEvent(ANALYTICS_EVENTS.ELEMENTS_HIGHLIGHTED, {
+          elements_count: elements.length,
+          is_row_highlight: true,
+        })
+
+        // Respond directly to the UI that sent this message
+        sendResponse({
+          success: true,
+          message: 'Row element highlighted successfully.',
+        })
+        break
+      }
+
       // Add a default case for unhandled messages
       default: {
         log.debug('Unhandled message type in content script:', message.type)

@@ -66,6 +66,7 @@ export const MESSAGE_TYPES = {
   // From sidepanel to content script
   START_SCRAPE: 'start-scrape',
   HIGHLIGHT_ELEMENTS: 'highlight-elements',
+  HIGHLIGHT_ROW_ELEMENT: 'highlight-row-element',
   GUESS_CONFIG_FROM_SELECTOR: 'guess-config-from-selector',
 
   // From sidepanel to background

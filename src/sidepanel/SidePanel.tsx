@@ -500,6 +500,26 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
     )
   }
 
+  // Handle row highlight request (separately to avoid updating main selector state)
+  const handleRowHighlight = (selector: string) => {
+    setContentScriptCommsError(null)
+    if (!targetTabId) return
+    chrome.tabs.sendMessage(
+      targetTabId,
+      {
+        type: MESSAGE_TYPES.HIGHLIGHT_ROW_ELEMENT,
+        payload: { selector },
+      },
+      (response) => {
+        if (!response && chrome.runtime.lastError) {
+          setContentScriptCommsError(
+            'Could not connect to the content script. Please reload the page or ensure the extension is enabled for this site.',
+          )
+        }
+      },
+    )
+  }
+
   const handleLoadPreset = (preset: Preset) => {
     handleConfigChange(preset.config)
     setActiveTab('config')
@@ -822,7 +842,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
               </div>
               <DataTable
                 data={scrapedData.data}
-                onHighlight={handleHighlight}
+                onRowHighlight={handleRowHighlight}
                 config={config}
                 columnOrder={scrapedData.columnOrder}
               />
