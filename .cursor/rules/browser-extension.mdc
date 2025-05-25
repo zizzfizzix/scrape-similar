@@ -139,4 +139,9 @@ You are an expert in Chrome Extension Development with Vite, React, TypeScript, 
 - Provide comments or explanations for significant changes
 - If the file is too large to include in full, provide the most relevant complete section
 
+## Change management
+
+- Never stage changes in git unless explicitly instructed
+- Never, ever commit any changes to repository under any circumstances
+
 Follow Chrome Extension documentation and Vite+CRXJS guidelines for best practices, security, and API usage.
