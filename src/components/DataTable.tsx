@@ -8,6 +8,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { ANALYTICS_EVENTS, trackEvent } from '@/core/analytics'
 import { ScrapeConfig, ScrapedData } from '@/core/types'
 import { ColumnDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table'
 import { Highlighter } from 'lucide-react'
@@ -146,7 +147,15 @@ const DataTable: React.FC<DataTableProps> = ({ data, config, onRowHighlight, col
         <Button
           variant="outline"
           size="sm"
-          onClick={() => setPagination((p) => ({ ...p, pageIndex: Math.max(0, p.pageIndex - 1) }))}
+          onClick={() => {
+            trackEvent(ANALYTICS_EVENTS.PAGINATION_BUTTON_PRESSED, {
+              direction: 'prev',
+              from_page: pagination.pageIndex + 1,
+              to_page: pagination.pageIndex,
+              total_pages: totalPages,
+            })
+            setPagination((p) => ({ ...p, pageIndex: Math.max(0, p.pageIndex - 1) }))
+          }}
           disabled={pagination.pageIndex === 0}
           aria-label="Previous page"
         >
@@ -158,9 +167,15 @@ const DataTable: React.FC<DataTableProps> = ({ data, config, onRowHighlight, col
         <Button
           variant="outline"
           size="sm"
-          onClick={() =>
+          onClick={() => {
+            trackEvent(ANALYTICS_EVENTS.PAGINATION_BUTTON_PRESSED, {
+              direction: 'next',
+              from_page: pagination.pageIndex + 1,
+              to_page: pagination.pageIndex + 2,
+              total_pages: totalPages,
+            })
             setPagination((p) => ({ ...p, pageIndex: Math.min(totalPages - 1, p.pageIndex + 1) }))
-          }
+          }}
           disabled={pagination.pageIndex >= totalPages - 1}
           aria-label="Next page"
         >

@@ -21,6 +21,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { ANALYTICS_EVENTS, trackEvent } from '@/core/analytics'
 import { SYSTEM_PRESETS } from '@/core/system_presets'
 import { MESSAGE_TYPES, Preset, ScrapeConfig, SelectionOptions } from '@/core/types'
 import {
@@ -192,6 +193,8 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
 
   // Remove a column
   const removeColumn = (index: number) => {
+    trackEvent(ANALYTICS_EVENTS.REMOVE_COLUMN_BUTTON_PRESSED)
+
     onChange({
       ...config,
       columns: config.columns.filter((_, i) => i !== index),
@@ -201,6 +204,10 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
   // Handler to guess config from selector
   const handleGuessConfig = async () => {
     if (!config.mainSelector.trim()) return
+
+    // Track auto-generate config button press
+    trackEvent(ANALYTICS_EVENTS.AUTO_GENERATE_CONFIG_BUTTON_PRESSED)
+
     setGuessButtonState('generating')
     try {
       chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
@@ -623,6 +630,8 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                 <Button
                   variant="outline"
                   onClick={() => {
+                    trackEvent(ANALYTICS_EVENTS.ADD_COLUMN_BUTTON_PRESSED)
+
                     const defaultName = `Column ${config.columns.length + 1}`
                     onChange({
                       ...config,
@@ -643,7 +652,10 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
         <div className="flex w-full justify-center mt-4 -mb-2">
           <Button
             className="w-full max-w-2xl"
-            onClick={onScrape}
+            onClick={() => {
+              trackEvent(ANALYTICS_EVENTS.SCRAPE_BUTTON_PRESSED)
+              onScrape()
+            }}
             loading={isLoading}
             disabled={isLoading || config.columns.length === 0 || !isMainSelectorValid}
           >

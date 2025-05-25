@@ -28,8 +28,17 @@ export const ANALYTICS_EVENTS = {
 
   // Scraping operations
   SCRAPE_INITIATED_FROM_CONTEXT_MENU: 'scrape_initiated_from_context_menu',
+  SCRAPE_BUTTON_PRESSED: 'scrape_button_pressed',
   SCRAPE_COMPLETED: 'scrape_completed',
   ELEMENTS_HIGHLIGHTED: 'elements_highlighted',
+
+  // Configuration operations
+  AUTO_GENERATE_CONFIG_BUTTON_PRESSED: 'auto_generate_config_button_pressed',
+  ADD_COLUMN_BUTTON_PRESSED: 'add_column_button_pressed',
+  REMOVE_COLUMN_BUTTON_PRESSED: 'remove_column_button_pressed',
+
+  // Pagination operations
+  PAGINATION_BUTTON_PRESSED: 'pagination_button_pressed',
 
   // Export operations
   EXPORT_TO_SHEETS: 'export_to_sheets',
