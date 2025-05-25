@@ -5,14 +5,14 @@ import { Preset, SYSTEM_PRESET_STATUS_KEY, SystemPresetStatusMap } from './types
 
 // Storage keys
 export const STORAGE_KEYS = {
-  GLOBAL_PRESETS: 'global_presets',
+  USER_PRESETS: 'user_presets',
 }
 
 // Get presets from storage
 export const getPresets = async (): Promise<Preset[]> => {
   try {
-    const result = await chrome.storage.sync.get(STORAGE_KEYS.GLOBAL_PRESETS)
-    return result[STORAGE_KEYS.GLOBAL_PRESETS] || []
+    const result = await chrome.storage.sync.get(STORAGE_KEYS.USER_PRESETS)
+    return result[STORAGE_KEYS.USER_PRESETS] || []
   } catch (error) {
     log.error('Error getting presets from storage:', error)
     return []
@@ -34,7 +34,7 @@ export const savePreset = async (preset: Preset): Promise<boolean> => {
       presets.push(preset)
     }
 
-    await chrome.storage.sync.set({ [STORAGE_KEYS.GLOBAL_PRESETS]: presets })
+    await chrome.storage.sync.set({ [STORAGE_KEYS.USER_PRESETS]: presets })
     return true
   } catch (error) {
     log.error('Error saving preset to storage:', error)
@@ -48,7 +48,7 @@ export const deletePreset = async (presetId: string): Promise<boolean> => {
     const presets = await getPresets()
     const updatedPresets = presets.filter((p) => p.id !== presetId)
 
-    await chrome.storage.sync.set({ [STORAGE_KEYS.GLOBAL_PRESETS]: updatedPresets })
+    await chrome.storage.sync.set({ [STORAGE_KEYS.USER_PRESETS]: updatedPresets })
     return true
   } catch (error) {
     log.error('Error deleting preset from storage:', error)
@@ -63,7 +63,7 @@ export const initializeStorage = async (): Promise<void> => {
 
     // Only initialize if storage is empty
     if (presets.length === 0) {
-      await chrome.storage.sync.set({ [STORAGE_KEYS.GLOBAL_PRESETS]: [] })
+      await chrome.storage.sync.set({ [STORAGE_KEYS.USER_PRESETS]: [] })
     }
 
     // Check if we're in development mode

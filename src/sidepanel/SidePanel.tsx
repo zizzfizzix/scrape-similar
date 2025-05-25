@@ -376,7 +376,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
       // Handle synced storage changes (global presets or system preset status)
       if (
         areaName === 'sync' &&
-        (changes[STORAGE_KEYS.GLOBAL_PRESETS] || changes['system_preset_status'])
+        (changes[STORAGE_KEYS.USER_PRESETS] || changes['system_preset_status'])
       ) {
         // Reload all presets
         getAllPresets().then(setPresets)
