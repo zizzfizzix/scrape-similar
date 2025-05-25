@@ -170,13 +170,28 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
 
   // --- Update config state and trigger saveSidePanelState ---
   const handleConfigChange = (newConfig: ScrapeConfig) => {
+    const previousMainSelector = config.mainSelector
+    const mainSelectorChanged = newConfig.mainSelector !== previousMainSelector
+
     setConfig(newConfig)
+
+    // Only clear highlight state if the main selector actually changed
+    if (mainSelectorChanged) {
+      setHighlightMatchCount(undefined)
+      setHighlightError(undefined)
+    }
+
     if (targetTabId !== null) {
-      saveSidePanelState(targetTabId, {
+      const updates: Partial<SidePanelConfig> = {
         currentScrapeConfig: newConfig,
-        highlightMatchCount: undefined,
-        highlightError: undefined,
-      })
+      }
+
+      if (mainSelectorChanged) {
+        updates.highlightMatchCount = undefined
+        updates.highlightError = undefined
+      }
+
+      saveSidePanelState(targetTabId, updates)
     }
   }
 
