@@ -489,6 +489,11 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
     handleConfigChange(preset.config)
     setActiveTab('config')
 
+    // Trigger highlighting if the preset has a main selector
+    if (preset.config.mainSelector) {
+      handleHighlight(preset.config.mainSelector)
+    }
+
     // Track preset loaded event
     const isSystemPreset = SYSTEM_PRESETS.some((p) => p.id === preset.id)
     trackEvent(ANALYTICS_EVENTS.PRESET_LOADED, {
