@@ -73,6 +73,16 @@ export const MESSAGE_TYPES = {
 
   // From background to sidepanel
   HIGHLIGHT_RESULT_FROM_CONTEXT_MENU: 'highlight-result-from-context-menu',
+
+  // From content script to background
+  GET_MY_TAB_ID: 'GET_MY_TAB_ID',
+  TRACK_EVENT: 'TRACK_EVENT',
+} as const
+
+// Analytics message payload interface
+export interface TrackEventPayload {
+  eventName: string
+  properties: Record<string, any>
 }
 
 export interface SystemPresetStatusMap {

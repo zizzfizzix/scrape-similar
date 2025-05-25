@@ -4,6 +4,14 @@ import packageData from '../package.json'
 //@ts-ignore
 const isDev = process.env.NODE_ENV == 'development'
 
+// Google APIs domains for CSP
+const googleDomains = [
+  'https://sheets.googleapis.com',
+  'https://www.googleapis.com',
+  'https://accounts.google.com',
+  'https://oauth2.googleapis.com',
+].join(' ')
+
 export default defineManifest({
   name: `${packageData.displayName || packageData.name}${isDev ? ` ➡️ Dev` : ''}`,
   description: packageData.description,
@@ -42,6 +50,9 @@ export default defineManifest({
   ],
   permissions: ['sidePanel', 'storage', 'scripting', 'contextMenus', 'identity'],
   host_permissions: ['http://*/*', 'https://*/*'],
+  content_security_policy: {
+    extension_pages: `script-src 'self'; object-src 'self'; connect-src 'self' https://*.posthog.com ${googleDomains};`,
+  },
   oauth2: {
     client_id: '98006111902-k2bbkhk8n3nvouh7l6l6r8pft12odjdj.apps.googleusercontent.com',
     scopes: ['https://www.googleapis.com/auth/drive.file'],

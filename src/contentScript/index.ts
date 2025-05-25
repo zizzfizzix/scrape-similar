@@ -1,4 +1,5 @@
 import log from 'loglevel'
+import { ANALYTICS_EVENTS, trackEvent } from '../core/analytics'
 import {
   evaluateXPath,
   guessScrapeConfigForElement,
@@ -84,6 +85,12 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
         const scrapedDataResult = { data, columnOrder }
 
         log.debug('Scrape complete, data:', scrapedDataResult)
+
+        // Track scraping completion
+        trackEvent(ANALYTICS_EVENTS.SCRAPE_COMPLETED, {
+          items_scraped: data.length,
+          columns_count: config.columns.length,
+        })
 
         // Use cached tabId
         if (tabId === null) {
@@ -176,6 +183,11 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
           break
         }
         highlightMatchingElements(elements)
+
+        // Track element highlighting
+        trackEvent(ANALYTICS_EVENTS.ELEMENTS_HIGHLIGHTED, {
+          elements_count: elements.length,
+        })
 
         // Respond directly to the UI that sent this message, include match count
         sendResponse({

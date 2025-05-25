@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Footer } from '@/components/ui/footer'
 import { Toaster } from '@/components/ui/sonner'
+import { ANALYTICS_EVENTS, trackEvent } from '@/core/analytics'
 import {
   STORAGE_KEYS,
   deletePreset,
@@ -487,6 +488,14 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
   const handleLoadPreset = (preset: Preset) => {
     handleConfigChange(preset.config)
     setActiveTab('config')
+
+    // Track preset loaded event
+    const isSystemPreset = SYSTEM_PRESETS.some((p) => p.id === preset.id)
+    trackEvent(ANALYTICS_EVENTS.PRESET_LOADED, {
+      type: isSystemPreset ? 'system' : 'user',
+      preset_name: isSystemPreset ? preset.name : null,
+      preset_id: isSystemPreset ? preset.id : null,
+    })
   }
 
   const handleSavePreset = async (name: string) => {
@@ -502,6 +511,12 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
         const updatedPresets = await getAllPresets()
         setPresets(updatedPresets)
         log.debug('Preset saved successfully and UI updated')
+
+        // Track preset saved event
+        trackEvent(ANALYTICS_EVENTS.PRESET_SAVED, {
+          type: 'user',
+          columns_count: config.columns.length,
+        })
       } else {
         log.error('Failed to save preset')
       }
@@ -523,6 +538,13 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
       // Reload all presets
       const updatedPresets = await getAllPresets()
       setPresets(updatedPresets)
+
+      // Track preset hidden event
+      trackEvent(ANALYTICS_EVENTS.PRESET_HIDDEN, {
+        type: 'system',
+        preset_name: preset.name,
+        preset_id: preset.id,
+      })
       return
     }
     // Otherwise, delete user preset as before
@@ -532,6 +554,11 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
         const updatedPresets = await getAllPresets()
         setPresets(updatedPresets)
         toast.success(`Preset "${preset.name}" deleted`)
+
+        // Track preset deleted event
+        trackEvent(ANALYTICS_EVENTS.PRESET_DELETED, {
+          type: 'user',
+        })
       } else {
         toast.error(`Error, preset "${preset.name}" couldn't be deleted`)
       }
@@ -546,6 +573,11 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
     const updatedPresets = await getAllPresets()
     setPresets(updatedPresets)
     toast.success('System presets have been reset')
+
+    // Track system presets reset event
+    trackEvent(ANALYTICS_EVENTS.SYSTEM_PRESETS_RESET, {
+      type: 'system',
+    })
   }
 
   const handleExport = () => {
@@ -588,9 +620,16 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
             ),
           })
           setIsDropdownOpen(false)
+          trackEvent(ANALYTICS_EVENTS.EXPORT_TO_SHEETS, {
+            rows_exported: scrapedData?.data.length || 0,
+            columns_count: columns.length,
+          })
         } else {
           toast.error(response?.error || 'Export failed')
           setIsDropdownOpen(false)
+          trackEvent(ANALYTICS_EVENTS.EXPORT_TO_SHEETS_FAILED, {
+            error: response?.error || 'Unknown error',
+          })
         }
       },
     )
@@ -624,9 +663,16 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
       URL.revokeObjectURL(url)
       toast.success('CSV file saved')
       setIsDropdownOpen(false)
+      trackEvent(ANALYTICS_EVENTS.EXPORT_TO_CSV, {
+        rows_exported: scrapedData.data.length,
+        columns_count: columns.length,
+      })
     } catch (e) {
       toast.error('Failed to save CSV')
       setIsDropdownOpen(false)
+      trackEvent(ANALYTICS_EVENTS.EXPORT_TO_CSV_FAILED, {
+        error: (e as Error).message,
+      })
     }
   }
 
@@ -652,9 +698,14 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
       await copyToClipboard(tsvContent)
       toast.success('Copied to clipboard')
       setIsDropdownOpen(false)
+      trackEvent(ANALYTICS_EVENTS.COPY_TO_CLIPBOARD, {
+        rows_copied: scrapedData.data.length,
+        columns_count: columns.length,
+      })
     } catch {
       toast.error('Failed to copy')
       setIsDropdownOpen(false)
+      trackEvent(ANALYTICS_EVENTS.COPY_TO_CLIPBOARD_FAILED)
     }
   }
 

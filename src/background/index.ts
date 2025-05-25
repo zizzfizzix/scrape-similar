@@ -1,6 +1,15 @@
 import log from 'loglevel'
+import { ANALYTICS_EVENTS, trackEvent } from '../core/analytics'
+import { saveEnvironmentToStorage } from '../core/environment'
 import { initializeStorage } from '../core/storage'
-import { ExportResult, Message, MESSAGE_TYPES, ScrapedData, SidePanelConfig } from '../core/types'
+import {
+  ExportResult,
+  Message,
+  MESSAGE_TYPES,
+  ScrapedData,
+  SidePanelConfig,
+  TrackEventPayload,
+} from '../core/types'
 import { isInjectableUrl } from '../lib/isInjectableUrl'
 log.setDefaultLevel('error')
 
@@ -15,8 +24,6 @@ chrome.storage.onChanged.addListener((changes, area) => {
     log.setLevel(changes.debugMode.newValue ? 'trace' : 'error')
   }
 })
-
-log.debug('background is running')
 
 // Helper to generate session storage key for a tab
 const getSessionKey = (tabId: number): string => `sidepanel_config_${tabId}`
@@ -59,6 +66,9 @@ const injectContentScriptToAllTabs = async () => {
 chrome.runtime.onInstalled.addListener(async () => {
   log.debug('Scrape Similar extension installed')
 
+  // Save environment to storage on install/update
+  await saveEnvironmentToStorage()
+
   // Initialize storage
   await initializeStorage()
 
@@ -100,11 +110,20 @@ chrome.runtime.onInstalled.addListener(async () => {
 
   // Inject content script into all tabs on install/update
   injectContentScriptToAllTabs()
+
+  log.debug('Service worker is running')
+
+  // Track extension installation/update
+  trackEvent(ANALYTICS_EVENTS.EXTENSION_INSTALLED, {
+    extension_version: chrome.runtime.getManifest().version,
+  })
 })
 
 // Inject content script into all tabs on browser startup (extension enabled)
 chrome.runtime.onStartup.addListener(() => {
   injectContentScriptToAllTabs()
+
+  log.debug('Service worker is running')
 })
 
 // Handle action button clicks to toggle sidepanel
@@ -121,6 +140,11 @@ chrome.action.onClicked.addListener(async (tab) => {
       enabled: true,
     })
     log.debug(`Side panel options set for tab ${tabId} via action click`)
+
+    // Track side panel opened via action click
+    trackEvent(ANALYTICS_EVENTS.SIDE_PANEL_OPENED, {
+      trigger: 'action_click',
+    })
 
     // --- Ensure a session state exists for this tab ---
     try {
@@ -229,6 +253,11 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         if (!scrapeResp?.success)
           throw new Error('Failed to trigger scrape: ' + (scrapeResp?.error || 'Unknown error'))
         log.debug('Scrape triggered successfully.')
+
+        // Track successful scrape initiation from context menu
+        trackEvent(ANALYTICS_EVENTS.SCRAPE_INITIATED_FROM_CONTEXT_MENU, {
+          has_config: !!config,
+        })
       } else {
         log.warn('No currentScrapeConfig found in session storage, cannot auto-scrape.')
       }
@@ -289,10 +318,27 @@ const handleContentScriptMessage = async (
     let currentData = (result[sessionKey] || {}) as Partial<SidePanelConfig>
 
     switch (message.type) {
-      case 'GET_MY_TAB_ID': {
+      case MESSAGE_TYPES.GET_MY_TAB_ID: {
         // Simple handler to return the tab ID from the sender
         log.debug(`Content script in tab ${tabId} requested its own tab ID`)
         sendResponse({ tabId })
+        break
+      }
+
+      case MESSAGE_TYPES.TRACK_EVENT: {
+        // Handle tracking events from content scripts
+        const { eventName, properties } = message.payload as TrackEventPayload
+        if (eventName) {
+          // Use the trackEvent function to handle the event in background context
+          trackEvent(eventName, {
+            ...properties,
+          })
+          log.debug(`Tracked event from content script in tab ${tabId}: ${eventName}`)
+          sendResponse({ success: true })
+        } else {
+          log.warn(`Invalid tracking event from content script in tab ${tabId}:`, message)
+          sendResponse({ success: false, error: 'Invalid event name' })
+        }
         break
       }
 

@@ -1,9 +1,11 @@
+import { PostHogWrapper } from '@/components/posthog-provider'
 import { ThemeProvider } from '@/components/theme-provider'
 import SidePanel from '@/sidepanel/SidePanel'
 import '@/styles/global.css'
 import log from 'loglevel'
 import { useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
+
 log.setDefaultLevel('error')
 
 // Get the root element
@@ -44,5 +46,9 @@ if (!appElement) {
 
   // Create React root and render
   const root = createRoot(appElement)
-  root.render(<SidePanelRoot />)
+  root.render(
+    <PostHogWrapper>
+      <SidePanelRoot />
+    </PostHogWrapper>,
+  )
 }
