@@ -333,7 +333,12 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
 log.debug('CONTENT SCRIPT MESSAGE LISTENER ADDED')
 
 // Highlight matching elements in the page using Web Animations API
-const highlightMatchingElements = (elements: any[]) => {
+const highlightMatchingElements = (elements: Element[]) => {
+  // Scroll first element into view if available
+  if (elements.length > 0) {
+    elements[0].scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
+
   elements.forEach((element) => {
     element.animate(
       [
@@ -344,25 +349,31 @@ const highlightMatchingElements = (elements: any[]) => {
           offset: 0,
         },
         {
-          outline: '3px solid #5c8df6',
+          outline: '5px solid #5c8df6',
           outlineOffset: '2px',
-          transform: 'scale(1.05)',
+          transform: 'scale(1.2)',
           offset: 0.1,
         },
         {
-          outline: '2px solid #5c8df6',
+          outline: '4px solid #5c8df6',
           outlineOffset: '2px',
           transform: 'scale(1)',
           offset: 0.25,
         },
         {
-          outline: '1px solid #5c8df6',
+          outline: '3px solid #5c8df6',
+          outlineOffset: '2px',
+          transform: 'scale(1)',
+          offset: 0.5,
+        },
+        {
+          outline: '2px solid #5c8df6',
           outlineOffset: '2px',
           transform: 'scale(1)',
           offset: 0.75,
         },
         {
-          outline: '0px solid #5c8df6',
+          outline: '1px solid #5c8df6',
           outlineOffset: '2px',
           transform: 'scale(1)',
           offset: 1,
@@ -375,9 +386,4 @@ const highlightMatchingElements = (elements: any[]) => {
       },
     )
   })
-
-  // Scroll first element into view if available
-  if (elements.length > 0) {
-    elements[0].scrollIntoView({ behavior: 'smooth', block: 'center' })
-  }
 }
