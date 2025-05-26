@@ -23,9 +23,6 @@ chrome.storage.onChanged.addListener((changes, area) => {
 
 log.info('Scrape Similar content script is running')
 
-// Track the currently highlighted elements
-let highlightedElements: HTMLElement[] = []
-let highlightRemovalTimeout: ReturnType<typeof setTimeout> | null = null
 // Store the tabId for this content script instance
 let tabId: number | null = null
 // Store the last right-clicked element
@@ -332,54 +329,52 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
 })
 log.debug('CONTENT SCRIPT MESSAGE LISTENER ADDED')
 
-// Highlight matching elements in the page
+// Highlight matching elements in the page using Web Animations API
 const highlightMatchingElements = (elements: any[]) => {
-  // Remove previous highlights
-  removeHighlights()
-
-  // Apply highlights
   elements.forEach((element) => {
-    // Save reference to highlight removal
-    highlightedElements.push(element as HTMLElement)
-
-    // Add highlight class
-    element.classList.add('scrape-similar-highlight')
-
-    // Create and insert highlight style if it doesn't exist
-    if (!document.getElementById('scrape-similar-highlight-style')) {
-      const style = document.createElement('style')
-      style.id = 'scrape-similar-highlight-style'
-      style.textContent = `
-        .scrape-similar-highlight {
-          outline: 2px solid #5c8df6 !important;
-          outline-offset: 2px !important;
-          background-color: rgba(92, 141, 246, 0.2) !important;
-        }
-      `
-      document.head.appendChild(style)
-    }
+    element.animate(
+      [
+        {
+          outline: '0px solid #5c8df6',
+          outlineOffset: '2px',
+          transform: 'scale(1)',
+          offset: 0,
+        },
+        {
+          outline: '3px solid #5c8df6',
+          outlineOffset: '2px',
+          transform: 'scale(1.05)',
+          offset: 0.1,
+        },
+        {
+          outline: '2px solid #5c8df6',
+          outlineOffset: '2px',
+          transform: 'scale(1)',
+          offset: 0.25,
+        },
+        {
+          outline: '1px solid #5c8df6',
+          outlineOffset: '2px',
+          transform: 'scale(1)',
+          offset: 0.75,
+        },
+        {
+          outline: '0px solid #5c8df6',
+          outlineOffset: '2px',
+          transform: 'scale(1)',
+          offset: 1,
+        },
+      ],
+      {
+        duration: 3000,
+        iterations: 1,
+        easing: 'ease-out',
+      },
+    )
   })
 
   // Scroll first element into view if available
   if (elements.length > 0) {
     elements[0].scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
-
-  // Automatically remove highlights after 3 seconds
-  if (highlightRemovalTimeout) {
-    clearTimeout(highlightRemovalTimeout)
-  }
-  highlightRemovalTimeout = setTimeout(() => {
-    removeHighlights()
-    highlightRemovalTimeout = null
-  }, 3000)
-}
-
-// Remove all highlights
-const removeHighlights = () => {
-  highlightedElements.forEach((element) => {
-    element.classList.remove('scrape-similar-highlight')
-  })
-
-  highlightedElements = []
 }
