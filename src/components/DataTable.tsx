@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button'
+import { Switch } from '@/components/ui/switch'
 import {
   Table,
   TableBody,
@@ -9,8 +10,14 @@ import {
 } from '@/components/ui/table'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { ANALYTICS_EVENTS, trackEvent } from '@/core/analytics'
-import { ScrapeConfig, ScrapedData } from '@/core/types'
-import { ColumnDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table'
+import { ScrapeConfig, ScrapedData, ScrapedRow } from '@/core/types'
+import {
+  CellContext,
+  ColumnDef,
+  flexRender,
+  getCoreRowModel,
+  useReactTable,
+} from '@tanstack/react-table'
 import { Highlighter } from 'lucide-react'
 import React, { useEffect, useMemo, useState } from 'react'
 
@@ -19,9 +26,18 @@ interface DataTableProps {
   config: ScrapeConfig
   onRowHighlight: (selector: string) => void
   columnOrder?: string[]
+  showEmptyRows: boolean
+  onShowEmptyRowsChange?: (show: boolean) => void
 }
 
-const DataTable: React.FC<DataTableProps> = ({ data, config, onRowHighlight, columnOrder }) => {
+const DataTable: React.FC<DataTableProps> = ({
+  data,
+  config,
+  onRowHighlight,
+  columnOrder,
+  showEmptyRows = false,
+  onShowEmptyRowsChange,
+}) => {
   // Use columnOrder if provided, otherwise fallback to config.columns order
   const columnsOrder =
     columnOrder && columnOrder.length > 0 ? columnOrder : config.columns.map((col) => col.name)
@@ -29,61 +45,88 @@ const DataTable: React.FC<DataTableProps> = ({ data, config, onRowHighlight, col
   // Pagination state
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 })
 
+  // Filter data based on showEmptyRows toggle
+  const filteredData = useMemo(() => {
+    return showEmptyRows ? data : data.filter((row) => !row.metadata.isEmpty)
+  }, [data, showEmptyRows])
+
   // Reset pagination when data changes
   useEffect(() => {
     setPagination((prev) => ({ ...prev, pageIndex: 0 }))
-  }, [data])
+  }, [filteredData])
 
   // Build columns for TanStack Table
-  const columns = useMemo<ColumnDef<Record<string, string>>[]>(() => {
-    const baseColumns: ColumnDef<Record<string, string>>[] = [
+  const columns = useMemo<ColumnDef<ScrapedRow>[]>(() => {
+    const baseColumns: ColumnDef<ScrapedRow>[] = [
       {
         id: 'rowIndex',
         header: '#',
-        cell: ({ row }) => row.index + 1 + pagination.pageIndex * pagination.pageSize,
+        cell: ({ row }: CellContext<ScrapedRow, unknown>) => {
+          // Find the index of this row in the filtered data
+          const rowData = row.original
+          const indexInFilteredData = filteredData.findIndex((item) => item === rowData)
+          return indexInFilteredData + 1
+        },
         size: 40,
       },
       {
         id: 'actions',
         header: 'Actions',
-        cell: ({ row }) => {
-          const rowIndex = row.index + pagination.pageIndex * pagination.pageSize
+        cell: ({ row }: CellContext<ScrapedRow, unknown>) => {
+          // Use the original index for highlighting
+          const originalIndex = row.original.metadata.originalIndex
+          const isEmpty = row.original.metadata.isEmpty
+
+          const button = (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-7"
+              aria-label={isEmpty ? undefined : 'Highlight this element'}
+              disabled={isEmpty}
+              onClick={
+                isEmpty
+                  ? undefined
+                  : () => {
+                      const rowSelector = `(${config.mainSelector})[${originalIndex + 1}]`
+                      onRowHighlight(rowSelector)
+                    }
+              }
+            >
+              <Highlighter className="size-4" />
+            </Button>
+          )
+
+          // Only wrap with tooltip if row is not empty
+          if (isEmpty) {
+            return button
+          }
+
           return (
             <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-7"
-                  aria-label="Highlight this element"
-                  onClick={() => {
-                    const rowSelector = `(${config.mainSelector})[${rowIndex + 1}]`
-                    onRowHighlight(rowSelector)
-                  }}
-                >
-                  <Highlighter className="size-4" />
-                </Button>
-              </TooltipTrigger>
+              <TooltipTrigger asChild>{button}</TooltipTrigger>
               <TooltipContent>Highlight this element</TooltipContent>
             </Tooltip>
           )
         },
         size: 60,
       },
-      ...columnsOrder.map((colName) => ({
-        accessorKey: colName,
-        header: colName,
-        cell: (cell: { getValue: () => unknown }) => {
-          const value = cell.getValue() as string
-          return value && value.length > 100 ? `${value.substring(0, 100)}...` : value
-        },
-      })),
+      ...columnsOrder.map(
+        (colName): ColumnDef<ScrapedRow> => ({
+          accessorKey: colName,
+          header: colName,
+          cell: ({ row }: CellContext<ScrapedRow, unknown>) => {
+            const value = row.original.data[colName] || ''
+            return value && value.length > 100 ? `${value.substring(0, 100)}...` : value
+          },
+        }),
+      ),
     ]
     return baseColumns
-  }, [columnsOrder, config.mainSelector, onRowHighlight, pagination.pageIndex, pagination.pageSize])
+  }, [columnsOrder, config.mainSelector, onRowHighlight, filteredData])
 
   const table = useReactTable({
-    data,
+    data: filteredData,
     columns,
     getCoreRowModel: getCoreRowModel(),
     manualPagination: false,
@@ -91,7 +134,7 @@ const DataTable: React.FC<DataTableProps> = ({ data, config, onRowHighlight, col
     manualFiltering: false,
     state: { pagination },
     onPaginationChange: setPagination,
-    pageCount: Math.ceil(data.length / pagination.pageSize),
+    pageCount: Math.ceil(filteredData.length / pagination.pageSize),
     getPaginationRowModel: undefined, // use built-in client-side pagination
   })
 
@@ -102,10 +145,29 @@ const DataTable: React.FC<DataTableProps> = ({ data, config, onRowHighlight, col
     return table.getRowModel().rows.slice(start, end)
   }, [table, pagination])
 
-  const totalPages = Math.max(1, Math.ceil(data.length / pagination.pageSize))
+  const totalPages = Math.max(1, Math.ceil(filteredData.length / pagination.pageSize))
 
   return (
     <div className="data-table-container">
+      {/* Toggle for showing/hiding empty rows */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Switch
+            id="show-empty-rows"
+            checked={showEmptyRows}
+            onCheckedChange={onShowEmptyRowsChange}
+          />
+          <label htmlFor="show-empty-rows" className="text-sm font-medium">
+            Show empty rows
+          </label>
+        </div>
+        <div className="text-sm text-muted-foreground">
+          {showEmptyRows
+            ? `${filteredData.length} total rows (${data.filter((r) => r.metadata.isEmpty).length} empty)`
+            : `${filteredData.length} rows with data`}
+        </div>
+      </div>
+
       <div className="table-wrapper">
         <Table>
           <TableHeader>
@@ -130,7 +192,11 @@ const DataTable: React.FC<DataTableProps> = ({ data, config, onRowHighlight, col
               </TableRow>
             ) : (
               paginatedRows.map((row) => (
-                <TableRow key={row.id} data-state={row.getIsSelected() && 'selected'}>
+                <TableRow
+                  key={row.id}
+                  data-state={row.getIsSelected() && 'selected'}
+                  className={row.original.metadata.isEmpty ? 'opacity-60 bg-muted/30' : ''}
+                >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}

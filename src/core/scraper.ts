@@ -1,30 +1,40 @@
 import log from 'loglevel'
-import { ColumnDefinition, ScrapeConfig, ScrapedData, ScrapedRow } from './types'
+import { ColumnDefinition, ScrapeConfig, ScrapedData, ScrapedRow, ScrapedRowData } from './types'
 
 /**
  * Scrape data from the page based on the provided configuration
+ * Returns data with original indices and empty row flags
  */
 export const scrapePage = (config: ScrapeConfig): ScrapedData => {
   try {
     const { mainSelector, columns } = config
-    const results: ScrapedRow[] = []
+    const results: ScrapedData = []
 
     // Find all primary elements using the main selector
     const primaryElements = evaluateXPath(mainSelector)
 
     // For each primary element, extract data for each column
-    primaryElements.forEach((element) => {
-      const row: ScrapedRow = {}
+    primaryElements.forEach((element, index) => {
+      const rowData: ScrapedRowData = {}
 
       // Process each column
       columns.forEach((column) => {
-        row[column.name] = extractData(element, column)
+        rowData[column.name] = extractData(element, column)
       })
 
-      // Add the row to results (if not empty)
-      if (Object.values(row).some((value) => value.trim() !== '')) {
-        results.push(row)
+      // Check if row is empty (all column values are empty)
+      const isEmpty = !Object.keys(rowData).some((key) => (rowData[key] || '').trim() !== '')
+
+      const row: ScrapedRow = {
+        data: rowData,
+        metadata: {
+          originalIndex: index,
+          isEmpty: isEmpty,
+        },
       }
+
+      // Always add to results (filtering will be done in the UI)
+      results.push(row)
     })
 
     return results

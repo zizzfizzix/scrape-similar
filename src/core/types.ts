@@ -8,13 +8,23 @@ export interface ScrapeConfig {
   columns: ColumnDefinition[]
 }
 
-export interface ScrapedRow {
+export interface ScrapedRowData {
   [columnName: string]: string
+}
+
+export interface ScrapedRowMetadata {
+  originalIndex: number
+  isEmpty: boolean
+}
+
+export interface ScrapedRow {
+  data: ScrapedRowData
+  metadata: ScrapedRowMetadata
 }
 
 export type ScrapedData = ScrapedRow[]
 
-export interface ScrapedDataResult {
+export interface ScrapeResult {
   data: ScrapedData
   columnOrder: string[]
 }
@@ -29,7 +39,6 @@ export interface Preset {
 export interface SelectionOptions {
   xpath: string
   selectedText?: string
-  previewData?: ScrapedRow[]
 }
 
 export interface SidePanelConfig {
@@ -37,7 +46,7 @@ export interface SidePanelConfig {
   elementDetails?: ElementDetailsPayload | null
   selectionOptions?: SelectionOptions
   currentScrapeConfig?: ScrapeConfig
-  scrapedData?: ScrapedData
+  scrapeResult?: ScrapeResult
   highlightMatchCount?: number
   highlightError?: string
 }

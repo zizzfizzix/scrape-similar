@@ -310,13 +310,7 @@ const handleContentScriptMessage = async (
 
   log.debug(`Handling message from content script in tab ${tabId}:`, message)
 
-  const sessionKey = getSessionKey(tabId)
-
   try {
-    // Always get current session data first
-    const result = await chrome.storage.session.get(sessionKey)
-    let currentData = (result[sessionKey] || {}) as Partial<SidePanelConfig>
-
     switch (message.type) {
       case MESSAGE_TYPES.GET_MY_TAB_ID: {
         // Simple handler to return the tab ID from the sender
@@ -361,9 +355,10 @@ const handleUiMessage = async (
   switch (message.type) {
     case MESSAGE_TYPES.EXPORT_TO_SHEETS: {
       // Require filename in payload
-      const { filename, scrapedData } = message?.payload as {
+      const { filename, scrapedData, columnOrder } = message?.payload as {
         filename: string
         scrapedData: ScrapedData
+        columnOrder?: string[]
       }
       if (!filename.trim()) {
         sendResponse({ success: false, error: 'Filename is required for export' })
@@ -392,7 +387,12 @@ const handleUiMessage = async (
           return
         }
         try {
-          const exportResult = await exportToGoogleSheets(token.toString(), scrapedData, filename)
+          const exportResult = await exportToGoogleSheets(
+            token.toString(),
+            scrapedData,
+            filename,
+            columnOrder,
+          )
           sendResponse(exportResult)
         } catch (error) {
           const errorResult = {
@@ -414,19 +414,28 @@ const handleUiMessage = async (
 // Export data to Google Sheets
 const exportToGoogleSheets = async (
   token: string,
-  data: ScrapedData,
+  scrapedData: ScrapedData,
   filename: string,
+  columnOrder?: string[],
 ): Promise<ExportResult> => {
   try {
-    if (!data || !data.length) {
+    if (!scrapedData || !scrapedData.length) {
       return { success: false, error: 'No data to export' }
     }
 
-    // Get column headers from first row
-    const headers = Object.keys(data[0])
+    // Get column headers - use provided columnOrder if available, otherwise fallback to Object.keys
+    const headers =
+      columnOrder && columnOrder.length > 0 ? columnOrder : Object.keys(scrapedData[0].data)
+
+    if (headers.length === 0) {
+      return { success: false, error: 'No columns found in data' }
+    }
 
     // Create sheet values (header row + data rows)
-    const values = [headers, ...data.map((row) => headers.map((header) => row[header] || ''))]
+    const values = [
+      headers,
+      ...scrapedData.map((row) => headers.map((header) => row.data[header] || '')),
+    ]
 
     // Helper function to make authenticated requests
     const makeRequest = async (url: string, options: RequestInit) => {

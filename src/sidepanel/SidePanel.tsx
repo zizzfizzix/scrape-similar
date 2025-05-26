@@ -23,7 +23,7 @@ import {
   MESSAGE_TYPES,
   Preset,
   ScrapeConfig,
-  ScrapedDataResult,
+  ScrapeResult,
   SelectionOptions,
   SidePanelConfig,
 } from '@/core/types'
@@ -72,7 +72,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
     mainSelector: '',
     columns: [{ name: 'Text', selector: '.' }],
   })
-  const [scrapedData, setScrapedData] = useState<ScrapedDataResult | null>(null)
+  const [scrapeResult, setScrapeResult] = useState<ScrapeResult | null>(null)
   const [presets, setPresets] = useState<Preset[]>([])
   const [isScraping, setIsScraping] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
@@ -90,6 +90,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
   const dataTableRef = useRef<HTMLDivElement | null>(null)
   const [highlightMatchCount, setHighlightMatchCount] = useState<number | undefined>(undefined)
   const [highlightError, setHighlightError] = useState<string | undefined>(undefined)
+  const [showEmptyRows, setShowEmptyRows] = useState(false)
 
   // Memoized export filename (regenerates if tabUrl changes)
   const exportFilename = React.useMemo(() => {
@@ -106,7 +107,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
       elementDetails: undefined,
       selectionOptions: undefined,
       currentScrapeConfig: undefined,
-      scrapedData: [],
+      scrapeResult: undefined,
     }
   }
 
@@ -212,7 +213,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
       elementDetails,
       currentScrapeConfig,
       initialSelectionText,
-      scrapedData,
+      scrapeResult,
       highlightMatchCount,
       highlightError,
     } = payload.config || {} // Default to empty object
@@ -258,7 +259,6 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
       const options: SelectionOptions = {
         xpath: elementDetails.xpath,
         selectedText: initialSelectionText || elementDetails.text,
-        previewData: [], // Preview might need separate handling or message
       }
       newOptions = options
     }
@@ -266,15 +266,10 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
     setInitialOptions(newOptions)
 
     // Load saved scraped data from session storage if available
-    if (
-      scrapedData &&
-      typeof scrapedData === 'object' &&
-      'data' in scrapedData &&
-      'columnOrder' in scrapedData
-    ) {
-      setScrapedData(scrapedData as ScrapedDataResult)
+    if (scrapeResult) {
+      setScrapeResult(scrapeResult)
     } else {
-      setScrapedData(null)
+      setScrapeResult(null)
     }
 
     setExportStatus(null)
@@ -465,10 +460,10 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
 
   // Scroll table into view when it appears (first time or after clearing)
   React.useEffect(() => {
-    if (scrapedData && scrapedData.data.length > 0 && dataTableRef.current) {
+    if (scrapeResult && scrapeResult.data.length > 0 && dataTableRef.current) {
       dataTableRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }
-  }, [scrapedData?.data.length])
+  }, [scrapeResult?.data.length])
 
   // Handle highlight request
   const handleHighlight = (selector: string) => {
@@ -621,24 +616,22 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
   }
 
   const handleExport = () => {
-    if (!scrapedData) return
+    if (!scrapeResult) return
     setIsExporting(true)
     setExportStatus(null)
-    const columns = scrapedData?.columnOrder || []
-    const orderedData =
-      scrapedData?.data.map((row: Record<string, string>) => {
-        const orderedRow: { [key: string]: string } = {}
-        columns.forEach((header) => {
-          orderedRow[header] = row[header] || ''
-        })
-        return orderedRow
-      }) || []
+
+    // Use appropriate data based on showEmptyRows toggle
+    const dataToExport = showEmptyRows
+      ? scrapeResult.data || []
+      : (scrapeResult.data || []).filter((row) => !row.metadata.isEmpty)
+
     chrome.runtime.sendMessage(
       {
         type: MESSAGE_TYPES.EXPORT_TO_SHEETS,
         payload: {
           filename: exportFilename,
-          scrapedData: orderedData,
+          scrapedData: dataToExport,
+          columnOrder: scrapeResult.columnOrder,
         },
       },
       (response) => {
@@ -661,8 +654,8 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
           })
           setIsDropdownOpen(false)
           trackEvent(ANALYTICS_EVENTS.EXPORT_TO_SHEETS, {
-            rows_exported: scrapedData?.data.length || 0,
-            columns_count: columns.length,
+            rows_exported: dataToExport.length,
+            columns_count: scrapeResult.columnOrder.length,
           })
         } else {
           toast.error(response?.error || 'Export failed')
@@ -676,14 +669,22 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
   }
 
   const handleCsvExport = () => {
-    if (!scrapedData || !scrapedData.data.length) return
-    const columns = scrapedData.columnOrder || []
+    if (!scrapeResult) return
+    const columns = scrapeResult.columnOrder || []
+
+    // Use appropriate data based on showEmptyRows toggle
+    const dataToExport = showEmptyRows
+      ? scrapeResult.data || []
+      : (scrapeResult.data || []).filter((row) => !row.metadata.isEmpty)
+
+    if (!dataToExport.length) return
+
     const csvContent = [
       columns.map((header) => `"${header.replace(/"/g, '""')}"`).join(','),
-      ...scrapedData.data.map((row: Record<string, string>) =>
+      ...dataToExport.map((row) =>
         columns
           .map((header) => {
-            const value = row[header] || ''
+            const value = row.data[header] || ''
             const escapedValue = value.replace(/"/g, '""')
             return `"${escapedValue}"`
           })
@@ -704,7 +705,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
       toast.success('CSV file saved')
       setIsDropdownOpen(false)
       trackEvent(ANALYTICS_EVENTS.EXPORT_TO_CSV, {
-        rows_exported: scrapedData.data.length,
+        rows_exported: dataToExport.length,
         columns_count: columns.length,
       })
     } catch (e) {
@@ -721,14 +722,22 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
     value.replace(/\\/g, '\\\\').replace(/\t/g, '\\t').replace(/\n/g, '\\n').replace(/\r/g, '\\r')
 
   const handleCopyTsv = async () => {
-    if (!scrapedData || !scrapedData.data.length) return
-    const columns = scrapedData.columnOrder || []
+    if (!scrapeResult) return
+    const columns = scrapeResult.columnOrder || []
+
+    // Use appropriate data based on showEmptyRows toggle
+    const dataToExport = showEmptyRows
+      ? scrapeResult.data || []
+      : (scrapeResult.data || []).filter((row) => !row.metadata.isEmpty)
+
+    if (!dataToExport.length) return
+
     const tsvContent = [
       columns.join('\t'),
-      ...scrapedData.data.map((row: Record<string, string>) =>
+      ...dataToExport.map((row) =>
         columns
           .map((header) => {
-            const value = row[header] || ''
+            const value = row.data[header] || ''
             return escapeTsvField(String(value))
           })
           .join('\t'),
@@ -739,7 +748,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
       toast.success('Copied to clipboard')
       setIsDropdownOpen(false)
       trackEvent(ANALYTICS_EVENTS.COPY_TO_CLIPBOARD, {
-        rows_copied: scrapedData.data.length,
+        rows_copied: dataToExport.length,
         columns_count: columns.length,
       })
     } catch {
@@ -803,7 +812,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
             highlightMatchCount={highlightMatchCount}
             highlightError={highlightError}
           />
-          {scrapedData && scrapedData.data.length > 0 && (
+          {scrapeResult && scrapeResult.data.length > 0 && (
             <div className="flex flex-col gap-6" ref={dataTableRef}>
               <div className="flex items-center justify-between gap-4">
                 <h2 className="text-2xl font-bold">Extracted Data</h2>
@@ -841,10 +850,12 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
                 </DropdownMenu>
               </div>
               <DataTable
-                data={scrapedData.data}
+                data={scrapeResult.data || []}
                 onRowHighlight={handleRowHighlight}
                 config={config}
-                columnOrder={scrapedData.columnOrder}
+                columnOrder={scrapeResult.columnOrder}
+                showEmptyRows={showEmptyRows}
+                onShowEmptyRowsChange={setShowEmptyRows}
               />
             </div>
           )}

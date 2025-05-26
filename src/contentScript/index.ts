@@ -6,7 +6,7 @@ import {
   minimizeXPath,
   scrapePage,
 } from '../core/scraper'
-import { MESSAGE_TYPES, Message, ScrapeConfig } from '../core/types'
+import { MESSAGE_TYPES, Message, ScrapeConfig, ScrapeResult, SidePanelConfig } from '../core/types'
 log.setDefaultLevel('error')
 
 // On startup, set log level from storage
@@ -77,15 +77,18 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
       case MESSAGE_TYPES.START_SCRAPE: {
         log.debug('Starting scrape with config (direct from UI):', message.payload)
         const config = message.payload as ScrapeConfig
-        const data = scrapePage(config)
+        const scrapedData = scrapePage(config)
         const columnOrder = config.columns.map((col) => col.name)
-        const scrapedDataResult = { data, columnOrder }
+        const scrapeResult: ScrapeResult = {
+          data: scrapedData,
+          columnOrder,
+        }
 
-        log.debug('Scrape complete, data:', scrapedDataResult)
+        log.debug('Scrape complete, data:', scrapeResult)
 
         // Track scraping completion
         trackEvent(ANALYTICS_EVENTS.SCRAPE_COMPLETED, {
-          items_scraped: data.length,
+          items_scraped: scrapedData.length,
           columns_count: config.columns.length,
         })
 
@@ -111,18 +114,18 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
           }
 
           try {
-            const currentData = result[sessionKey] || {}
+            const currentData: SidePanelConfig = result[sessionKey] || {}
 
             // Update with new scraped data
-            const updatedData = {
+            const updatedData: SidePanelConfig = {
               ...currentData,
-              scrapedData: scrapedDataResult,
+              scrapeResult: scrapeResult,
             }
 
             // Save directly to storage
             log.debug(
               `Content script directly saving scraped data to session storage for tab ${tabId}:`,
-              data.length,
+              scrapeResult.data.length,
               'items',
             )
             chrome.storage.session.set({ [sessionKey]: updatedData }, () => {
@@ -135,8 +138,8 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
               } else {
                 sendResponse({
                   success: true,
-                  data: scrapedDataResult,
-                  message: `Scraped ${data.length} items successfully and stored in session.`,
+                  data: scrapeResult,
+                  message: `Scraped ${scrapeResult.data.length} items successfully and stored in session.`,
                 })
               }
             })

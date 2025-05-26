@@ -536,20 +536,6 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
             </Tooltip>
           </div>
         </div>
-
-        {initialOptions?.previewData && initialOptions.previewData.length > 0 && (
-          <div className="mt-3 p-3 bg-gray-50 border border-gray-200 rounded text-sm">
-            <h4 className="mb-2 font-medium">Selection preview:</h4>
-            <ul className="ml-5 list-disc">
-              {initialOptions.previewData.map((item, index) => (
-                <li key={index}>
-                  {item.text.substring(0, 100)}
-                  {item.text.length > 100 ? '...' : ''}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
       </div>
 
       {/* Columns section */}
