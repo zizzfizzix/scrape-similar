@@ -332,10 +332,25 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
 })
 log.debug('CONTENT SCRIPT MESSAGE LISTENER ADDED')
 
+function isVisibleAndInViewport(element: Element): boolean {
+  if (!element.checkVisibility()) return false
+
+  const rect = element.getBoundingClientRect()
+  if (
+    rect.bottom < 0 ||
+    rect.right < 0 ||
+    rect.top > window.innerHeight ||
+    rect.left > window.innerWidth
+  ) {
+    return false
+  }
+  return true
+}
+
 // Highlight matching elements in the page using Web Animations API
 const highlightMatchingElements = (elements: Element[]) => {
   // Scroll first element into view if available
-  if (elements.length > 0) {
+  if (elements.length > 0 && !isVisibleAndInViewport(elements[0])) {
     elements[0].scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 
