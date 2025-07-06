@@ -27,7 +27,7 @@ export default defineManifest({
     128: 'img/logo-light-128.png',
   },
   action: {
-    default_icon: 'img/logo-light-48.png',
+    default_icon: { 48: 'img/logo-light-48.png' },
     default_title: 'Open Scrape Similar',
   },
   background: {

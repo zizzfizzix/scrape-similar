@@ -55,7 +55,7 @@ const injectContentScriptToAllTabs = async () => {
         // Ignore errors for restricted pages
         log.warn(
           `Failed to inject content script into tab ${tab.id} with url ${tab.url}:`,
-          (error as chrome.runtime.LastError).message,
+          (error as typeof chrome.runtime.lastError)?.message,
         )
       }
     }
