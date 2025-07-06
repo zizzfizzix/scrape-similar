@@ -169,7 +169,7 @@ const DataTable: React.FC<DataTableProps> = ({
       </div>
 
       <div className="table-wrapper">
-        <Table>
+        <Table key={columnsOrder.join('-')}>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
