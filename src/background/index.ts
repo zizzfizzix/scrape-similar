@@ -6,7 +6,9 @@ import {
   ExportResult,
   Message,
   MESSAGE_TYPES,
+  ScrapeConfig,
   ScrapedData,
+  ScrapeResult,
   SidePanelConfig,
   TrackEventPayload,
 } from '../core/types'
@@ -304,20 +306,14 @@ const handleContentScriptMessage = async (
   try {
     switch (message.type) {
       case MESSAGE_TYPES.GET_MY_TAB_ID: {
-        // Simple handler to return the tab ID from the sender
         log.debug(`Content script in tab ${tabId} requested its own tab ID`)
         sendResponse({ tabId })
         break
       }
-
       case MESSAGE_TYPES.TRACK_EVENT: {
-        // Handle tracking events from content scripts
         const { eventName, properties } = message.payload as TrackEventPayload
         if (eventName) {
-          // Use the trackEvent function to handle the event in background context
-          trackEvent(eventName, {
-            ...properties,
-          })
+          trackEvent(eventName, { ...properties })
           log.debug(`Tracked event from content script in tab ${tabId}: ${eventName}`)
           sendResponse({ success: true })
         } else {
@@ -326,7 +322,57 @@ const handleContentScriptMessage = async (
         }
         break
       }
-
+      case MESSAGE_TYPES.SAVE_SCRAPE_RESULT_TO_STORAGE: {
+        const { scrapeResult } = message.payload as { scrapeResult: ScrapeResult }
+        const sessionKey = getSessionKey(tabId)
+        try {
+          const result = await chrome.storage.session.get(sessionKey)
+          const currentData = result?.[sessionKey] || {}
+          const updatedData = { ...currentData, scrapeResult }
+          await chrome.storage.session.set({ [sessionKey]: updatedData })
+          log.debug(`Saved scrape result to session storage for tab ${tabId}`)
+          sendResponse({ success: true })
+        } catch (error) {
+          log.error(`Error saving scrape result to storage for tab ${tabId}:`, error)
+          sendResponse({ success: false, error: (error as Error).message })
+        }
+        break
+      }
+      case MESSAGE_TYPES.SAVE_ELEMENT_CONFIG_TO_STORAGE: {
+        const { config, elementDetails } = message.payload as {
+          config: ScrapeConfig
+          elementDetails: any
+        }
+        const sessionKey = getSessionKey(tabId)
+        try {
+          const result = await chrome.storage.session.get(sessionKey)
+          const existingData = result?.[sessionKey] || {}
+          const updatedData = { ...existingData, currentScrapeConfig: config, elementDetails }
+          await chrome.storage.session.set({ [sessionKey]: updatedData })
+          log.debug(`Saved element config to session storage for tab ${tabId}`)
+          sendResponse({ success: true })
+        } catch (error) {
+          log.error(`Error saving element config to storage for tab ${tabId}:`, error)
+          sendResponse({ success: false, error: (error as Error).message })
+        }
+        break
+      }
+      case MESSAGE_TYPES.SAVE_GUESSED_CONFIG_TO_STORAGE: {
+        const { config } = message.payload as { config: ScrapeConfig }
+        const sessionKey = getSessionKey(tabId)
+        try {
+          const result = await chrome.storage.session.get(sessionKey)
+          const existingData = result?.[sessionKey] || {}
+          const updatedData = { ...existingData, currentScrapeConfig: config }
+          await chrome.storage.session.set({ [sessionKey]: updatedData })
+          log.debug(`Saved guessed config to session storage for tab ${tabId}`)
+          sendResponse({ success: true })
+        } catch (error) {
+          log.error(`Error saving guessed config to storage for tab ${tabId}:`, error)
+          sendResponse({ success: false, error: (error as Error).message })
+        }
+        break
+      }
       default:
         log.warn(`Unhandled content script message type for tab ${tabId}: ${message.type}`)
         sendResponse({ warning: 'Unhandled message type' })

@@ -85,6 +85,11 @@ export const MESSAGE_TYPES = {
   // From content script to background
   GET_MY_TAB_ID: 'GET_MY_TAB_ID',
   TRACK_EVENT: 'TRACK_EVENT',
+
+  // Storage operations from content script to background
+  SAVE_SCRAPE_RESULT_TO_STORAGE: 'save-scrape-result-to-storage',
+  SAVE_ELEMENT_CONFIG_TO_STORAGE: 'save-element-config-to-storage',
+  SAVE_GUESSED_CONFIG_TO_STORAGE: 'save-guessed-config-to-storage',
 } as const
 
 // Analytics message payload interface

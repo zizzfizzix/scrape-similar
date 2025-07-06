@@ -6,7 +6,7 @@ import {
   minimizeXPath,
   scrapePage,
 } from '../core/scraper'
-import { MESSAGE_TYPES, Message, ScrapeConfig, ScrapeResult, SidePanelConfig } from '../core/types'
+import { MESSAGE_TYPES, Message, ScrapeConfig, ScrapeResult } from '../core/types'
 log.setDefaultLevel('error')
 
 // On startup, set log level from storage
@@ -92,67 +92,40 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
           columns_count: config.columns.length,
         })
 
-        // Use cached tabId
         if (tabId === null) {
           const errMsg = 'tabId not initialized in content script.'
           log.error(errMsg)
           sendResponse({ success: false, error: errMsg })
           return
         }
-        const sessionKey = `sidepanel_config_${tabId}`
 
-        // Try to access session storage directly
-        chrome.storage.session.get(sessionKey, (result) => {
-          if (chrome.runtime.lastError) {
-            log.error('Error accessing session storage:', chrome.runtime.lastError)
-            sendResponse({
-              success: false,
-              error:
-                'Cannot access storage from content script: ' + chrome.runtime.lastError.message,
-            })
-            return
-          }
-
-          try {
-            const currentData: SidePanelConfig = result[sessionKey] || {}
-
-            // Update with new scraped data
-            const updatedData: SidePanelConfig = {
-              ...currentData,
-              scrapeResult: scrapeResult,
+        // Send scrape result to background script for storage
+        chrome.runtime.sendMessage(
+          {
+            type: MESSAGE_TYPES.SAVE_SCRAPE_RESULT_TO_STORAGE,
+            payload: { scrapeResult },
+          },
+          (response) => {
+            if (chrome.runtime.lastError) {
+              log.error('Error sending scrape result to background:', chrome.runtime.lastError)
+              sendResponse({
+                success: false,
+                error: 'Failed to save data to storage: ' + chrome.runtime.lastError.message,
+              })
+            } else if (response?.success) {
+              sendResponse({
+                success: true,
+                data: scrapeResult,
+                message: `Scraped ${scrapeResult.data.length} items successfully and stored in session.`,
+              })
+            } else {
+              sendResponse({
+                success: false,
+                error: response?.error || 'Failed to save data to storage',
+              })
             }
-
-            // Save directly to storage
-            log.debug(
-              `Content script directly saving scraped data to session storage for tab ${tabId}:`,
-              scrapeResult.data.length,
-              'items',
-            )
-            chrome.storage.session.set({ [sessionKey]: updatedData }, () => {
-              if (chrome.runtime.lastError) {
-                log.error('Error saving to session storage:', chrome.runtime.lastError)
-                sendResponse({
-                  success: false,
-                  error: 'Failed to save data to storage: ' + chrome.runtime.lastError.message,
-                })
-              } else {
-                sendResponse({
-                  success: true,
-                  data: scrapeResult,
-                  message: `Scraped ${scrapeResult.data.length} items successfully and stored in session.`,
-                })
-              }
-            })
-          } catch (error) {
-            log.error('Error updating session storage:', error)
-            sendResponse({
-              success: false,
-              error: 'Error updating session storage: ' + (error as Error).message,
-            })
-          }
-        })
-
-        // Signal that we'll respond asynchronously
+          },
+        )
         return true
       }
 
@@ -263,27 +236,25 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
           sendResponse({ success: false, error: errMsg })
           break
         }
-        // Guess and save ScrapeConfig to session storage only when context menu is used
         try {
           const guessedConfig = guessScrapeConfigForElement(lastRightClickedElement)
           const details = lastRightClickedElementDetails
-          const sessionKey = `sidepanel_config_${tabId}`
-          chrome.storage.session.get(sessionKey, (result) => {
-            const existingData = result[sessionKey] || {}
-            const updatedData = {
-              ...existingData,
-              currentScrapeConfig: guessedConfig,
-              elementDetails: details,
-            }
-            chrome.storage.session.set({ [sessionKey]: updatedData }, () => {
+          chrome.runtime.sendMessage(
+            {
+              type: MESSAGE_TYPES.SAVE_ELEMENT_CONFIG_TO_STORAGE,
+              payload: { config: guessedConfig, elementDetails: details },
+            },
+            (response) => {
               if (chrome.runtime.lastError) {
-                log.error('Error saving guessed ScrapeConfig to storage:', chrome.runtime.lastError)
+                log.error('Error sending element config to background:', chrome.runtime.lastError)
                 sendResponse({ success: false, error: chrome.runtime.lastError.message })
-              } else {
+              } else if (response?.success) {
                 sendResponse({ success: true })
+              } else {
+                sendResponse({ success: false, error: response?.error || 'Failed to save config' })
               }
-            })
-          })
+            },
+          )
         } catch (err) {
           log.error('Error guessing or saving ScrapeConfig:', err)
           sendResponse({ success: false, error: (err as Error).message })
@@ -292,7 +263,6 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
       }
 
       case MESSAGE_TYPES.GUESS_CONFIG_FROM_SELECTOR: {
-        // Guess config from selector and update storage
         const { mainSelector } = message.payload || {}
         if (!mainSelector.trim()) {
           sendResponse({ success: false, error: 'Missing mainSelector' })
@@ -308,21 +278,22 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
           ...guessed,
           mainSelector,
         }
-        const sessionKey = `sidepanel_config_${tabId}`
-        chrome.storage.session.get(sessionKey, (result) => {
-          const existingData = result[sessionKey] || {}
-          const updatedData = {
-            ...existingData,
-            currentScrapeConfig: updatedConfig,
-          }
-          chrome.storage.session.set({ [sessionKey]: updatedData }, () => {
+        chrome.runtime.sendMessage(
+          {
+            type: MESSAGE_TYPES.SAVE_GUESSED_CONFIG_TO_STORAGE,
+            payload: { config: updatedConfig },
+          },
+          (response) => {
             if (chrome.runtime.lastError) {
+              log.error('Error sending guessed config to background:', chrome.runtime.lastError)
               sendResponse({ success: false, error: chrome.runtime.lastError.message })
-            } else {
+            } else if (response?.success) {
               sendResponse({ success: true })
+            } else {
+              sendResponse({ success: false, error: response?.error || 'Failed to save config' })
             }
-          })
-        })
+          },
+        )
         return true
       }
     }
