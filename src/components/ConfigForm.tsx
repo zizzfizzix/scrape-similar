@@ -24,6 +24,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { ANALYTICS_EVENTS, trackEvent } from '@/core/analytics'
 import { SYSTEM_PRESETS } from '@/core/system_presets'
 import { MESSAGE_TYPES, Preset, ScrapeConfig, SelectionOptions } from '@/core/types'
+import log from 'loglevel'
 import {
   Check,
   ChevronsUpDown,
@@ -111,6 +112,15 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
 
   // Derived: is mainSelector valid (highlight returned a number and no error)
   const isMainSelectorValid = typeof highlightMatchCount === 'number' && !highlightError
+
+  // Debug logging for validation state changes
+  useEffect(() => {
+    log.debug('ConfigForm validation state changed:', {
+      highlightMatchCount,
+      highlightError,
+      isMainSelectorValid,
+    })
+  }, [highlightMatchCount, highlightError, isMainSelectorValid])
 
   useEffect(() => {
     if (shouldScrollToEnd && config.columns.length > prevColumnsCount.current) {

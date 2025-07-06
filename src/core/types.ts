@@ -81,9 +81,6 @@ export const MESSAGE_TYPES = {
   // From sidepanel to background
   EXPORT_TO_SHEETS: 'export-to-google-sheets',
 
-  // From background to sidepanel
-  HIGHLIGHT_RESULT_FROM_CONTEXT_MENU: 'highlight-result-from-context-menu',
-
   // From content script to background
   GET_MY_TAB_ID: 'GET_MY_TAB_ID',
   TRACK_EVENT: 'TRACK_EVENT',

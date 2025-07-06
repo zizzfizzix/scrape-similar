@@ -217,34 +217,21 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
           type: MESSAGE_TYPES.HIGHLIGHT_ELEMENTS,
           payload: { selector: config.mainSelector },
         })
+        // Store highlight result in session storage immediately
+        const updatedData = {
+          ...currentData,
+          highlightMatchCount: highlightResp.matchCount,
+          highlightError: highlightResp.error,
+        }
+        await chrome.storage.session.set({ [sessionKey]: updatedData })
         if (
           !highlightResp?.success ||
           typeof highlightResp.matchCount !== 'number' ||
           highlightResp.matchCount === 0
         ) {
-          // Notify sidepanel of highlight result (even if failed)
-          await chrome.runtime.sendMessage({
-            type: MESSAGE_TYPES.HIGHLIGHT_RESULT_FROM_CONTEXT_MENU,
-            payload: {
-              tabId: targetTabId,
-              matchCount: highlightResp.matchCount,
-              error: highlightResp.error,
-              success: highlightResp.success,
-            },
-          })
           log.warn('Highlight failed or no elements found for selector, aborting scrape.')
           return
         }
-        // Notify sidepanel of highlight result (success)
-        await chrome.runtime.sendMessage({
-          type: MESSAGE_TYPES.HIGHLIGHT_RESULT_FROM_CONTEXT_MENU,
-          payload: {
-            tabId: targetTabId,
-            matchCount: highlightResp.matchCount,
-            error: highlightResp.error,
-            success: highlightResp.success,
-          },
-        })
         // Send START_SCRAPE to content script
         const scrapeResp = await chrome.tabs.sendMessage(targetTabId, {
           type: MESSAGE_TYPES.START_SCRAPE,
