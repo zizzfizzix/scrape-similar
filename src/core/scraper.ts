@@ -257,7 +257,31 @@ export const guessScrapeConfigForElement = (element: HTMLElement): ScrapeConfig 
   switch (tagName) {
     case 'tr': {
       const table = ancestor.closest('table')
-      const ths = table ? Array.from(table.querySelectorAll('th')) : []
+      let ths: Element[] = []
+
+      if (table) {
+        // Find the header row that's closest to the data rows
+        const allRows = Array.from(table.querySelectorAll('tr'))
+        const currentRowIndex = allRows.indexOf(ancestor as HTMLTableRowElement)
+
+        // Look for the closest header row above the current row
+        for (let i = currentRowIndex - 1; i >= 0; i--) {
+          const headerRow = allRows[i] as HTMLTableRowElement
+          const headerCells = Array.from(headerRow.children).filter(
+            (child) => child.tagName.toLowerCase() === 'th',
+          )
+          if (headerCells.length > 0) {
+            ths = headerCells
+            break
+          }
+        }
+
+        // If no header row found above, look for any th elements in the table
+        if (ths.length === 0) {
+          ths = Array.from(table.querySelectorAll('th'))
+        }
+      }
+
       const tds = Array.from(ancestor.children)
       if (ths.length === tds.length) {
         columns = ths.map((th, i) => ({
