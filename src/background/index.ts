@@ -342,10 +342,11 @@ const handleUiMessage = async (
   switch (message.type) {
     case MESSAGE_TYPES.EXPORT_TO_SHEETS: {
       // Require filename in payload
-      const { filename, scrapedData, columnOrder } = message?.payload as {
+      const { filename, scrapedData, columnOrder, columnKeys } = message?.payload as {
         filename: string
         scrapedData: ScrapedData
         columnOrder?: string[]
+        columnKeys?: string[]
       }
       if (!filename.trim()) {
         sendResponse({ success: false, error: 'Filename is required for export' })
@@ -379,6 +380,7 @@ const handleUiMessage = async (
             scrapedData,
             filename,
             columnOrder,
+            columnKeys,
           )
           sendResponse(exportResult)
         } catch (error) {
@@ -404,13 +406,14 @@ const exportToGoogleSheets = async (
   scrapedData: ScrapedData,
   filename: string,
   columnOrder?: string[],
+  columnKeys?: string[],
 ): Promise<ExportResult> => {
   try {
     if (!scrapedData || !scrapedData.length) {
       return { success: false, error: 'No data to export' }
     }
 
-    // Get column headers - use provided columnOrder if available, otherwise fallback to Object.keys
+    // Get column headers - use columnOrder if available, otherwise fallback to Object.keys
     const headers =
       columnOrder && columnOrder.length > 0 ? columnOrder : Object.keys(scrapedData[0].data)
 
@@ -418,10 +421,13 @@ const exportToGoogleSheets = async (
       return { success: false, error: 'No columns found in data' }
     }
 
+    // Use columnKeys for data access if available, otherwise use headers
+    const dataKeys = columnKeys && columnKeys.length > 0 ? columnKeys : headers
+
     // Create sheet values (header row + data rows)
     const values = [
       headers,
-      ...scrapedData.map((row) => headers.map((header) => row.data[header] || '')),
+      ...scrapedData.map((row) => dataKeys.map((key) => row.data[key] || '')),
     ]
 
     // Helper function to make authenticated requests

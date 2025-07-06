@@ -112,11 +112,12 @@ const DataTable: React.FC<DataTableProps> = ({
         size: 60,
       },
       ...columnsOrder.map(
-        (colName): ColumnDef<ScrapedRow> => ({
+        (colName, index): ColumnDef<ScrapedRow> => ({
           accessorKey: colName,
           header: colName,
           cell: ({ row }: CellContext<ScrapedRow, unknown>) => {
-            const value = row.original.data[colName] || ''
+            const dataKey = config.columns[index]?.key || colName
+            const value = row.original.data[dataKey] || ''
             return value && value.length > 100 ? `${value.substring(0, 100)}...` : value
           },
         }),

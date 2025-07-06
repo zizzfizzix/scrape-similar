@@ -1,6 +1,7 @@
 export interface ColumnDefinition {
   name: string
   selector: string
+  key?: string
 }
 
 export interface ScrapeConfig {

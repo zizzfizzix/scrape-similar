@@ -19,7 +19,8 @@ export const scrapePage = (config: ScrapeConfig): ScrapedData => {
 
       // Process each column
       columns.forEach((column) => {
-        rowData[column.name] = extractData(element, column)
+        const dataKey = column.key || column.name
+        rowData[dataKey] = extractData(element, column)
       })
 
       // Check if row is empty (all column values are empty)
@@ -260,41 +261,63 @@ export const guessScrapeConfigForElement = (element: HTMLElement): ScrapeConfig 
       let ths: Element[] = []
 
       if (table) {
-        // Find the header row that's closest to the data rows
-        const allRows = Array.from(table.querySelectorAll('tr'))
-        const currentRowIndex = allRows.indexOf(ancestor as HTMLTableRowElement)
-
-        // Look for the closest header row above the current row
-        for (let i = currentRowIndex - 1; i >= 0; i--) {
-          const headerRow = allRows[i] as HTMLTableRowElement
-          const headerCells = Array.from(headerRow.children).filter(
-            (child) => child.tagName.toLowerCase() === 'th',
-          )
-          if (headerCells.length > 0) {
-            ths = headerCells
-            break
+        // First, try to find headers in thead section
+        const thead = table.querySelector('thead')
+        if (thead) {
+          const headerRows = Array.from(thead.querySelectorAll('tr'))
+          if (headerRows.length > 0) {
+            // Use the last header row from thead
+            const headerRow = headerRows[headerRows.length - 1]
+            ths = Array.from(headerRow.children).filter(
+              (child) => child.tagName.toLowerCase() === 'th',
+            )
           }
         }
 
-        // If no header row found above, look for any th elements in the table
+        // If no headers found in thead, look for headers in the current row's context
+        if (ths.length === 0) {
+          const allRows = Array.from(table.querySelectorAll('tr'))
+          const currentRowIndex = allRows.indexOf(ancestor as HTMLTableRowElement)
+
+          // Look for the closest header row above the current row
+          for (let i = currentRowIndex - 1; i >= 0; i--) {
+            const headerRow = allRows[i] as HTMLTableRowElement
+            const headerCells = Array.from(headerRow.children).filter(
+              (child) => child.tagName.toLowerCase() === 'th',
+            )
+            if (headerCells.length > 0) {
+              ths = headerCells
+              break
+            }
+          }
+        }
+
+        // If still no headers found, look for any th elements in the table
         if (ths.length === 0) {
           ths = Array.from(table.querySelectorAll('th'))
         }
+
+        // For tables, we want to target all data rows in the specific table that was clicked
+        // Use the table's position to make the selector more specific
+        const allTables = Array.from(document.querySelectorAll('table'))
+        const tableIndex = allTables.indexOf(table) + 1
+        mainSelector = `(//table)[${tableIndex}]//tr[td]`
       }
 
       const tds = Array.from(ancestor.children)
-      if (ths.length === tds.length) {
-        columns = ths.map((th, i) => ({
-          name: getText(th) || `Column ${i + 1}`,
-          selector: `*[${i + 1}]`,
-        }))
-      } else {
-        columns = tds.map((_, i) => ({
-          name: `Column ${i + 1}`,
-          selector: `*[${i + 1}]`,
-        }))
-      }
-      mainSelector += '[td]'
+
+      // For tables with thead/tbody structure, we need to count all cells in data rows
+      // including both th (row headers) and td (data cells)
+      const allCells = tds.filter(
+        (child) => child.tagName.toLowerCase() === 'th' || child.tagName.toLowerCase() === 'td',
+      )
+
+      const maxColumns = Math.max(ths.length, allCells.length)
+      columns = Array.from({ length: maxColumns }, (_, i) => ({
+        name: ths[i] ? getText(ths[i]) || `Column ${i + 1}` : `Column ${i + 1}`,
+        key: `col${i + 1}`,
+        selector: `*[${i + 1}]`,
+      }))
       break
     }
     case 'a':

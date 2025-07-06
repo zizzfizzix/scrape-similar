@@ -28,6 +28,7 @@ import {
   SidePanelConfig,
 } from '@/core/types'
 import { isInjectableUrl } from '@/lib/isInjectableUrl'
+import { getColumnKeys } from '@/lib/utils'
 import log from 'loglevel'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import slugify from 'slugify'
@@ -625,6 +626,9 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
       ? scrapeResult.data || []
       : (scrapeResult.data || []).filter((row) => !row.metadata.isEmpty)
 
+    // Use column names for headers and keys for data access
+    const columnKeys = getColumnKeys(scrapeResult.columnOrder, config.columns)
+
     chrome.runtime.sendMessage(
       {
         type: MESSAGE_TYPES.EXPORT_TO_SHEETS,
@@ -632,6 +636,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
           filename: exportFilename,
           scrapedData: dataToExport,
           columnOrder: scrapeResult.columnOrder,
+          columnKeys: columnKeys,
         },
       },
       (response) => {
@@ -679,12 +684,15 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
 
     if (!dataToExport.length) return
 
+    // Use column names for headers and keys for data access
+    const columnKeys = getColumnKeys(columns, config.columns)
+
     const csvContent = [
       columns.map((header) => `"${header.replace(/"/g, '""')}"`).join(','),
       ...dataToExport.map((row) =>
-        columns
-          .map((header) => {
-            const value = row.data[header] || ''
+        columnKeys
+          .map((key) => {
+            const value = row.data[key] || ''
             const escapedValue = value.replace(/"/g, '""')
             return `"${escapedValue}"`
           })
@@ -732,12 +740,15 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
 
     if (!dataToExport.length) return
 
+    // Use column names for headers and keys for data access
+    const columnKeys = getColumnKeys(columns, config.columns)
+
     const tsvContent = [
       columns.join('\t'),
       ...dataToExport.map((row) =>
-        columns
-          .map((header) => {
-            const value = row.data[header] || ''
+        columnKeys
+          .map((key) => {
+            const value = row.data[key] || ''
             return escapeTsvField(String(value))
           })
           .join('\t'),
