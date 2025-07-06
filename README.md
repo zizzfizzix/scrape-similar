@@ -29,6 +29,33 @@ $ npm run dev
 2. when debugging popup page, open `http://0.0.0.0:3000//popup.html`
 3. when debugging options page, open `http://0.0.0.0:3000//options.html`
 
+## Features
+
+### Onboarding Experience
+
+The extension includes a comprehensive onboarding experience for new users:
+
+- **First Install**: Automatically opens an onboarding guide when the extension is first installed
+- **Interactive Slides**: Step-by-step guide covering:
+  - Welcome and overview
+  - How to pin the extension to the toolbar
+  - Keyboard shortcuts (platform-specific: ⌘+Shift+S on Mac, Ctrl+Shift+S on Windows/Linux)
+  - Right-click scraping functionality
+  - Privacy and security information
+- **Multiple Access Points**: Users can access the onboarding from:
+  - Settings drawer in the side panel
+  - Right-click context menu on any webpage
+  - Options page
+- **Privacy Policy**: Links to a comprehensive privacy policy
+
+### Core Functionality
+
+- **Web Scraping**: Extract structured data from any website
+- **Google Sheets Export**: Direct export to Google Sheets with OAuth2 authentication
+- **Multiple Export Formats**: CSV, TSV, and clipboard export options
+- **Preset Management**: Save and load scraping configurations
+- **System Presets**: Pre-built configurations for common use cases
+
 ## Packing
 
 After the development of your extension run the command

@@ -63,7 +63,7 @@ const injectContentScriptToAllTabs = async () => {
 }
 
 // Initialize extension when installed or updated
-chrome.runtime.onInstalled.addListener(async () => {
+chrome.runtime.onInstalled.addListener(async (details) => {
   log.debug('Scrape Similar extension installed')
 
   // Save environment to storage on install/update
@@ -72,15 +72,20 @@ chrome.runtime.onInstalled.addListener(async () => {
   // Initialize storage
   await initializeStorage()
 
-  // Set storage.session access level to allow content scripts access
-  try {
-    await chrome.storage.session.setAccessLevel({ accessLevel: 'TRUSTED_AND_UNTRUSTED_CONTEXTS' })
-    log.debug('Set storage.session access level to allow content scripts access')
-  } catch (error) {
-    log.error('Error setting storage.session access level:', error)
+  // Show onboarding on first install (no storage check)
+  if (details.reason === 'install') {
+    try {
+      await chrome.tabs.create({
+        url: chrome.runtime.getURL('onboarding.html'),
+        active: true,
+      })
+      log.debug('Opened onboarding page for new installation')
+    } catch (error) {
+      log.error('Error opening onboarding page:', error)
+    }
   }
 
-  // Create context menu item
+  // Create context menu item (only scrape-similar)
   chrome.contextMenus.create(
     {
       id: 'scrape-similar',
@@ -99,7 +104,6 @@ chrome.runtime.onInstalled.addListener(async () => {
 
   // Set side panel behavior - make the action icon open/close the sidepanel
   try {
-    // Removed cast, use standard API
     await chrome.sidePanel.setPanelBehavior({
       openPanelOnActionClick: true,
     })

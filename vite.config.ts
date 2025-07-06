@@ -1,6 +1,7 @@
 import { crx } from '@crxjs/vite-plugin'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
+import { resolve } from 'path'
 import { defineConfig } from 'vite'
 import tsconfigPaths from 'vite-tsconfig-paths'
 
@@ -15,6 +16,10 @@ export default defineConfig(({ mode }) => {
       outDir: 'build',
       sourcemap: true,
       rollupOptions: {
+        input: {
+          sidepanel: resolve(__dirname, 'sidepanel.html'),
+          onboarding: resolve(__dirname, 'onboarding.html'),
+        },
         output: {
           chunkFileNames: 'assets/chunk-[hash].js',
         },
