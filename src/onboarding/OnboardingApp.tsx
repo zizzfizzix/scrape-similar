@@ -342,12 +342,13 @@ const OnboardingApp: React.FC = () => {
           <Separator />
           <p className="text-sm text-muted-foreground">
             Read our full{' '}
-            <button
+            <a
               className="text-primary hover:underline focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded"
-              onClick={() => window.open('PRIVACY_POLICY.md', '_blank')}
+              href="https://digitall.studio/scrape-similar-privacy-policy.md"
+              target="_blank"
             >
               privacy policy
-            </button>
+            </a>
           </p>
         </div>
       ),
