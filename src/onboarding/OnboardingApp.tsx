@@ -5,6 +5,7 @@ import {
   ChevronRight,
   CloudOff,
   Download,
+  HeartPlus,
   Keyboard,
   MousePointer,
   Pin,
@@ -373,64 +374,94 @@ const OnboardingApp: React.FC = () => {
   ]
 
   return (
-    <div className="min-h-screen bg-background p-4">
-      <div className="w-full max-w-2xl mx-auto pt-8">
-        <div className="text-center mb-8">
-          <div className="flex justify-center mb-4">
-            <Logo className="h-16 w-16" />
+    <div className="min-h-screen bg-background flex flex-col">
+      <div className="flex-1 p-4">
+        <div className="w-full max-w-2xl mx-auto pt-8">
+          <div className="text-center mb-8">
+            <div className="flex justify-center mb-4">
+              <Logo className="h-16 w-16" />
+            </div>
+            <h1 className="text-3xl font-bold mb-2">Welcome to Scrape Similar</h1>
+            <p className="text-lg text-muted-foreground">
+              Extract data from websites into spreadsheets with ease
+            </p>
           </div>
-          <h1 className="text-3xl font-bold mb-2">Welcome to Scrape Similar</h1>
-          <p className="text-lg text-muted-foreground">
-            Extract data from websites into spreadsheets with ease
-          </p>
-        </div>
 
-        <Card className="relative">
-          <CardHeader className="pb-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                {slides[currentSlide].icon}
-                <div>
-                  <CardTitle className="text-xl">{slides[currentSlide].title}</CardTitle>
-                  <CardDescription>{slides[currentSlide].description}</CardDescription>
+          <Card className="relative">
+            <CardHeader className="pb-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  {slides[currentSlide].icon}
+                  <div>
+                    <CardTitle className="text-xl">{slides[currentSlide].title}</CardTitle>
+                    <CardDescription>{slides[currentSlide].description}</CardDescription>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  {currentSlide > 0 && (
+                    <Button variant="outline" size="sm" onClick={handlePrevious}>
+                      <ChevronLeft className="h-4 w-4 mr-2" />
+                      Previous
+                    </Button>
+                  )}
+                  {currentSlide < slides.length - 1 && (
+                    <Button size="sm" onClick={handleNext}>
+                      Next
+                      <ChevronRight className="h-4 w-4 ml-2" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </CardHeader>
+
+            <CardContent className="space-y-6">
+              <div className="flex items-center justify-center">
+                <div className="flex items-center space-x-2">
+                  {slides.map((_, index) => (
+                    <div
+                      key={index}
+                      className={`w-2 h-2 rounded-full transition-colors ${
+                        index === currentSlide ? 'bg-primary' : 'bg-muted'
+                      }`}
+                    />
+                  ))}
                 </div>
               </div>
 
-              <div className="flex items-center space-x-2">
-                {currentSlide > 0 && (
-                  <Button variant="outline" size="sm" onClick={handlePrevious}>
-                    <ChevronLeft className="h-4 w-4 mr-2" />
-                    Previous
-                  </Button>
-                )}
-                {currentSlide < slides.length - 1 && (
-                  <Button size="sm" onClick={handleNext}>
-                    Next
-                    <ChevronRight className="h-4 w-4 ml-2" />
-                  </Button>
-                )}
-              </div>
-            </div>
-          </CardHeader>
-
-          <CardContent className="space-y-6">
-            <div className="flex items-center justify-center">
-              <div className="flex items-center space-x-2">
-                {slides.map((_, index) => (
-                  <div
-                    key={index}
-                    className={`w-2 h-2 rounded-full transition-colors ${
-                      index === currentSlide ? 'bg-primary' : 'bg-muted'
-                    }`}
-                  />
-                ))}
-              </div>
-            </div>
-
-            {slides[currentSlide].content}
-          </CardContent>
-        </Card>
+              {slides[currentSlide].content}
+            </CardContent>
+          </Card>
+        </div>
       </div>
+
+      {/* Footer */}
+      <footer className="py-4 border-t border-border bg-background">
+        <div className="w-full max-w-2xl mx-auto px-4">
+          <div className="flex items-center justify-center text-sm text-muted-foreground">
+            <span className="flex items-center gap-2">
+              Made by{' '}
+              <a
+                className="underline hover:text-primary"
+                href="https://www.linkedin.com/in/kubaserafinowski/?utm_source=scrape-similar-extension&utm_campaign=chrome-onboarding"
+                target="_blank"
+                rel="noopener"
+              >
+                Kuba Serafinowski
+              </a>
+              <a
+                className="hover:scale-110 transition-transform"
+                href="https://ko-fi.com/kubaserafinowski?utm_source=scrape-similar-extension&utm_campaign=chrome-onboarding"
+                target="_blank"
+                rel="noopener"
+                aria-label="Support Kuba Serafinowski on Ko-fi"
+              >
+                <HeartPlus className="size-4 text-red-500 hover:text-red-600 stroke-3" />
+              </a>
+            </span>
+          </div>
+        </div>
+      </footer>
     </div>
   )
 }

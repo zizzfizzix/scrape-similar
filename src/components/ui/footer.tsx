@@ -12,7 +12,7 @@ import { ModeToggle } from '@/components/ui/mode-toggle'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { ANALYTICS_EVENTS, trackEvent } from '@/core/analytics'
-import { Clipboard, Cog } from 'lucide-react'
+import { Clipboard, Cog, HeartPlus } from 'lucide-react'
 import * as React from 'react'
 import { useCallback } from 'react'
 
@@ -94,15 +94,24 @@ export const Footer: React.FC<FooterProps> = ({
       className={`sticky bottom-0 left-0 w-full z-40 bg-background border-t border-border flex items-center justify-between px-4 h-12 text-sm font-medium text-muted-foreground ${className || ''}`}
       data-slot="footer"
     >
-      <span>
+      <span className="flex items-center gap-2">
         Made by{' '}
         <a
           className="underline hover:text-primary"
-          href="https://www.linkedin.com/in/kubaserafinowski/"
+          href="https://www.linkedin.com/in/kubaserafinowski/?utm_source=scrape-similar-extension&utm_campaign=chrome-footer"
           target="_blank"
-          rel="noopener noreferrer"
+          rel="noopener"
         >
           {author}
+        </a>
+        <a
+          className="hover:scale-110 transition-transform"
+          href="https://ko-fi.com/kubaserafinowski?utm_source=scrape-similar-extension&utm_campaign=chrome-footer"
+          target="_blank"
+          rel="noopener"
+          aria-label="Support Kuba Serafinowski on Ko-fi"
+        >
+          <HeartPlus className="size-4 text-red-500 hover:text-red-600 stroke-3" />
         </a>
       </span>
       <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
