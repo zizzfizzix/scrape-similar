@@ -1,7 +1,7 @@
 {
   "name": "scrape-similar",
   "displayName": "Scrape Similar",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": "Kuba Serafinowski",
   "description": "Extract data from websites into spreadsheets.",
   "type": "module",
