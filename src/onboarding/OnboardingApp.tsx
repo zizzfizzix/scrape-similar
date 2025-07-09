@@ -5,7 +5,6 @@ import {
   ChevronRight,
   CloudOff,
   Download,
-  HeartPlus,
   Keyboard,
   MousePointer,
   Pin,
@@ -19,8 +18,8 @@ import { useTheme } from '../components/theme-provider'
 import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
+import { Footer } from '../components/ui/footer'
 import { Separator } from '../components/ui/separator'
-import { ANALYTICS_EVENTS, trackEvent } from '../core/analytics'
 
 interface OnboardingSlide {
   id: number
@@ -122,6 +121,18 @@ const OnboardingApp: React.FC = () => {
                 </div>
               </CardContent>
             </Card>
+          </div>
+          <div className="text-center text-xs text-muted-foreground">
+            Inspired by the legacy{' '}
+            <a
+              href="https://github.com/mnmldave/scraper"
+              target="_blank"
+              rel="noopener"
+              className="underline hover:text-primary"
+            >
+              Scraper
+            </a>{' '}
+            extension
           </div>
         </div>
       ),
@@ -436,45 +447,7 @@ const OnboardingApp: React.FC = () => {
         </div>
       </div>
 
-      {/* Footer */}
-      <footer className="py-4 border-t border-border bg-background">
-        <div className="w-full max-w-2xl mx-auto px-4">
-          <div className="flex items-center justify-center text-sm text-muted-foreground">
-            <span className="flex items-center gap-2">
-              Made by{' '}
-              <a
-                className="underline hover:text-primary"
-                href="https://www.linkedin.com/in/kubaserafinowski/?utm_source=scrape-similar-extension&utm_campaign=chrome-onboarding"
-                target="_blank"
-                rel="noopener"
-                onClick={(e) =>
-                  trackEvent(ANALYTICS_EVENTS.AUTHOR_LINK_CLICKED, {
-                    source: 'onboarding',
-                    url: e.currentTarget.href,
-                  })
-                }
-              >
-                Kuba Serafinowski
-              </a>
-              <a
-                className="hover:scale-110 transition-transform"
-                href="https://ko-fi.com/kubaserafinowski?utm_source=scrape-similar-extension&utm_campaign=chrome-onboarding"
-                target="_blank"
-                rel="noopener"
-                aria-label="Support Kuba Serafinowski on Ko-fi"
-                onClick={(e) =>
-                  trackEvent(ANALYTICS_EVENTS.SUPPORT_ICON_CLICKED, {
-                    source: 'onboarding',
-                    url: e.currentTarget.href,
-                  })
-                }
-              >
-                <HeartPlus className="size-4 text-red-500 hover:text-red-600 stroke-3" />
-              </a>
-            </span>
-          </div>
-        </div>
-      </footer>
+      <Footer context="onboarding" />
     </div>
   )
 }

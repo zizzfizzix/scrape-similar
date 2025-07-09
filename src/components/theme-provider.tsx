@@ -26,9 +26,39 @@ export function ThemeProvider({
   storageKey = 'vite-ui-theme',
   ...props
 }: ThemeProviderProps) {
-  const [theme, setTheme] = useState<Theme>(
-    () => (localStorage.getItem(storageKey) as Theme) || defaultTheme,
-  )
+  const [theme, setTheme] = useState<Theme>(defaultTheme)
+
+  // Load theme from Chrome storage on mount
+  useEffect(() => {
+    if (chrome?.storage?.sync) {
+      chrome.storage.sync.get(['theme'], (result) => {
+        if (result.theme && ['light', 'dark', 'system'].includes(result.theme)) {
+          setTheme(result.theme)
+        }
+      })
+    }
+  }, [])
+
+  // Listen for theme changes in Chrome storage
+  useEffect(() => {
+    const handleStorageChange = (
+      changes: { [key: string]: chrome.storage.StorageChange },
+      areaName: string,
+    ) => {
+      if (areaName === 'sync' && changes.theme) {
+        const newTheme = changes.theme.newValue
+        if (newTheme && ['light', 'dark', 'system'].includes(newTheme)) {
+          setTheme(newTheme)
+        }
+      }
+    }
+
+    chrome.storage.onChanged.addListener(handleStorageChange)
+
+    return () => {
+      chrome.storage.onChanged.removeListener(handleStorageChange)
+    }
+  }, [])
 
   // Listen for system theme changes if theme is "system"
   useEffect(() => {
@@ -62,7 +92,7 @@ export function ThemeProvider({
   const value = {
     theme,
     setTheme: (theme: Theme) => {
-      localStorage.setItem(storageKey, theme)
+      chrome.storage.sync.set({ theme })
       setTheme(theme)
     },
   }

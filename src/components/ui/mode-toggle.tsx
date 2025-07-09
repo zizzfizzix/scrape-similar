@@ -7,18 +7,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { ANALYTICS_EVENTS, trackEvent } from '@/core/analytics'
-import * as React from 'react'
 
 export function ModeToggle() {
   const { theme, setTheme } = useTheme()
 
-  // Sync with chrome.storage.sync
+  // Handle theme change with analytics tracking
   const handleSetTheme = (newTheme: 'light' | 'dark' | 'system') => {
     const previousTheme = theme
     setTheme(newTheme)
-    if (chrome?.storage?.sync) {
-      chrome.storage.sync.set({ theme: newTheme })
-    }
 
     // Track theme change (only if it's actually different)
     if (previousTheme !== newTheme) {
@@ -28,17 +24,6 @@ export function ModeToggle() {
       })
     }
   }
-
-  React.useEffect(() => {
-    // On mount, try to load theme from chrome.storage.sync
-    if (chrome?.storage?.sync) {
-      chrome.storage.sync.get(['theme'], (result) => {
-        if (result.theme && ['light', 'dark', 'system'].includes(result.theme)) {
-          setTheme(result.theme)
-        }
-      })
-    }
-  }, [])
 
   const themeLabel = theme === 'light' ? 'Light' : theme === 'dark' ? 'Dark' : 'System'
 

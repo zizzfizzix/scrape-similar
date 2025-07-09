@@ -1,214 +1,82 @@
 import { author } from '@/../package.json'
-import { Button } from '@/components/ui/button'
-import {
-  Drawer,
-  DrawerContent,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerTrigger,
-} from '@/components/ui/drawer'
-import { ModeToggle } from '@/components/ui/mode-toggle'
-import { Switch } from '@/components/ui/switch'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { ANALYTICS_EVENTS, trackEvent } from '@/core/analytics'
-import { Clipboard, Cog, HeartPlus } from 'lucide-react'
-import * as React from 'react'
-import { useCallback } from 'react'
+import { HeartPlus } from 'lucide-react'
+import React from 'react'
+import { SettingsDrawer } from './settings-drawer'
 
 interface FooterProps {
+  context: 'onboarding' | 'options_page' | 'sidepanel' | 'popup'
   className?: string
+  showSettings?: boolean
   onResetSystemPresets?: () => void
   debugMode?: boolean
   onDebugModeChange?: (enabled: boolean) => void
 }
 
 export const Footer: React.FC<FooterProps> = ({
-  className,
+  context,
+  className = '',
+  showSettings = false,
   onResetSystemPresets,
   debugMode = false,
   onDebugModeChange,
 }) => {
-  const [isDrawerOpen, setIsDrawerOpen] = React.useState(false)
-  const [showDebugRow, setShowDebugRow] = React.useState(debugMode)
-  const clickCountRef = React.useRef(0)
-  const timerRef = React.useRef<NodeJS.Timeout | null>(null)
+  const footerContent = (
+    <span className="flex items-center gap-2">
+      Made by{' '}
+      <a
+        className="underline hover:text-primary"
+        href={`https://www.linkedin.com/in/kubaserafinowski/?utm_source=scrape-similar-extension&utm_campaign=chrome-${context}`}
+        target="_blank"
+        rel="noopener"
+        onClick={(e) =>
+          trackEvent(ANALYTICS_EVENTS.AUTHOR_LINK_CLICKED, {
+            context,
+            url: e.currentTarget.href,
+          })
+        }
+      >
+        {author}
+      </a>
+      <a
+        className="hover:scale-110 transition-transform"
+        href={`https://ko-fi.com/kubaserafinowski?utm_source=scrape-similar-extension&utm_campaign=chrome-${context}`}
+        target="_blank"
+        rel="noopener"
+        aria-label="Support Kuba Serafinowski on Ko-fi"
+        onClick={(e) =>
+          trackEvent(ANALYTICS_EVENTS.SUPPORT_ICON_CLICKED, {
+            context,
+            url: e.currentTarget.href,
+          })
+        }
+      >
+        <HeartPlus className="size-4 text-red-500 hover:text-red-600 stroke-3" />
+      </a>
+    </span>
+  )
 
-  // On drawer open/close, show/hide debug row based on debugMode
-  React.useEffect(() => {
-    if (isDrawerOpen) {
-      setShowDebugRow(debugMode)
-      clickCountRef.current = 0
-      if (timerRef.current) {
-        clearTimeout(timerRef.current)
-        timerRef.current = null
-      }
-
-      // Track settings drawer opened
-      trackEvent(ANALYTICS_EVENTS.SETTINGS_OPENED)
-    } else {
-      // Only hide the debug row on drawer close if debugMode is false
-      if (!debugMode) setShowDebugRow(false)
-      clickCountRef.current = 0
-      if (timerRef.current) {
-        clearTimeout(timerRef.current)
-        timerRef.current = null
-      }
-    }
-  }, [isDrawerOpen])
-
-  // Handler for clicking the DrawerTitle
-  const handleDrawerTitleClick = () => {
-    if (showDebugRow) return
-    clickCountRef.current += 1
-    if (clickCountRef.current === 1) {
-      // Start/reset timer on first click
-      timerRef.current = setTimeout(() => {
-        clickCountRef.current = 0
-      }, 5000)
-    }
-    if (clickCountRef.current >= 5) {
-      setShowDebugRow(true)
-      clickCountRef.current = 0
-      if (timerRef.current) {
-        clearTimeout(timerRef.current)
-        timerRef.current = null
-      }
-
-      // Track hidden settings unlocked
-      trackEvent(ANALYTICS_EVENTS.HIDDEN_SETTINGS_UNLOCKED)
-    }
-  }
-
-  const handleDebugSwitch = (checked: boolean) => {
-    if (onDebugModeChange) onDebugModeChange(checked)
-
-    // Track debug mode toggle
-    trackEvent(ANALYTICS_EVENTS.DEBUG_MODE_TOGGLED, {
-      enabled: checked,
-    })
+  if (showSettings) {
+    return (
+      <footer
+        className={`sticky bottom-0 left-0 w-full z-40 bg-background border-t border-border flex items-center justify-between px-4 h-12 text-sm font-medium text-muted-foreground ${className}`}
+        data-slot="footer"
+      >
+        {footerContent}
+        <SettingsDrawer
+          onResetSystemPresets={onResetSystemPresets}
+          debugMode={debugMode}
+          onDebugModeChange={onDebugModeChange}
+        />
+      </footer>
+    )
   }
 
   return (
-    <footer
-      className={`sticky bottom-0 left-0 w-full z-40 bg-background border-t border-border flex items-center justify-between px-4 h-12 text-sm font-medium text-muted-foreground ${className || ''}`}
-      data-slot="footer"
-    >
-      <span className="flex items-center gap-2">
-        Made by{' '}
-        <a
-          className="underline hover:text-primary"
-          href="https://www.linkedin.com/in/kubaserafinowski/?utm_source=scrape-similar-extension&utm_campaign=chrome-footer"
-          target="_blank"
-          rel="noopener"
-          onClick={(e) =>
-            trackEvent(ANALYTICS_EVENTS.AUTHOR_LINK_CLICKED, {
-              source: 'sidebar_footer',
-              url: e.currentTarget.href,
-            })
-          }
-        >
-          {author}
-        </a>
-        <a
-          className="hover:scale-110 transition-transform"
-          href="https://ko-fi.com/kubaserafinowski?utm_source=scrape-similar-extension&utm_campaign=chrome-footer"
-          target="_blank"
-          rel="noopener"
-          aria-label="Support Kuba Serafinowski on Ko-fi"
-          onClick={(e) =>
-            trackEvent(ANALYTICS_EVENTS.SUPPORT_ICON_CLICKED, {
-              source: 'sidebar_footer',
-              url: e.currentTarget.href,
-            })
-          }
-        >
-          <HeartPlus className="size-4 text-red-500 hover:text-red-600 stroke-3" />
-        </a>
-      </span>
-      <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <DrawerTrigger asChild>
-              <Button variant="ghost" size="icon" aria-label="Settings">
-                <Cog className="size-5" />
-              </Button>
-            </DrawerTrigger>
-          </TooltipTrigger>
-          <TooltipContent>Settings</TooltipContent>
-        </Tooltip>
-        <DrawerContent className="w-full right-0 fixed border-l bg-background shadow-lg flex flex-col h-autorounded-lg">
-          <DrawerHeader>
-            <DrawerTitle onClick={handleDrawerTitleClick}>Settings</DrawerTitle>
-          </DrawerHeader>
-          <div className="flex-1 p-4">
-            <div className="flex flex-col gap-4">
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-sm font-medium">Theme</span>
-                <ModeToggle />
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-sm font-medium">Keyboard shortcut</span>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="flex items-center gap-2"
-                      aria-label="Go to Chrome shortcut settings"
-                      onClick={useCallback(() => {
-                        const url = 'chrome://extensions/shortcuts#:~:text=Scrape%20Similar'
-                        navigator.clipboard.writeText(url)
-                        window.open('about:blank', '_blank')
-
-                        // Track keyboard shortcut copied
-                        trackEvent(ANALYTICS_EVENTS.KEYBOARD_SHORTCUT_COPIED)
-                      }, [])}
-                    >
-                      <Clipboard className="size-4 ml-1" />
-                      Copy address
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Paste in a new tab to open settings</TooltipContent>
-                </Tooltip>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-sm font-medium">System presets</span>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={onResetSystemPresets}
-                  aria-label="Reset system presets"
-                >
-                  Reset
-                </Button>
-              </div>
-              {showDebugRow && (
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-sm font-medium">Debug mode</span>
-                  <Switch checked={debugMode} onCheckedChange={handleDebugSwitch} />
-                </div>
-              )}
-            </div>
-          </div>
-          <DrawerFooter>
-            <div className="text-xs text-muted-foreground text-center w-full">
-              Inspired by the legacy{' '}
-              <a
-                href="https://github.com/mnmldave/scraper"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline hover:text-primary"
-              >
-                Scraper
-              </a>{' '}
-              extension
-            </div>
-          </DrawerFooter>
-        </DrawerContent>
-      </Drawer>
+    <footer className={`py-4 border-t border-border bg-background ${className}`}>
+      <div className="flex items-center justify-center text-sm text-muted-foreground">
+        {footerContent}
+      </div>
     </footer>
   )
 }

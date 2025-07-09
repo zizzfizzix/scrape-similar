@@ -44,6 +44,7 @@ export default defineManifest({
   side_panel: {
     default_path: 'sidepanel.html',
   },
+  options_page: 'options.html',
   web_accessible_resources: [
     {
       resources: ['img/*', 'assets/*', '*.js', '*.js.map', '*.html'],
