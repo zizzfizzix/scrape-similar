@@ -4,6 +4,7 @@ import { SettingsIcon } from 'lucide-react'
 import React, { useEffect, useRef, useState } from 'react'
 import { Button } from './button'
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from './drawer'
+import { Tooltip, TooltipContent, TooltipTrigger } from './tooltip'
 
 interface SettingsDrawerProps {
   onResetSystemPresets?: () => void
@@ -28,11 +29,16 @@ export const SettingsDrawer: React.FC<SettingsDrawerProps> = ({
 
   return (
     <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
-      <DrawerTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label="Settings">
-          <SettingsIcon className="size-5" />
-        </Button>
-      </DrawerTrigger>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <DrawerTrigger asChild>
+            <Button variant="ghost" size="icon" aria-label="Settings">
+              <SettingsIcon className="size-5" />
+            </Button>
+          </DrawerTrigger>
+        </TooltipTrigger>
+        <TooltipContent>Settings</TooltipContent>
+      </Tooltip>
       <DrawerContent className="w-full right-0 fixed border-l bg-background shadow-lg flex flex-col h-autorounded-lg">
         <DrawerHeader>
           <DrawerTitle onClick={() => settingsRef.current?.unlockDebugMode()}>Settings</DrawerTitle>

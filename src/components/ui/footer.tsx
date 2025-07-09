@@ -4,6 +4,7 @@ import { getCurrentContext } from '@/core/context-detection'
 import { HeartPlus } from 'lucide-react'
 import React from 'react'
 import { SettingsDrawer } from './settings-drawer'
+import { Tooltip, TooltipContent, TooltipTrigger } from './tooltip'
 
 interface FooterProps {
   className?: string
@@ -50,7 +51,12 @@ export const Footer: React.FC<FooterProps> = ({
           })
         }
       >
-        <HeartPlus className="size-4 text-red-500 hover:text-red-600 stroke-3" />
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <HeartPlus className="size-4 text-red-500 hover:text-red-600 stroke-3" />
+          </TooltipTrigger>
+          <TooltipContent>Support</TooltipContent>
+        </Tooltip>
       </a>
     </span>
   )
