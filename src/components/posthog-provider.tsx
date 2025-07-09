@@ -1,5 +1,13 @@
 import log from 'loglevel'
-import posthog from 'posthog-js/dist/module.full.no-external'
+// Posthog needs to be imported this way, otherwise the extension doesn't pass the Chrome Web Store review
+// https://github.com/PostHog/posthog-js/issues/1464#issuecomment-2792093981
+import 'posthog-js/dist/dead-clicks-autocapture.js'
+import 'posthog-js/dist/exception-autocapture.js'
+import posthog from 'posthog-js/dist/module.no-external'
+import 'posthog-js/dist/posthog-recorder.js'
+import 'posthog-js/dist/surveys.js'
+import 'posthog-js/dist/tracing-headers.js'
+import 'posthog-js/dist/web-vitals.js'
 import React, { createContext, useContext, useEffect, useState } from 'react'
 
 interface PostHogWrapperProps {

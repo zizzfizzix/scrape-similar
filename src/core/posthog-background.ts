@@ -4,7 +4,11 @@
 import log from 'loglevel'
 
 // Import PostHog core library for service workers
-import { PostHog } from 'posthog-js/dist/module.full.no-external'
+// Posthog needs to be imported this way, otherwise the extension doesn't pass the Chrome Web Store review
+// https://github.com/PostHog/posthog-js/issues/1464#issuecomment-2792093981
+import 'posthog-js/dist/exception-autocapture.js'
+import { PostHog } from 'posthog-js/dist/module.no-external'
+import 'posthog-js/dist/tracing-headers.js'
 
 let posthogInstance: PostHog | null = null
 
