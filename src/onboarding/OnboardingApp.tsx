@@ -20,6 +20,7 @@ import { Button } from '../components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
 import { Footer } from '../components/ui/footer'
 import { Separator } from '../components/ui/separator'
+import { ANALYTICS_EVENTS, trackEvent } from '../core/analytics'
 
 interface OnboardingSlide {
   id: number
@@ -69,15 +70,62 @@ const OnboardingApp: React.FC = () => {
     setPlatform(isMac ? 'mac' : 'win')
   }, [])
 
+  // Track card views when slide changes
+  useEffect(() => {
+    const currentSlideData = slides[currentSlide]
+    trackEvent(ANALYTICS_EVENTS.ONBOARDING_CARD_VIEW, {
+      slide_number: currentSlide + 1,
+      slide_id: currentSlideData.id,
+      slide_title: currentSlideData.title,
+      slide_description: currentSlideData.description,
+      is_first_slide: currentSlide === 0,
+      is_last_slide: currentSlide === slides.length - 1,
+      total_slides: slides.length,
+    })
+  }, [currentSlide])
+
   const handleNext = () => {
     if (currentSlide < slides.length - 1) {
-      setCurrentSlide(currentSlide + 1)
+      const nextSlide = currentSlide + 1
+      setCurrentSlide(nextSlide)
+
+      // Track navigation
+      trackEvent(ANALYTICS_EVENTS.ONBOARDING_NEXT_BUTTON_CLICK, {
+        from_slide: {
+          index: currentSlide + 1,
+          title: slides[currentSlide].title,
+        },
+        to_slide: {
+          index: nextSlide + 1,
+          title: slides[nextSlide].title,
+        },
+      })
+
+      // Track completion if this is the last slide
+      if (nextSlide === slides.length - 1) {
+        trackEvent(ANALYTICS_EVENTS.ONBOARDING_COMPLETION, {
+          total_slides_viewed: slides.length,
+        })
+      }
     }
   }
 
   const handlePrevious = () => {
     if (currentSlide > 0) {
-      setCurrentSlide(currentSlide - 1)
+      const prevSlide = currentSlide - 1
+      setCurrentSlide(prevSlide)
+
+      // Track navigation
+      trackEvent(ANALYTICS_EVENTS.ONBOARDING_PREVIOUS_BUTTON_CLICK, {
+        from_slide: {
+          index: currentSlide + 1,
+          title: slides[currentSlide].title,
+        },
+        to_slide: {
+          index: prevSlide + 1,
+          title: slides[prevSlide].title,
+        },
+      })
     }
   }
 

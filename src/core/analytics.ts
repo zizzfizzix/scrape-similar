@@ -51,6 +51,12 @@ export const ANALYTICS_EVENTS = {
   // External link clicks
   AUTHOR_LINK_CLICKED: 'author_link_clicked',
   SUPPORT_ICON_CLICKED: 'support_icon_clicked',
+
+  // Onboarding events
+  ONBOARDING_CARD_VIEW: 'onboarding_card_view',
+  ONBOARDING_NEXT_BUTTON_CLICK: 'onboarding_next_button_click',
+  ONBOARDING_PREVIOUS_BUTTON_CLICK: 'onboarding_previous_button_click',
+  ONBOARDING_COMPLETION: 'onboarding_completion',
 } as const
 
 /**
