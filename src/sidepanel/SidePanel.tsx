@@ -298,7 +298,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
     loadPresets()
 
     // Listen for tab activation
-    const tabActivationListener = (activeInfo: chrome.tabs.TabActiveInfo) => {
+    const tabActivationListener = (activeInfo: { tabId: number; previousTabId?: number }) => {
       log.debug(`SidePanel detected tab activation: ${activeInfo.tabId}`)
       const newTabId = activeInfo.tabId
 
