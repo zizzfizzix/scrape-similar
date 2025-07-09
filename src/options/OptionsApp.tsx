@@ -1,10 +1,12 @@
 import { Settings } from '@/components/Settings'
+import { useTheme } from '@/components/theme-provider'
 import { Footer } from '@/components/ui/footer'
 import log from 'loglevel'
 import React, { useEffect, useState } from 'react'
 
 const OptionsApp: React.FC = () => {
   const [debugMode, setDebugMode] = useState(false)
+  const { theme } = useTheme()
 
   // Load debug mode from storage on mount
   useEffect(() => {
@@ -41,11 +43,16 @@ const OptionsApp: React.FC = () => {
       <div className="flex-1 p-4">
         <div className="w-full max-w-2xl mx-auto pt-8">
           <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center gap-3">
-              <div>
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <img
+                  src={theme === 'dark' ? '/icons/logo-dark.svg' : '/icons/logo-light.svg'}
+                  alt="Scrape Similar Logo"
+                  className="w-8 h-8"
+                />
                 <h1 className="text-3xl font-bold">Settings</h1>
-                <p className="text-muted-foreground">Tailor Scrape Similar configuration</p>
               </div>
+              <p className="text-muted-foreground">Tailor Scrape Similar configuration</p>
             </div>
           </div>
 
