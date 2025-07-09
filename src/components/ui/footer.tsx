@@ -1,11 +1,11 @@
 import { author } from '@/../package.json'
 import { ANALYTICS_EVENTS, trackEvent } from '@/core/analytics'
+import { getCurrentContext } from '@/core/context-detection'
 import { HeartPlus } from 'lucide-react'
 import React from 'react'
 import { SettingsDrawer } from './settings-drawer'
 
 interface FooterProps {
-  context: 'onboarding' | 'options_page' | 'sidepanel' | 'popup'
   className?: string
   showSettings?: boolean
   onResetSystemPresets?: () => void
@@ -14,13 +14,14 @@ interface FooterProps {
 }
 
 export const Footer: React.FC<FooterProps> = ({
-  context,
   className = '',
   showSettings = false,
   onResetSystemPresets,
   debugMode = false,
   onDebugModeChange,
 }) => {
+  const context = getCurrentContext()
+
   const footerContent = (
     <span className="flex items-center gap-2">
       Made by{' '}
@@ -31,7 +32,6 @@ export const Footer: React.FC<FooterProps> = ({
         rel="noopener"
         onClick={(e) =>
           trackEvent(ANALYTICS_EVENTS.AUTHOR_LINK_CLICKED, {
-            context,
             url: e.currentTarget.href,
           })
         }
@@ -46,7 +46,6 @@ export const Footer: React.FC<FooterProps> = ({
         aria-label="Support Kuba Serafinowski on Ko-fi"
         onClick={(e) =>
           trackEvent(ANALYTICS_EVENTS.SUPPORT_ICON_CLICKED, {
-            context,
             url: e.currentTarget.href,
           })
         }

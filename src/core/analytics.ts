@@ -89,7 +89,8 @@ export const trackEvent = async (eventName: string, properties: Record<string, a
 
       case EXTENSION_CONTEXTS.SIDEPANEL:
       case EXTENSION_CONTEXTS.POPUP:
-      case EXTENSION_CONTEXTS.OPTIONS: {
+      case EXTENSION_CONTEXTS.OPTIONS:
+      case EXTENSION_CONTEXTS.ONBOARDING: {
         if ((window as any).__scrape_similar_posthog) {
           ;(window as any).__scrape_similar_posthog.capture(eventName, eventProperties)
           log.debug(`Tracked event (UI context): ${eventName}`, eventProperties)

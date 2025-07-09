@@ -57,7 +57,7 @@ const OptionsApp: React.FC = () => {
         </div>
       </div>
 
-      <Footer context="options_page" />
+      <Footer />
     </div>
   )
 }

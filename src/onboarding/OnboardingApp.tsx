@@ -447,7 +447,7 @@ const OnboardingApp: React.FC = () => {
         </div>
       </div>
 
-      <Footer context="onboarding" />
+      <Footer />
     </div>
   )
 }

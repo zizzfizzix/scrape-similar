@@ -7,6 +7,7 @@ export const EXTENSION_CONTEXTS = {
   SIDEPANEL: 'sidepanel',
   POPUP: 'popup',
   OPTIONS: 'options',
+  ONBOARDING: 'onboarding',
   UNKNOWN: 'unknown',
 } as const
 
@@ -72,6 +73,14 @@ export const isOptionsPage = (): boolean => {
   )
 }
 
+export const isOnboardingPage = (): boolean => {
+  return (
+    typeof window !== 'undefined' &&
+    window.location.protocol === 'chrome-extension:' &&
+    window.location.pathname.includes('onboarding')
+  )
+}
+
 /**
  * Gets the current extension context
  */
@@ -94,6 +103,10 @@ export const getCurrentContext = (): ExtensionContext => {
 
   if (isOptionsPage()) {
     return EXTENSION_CONTEXTS.OPTIONS
+  }
+
+  if (isOnboardingPage()) {
+    return EXTENSION_CONTEXTS.ONBOARDING
   }
 
   return EXTENSION_CONTEXTS.UNKNOWN

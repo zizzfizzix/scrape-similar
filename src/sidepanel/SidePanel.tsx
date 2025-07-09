@@ -776,7 +776,6 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
           <SplashScreen />
         </main>
         <Footer
-          context="sidepanel"
           showSettings={true}
           onResetSystemPresets={handleResetSystemPresets}
           debugMode={debugMode}
@@ -859,7 +858,6 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
         </div>
       </main>
       <Footer
-        context="sidepanel"
         showSettings={true}
         onResetSystemPresets={handleResetSystemPresets}
         debugMode={debugMode}
