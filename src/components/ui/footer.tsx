@@ -101,6 +101,12 @@ export const Footer: React.FC<FooterProps> = ({
           href="https://www.linkedin.com/in/kubaserafinowski/?utm_source=scrape-similar-extension&utm_campaign=chrome-footer"
           target="_blank"
           rel="noopener"
+          onClick={(e) =>
+            trackEvent(ANALYTICS_EVENTS.AUTHOR_LINK_CLICKED, {
+              source: 'sidebar_footer',
+              url: e.currentTarget.href,
+            })
+          }
         >
           {author}
         </a>
@@ -110,6 +116,12 @@ export const Footer: React.FC<FooterProps> = ({
           target="_blank"
           rel="noopener"
           aria-label="Support Kuba Serafinowski on Ko-fi"
+          onClick={(e) =>
+            trackEvent(ANALYTICS_EVENTS.SUPPORT_ICON_CLICKED, {
+              source: 'sidebar_footer',
+              url: e.currentTarget.href,
+            })
+          }
         >
           <HeartPlus className="size-4 text-red-500 hover:text-red-600 stroke-3" />
         </a>

@@ -20,6 +20,7 @@ import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
 import { Separator } from '../components/ui/separator'
+import { ANALYTICS_EVENTS, trackEvent } from '../core/analytics'
 
 interface OnboardingSlide {
   id: number
@@ -446,6 +447,12 @@ const OnboardingApp: React.FC = () => {
                 href="https://www.linkedin.com/in/kubaserafinowski/?utm_source=scrape-similar-extension&utm_campaign=chrome-onboarding"
                 target="_blank"
                 rel="noopener"
+                onClick={(e) =>
+                  trackEvent(ANALYTICS_EVENTS.AUTHOR_LINK_CLICKED, {
+                    source: 'onboarding',
+                    url: e.currentTarget.href,
+                  })
+                }
               >
                 Kuba Serafinowski
               </a>
@@ -455,6 +462,12 @@ const OnboardingApp: React.FC = () => {
                 target="_blank"
                 rel="noopener"
                 aria-label="Support Kuba Serafinowski on Ko-fi"
+                onClick={(e) =>
+                  trackEvent(ANALYTICS_EVENTS.SUPPORT_ICON_CLICKED, {
+                    source: 'onboarding',
+                    url: e.currentTarget.href,
+                  })
+                }
               >
                 <HeartPlus className="size-4 text-red-500 hover:text-red-600 stroke-3" />
               </a>

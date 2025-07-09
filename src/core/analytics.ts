@@ -47,6 +47,10 @@ export const ANALYTICS_EVENTS = {
   EXPORT_TO_CSV_FAILED: 'export_to_csv_failed',
   COPY_TO_CLIPBOARD: 'copy_to_clipboard',
   COPY_TO_CLIPBOARD_FAILED: 'copy_to_clipboard_failed',
+
+  // External link clicks
+  AUTHOR_LINK_CLICKED: 'author_link_clicked',
+  SUPPORT_ICON_CLICKED: 'support_icon_clicked',
 } as const
 
 /**
