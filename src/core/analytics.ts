@@ -9,54 +9,54 @@ import { MESSAGE_TYPES } from './types'
 
 export const ANALYTICS_EVENTS = {
   // Preset operations
-  PRESET_LOADED: 'preset_loaded',
-  PRESET_SAVED: 'preset_saved',
-  PRESET_DELETED: 'preset_deleted',
-  PRESET_HIDDEN: 'preset_hidden',
+  PRESET_LOAD: 'preset_load',
+  PRESET_SAVE: 'preset_save',
+  PRESET_DELETION: 'preset_deletion',
+  PRESET_HIDE: 'preset_hide',
   SYSTEM_PRESETS_RESET: 'system_presets_reset',
 
   // Extension lifecycle
-  EXTENSION_INSTALLED: 'extension_installed',
-  SIDE_PANEL_OPENED: 'side_panel_opened',
+  EXTENSION_INSTALLATION: 'extension_installation',
+  SIDE_PANEL_OPEN: 'side_panel_open',
 
   // Settings operations
-  SETTINGS_OPENED: 'settings_opened',
-  THEME_CHANGED: 'theme_changed',
-  DEBUG_MODE_TOGGLED: 'debug_mode_toggled',
-  HIDDEN_SETTINGS_UNLOCKED: 'hidden_settings_unlocked',
-  KEYBOARD_SHORTCUT_COPIED: 'keyboard_shortcut_copied',
+  SETTINGS_OPEN: 'settings_open',
+  THEME_CHANGE: 'theme_change',
+  DEBUG_MODE_TOGGLE: 'debug_mode_toggle',
+  HIDDEN_SETTINGS_UNLOCK: 'hidden_settings_unlock',
+  KEYBOARD_SHORTCUT_COPY: 'keyboard_shortcut_copy',
 
   // Scraping operations
-  SCRAPE_INITIATED_FROM_CONTEXT_MENU: 'scrape_initiated_from_context_menu',
-  SCRAPE_BUTTON_PRESSED: 'scrape_button_pressed',
-  SCRAPE_COMPLETED: 'scrape_completed',
-  ELEMENTS_HIGHLIGHTED: 'elements_highlighted',
+  SCRAPE_INITIATION_FROM_CONTEXT_MENU: 'scrape_initiation_from_context_menu',
+  SCRAPE_BUTTON_PRESS: 'scrape_button_press',
+  SCRAPE_COMPLETION: 'scrape_completion',
+  ELEMENTS_HIGHLIGHT: 'elements_highlight',
 
   // Configuration operations
-  AUTO_GENERATE_CONFIG_BUTTON_PRESSED: 'auto_generate_config_button_pressed',
-  ADD_COLUMN_BUTTON_PRESSED: 'add_column_button_pressed',
-  REMOVE_COLUMN_BUTTON_PRESSED: 'remove_column_button_pressed',
+  AUTO_GENERATE_CONFIG_BUTTON_PRESS: 'auto_generate_config_button_press',
+  ADD_COLUMN_BUTTON_PRESS: 'add_column_button_press',
+  REMOVE_COLUMN_BUTTON_PRESS: 'remove_column_button_press',
 
   // Pagination operations
-  PAGINATION_BUTTON_PRESSED: 'pagination_button_pressed',
+  PAGINATION_BUTTON_PRESS: 'pagination_button_press',
 
   // Export operations
-  EXPORT_TO_SHEETS: 'export_to_sheets',
-  EXPORT_TO_SHEETS_FAILED: 'export_to_sheets_failed',
-  EXPORT_TO_CSV: 'export_to_csv',
-  EXPORT_TO_CSV_FAILED: 'export_to_csv_failed',
-  COPY_TO_CLIPBOARD: 'copy_to_clipboard',
-  COPY_TO_CLIPBOARD_FAILED: 'copy_to_clipboard_failed',
+  EXPORT_TO_SHEETS_TRIGGER: 'export_to_sheets_trigger',
+  EXPORT_TO_SHEETS_FAILURE: 'export_to_sheets_failure',
+  EXPORT_TO_CSV_TRIGGER: 'export_to_csv_trigger',
+  EXPORT_TO_CSV_FAILURE: 'export_to_csv_failure',
+  COPY_TO_CLIPBOARD_TRIGGER: 'copy_to_clipboard_trigger',
+  COPY_TO_CLIPBOARD_FAILURE: 'copy_to_clipboard_failure',
 
   // External link clicks
-  AUTHOR_LINK_CLICKED: 'author_link_clicked',
-  SUPPORT_ICON_CLICKED: 'support_icon_clicked',
+  AUTHOR_LINK_PRESS: 'author_link_press',
+  SUPPORT_ICON_PRESS: 'support_icon_press',
 
   // Onboarding events
   ONBOARDING_CARD_VIEW: 'onboarding_card_view',
-  ONBOARDING_NEXT_BUTTON_CLICK: 'onboarding_next_button_click',
-  ONBOARDING_PREVIOUS_BUTTON_CLICK: 'onboarding_previous_button_click',
-  ONBOARDING_COMPLETION: 'onboarding_completion',
+  ONBOARDING_NEXT_BUTTON_PRESS: 'onboarding_next_button_press',
+  ONBOARDING_PREVIOUS_BUTTON_PRESS: 'onboarding_previous_button_press',
+  ONBOARDING_COMPLETE: 'onboarding_complete',
 } as const
 
 /**

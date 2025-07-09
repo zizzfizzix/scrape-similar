@@ -79,7 +79,7 @@ export const Settings = React.forwardRef<{ unlockDebugMode: () => void }, Settin
         }
 
         // Track hidden settings unlocked
-        trackEvent(ANALYTICS_EVENTS.HIDDEN_SETTINGS_UNLOCKED)
+        trackEvent(ANALYTICS_EVENTS.HIDDEN_SETTINGS_UNLOCK)
       }
     }
 
@@ -93,7 +93,7 @@ export const Settings = React.forwardRef<{ unlockDebugMode: () => void }, Settin
       }
 
       // Track debug mode toggle
-      trackEvent(ANALYTICS_EVENTS.DEBUG_MODE_TOGGLED, {
+      trackEvent(ANALYTICS_EVENTS.DEBUG_MODE_TOGGLE, {
         enabled: checked,
       })
     }
@@ -104,7 +104,7 @@ export const Settings = React.forwardRef<{ unlockDebugMode: () => void }, Settin
       window.open('about:blank', '_blank')
 
       // Track keyboard shortcut copied
-      trackEvent(ANALYTICS_EVENTS.KEYBOARD_SHORTCUT_COPIED)
+      trackEvent(ANALYTICS_EVENTS.KEYBOARD_SHORTCUT_COPY)
     }, [])
 
     const handleResetSystemPresets = useCallback(async () => {

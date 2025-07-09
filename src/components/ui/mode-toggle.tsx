@@ -18,7 +18,7 @@ export function ModeToggle() {
 
     // Track theme change (only if it's actually different)
     if (previousTheme !== newTheme) {
-      trackEvent(ANALYTICS_EVENTS.THEME_CHANGED, {
+      trackEvent(ANALYTICS_EVENTS.THEME_CHANGE, {
         from_theme: previousTheme,
         to_theme: newTheme,
       })

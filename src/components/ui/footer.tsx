@@ -31,7 +31,7 @@ export const Footer: React.FC<FooterProps> = ({
         target="_blank"
         rel="noopener"
         onClick={(e) =>
-          trackEvent(ANALYTICS_EVENTS.AUTHOR_LINK_CLICKED, {
+          trackEvent(ANALYTICS_EVENTS.AUTHOR_LINK_PRESS, {
             url: e.currentTarget.href,
           })
         }
@@ -45,7 +45,7 @@ export const Footer: React.FC<FooterProps> = ({
         rel="noopener"
         aria-label="Support Kuba Serafinowski on Ko-fi"
         onClick={(e) =>
-          trackEvent(ANALYTICS_EVENTS.SUPPORT_ICON_CLICKED, {
+          trackEvent(ANALYTICS_EVENTS.SUPPORT_ICON_PRESS, {
             url: e.currentTarget.href,
           })
         }

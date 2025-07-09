@@ -215,7 +215,7 @@ const DataTable: React.FC<DataTableProps> = ({
           variant="outline"
           size="sm"
           onClick={() => {
-            trackEvent(ANALYTICS_EVENTS.PAGINATION_BUTTON_PRESSED, {
+            trackEvent(ANALYTICS_EVENTS.PAGINATION_BUTTON_PRESS, {
               direction: 'prev',
               from_page: pagination.pageIndex + 1,
               to_page: pagination.pageIndex,
@@ -235,7 +235,7 @@ const DataTable: React.FC<DataTableProps> = ({
           variant="outline"
           size="sm"
           onClick={() => {
-            trackEvent(ANALYTICS_EVENTS.PAGINATION_BUTTON_PRESSED, {
+            trackEvent(ANALYTICS_EVENTS.PAGINATION_BUTTON_PRESS, {
               direction: 'next',
               from_page: pagination.pageIndex + 1,
               to_page: pagination.pageIndex + 2,

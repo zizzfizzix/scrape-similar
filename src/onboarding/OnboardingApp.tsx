@@ -90,7 +90,7 @@ const OnboardingApp: React.FC = () => {
       setCurrentSlide(nextSlide)
 
       // Track navigation
-      trackEvent(ANALYTICS_EVENTS.ONBOARDING_NEXT_BUTTON_CLICK, {
+      trackEvent(ANALYTICS_EVENTS.ONBOARDING_NEXT_BUTTON_PRESS, {
         from_slide: {
           index: currentSlide + 1,
           title: slides[currentSlide].title,
@@ -103,7 +103,7 @@ const OnboardingApp: React.FC = () => {
 
       // Track completion if this is the last slide
       if (nextSlide === slides.length - 1) {
-        trackEvent(ANALYTICS_EVENTS.ONBOARDING_COMPLETION, {
+        trackEvent(ANALYTICS_EVENTS.ONBOARDING_COMPLETE, {
           total_slides_viewed: slides.length,
         })
       }
@@ -116,7 +116,7 @@ const OnboardingApp: React.FC = () => {
       setCurrentSlide(prevSlide)
 
       // Track navigation
-      trackEvent(ANALYTICS_EVENTS.ONBOARDING_PREVIOUS_BUTTON_CLICK, {
+      trackEvent(ANALYTICS_EVENTS.ONBOARDING_PREVIOUS_BUTTON_PRESS, {
         from_slide: {
           index: currentSlide + 1,
           title: slides[currentSlide].title,

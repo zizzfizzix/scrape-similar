@@ -120,7 +120,7 @@ chrome.runtime.onInstalled.addListener(async (details) => {
   log.debug('Service worker is running')
 
   // Track extension installation/update
-  trackEvent(ANALYTICS_EVENTS.EXTENSION_INSTALLED, {
+  trackEvent(ANALYTICS_EVENTS.EXTENSION_INSTALLATION, {
     extension_version: chrome.runtime.getManifest().version,
   })
 })
@@ -148,7 +148,7 @@ chrome.action.onClicked.addListener(async (tab) => {
     log.debug(`Side panel options set for tab ${tabId} via action click`)
 
     // Track side panel opened via action click
-    trackEvent(ANALYTICS_EVENTS.SIDE_PANEL_OPENED, {
+    trackEvent(ANALYTICS_EVENTS.SIDE_PANEL_OPEN, {
       trigger: 'action_click',
     })
 
@@ -248,7 +248,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         log.debug('Scrape triggered successfully.')
 
         // Track successful scrape initiation from context menu
-        trackEvent(ANALYTICS_EVENTS.SCRAPE_INITIATED_FROM_CONTEXT_MENU, {
+        trackEvent(ANALYTICS_EVENTS.SCRAPE_INITIATION_FROM_CONTEXT_MENU, {
           has_config: !!config,
         })
       } else {

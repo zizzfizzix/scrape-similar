@@ -22,7 +22,7 @@ export const SettingsDrawer: React.FC<SettingsDrawerProps> = ({
   // Track settings drawer opened
   useEffect(() => {
     if (isDrawerOpen) {
-      trackEvent(ANALYTICS_EVENTS.SETTINGS_OPENED)
+      trackEvent(ANALYTICS_EVENTS.SETTINGS_OPEN)
     }
   }, [isDrawerOpen])
 

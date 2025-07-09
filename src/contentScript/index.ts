@@ -87,7 +87,7 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
         log.debug('Scrape complete, data:', scrapeResult)
 
         // Track scraping completion
-        trackEvent(ANALYTICS_EVENTS.SCRAPE_COMPLETED, {
+        trackEvent(ANALYTICS_EVENTS.SCRAPE_COMPLETION, {
           items_scraped: scrapedData.length,
           columns_count: config.columns.length,
         })
@@ -158,7 +158,7 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
         highlightMatchingElements(elements)
 
         // Track element highlighting
-        trackEvent(ANALYTICS_EVENTS.ELEMENTS_HIGHLIGHTED, {
+        trackEvent(ANALYTICS_EVENTS.ELEMENTS_HIGHLIGHT, {
           elements_count: elements.length,
           is_row_highlight: false,
         })
@@ -201,7 +201,7 @@ chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) =>
         highlightMatchingElements(elements)
 
         // Track row element highlighting
-        trackEvent(ANALYTICS_EVENTS.ELEMENTS_HIGHLIGHTED, {
+        trackEvent(ANALYTICS_EVENTS.ELEMENTS_HIGHLIGHT, {
           elements_count: elements.length,
           is_row_highlight: true,
         })

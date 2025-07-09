@@ -203,7 +203,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
 
   // Remove a column
   const removeColumn = (index: number) => {
-    trackEvent(ANALYTICS_EVENTS.REMOVE_COLUMN_BUTTON_PRESSED)
+    trackEvent(ANALYTICS_EVENTS.REMOVE_COLUMN_BUTTON_PRESS)
 
     onChange({
       ...config,
@@ -216,7 +216,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
     if (!config.mainSelector.trim()) return
 
     // Track auto-generate config button press
-    trackEvent(ANALYTICS_EVENTS.AUTO_GENERATE_CONFIG_BUTTON_PRESSED)
+    trackEvent(ANALYTICS_EVENTS.AUTO_GENERATE_CONFIG_BUTTON_PRESS)
 
     setGuessButtonState('generating')
     try {
@@ -626,7 +626,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                 <Button
                   variant="outline"
                   onClick={() => {
-                    trackEvent(ANALYTICS_EVENTS.ADD_COLUMN_BUTTON_PRESSED)
+                    trackEvent(ANALYTICS_EVENTS.ADD_COLUMN_BUTTON_PRESS)
 
                     const defaultName = `Column ${config.columns.length + 1}`
                     onChange({
@@ -649,7 +649,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
           <Button
             className="w-full max-w-2xl"
             onClick={() => {
-              trackEvent(ANALYTICS_EVENTS.SCRAPE_BUTTON_PRESSED)
+              trackEvent(ANALYTICS_EVENTS.SCRAPE_BUTTON_PRESS)
               onScrape()
             }}
             loading={isLoading}
