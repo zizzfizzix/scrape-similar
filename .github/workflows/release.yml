@@ -1,0 +1,45 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build and create extension package
+        run: npm run zip
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            package/scrape-similar-v${{ github.ref_name }}.zip
+          body: |
+            ## Installation
+
+            Download the `scrape-similar-v${{ github.ref_name }}.zip` file and install it manually in Chrome at `chrome://extensions/`.
+          draft: false
+          prerelease: false
+          generate_release_notes: true
