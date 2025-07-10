@@ -48,21 +48,21 @@ jobs:
             CHANGELOG=$(git log --pretty=format:"- %s (%h)" | grep -v "Merge pull request" | grep -v "Merge branch")
           fi
 
-          # Categorize changes based on conventional commit types
-          FEATURES=$(echo "$CHANGELOG" | grep -i "^.*feat:" || echo "")
-          FIXES=$(echo "$CHANGELOG" | grep -i "^.*fix:" || echo "")
-          DOCS=$(echo "$CHANGELOG" | grep -i "^.*docs:" || echo "")
-          STYLE=$(echo "$CHANGELOG" | grep -i "^.*style:" || echo "")
-          REFACTOR=$(echo "$CHANGELOG" | grep -i "^.*refactor:" || echo "")
-          PERF=$(echo "$CHANGELOG" | grep -i "^.*perf:" || echo "")
-          TEST=$(echo "$CHANGELOG" | grep -i "^.*test:" || echo "")
-          CHORE=$(echo "$CHANGELOG" | grep -i "^.*chore:" || echo "")
-          BUILD=$(echo "$CHANGELOG" | grep -i "^.*build:" || echo "")
-          CI=$(echo "$CHANGELOG" | grep -i "^.*ci:" || echo "")
-          REVERT=$(echo "$CHANGELOG" | grep -i "^.*revert:" || echo "")
+          # Categorize changes based on conventional commit types (including scoped commits)
+          FEATURES=$(echo "$CHANGELOG" | grep -i "^.*feat\([^)]*\):" || echo "$CHANGELOG" | grep -i "^.*feat:" || echo "")
+          FIXES=$(echo "$CHANGELOG" | grep -i "^.*fix\([^)]*\):" || echo "$CHANGELOG" | grep -i "^.*fix:" || echo "")
+          DOCS=$(echo "$CHANGELOG" | grep -i "^.*docs\([^)]*\):" || echo "$CHANGELOG" | grep -i "^.*docs:" || echo "")
+          STYLE=$(echo "$CHANGELOG" | grep -i "^.*style\([^)]*\):" || echo "$CHANGELOG" | grep -i "^.*style:" || echo "")
+          REFACTOR=$(echo "$CHANGELOG" | grep -i "^.*refactor\([^)]*\):" || echo "$CHANGELOG" | grep -i "^.*refactor:" || echo "")
+          PERF=$(echo "$CHANGELOG" | grep -i "^.*perf\([^)]*\):" || echo "$CHANGELOG" | grep -i "^.*perf:" || echo "")
+          TEST=$(echo "$CHANGELOG" | grep -i "^.*test\([^)]*\):" || echo "$CHANGELOG" | grep -i "^.*test:" || echo "")
+          CHORE=$(echo "$CHANGELOG" | grep -i "^.*chore\([^)]*\):" || echo "$CHANGELOG" | grep -i "^.*chore:" || echo "")
+          BUILD=$(echo "$CHANGELOG" | grep -i "^.*build\([^)]*\):" || echo "$CHANGELOG" | grep -i "^.*build:" || echo "")
+          CI=$(echo "$CHANGELOG" | grep -i "^.*ci\([^)]*\):" || echo "$CHANGELOG" | grep -i "^.*ci:" || echo "")
+          REVERT=$(echo "$CHANGELOG" | grep -i "^.*revert\([^)]*\):" || echo "$CHANGELOG" | grep -i "^.*revert:" || echo "")
 
-          # Check for breaking changes (feat! or fix! or BREAKING CHANGE)
-          BREAKING=$(echo "$CHANGELOG" | grep -i "BREAKING CHANGE\|^.*feat!:\|^.*fix!:" || echo "")
+          # Check for breaking changes (feat! or fix! or BREAKING CHANGE, including scoped commits)
+          BREAKING=$(echo "$CHANGELOG" | grep -i "BREAKING CHANGE\|^.*feat!\([^)]*\):\|^.*fix!\([^)]*\):\|^.*feat!:\|^.*fix!:" || echo "")
 
           # Build release notes
           RELEASE_NOTES="## What's Changed in $VERSION\n\n"
