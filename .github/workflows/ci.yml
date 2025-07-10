@@ -24,7 +24,7 @@ jobs:
         run: npm ci
 
       - name: Format check
-        run: npm run fmt -- --check
+        run: npm run fmt-check
 
       - name: Build and create extension package
         run: npm run zip

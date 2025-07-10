@@ -20,6 +20,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "fmt": "prettier --write '**/*.{tsx,ts,json,css,scss,md,html,js,jsx,yml,yaml}'",
+    "fmt-check": "prettier --check .",
     "zip": "npm run build && node src/zip.js",
     "prepare": "husky"
   },
