@@ -31,15 +31,107 @@ jobs:
       - name: Build and create extension package
         run: npm run zip
 
+      - name: Generate Release Notes from Commits
+        id: generate_release_notes
+        run: |
+          # Get the version from the tag
+          VERSION=${GITHUB_REF#refs/tags/}
+
+          # Get the previous tag for comparison
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
+
+          if [ -n "$PREVIOUS_TAG" ]; then
+            # Generate changelog between tags
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" $PREVIOUS_TAG..HEAD | grep -v "Merge pull request" | grep -v "Merge branch")
+          else
+            # First release - get all commits
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" | grep -v "Merge pull request" | grep -v "Merge branch")
+          fi
+
+          # Categorize changes based on conventional commit types
+          FEATURES=$(echo "$CHANGELOG" | grep -i "^.*feat:" || echo "")
+          FIXES=$(echo "$CHANGELOG" | grep -i "^.*fix:" || echo "")
+          DOCS=$(echo "$CHANGELOG" | grep -i "^.*docs:" || echo "")
+          STYLE=$(echo "$CHANGELOG" | grep -i "^.*style:" || echo "")
+          REFACTOR=$(echo "$CHANGELOG" | grep -i "^.*refactor:" || echo "")
+          PERF=$(echo "$CHANGELOG" | grep -i "^.*perf:" || echo "")
+          TEST=$(echo "$CHANGELOG" | grep -i "^.*test:" || echo "")
+          CHORE=$(echo "$CHANGELOG" | grep -i "^.*chore:" || echo "")
+          BUILD=$(echo "$CHANGELOG" | grep -i "^.*build:" || echo "")
+          CI=$(echo "$CHANGELOG" | grep -i "^.*ci:" || echo "")
+          REVERT=$(echo "$CHANGELOG" | grep -i "^.*revert:" || echo "")
+
+          # Check for breaking changes (feat! or fix! or BREAKING CHANGE)
+          BREAKING=$(echo "$CHANGELOG" | grep -i "BREAKING CHANGE\|^.*feat!:\|^.*fix!:" || echo "")
+
+          # Build release notes
+          RELEASE_NOTES="## What's Changed in $VERSION\n\n"
+
+          if [ -n "$BREAKING" ]; then
+            RELEASE_NOTES+="### 💥 Breaking Changes\n$BREAKING\n\n"
+          fi
+
+          if [ -n "$FEATURES" ]; then
+            RELEASE_NOTES+="### 🚀 New Features\n$FEATURES\n\n"
+          fi
+
+          if [ -n "$FIXES" ]; then
+            RELEASE_NOTES+="### 🐛 Bug Fixes\n$FIXES\n\n"
+          fi
+
+          if [ -n "$PERF" ]; then
+            RELEASE_NOTES+="### ⚡ Performance Improvements\n$PERF\n\n"
+          fi
+
+          if [ -n "$REFACTOR" ]; then
+            RELEASE_NOTES+="### 🔧 Refactoring\n$REFACTOR\n\n"
+          fi
+
+          if [ -n "$TEST" ]; then
+            RELEASE_NOTES+="### 🧪 Tests\n$TEST\n\n"
+          fi
+
+          if [ -n "$BUILD" ]; then
+            RELEASE_NOTES+="### 🏗️ Build System\n$BUILD\n\n"
+          fi
+
+          if [ -n "$CI" ]; then
+            RELEASE_NOTES+="### 🔄 CI/CD\n$CI\n\n"
+          fi
+
+          if [ -n "$DOCS" ]; then
+            RELEASE_NOTES+="### 📚 Documentation\n$DOCS\n\n"
+          fi
+
+          if [ -n "$STYLE" ]; then
+            RELEASE_NOTES+="### 🎨 Code Style\n$STYLE\n\n"
+          fi
+
+          if [ -n "$REVERT" ]; then
+            RELEASE_NOTES+="### ↩️ Reverts\n$REVERT\n\n"
+          fi
+
+          if [ -n "$CHORE" ]; then
+            RELEASE_NOTES+="### 🔧 Maintenance\n$CHORE\n\n"
+          fi
+
+          RELEASE_NOTES+="## Installation\n\n"
+          RELEASE_NOTES+="Download the \`scrape-similar-$VERSION.zip\` file and install it manually in Chrome at \`chrome://extensions/\`.\n\n"
+          RELEASE_NOTES+="## Support\n\n"
+          RELEASE_NOTES+="If you encounter any issues or have questions, please [open an issue](https://github.com/${{ github.repository }}/issues) on GitHub.\n\n"
+          RELEASE_NOTES+="---\n\n"
+          RELEASE_NOTES+="*Release generated automatically on $(date -u +"%Y-%m-%d %H:%M UTC")*"
+
+          echo "release_notes<<EOF" >> $GITHUB_OUTPUT
+          echo "$RELEASE_NOTES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             package/scrape-similar-${{ github.ref_name }}.zip
-          body: |
-            ## Installation
-
-            Download the `scrape-similar-${{ github.ref_name }}.zip` file and install it manually in Chrome at `chrome://extensions/`.
+          body: ${{ steps.generate_release_notes.outputs.release_notes }}
           draft: false
           prerelease: false
-          generate_release_notes: true
+          generate_release_notes: false
