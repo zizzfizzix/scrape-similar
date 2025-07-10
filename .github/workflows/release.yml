@@ -31,116 +31,54 @@ jobs:
       - name: Build and create extension package
         run: npm run zip
 
-      - name: Generate Release Notes from Commits
+      - name: Generate Release Notes using conventional-changelog
         id: generate_release_notes
         run: |
           # Get the version from the tag
           VERSION=${GITHUB_REF#refs/tags/}
+          # Remove 'v' prefix for changelog matching
+          VERSION_NUMBER=${VERSION#v}
 
-          # Get the previous tag for comparison
-          PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
+          # Generate changelog with unreleased section
+          npx conventional-changelog -i CHANGELOG.md --same-file -p angular -r 0 --output-unreleased
 
-          if [ -n "$PREVIOUS_TAG" ]; then
-            # Generate changelog between tags
-            CHANGELOG=$(git log --pretty=format:"- %s (%h)" $PREVIOUS_TAG..HEAD | grep -v "Merge pull request" | grep -v "Merge branch")
+          # Extract the unreleased section for release notes
+          if [ -f "CHANGELOG.md" ]; then
+            # First try to extract the unreleased section
+            UNRELEASED_CONTENT=$(sed -n '/^## \[Unreleased\]/,/^## /p' CHANGELOG.md | sed '$d' | sed '1d')
+            
+            if [ -n "$UNRELEASED_CONTENT" ]; then
+              # Use unreleased content
+              echo "## What's Changed in $VERSION" > release_notes.md
+              echo "" >> release_notes.md
+              echo "$UNRELEASED_CONTENT" >> release_notes.md
+            else
+              # Extract the latest version section (the one that matches our current version)
+              VERSION_SECTION=$(sed -n "/^## \[$VERSION_NUMBER\]/,/^## /p" CHANGELOG.md | sed '$d' | sed '1d')
+              
+              if [ -n "$VERSION_SECTION" ]; then
+                echo "## What's Changed in $VERSION" > release_notes.md
+                echo "" >> release_notes.md
+                echo "$VERSION_SECTION" >> release_notes.md
+              else
+                # Fallback: create a basic release note
+                echo "## What's Changed in $VERSION" > release_notes.md
+                echo "" >> release_notes.md
+                echo "No detailed changelog available." >> release_notes.md
+                echo "" >> release_notes.md
+              fi
+            fi
           else
-            # First release - get all commits
-            CHANGELOG=$(git log --pretty=format:"- %s (%h)" | grep -v "Merge pull request" | grep -v "Merge branch")
+            # Fallback if CHANGELOG.md doesn't exist
+            echo "## What's Changed in $VERSION" > release_notes.md
+            echo "" >> release_notes.md
+            echo "No detailed changelog available." >> release_notes.md
+            echo "" >> release_notes.md
           fi
 
-          # Categorize changes based on conventional commit types (including scoped commits)
-          FEATURES=$(echo "$CHANGELOG" | grep -i "^.*feat\([^)]*\):" || echo "$CHANGELOG" | grep -i "^.*feat:" || echo "")
-          FIXES=$(echo "$CHANGELOG" | grep -i "^.*fix\([^)]*\):" || echo "$CHANGELOG" | grep -i "^.*fix:" || echo "")
-          DOCS=$(echo "$CHANGELOG" | grep -i "^.*docs\([^)]*\):" || echo "$CHANGELOG" | grep -i "^.*docs:" || echo "")
-          STYLE=$(echo "$CHANGELOG" | grep -i "^.*style\([^)]*\):" || echo "$CHANGELOG" | grep -i "^.*style:" || echo "")
-          REFACTOR=$(echo "$CHANGELOG" | grep -i "^.*refactor\([^)]*\):" || echo "$CHANGELOG" | grep -i "^.*refactor:" || echo "")
-          PERF=$(echo "$CHANGELOG" | grep -i "^.*perf\([^)]*\):" || echo "$CHANGELOG" | grep -i "^.*perf:" || echo "")
-          TEST=$(echo "$CHANGELOG" | grep -i "^.*test\([^)]*\):" || echo "$CHANGELOG" | grep -i "^.*test:" || echo "")
-          CHORE=$(echo "$CHANGELOG" | grep -i "^.*chore\([^)]*\):" || echo "$CHANGELOG" | grep -i "^.*chore:" || echo "")
-          BUILD=$(echo "$CHANGELOG" | grep -i "^.*build\([^)]*\):" || echo "$CHANGELOG" | grep -i "^.*build:" || echo "")
-          CI=$(echo "$CHANGELOG" | grep -i "^.*ci\([^)]*\):" || echo "$CHANGELOG" | grep -i "^.*ci:" || echo "")
-          REVERT=$(echo "$CHANGELOG" | grep -i "^.*revert\([^)]*\):" || echo "$CHANGELOG" | grep -i "^.*revert:" || echo "")
-
-          # Check for breaking changes (feat! or fix! or BREAKING CHANGE, including scoped commits)
-          BREAKING=$(echo "$CHANGELOG" | grep -i "BREAKING CHANGE\|^.*feat!\([^)]*\):\|^.*fix!\([^)]*\):\|^.*feat!:\|^.*fix!:" || echo "")
-
-          # Build release notes and write to file
+          # Add installation and support sections
           {
-            echo "## What's Changed in $VERSION"
             echo ""
-            
-            if [ -n "$BREAKING" ]; then
-              echo "### 💥 Breaking Changes"
-              echo "$BREAKING"
-              echo ""
-            fi
-            
-            if [ -n "$FEATURES" ]; then
-              echo "### 🚀 New Features"
-              echo "$FEATURES"
-              echo ""
-            fi
-            
-            if [ -n "$FIXES" ]; then
-              echo "### 🐛 Bug Fixes"
-              echo "$FIXES"
-              echo ""
-            fi
-            
-            if [ -n "$PERF" ]; then
-              echo "### ⚡ Performance Improvements"
-              echo "$PERF"
-              echo ""
-            fi
-            
-            if [ -n "$REFACTOR" ]; then
-              echo "### 🔧 Refactoring"
-              echo "$REFACTOR"
-              echo ""
-            fi
-            
-            if [ -n "$TEST" ]; then
-              echo "### 🧪 Tests"
-              echo "$TEST"
-              echo ""
-            fi
-            
-            if [ -n "$BUILD" ]; then
-              echo "### 🏗️ Build System"
-              echo "$BUILD"
-              echo ""
-            fi
-            
-            if [ -n "$CI" ]; then
-              echo "### 🔄 CI/CD"
-              echo "$CI"
-              echo ""
-            fi
-            
-            if [ -n "$DOCS" ]; then
-              echo "### 📚 Documentation"
-              echo "$DOCS"
-              echo ""
-            fi
-            
-            if [ -n "$STYLE" ]; then
-              echo "### 🎨 Code Style"
-              echo "$STYLE"
-              echo ""
-            fi
-            
-            if [ -n "$REVERT" ]; then
-              echo "### ↩️ Reverts"
-              echo "$REVERT"
-              echo ""
-            fi
-            
-            if [ -n "$CHORE" ]; then
-              echo "### 🔧 Maintenance"
-              echo "$CHORE"
-              echo ""
-            fi
-            
             echo "## Installation"
             echo ""
             echo "Download the \`scrape-similar-$VERSION.zip\` file and install it manually in Chrome at \`chrome://extensions/\`."
@@ -152,7 +90,7 @@ jobs:
             echo "---"
             echo ""
             echo "*Release generated automatically on $(date -u +"%Y-%m-%d %H:%M UTC")*"
-          } > release_notes.md
+          } >> release_notes.md
 
       - name: Create Release
         uses: softprops/action-gh-release@v2

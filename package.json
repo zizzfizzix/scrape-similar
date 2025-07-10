@@ -64,6 +64,58 @@
     "prettier-plugin-organize-imports": "^4.1.0",
     "typescript": "^5.8.3",
     "vite": "^7.0.3",
-    "vite-tsconfig-paths": "^5.1.4"
+    "vite-tsconfig-paths": "^5.1.4",
+    "conventional-changelog-cli": "^5.0.0"
+  },
+  "conventionalChangelog": {
+    "preset": "angular",
+    "releaseCount": 0,
+    "tagPrefix": "v",
+    "types": [
+      {
+        "type": "feat",
+        "section": "🚀 New Features"
+      },
+      {
+        "type": "fix",
+        "section": "🐛 Bug Fixes"
+      },
+      {
+        "type": "docs",
+        "section": "📚 Documentation"
+      },
+      {
+        "type": "style",
+        "section": "🎨 Code Style"
+      },
+      {
+        "type": "refactor",
+        "section": "🔧 Refactoring"
+      },
+      {
+        "type": "perf",
+        "section": "⚡ Performance Improvements"
+      },
+      {
+        "type": "test",
+        "section": "🧪 Tests"
+      },
+      {
+        "type": "build",
+        "section": "🏗️ Build System"
+      },
+      {
+        "type": "ci",
+        "section": "🔄 CI/CD"
+      },
+      {
+        "type": "chore",
+        "section": "🔧 Maintenance"
+      },
+      {
+        "type": "revert",
+        "section": "↩️ Reverts"
+      }
+    ]
   }
 }
