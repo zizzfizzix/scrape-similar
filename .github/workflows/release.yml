@@ -64,74 +64,102 @@ jobs:
           # Check for breaking changes (feat! or fix! or BREAKING CHANGE, including scoped commits)
           BREAKING=$(echo "$CHANGELOG" | grep -i "BREAKING CHANGE\|^.*feat!\([^)]*\):\|^.*fix!\([^)]*\):\|^.*feat!:\|^.*fix!:" || echo "")
 
-          # Build release notes
-          RELEASE_NOTES="## What's Changed in $VERSION\n\n"
-
-          if [ -n "$BREAKING" ]; then
-            RELEASE_NOTES+="### 💥 Breaking Changes\n$BREAKING\n\n"
-          fi
-
-          if [ -n "$FEATURES" ]; then
-            RELEASE_NOTES+="### 🚀 New Features\n$FEATURES\n\n"
-          fi
-
-          if [ -n "$FIXES" ]; then
-            RELEASE_NOTES+="### 🐛 Bug Fixes\n$FIXES\n\n"
-          fi
-
-          if [ -n "$PERF" ]; then
-            RELEASE_NOTES+="### ⚡ Performance Improvements\n$PERF\n\n"
-          fi
-
-          if [ -n "$REFACTOR" ]; then
-            RELEASE_NOTES+="### 🔧 Refactoring\n$REFACTOR\n\n"
-          fi
-
-          if [ -n "$TEST" ]; then
-            RELEASE_NOTES+="### 🧪 Tests\n$TEST\n\n"
-          fi
-
-          if [ -n "$BUILD" ]; then
-            RELEASE_NOTES+="### 🏗️ Build System\n$BUILD\n\n"
-          fi
-
-          if [ -n "$CI" ]; then
-            RELEASE_NOTES+="### 🔄 CI/CD\n$CI\n\n"
-          fi
-
-          if [ -n "$DOCS" ]; then
-            RELEASE_NOTES+="### 📚 Documentation\n$DOCS\n\n"
-          fi
-
-          if [ -n "$STYLE" ]; then
-            RELEASE_NOTES+="### 🎨 Code Style\n$STYLE\n\n"
-          fi
-
-          if [ -n "$REVERT" ]; then
-            RELEASE_NOTES+="### ↩️ Reverts\n$REVERT\n\n"
-          fi
-
-          if [ -n "$CHORE" ]; then
-            RELEASE_NOTES+="### 🔧 Maintenance\n$CHORE\n\n"
-          fi
-
-          RELEASE_NOTES+="## Installation\n\n"
-          RELEASE_NOTES+="Download the \`scrape-similar-$VERSION.zip\` file and install it manually in Chrome at \`chrome://extensions/\`.\n\n"
-          RELEASE_NOTES+="## Support\n\n"
-          RELEASE_NOTES+="If you encounter any issues or have questions, please [open an issue](https://github.com/${{ github.repository }}/issues) on GitHub.\n\n"
-          RELEASE_NOTES+="---\n\n"
-          RELEASE_NOTES+="*Release generated automatically on $(date -u +"%Y-%m-%d %H:%M UTC")*"
-
-          echo "release_notes<<EOF" >> $GITHUB_OUTPUT
-          echo "$RELEASE_NOTES" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          # Build release notes and write to file
+          {
+            echo "## What's Changed in $VERSION"
+            echo ""
+            
+            if [ -n "$BREAKING" ]; then
+              echo "### 💥 Breaking Changes"
+              echo "$BREAKING"
+              echo ""
+            fi
+            
+            if [ -n "$FEATURES" ]; then
+              echo "### 🚀 New Features"
+              echo "$FEATURES"
+              echo ""
+            fi
+            
+            if [ -n "$FIXES" ]; then
+              echo "### 🐛 Bug Fixes"
+              echo "$FIXES"
+              echo ""
+            fi
+            
+            if [ -n "$PERF" ]; then
+              echo "### ⚡ Performance Improvements"
+              echo "$PERF"
+              echo ""
+            fi
+            
+            if [ -n "$REFACTOR" ]; then
+              echo "### 🔧 Refactoring"
+              echo "$REFACTOR"
+              echo ""
+            fi
+            
+            if [ -n "$TEST" ]; then
+              echo "### 🧪 Tests"
+              echo "$TEST"
+              echo ""
+            fi
+            
+            if [ -n "$BUILD" ]; then
+              echo "### 🏗️ Build System"
+              echo "$BUILD"
+              echo ""
+            fi
+            
+            if [ -n "$CI" ]; then
+              echo "### 🔄 CI/CD"
+              echo "$CI"
+              echo ""
+            fi
+            
+            if [ -n "$DOCS" ]; then
+              echo "### 📚 Documentation"
+              echo "$DOCS"
+              echo ""
+            fi
+            
+            if [ -n "$STYLE" ]; then
+              echo "### 🎨 Code Style"
+              echo "$STYLE"
+              echo ""
+            fi
+            
+            if [ -n "$REVERT" ]; then
+              echo "### ↩️ Reverts"
+              echo "$REVERT"
+              echo ""
+            fi
+            
+            if [ -n "$CHORE" ]; then
+              echo "### 🔧 Maintenance"
+              echo "$CHORE"
+              echo ""
+            fi
+            
+            echo "## Installation"
+            echo ""
+            echo "Download the \`scrape-similar-$VERSION.zip\` file and install it manually in Chrome at \`chrome://extensions/\`."
+            echo ""
+            echo "## Support"
+            echo ""
+            echo "If you encounter any issues or have questions, please [open an issue](https://github.com/${{ github.repository }}/issues) on GitHub."
+            echo ""
+            echo "---"
+            echo ""
+            echo "*Release generated automatically on $(date -u +"%Y-%m-%d %H:%M UTC")*"
+          } > release_notes.md
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             package/scrape-similar-${{ github.ref_name }}.zip
-          body: ${{ steps.generate_release_notes.outputs.release_notes }}
+          body_path: release_notes.md
           draft: false
           prerelease: false
           generate_release_notes: false
