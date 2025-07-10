@@ -35,11 +35,11 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            package/scrape-similar-v${{ github.ref_name }}.zip
+            package/scrape-similar-${{ github.ref_name }}.zip
           body: |
             ## Installation
 
-            Download the `scrape-similar-v${{ github.ref_name }}.zip` file and install it manually in Chrome at `chrome://extensions/`.
+            Download the `scrape-similar-${{ github.ref_name }}.zip` file and install it manually in Chrome at `chrome://extensions/`.
           draft: false
           prerelease: false
           generate_release_notes: true
