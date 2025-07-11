@@ -2,11 +2,12 @@ import { Settings } from '@/components/Settings'
 import { useTheme } from '@/components/theme-provider'
 import { Footer } from '@/components/ui/footer'
 import log from 'loglevel'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 
 const OptionsApp: React.FC = () => {
   const [debugMode, setDebugMode] = useState(false)
   const { theme } = useTheme()
+  const settingsRef = useRef<{ unlockDebugMode: () => void }>(null)
 
   // Load debug mode from storage on mount
   useEffect(() => {
@@ -38,6 +39,10 @@ const OptionsApp: React.FC = () => {
     chrome.storage.sync.set({ debugMode: enabled })
   }
 
+  const handleTitleClick = () => {
+    settingsRef.current?.unlockDebugMode()
+  }
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <div className="flex-1 p-4">
@@ -50,7 +55,9 @@ const OptionsApp: React.FC = () => {
                   alt="Scrape Similar Logo"
                   className="w-8 h-8"
                 />
-                <h1 className="text-3xl font-bold">Settings</h1>
+                <h1 className="text-3xl font-bold" onClick={handleTitleClick}>
+                  Settings
+                </h1>
               </div>
               <p className="text-muted-foreground">Tailor Scrape Similar configuration</p>
             </div>
@@ -58,7 +65,11 @@ const OptionsApp: React.FC = () => {
 
           <div className="space-y-6">
             <div className="bg-card border rounded-lg p-6">
-              <Settings debugMode={debugMode} onDebugModeChange={handleDebugModeChange} />
+              <Settings
+                ref={settingsRef}
+                debugMode={debugMode}
+                onDebugModeChange={handleDebugModeChange}
+              />
             </div>
           </div>
         </div>
