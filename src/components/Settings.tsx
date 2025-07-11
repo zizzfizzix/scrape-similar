@@ -13,13 +13,18 @@ interface SettingsProps {
   onDebugModeChange?: (enabled: boolean) => void
   className?: string
   onTitleClick?: () => void
+  ref?: React.Ref<{ unlockDebugMode: () => void }>
 }
 
-export const Settings = React.forwardRef<{ unlockDebugMode: () => void }, SettingsProps>(
-  (
-    { onResetSystemPresets, debugMode = false, onDebugModeChange, className, onTitleClick },
+export const Settings = React.memo(
+  ({
+    onResetSystemPresets,
+    debugMode = false,
+    onDebugModeChange,
+    className,
+    onTitleClick,
     ref,
-  ) => {
+  }: SettingsProps) => {
     const [showDebugRow, setShowDebugRow] = useState(debugMode)
     const clickCountRef = useRef(0)
     const timerRef = useRef<NodeJS.Timeout | null>(null)
