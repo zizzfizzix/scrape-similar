@@ -8,7 +8,7 @@ import 'posthog-js/dist/posthog-recorder.js'
 import 'posthog-js/dist/surveys.js'
 import 'posthog-js/dist/tracing-headers.js'
 import 'posthog-js/dist/web-vitals.js'
-import React, { createContext, useContext, useEffect, useState } from 'react'
+import React, { createContext, useContext, useEffect } from 'react'
 
 interface PostHogWrapperProps {
   children: React.ReactNode
@@ -25,18 +25,27 @@ export const usePostHog = () => {
   return context
 }
 
-export const PostHogWrapper: React.FC<PostHogWrapperProps> = ({ children }) => {
-  const [isInitialized, setIsInitialized] = useState(false)
+const isPostHogInitialized = () => {
+  return (
+    (window as any).__scrape_similar_posthog &&
+    typeof (window as any).__scrape_similar_posthog === 'function'
+  )
+}
 
+export const PostHogWrapper: React.FC<PostHogWrapperProps> = ({ children }) => {
   useEffect(() => {
     const initializePostHog = async () => {
       try {
         const apiKey = import.meta.env.VITE_PUBLIC_POSTHOG_KEY
         const apiHost = import.meta.env.VITE_PUBLIC_POSTHOG_HOST
 
-        if (!apiKey || !apiHost) {
-          log.warn('PostHog API key or host not found in environment variables')
-          setIsInitialized(true)
+        if (!apiKey) {
+          log.warn('PostHog API key not found in environment variables')
+          return
+        }
+
+        if (!apiHost) {
+          log.warn('PostHog API host not found in environment variables')
           return
         }
 
@@ -67,30 +76,23 @@ export const PostHogWrapper: React.FC<PostHogWrapperProps> = ({ children }) => {
             log.debug('PostHog instance exposed to window.__scrape_similar_posthog')
           },
         })
-
-        setIsInitialized(true)
       } catch (error) {
         log.error('Failed to initialize PostHog:', error)
-        // Still allow the app to render even if PostHog fails
-        setIsInitialized(true)
       }
     }
 
-    initializePostHog()
+    if (!isPostHogInitialized()) {
+      initializePostHog()
+    }
 
     // Cleanup function to remove PostHog from window when component unmounts
     return () => {
-      if ((window as any).__scrape_similar_posthog) {
+      if (isPostHogInitialized()) {
         delete (window as any).__scrape_similar_posthog
         log.debug('PostHog instance removed from window')
       }
     }
   }, [])
-
-  // Don't render PostHog provider until initialization is complete
-  if (!isInitialized) {
-    return <>{children}</>
-  }
 
   return <PostHogContext.Provider value={posthog}>{children}</PostHogContext.Provider>
 }
