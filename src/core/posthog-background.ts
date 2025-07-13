@@ -6,6 +6,7 @@ import log from 'loglevel'
 // Import PostHog core library for service workers
 // Posthog needs to be imported this way, otherwise the extension doesn't pass the Chrome Web Store review
 // https://github.com/PostHog/posthog-js/issues/1464#issuecomment-2792093981
+import { DeviceId, getOrCreateDeviceId } from '@/core/device-id'
 import 'posthog-js/dist/exception-autocapture.js'
 import { PostHog } from 'posthog-js/dist/module.no-external'
 import 'posthog-js/dist/tracing-headers.js'
@@ -36,12 +37,17 @@ export const getPostHogBackground = async (): Promise<PostHog | null> => {
 
     log.debug('Initializing PostHog in background context...')
 
+    // Retrieve or generate the device ID from shared storage **before** initializing PostHog
+    const deviceId: DeviceId = await getOrCreateDeviceId()
+
     // Initialize PostHog instance
     posthogInstance = new PostHog()
     posthogInstance.init(apiKey, {
+      // Supply our own device_id to ensure consistent device_id across extensioncontexts
+      get_device_id: (_uuid: string) => deviceId.toString(),
       api_host: apiHost,
       // Service worker specific options
-      persistence: 'memory', // Use memory persistence in service worker to avoid cookie consent
+      persistence: 'localStorage', // Use memory persistence in service worker to avoid cookie consent
       disable_session_recording: true, // Not applicable in service worker
       disable_surveys: true, // Not applicable in service worker
       autocapture: false, // Manual tracking only

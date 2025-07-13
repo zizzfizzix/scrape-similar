@@ -1,6 +1,7 @@
 import log from 'loglevel'
 // Posthog needs to be imported this way, otherwise the extension doesn't pass the Chrome Web Store review
 // https://github.com/PostHog/posthog-js/issues/1464#issuecomment-2792093981
+import { getOrCreateDeviceId } from '@/core/device-id'
 import 'posthog-js/dist/dead-clicks-autocapture.js'
 import 'posthog-js/dist/exception-autocapture.js'
 import posthog from 'posthog-js/dist/module.no-external'
@@ -25,7 +26,8 @@ export const usePostHog = () => {
   return context
 }
 
-const isPostHogInitialized = () => {
+// Check if the PostHog instance has already been exposed on the window
+const isPostHogInitialized = (): boolean => {
   return (
     (window as any).__scrape_similar_posthog &&
     typeof (window as any).__scrape_similar_posthog === 'function'
@@ -49,10 +51,15 @@ export const PostHogWrapper: React.FC<PostHogWrapperProps> = ({ children }) => {
           return
         }
 
+        // Retrieve or generate the device ID from shared storage **before** initializing PostHog
+        const deviceId = await getOrCreateDeviceId()
+
         // Initialize PostHog with the no-external module
         posthog.init(apiKey, {
+          // Supply our own device_id to ensure consistent device_id across extensioncontexts
+          get_device_id: (_uuid: string) => deviceId.toString(),
           api_host: apiHost,
-          persistence: 'memory', // Use memory persistence to avoid cookie consent requirements
+          persistence: 'localStorage',
           // Disable external loading to be compatible with Manifest V3
           disable_external_dependency_loading: true,
           // Session replay configuration for Manifest V3
