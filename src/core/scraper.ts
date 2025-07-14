@@ -1,5 +1,11 @@
+import {
+  ColumnDefinition,
+  ScrapeConfig,
+  ScrapedData,
+  ScrapedRow,
+  ScrapedRowData,
+} from '@/core/types'
 import log from 'loglevel'
-import { ColumnDefinition, ScrapeConfig, ScrapedData, ScrapedRow, ScrapedRowData } from './types'
 
 /**
  * Scrape data from the page based on the provided configuration

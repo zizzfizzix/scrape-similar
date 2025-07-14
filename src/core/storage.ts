@@ -1,7 +1,7 @@
 /// <reference types="chrome" />
+import { SYSTEM_PRESETS } from '@/core/system_presets'
+import { Preset, SYSTEM_PRESET_STATUS_KEY, SystemPresetStatusMap } from '@/core/types'
 import log from 'loglevel'
-import { SYSTEM_PRESETS } from './system_presets'
-import { Preset, SYSTEM_PRESET_STATUS_KEY, SystemPresetStatusMap } from './types'
 
 // Storage keys
 export const STORAGE_KEYS = {

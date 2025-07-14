@@ -1,12 +1,12 @@
-import log from 'loglevel'
-import { ANALYTICS_EVENTS, trackEvent } from '../core/analytics'
+import { ANALYTICS_EVENTS, trackEvent } from '@/core/analytics'
 import {
   evaluateXPath,
   guessScrapeConfigForElement,
   minimizeXPath,
   scrapePage,
-} from '../core/scraper'
-import { MESSAGE_TYPES, Message, ScrapeConfig, ScrapeResult } from '../core/types'
+} from '@/core/scraper'
+import { MESSAGE_TYPES, Message, ScrapeConfig, ScrapeResult } from '@/core/types'
+import log from 'loglevel'
 log.setDefaultLevel('error')
 
 // On startup, set log level from storage

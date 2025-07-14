@@ -1,10 +1,16 @@
 import { Settings } from '@/components/Settings'
+import { Button } from '@/components/ui/button'
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from '@/components/ui/drawer'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { ANALYTICS_EVENTS, trackEvent } from '@/core/analytics'
 import { SettingsIcon } from 'lucide-react'
 import React, { useEffect, useRef, useState } from 'react'
-import { Button } from './button'
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from './drawer'
-import { Tooltip, TooltipContent, TooltipTrigger } from './tooltip'
 
 interface SettingsDrawerProps {
   onResetSystemPresets?: () => void

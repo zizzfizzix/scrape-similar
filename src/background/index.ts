@@ -1,7 +1,6 @@
-import log from 'loglevel'
-import { ANALYTICS_EVENTS, trackEvent } from '../core/analytics'
-import { saveEnvironmentToStorage } from '../core/environment'
-import { initializeStorage } from '../core/storage'
+import { ANALYTICS_EVENTS, trackEvent } from '@/core/analytics'
+import { saveEnvironmentToStorage } from '@/core/environment'
+import { initializeStorage } from '@/core/storage'
 import {
   ExportResult,
   Message,
@@ -11,8 +10,9 @@ import {
   ScrapeResult,
   SidePanelConfig,
   TrackEventPayload,
-} from '../core/types'
-import { isInjectableUrl } from '../lib/isInjectableUrl'
+} from '@/core/types'
+import { isInjectableUrl } from '@/lib/isInjectableUrl'
+import log from 'loglevel'
 log.setDefaultLevel('error')
 
 // On startup, set log level from storage

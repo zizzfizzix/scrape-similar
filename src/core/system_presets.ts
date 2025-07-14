@@ -1,4 +1,4 @@
-import { Preset } from './types'
+import { Preset } from '@/core/types'
 
 export const SYSTEM_PRESETS: readonly Preset[] = [
   {

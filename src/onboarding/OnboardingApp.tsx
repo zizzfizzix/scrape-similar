@@ -1,3 +1,10 @@
+import { useTheme } from '@/components/theme-provider'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Footer } from '@/components/ui/footer'
+import { Separator } from '@/components/ui/separator'
+import { ANALYTICS_EVENTS, trackEvent } from '@/core/analytics'
 import {
   Ban,
   Check,
@@ -14,13 +21,6 @@ import {
   Zap,
 } from 'lucide-react'
 import React, { useEffect, useState } from 'react'
-import { useTheme } from '../components/theme-provider'
-import { Badge } from '../components/ui/badge'
-import { Button } from '../components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
-import { Footer } from '../components/ui/footer'
-import { Separator } from '../components/ui/separator'
-import { ANALYTICS_EVENTS, trackEvent } from '../core/analytics'
 
 interface OnboardingSlide {
   id: number

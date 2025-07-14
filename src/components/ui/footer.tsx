@@ -1,10 +1,10 @@
 import { author } from '@/../package.json'
+import { SettingsDrawer } from '@/components/ui/settings-drawer'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { ANALYTICS_EVENTS, trackEvent } from '@/core/analytics'
 import { getCurrentContext } from '@/core/context-detection'
 import { HeartPlus } from 'lucide-react'
 import React from 'react'
-import { SettingsDrawer } from './settings-drawer'
-import { Tooltip, TooltipContent, TooltipTrigger } from './tooltip'
 
 interface FooterProps {
   className?: string

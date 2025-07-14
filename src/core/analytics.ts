@@ -1,11 +1,11 @@
 // Analytics utility for tracking events with environment property
 // Can be used in background scripts, content scripts, and UI contexts
 
+import { EXTENSION_CONTEXTS, getCurrentContext } from '@/core/context-detection'
+import { getCachedEnvironment } from '@/core/environment'
+import { getPostHogBackground } from '@/core/posthog-background'
+import { MESSAGE_TYPES } from '@/core/types'
 import log from 'loglevel'
-import { EXTENSION_CONTEXTS, getCurrentContext } from './context-detection'
-import { getCachedEnvironment } from './environment'
-import { getPostHogBackground } from './posthog-background'
-import { MESSAGE_TYPES } from './types'
 
 export const ANALYTICS_EVENTS = {
   // Preset operations
