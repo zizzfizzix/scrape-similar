@@ -1,11 +1,55 @@
 // Analytics utility for tracking events with environment property
 // Can be used in background scripts, content scripts, and UI contexts
 
+import { getConsentState } from '@/core/consent'
 import { EXTENSION_CONTEXTS, getCurrentContext } from '@/core/context-detection'
 import { getCachedEnvironment } from '@/core/environment'
 import { getPostHogBackground } from '@/core/posthog-background'
 import { MESSAGE_TYPES } from '@/core/types'
+import { Mutex } from 'async-mutex'
 import log from 'loglevel'
+
+export const EVENT_QUEUE_STORAGE_KEY = 'eventQueue'
+export const MAX_QUEUED_EVENTS = 1000 // Prevent unbounded growth
+
+// Mutex to prevent concurrent queue operations
+export const queueMutex = new Mutex()
+
+export interface QueuedEvent {
+  name: string
+  props: Record<string, any>
+  timestamp: number
+}
+
+export const queueEvent = async (event: QueuedEvent): Promise<void> => {
+  return queueMutex.runExclusive(async () => {
+    try {
+      if (typeof chrome === 'undefined' || !chrome.storage?.local) {
+        // No extension context – nothing to do
+        return
+      }
+
+      // Use proper async/await to avoid race conditions
+      const result = await chrome.storage.local.get([EVENT_QUEUE_STORAGE_KEY])
+      const queue: QueuedEvent[] = result[EVENT_QUEUE_STORAGE_KEY] || []
+
+      // Prevent unbounded queue growth
+      if (queue.length >= MAX_QUEUED_EVENTS) {
+        log.warn(`Event queue full (${queue.length}/${MAX_QUEUED_EVENTS}), dropping oldest events`)
+        // Remove oldest events to make room (FIFO)
+        queue.splice(0, queue.length - MAX_QUEUED_EVENTS + 1)
+      }
+
+      queue.push(event)
+      await chrome.storage.local.set({ [EVENT_QUEUE_STORAGE_KEY]: queue })
+
+      log.debug(`Queued event: ${event.name}`, { queueLength: queue.length })
+    } catch (error) {
+      log.error('Failed to queue event:', error)
+      // Don't throw - we don't want to break the calling code
+    }
+  })
+}
 
 export const ANALYTICS_EVENTS = {
   // Preset operations
@@ -66,8 +110,18 @@ export const ANALYTICS_EVENTS = {
  * - React UI context: Uses PostHog from React context (via window.__scrape_similar_posthog)
  * - Content script: Sends message to background script for tracking
  */
-export const trackEvent = async (eventName: string, properties: Record<string, any> = {}) => {
+export const trackEvent = async (
+  eventName: string,
+  properties: Record<string, any> = {},
+): Promise<void> => {
   try {
+    const consentState = await getConsentState()
+
+    if (consentState === false) {
+      log.debug(`User declined consent - not tracking or queueing event: ${eventName}`)
+      return
+    }
+
     const context = getCurrentContext()
     const environment = await getCachedEnvironment()
 
@@ -79,6 +133,14 @@ export const trackEvent = async (eventName: string, properties: Record<string, a
       extension_context: properties.extension_context || context,
     }
 
+    if (consentState === undefined) {
+      // Consent not decided yet (undefined) - queue the event
+      await queueEvent({ name: eventName, props: eventProperties, timestamp: Date.now() })
+      log.debug(`Buffered event (consent undecided): ${eventName}`, eventProperties)
+      return
+    }
+
+    // Consent granted – proceed with normal tracking flow
     log.debug(`Tracking event in ${context} context: ${eventName}`, eventProperties)
 
     switch (context) {
@@ -101,7 +163,8 @@ export const trackEvent = async (eventName: string, properties: Record<string, a
           ;(window as any).__scrape_similar_posthog.capture(eventName, eventProperties)
           log.debug(`Tracked event (UI context): ${eventName}`, eventProperties)
         } else {
-          log.warn('PostHog not available in UI context - may not be initialized yet')
+          await queueEvent({ name: eventName, props: eventProperties, timestamp: Date.now() })
+          log.debug(`Buffered event (PostHog not initialized): ${eventName}`, eventProperties)
         }
         break
       }
@@ -123,7 +186,7 @@ export const trackEvent = async (eventName: string, properties: Record<string, a
       }
 
       default: {
-        log.warn(`Unknown context for tracking event: ${context}`, {
+        log.warn(`Unknown context for tracking event: ${context}. Not tracking event.`, {
           eventName,
           properties: eventProperties,
           context,

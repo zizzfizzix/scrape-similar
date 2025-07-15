@@ -1,5 +1,12 @@
-import { ANALYTICS_EVENTS, trackEvent } from '@/core/analytics'
+import {
+  ANALYTICS_EVENTS,
+  EVENT_QUEUE_STORAGE_KEY,
+  QueuedEvent,
+  queueMutex,
+  trackEvent,
+} from '@/core/analytics'
 import { saveEnvironmentToStorage } from '@/core/environment'
+import { getPostHogBackground, resetPostHogInstance } from '@/core/posthog-background'
 import { initializeStorage } from '@/core/storage'
 import {
   ExportResult,
@@ -13,6 +20,7 @@ import {
 } from '@/core/types'
 import { isInjectableUrl } from '@/lib/isInjectableUrl'
 import log from 'loglevel'
+
 log.setDefaultLevel('error')
 
 // On startup, set log level from storage
@@ -594,3 +602,69 @@ const exportToGoogleSheets = async (
     }
   }
 }
+
+// Flush any queued events that were captured before consent
+const flushQueuedEvents = async () => {
+  return queueMutex.runExclusive(async () => {
+    try {
+      const result = await chrome.storage.local.get([EVENT_QUEUE_STORAGE_KEY])
+      const queue: QueuedEvent[] = result[EVENT_QUEUE_STORAGE_KEY] || []
+
+      if (queue.length === 0) {
+        log.debug('No queued events to flush')
+        return
+      }
+
+      const ph = await getPostHogBackground()
+      if (!ph) {
+        log.warn('PostHog not initialized when trying to flush queue')
+        return
+      }
+
+      log.debug(`Flushing ${queue.length} queued events...`)
+
+      // Process events sequentially to avoid overwhelming PostHog
+      for (const event of queue) {
+        try {
+          ph.capture(
+            event.name,
+            {
+              ...event.props,
+              buffered: true,
+            },
+            {
+              timestamp: new Date(event.timestamp),
+            },
+          )
+        } catch (error) {
+          log.error(`Failed to capture buffered event: ${event.name}`, error)
+          // Continue processing other events
+        }
+      }
+
+      // Clear the queue after successful processing
+      await chrome.storage.local.set({ [EVENT_QUEUE_STORAGE_KEY]: [] })
+      log.debug(`Successfully flushed ${queue.length} buffered analytics events`)
+    } catch (error) {
+      log.error('Error flushing queued events:', error)
+    }
+  })
+}
+
+// On background startup – attempt to init PostHog (if consent) and flush queue
+getPostHogBackground().then(flushQueuedEvents)
+
+// Listen for consent changes to (re)initialize PostHog and flush queued events
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && changes.consent) {
+    if (changes.consent.newValue === true) {
+      // Consent granted - initialize PostHog and flush queue
+      getPostHogBackground().then(flushQueuedEvents)
+    } else if (changes.consent.newValue === false) {
+      // Consent declined - reset PostHog instance and clear the queue
+      resetPostHogInstance()
+      chrome.storage.local.set({ [EVENT_QUEUE_STORAGE_KEY]: [] })
+      log.debug('User declined consent - reset PostHog and cleared event queue')
+    }
+  }
+})

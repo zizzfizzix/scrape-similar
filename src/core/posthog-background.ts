@@ -6,15 +6,26 @@ import log from 'loglevel'
 // Import PostHog core library for service workers
 // Posthog needs to be imported this way, otherwise the extension doesn't pass the Chrome Web Store review
 // https://github.com/PostHog/posthog-js/issues/1464#issuecomment-2792093981
+import { getConsentState } from '@/core/consent'
 import { DeviceId, getOrCreateDeviceId } from '@/core/device-id'
 import 'posthog-js/dist/exception-autocapture.js'
 import { PostHog } from 'posthog-js/dist/module.no-external'
 import 'posthog-js/dist/tracing-headers.js'
 
 let posthogInstance: PostHog | null = null
+let initializationPromise: Promise<PostHog | null> | null = null
 
 /**
- * Get PostHog instance for background service worker context
+ * Reset PostHog instance - used when consent is revoked
+ */
+export const resetPostHogInstance = () => {
+  posthogInstance = null
+  initializationPromise = null // Also reset initialization promise
+  log.debug('PostHog background instance reset due to consent revocation')
+}
+
+/**
+ * Get PostHog instance for background service worker context with proper error handling and race condition protection
  * Returns existing instance if already initialized, otherwise creates and returns new instance
  * Returns null if initialization fails or environment variables are missing
  */
@@ -24,53 +35,79 @@ export const getPostHogBackground = async (): Promise<PostHog | null> => {
     return posthogInstance
   }
 
-  try {
-    // Get environment variables (these should be available in service worker context)
-    // In Vite builds, these are replaced at build time
-    const apiKey = import.meta.env.VITE_PUBLIC_POSTHOG_KEY
-    const apiHost = import.meta.env.VITE_PUBLIC_POSTHOG_HOST
+  // If already initializing, return the same promise to prevent concurrent initialization
+  if (initializationPromise) {
+    return initializationPromise
+  }
 
-    if (!apiKey || !apiHost) {
-      log.warn('PostHog API key or host not found in environment variables for background script')
+  // Start initialization
+  initializationPromise = (async (): Promise<PostHog | null> => {
+    // Respect user consent
+    const consentState = await getConsentState()
+    if (consentState !== true) {
+      log.debug('User has not given consent – PostHog will not be initialized (background).')
       return null
     }
 
-    log.debug('Initializing PostHog in background context...')
+    try {
+      // Get environment variables (these should be available in service worker context)
+      // In Vite builds, these are replaced at build time
+      const apiKey = import.meta.env.VITE_PUBLIC_POSTHOG_KEY
+      const apiHost = import.meta.env.VITE_PUBLIC_POSTHOG_HOST
 
-    // Retrieve or generate the device ID from shared storage **before** initializing PostHog
-    const deviceId: DeviceId = await getOrCreateDeviceId()
+      if (!apiKey) {
+        log.warn('PostHog API key or host not found in environment variables for background script')
+        return null
+      }
 
-    // Initialize PostHog instance
-    posthogInstance = new PostHog()
-    posthogInstance.init(apiKey, {
-      // Supply our own device_id to ensure consistent device_id across extensioncontexts
-      get_device_id: (_uuid: string) => deviceId.toString(),
-      api_host: apiHost,
-      // Service worker specific options
-      persistence: 'localStorage', // Use memory persistence in service worker to avoid cookie consent
-      disable_session_recording: true, // Not applicable in service worker
-      disable_surveys: true, // Not applicable in service worker
-      autocapture: false, // Manual tracking only
-      capture_pageview: false, // Not applicable in service worker
-      capture_pageleave: false, // Not applicable in service worker
-      capture_dead_clicks: false, // Not applicable in service worker
-      property_denylist: [
-        '$current_url',
-        '$referrer',
-        '$pathname',
-        '$prev_pageview_pathname',
-        '$session_entry_url',
-        '$session_entry_pathname',
-        '$session_entry_referrer',
-      ],
-    })
+      if (!apiHost) {
+        log.warn('PostHog API host not found in environment variables for background script')
+        return null
+      }
 
-    log.debug('PostHog background service worker initialized successfully')
+      log.debug('Initializing PostHog in background context...')
+
+      // Retrieve or generate the device ID from shared storage **before** initializing PostHog
+      const deviceId: DeviceId = await getOrCreateDeviceId()
+
+      // Initialize PostHog instance
+      const posthogInstance = new PostHog()
+      posthogInstance.init(apiKey, {
+        // Supply our own device_id to ensure consistent device_id across extension contexts
+        get_device_id: (_uuid: string) => deviceId.toString(),
+        api_host: apiHost,
+        persistence: 'localStorage',
+        // Not applicable in service worker
+        disable_session_recording: true,
+        disable_surveys: true,
+        autocapture: false,
+        capture_pageview: false,
+        capture_pageleave: false,
+        capture_dead_clicks: false,
+        property_denylist: [
+          '$current_url',
+          '$referrer',
+          '$pathname',
+          '$prev_pageview_pathname',
+          '$session_entry_url',
+          '$session_entry_pathname',
+          '$session_entry_referrer',
+        ],
+      })
+
+      log.debug('PostHog background service worker initialized successfully')
+      return posthogInstance
+    } catch (error) {
+      log.error('Failed to initialize PostHog in background:', error)
+      return null
+    }
+  })()
+
+  try {
+    posthogInstance = await initializationPromise
     return posthogInstance
-  } catch (error) {
-    log.error('Failed to initialize PostHog in background:', error)
-    // Reset instance so we can try again later
-    posthogInstance = null
-    return null
+  } finally {
+    // Clear the promise after completion (success or failure)
+    initializationPromise = null
   }
 }
