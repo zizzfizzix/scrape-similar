@@ -136,12 +136,8 @@ export const trackEvent = async (
     if (consentState === undefined) {
       // Consent not decided yet (undefined) - queue the event
       await queueEvent({ name: eventName, props: eventProperties, timestamp: Date.now() })
-      log.debug(`Buffered event (consent undecided): ${eventName}`, eventProperties)
       return
     }
-
-    // Consent granted – proceed with normal tracking flow
-    log.debug(`Tracking event in ${context} context: ${eventName}`, eventProperties)
 
     switch (context) {
       case EXTENSION_CONTEXTS.BACKGROUND: {
@@ -161,10 +157,9 @@ export const trackEvent = async (
       case EXTENSION_CONTEXTS.ONBOARDING: {
         if ((window as any).__scrape_similar_posthog) {
           ;(window as any).__scrape_similar_posthog.capture(eventName, eventProperties)
-          log.debug(`Tracked event (UI context): ${eventName}`, eventProperties)
+          log.debug(`Tracked event in ${context} context: ${eventName}`, eventProperties)
         } else {
           await queueEvent({ name: eventName, props: eventProperties, timestamp: Date.now() })
-          log.debug(`Buffered event (PostHog not initialized): ${eventName}`, eventProperties)
         }
         break
       }
