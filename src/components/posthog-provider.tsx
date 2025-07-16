@@ -1,8 +1,8 @@
 import log from 'loglevel'
 // Posthog needs to be imported this way, otherwise the extension doesn't pass the Chrome Web Store review
 // https://github.com/PostHog/posthog-js/issues/1464#issuecomment-2792093981
-import { CONSENT_STORAGE_KEY, getConsentState } from '@/core/consent'
-import { getOrCreateDeviceId } from '@/core/device-id'
+import { ANALYTICS_CONSENT_STORAGE_KEY, getConsentState } from '@/core/consent'
+import { getOrCreateDistinctId } from '@/core/device-id'
 import 'posthog-js/dist/dead-clicks-autocapture.js'
 import 'posthog-js/dist/exception-autocapture.js'
 import { PostHog } from 'posthog-js/dist/module.no-external'
@@ -78,13 +78,15 @@ async function initializePostHog(): Promise<void> {
       log.debug('Initializing PostHog in UI context')
 
       // Retrieve or generate the device ID from shared storage **before** initializing PostHog
-      const deviceId = await getOrCreateDeviceId()
+      const distinctId = await getOrCreateDistinctId()
 
       // Initialize PostHog instance
       const posthogInstance = new PostHog()
       posthogInstance.init(apiKey, {
-        // Supply our own device_id to ensure consistent device_id across extension contexts
-        get_device_id: (_uuid: string) => deviceId.toString(),
+        // Supply our own distinct_id to ensure consistent distinct_id across extension contexts
+        bootstrap: {
+          distinctID: distinctId.toString(),
+        },
         api_host: apiHost,
         persistence: 'localStorage',
         // Disable external loading to be compatible with Manifest V3
@@ -130,13 +132,13 @@ export const PostHogWrapper: React.FC<PostHogWrapperProps> = ({ children }) => {
 
     // Create stable function reference for consent change handler
     const handleConsentChange = (changes: any, area: string) => {
-      if (area === 'local' && changes[CONSENT_STORAGE_KEY]) {
-        if (changes[CONSENT_STORAGE_KEY].newValue === true) {
+      if (area === 'local' && changes[ANALYTICS_CONSENT_STORAGE_KEY]) {
+        if (changes[ANALYTICS_CONSENT_STORAGE_KEY].newValue === true) {
           // Only initialize if not already initialized
           if (!isPostHogInitialized()) {
             initializePostHog()
           }
-        } else if (changes[CONSENT_STORAGE_KEY].newValue === false) {
+        } else if (changes[ANALYTICS_CONSENT_STORAGE_KEY].newValue === false) {
           // Consent revoked - reset PostHog UI instance
           resetPostHogUI()
         }

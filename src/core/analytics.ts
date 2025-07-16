@@ -9,7 +9,7 @@ import { MESSAGE_TYPES } from '@/core/types'
 import { Mutex } from 'async-mutex'
 import log from 'loglevel'
 
-export const EVENT_QUEUE_STORAGE_KEY = 'eventQueue'
+export const EVENT_QUEUE_STORAGE_KEY = 'event_queue'
 export const MAX_QUEUED_EVENTS = 1000 // Prevent unbounded growth
 
 // Mutex to prevent concurrent queue operations

@@ -7,7 +7,7 @@ import log from 'loglevel'
 // Posthog needs to be imported this way, otherwise the extension doesn't pass the Chrome Web Store review
 // https://github.com/PostHog/posthog-js/issues/1464#issuecomment-2792093981
 import { getConsentState } from '@/core/consent'
-import { DeviceId, getOrCreateDeviceId } from '@/core/device-id'
+import { DistinctId, getOrCreateDistinctId } from '@/core/device-id'
 import 'posthog-js/dist/exception-autocapture.js'
 import { PostHog } from 'posthog-js/dist/module.no-external'
 import 'posthog-js/dist/tracing-headers.js'
@@ -68,13 +68,15 @@ export const getPostHogBackground = async (): Promise<PostHog | null> => {
       log.debug('Initializing PostHog in background context...')
 
       // Retrieve or generate the device ID from shared storage **before** initializing PostHog
-      const deviceId: DeviceId = await getOrCreateDeviceId()
+      const distinctId: DistinctId = await getOrCreateDistinctId()
 
       // Initialize PostHog instance
       const posthogInstance = new PostHog()
       posthogInstance.init(apiKey, {
-        // Supply our own device_id to ensure consistent device_id across extension contexts
-        get_device_id: (_uuid: string) => deviceId.toString(),
+        // Supply our own distinct_id to ensure consistent distinct_id across extension contexts
+        bootstrap: {
+          distinctID: distinctId.toString(),
+        },
         api_host: apiHost,
         persistence: 'localStorage',
         // Not applicable in service worker
