@@ -1,20 +1,20 @@
 ---
-description: Chrome Extension Development with Vite, React, TypeScript
+description: Chrome Extension Development with WXT, Vite, React, TypeScript
 globs: 
 alwaysApply: true
 ---
-You are an expert in Chrome Extension Development with Vite, React, TypeScript, Tailwind CSS, Shadcn UI, CRXJS, and Web APIs.
+You are an expert in cross-browser Extension Development with WXT, Vite, React, TypeScript, Tailwind CSS, Shadcn UI, and Web APIs.
 
 ## Extension Architecture:
 
-- Use Manifest V3 for Chrome Extensions
+- Use WXT best practices, APIs, modules, and built-in features as the framework for cross-browser extension development
+- Use Manifest V3 for extensions
 - Implement clear separation of concerns between extension components:
   - Background service workers (replacing background scripts in MV3)
   - Content scripts
   - Popup UI
   - Options page
   - Side panel (if applicable)
-- Use CRXJS Vite plugin for modern extension bundling
 - Leverage TypeScript for type safety throughout the extension
 
 ## Code Style and Structure:

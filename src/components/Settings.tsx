@@ -2,7 +2,6 @@ import { Button } from '@/components/ui/button'
 import { ModeToggle } from '@/components/ui/mode-toggle'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { ANALYTICS_EVENTS, trackEvent } from '@/core/analytics'
 import log from 'loglevel'
 import { Clipboard } from 'lucide-react'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
@@ -31,32 +30,24 @@ export const Settings = React.memo(
 
     // Load debug unlock state from storage on mount
     useEffect(() => {
-      if (chrome?.storage?.sync) {
-        chrome.storage.sync.get(['debugMode', 'debugUnlocked'], (result) => {
-          setShowDebugRow(!!result.debugMode || !!result.debugUnlocked)
+      storage
+        .getItems(['sync:debugMode', 'sync:debugUnlocked'])
+        .then(([debugModeStored, debugUnlocked]) => {
+          setShowDebugRow(!!debugModeStored || !!debugUnlocked)
         })
-      }
     }, [])
 
     // Listen for debug state changes in storage
     useEffect(() => {
-      if (!chrome?.storage?.sync) return
-
-      const handleStorageChange = (
-        changes: { [key: string]: chrome.storage.StorageChange },
-        areaName: string,
-      ) => {
-        if (areaName === 'sync' && (changes.debugMode || changes.debugUnlocked)) {
-          const debugMode = changes.debugMode?.newValue || false
-          const debugUnlocked = changes.debugUnlocked?.newValue || false
-          setShowDebugRow(debugMode || debugUnlocked)
-        }
-      }
-
-      chrome.storage.onChanged.addListener(handleStorageChange)
-
+      const unwatchDebugMode = storage.watch<boolean>('sync:debugMode', (val) => {
+        setShowDebugRow((prev) => (val ? true : prev))
+      })
+      const unwatchDebugUnlocked = storage.watch<boolean>('sync:debugUnlocked', (val) => {
+        setShowDebugRow((prev) => (val ? true : prev))
+      })
       return () => {
-        chrome.storage.onChanged.removeListener(handleStorageChange)
+        unwatchDebugMode()
+        unwatchDebugUnlocked()
       }
     }, [])
 
@@ -79,9 +70,7 @@ export const Settings = React.memo(
         }
 
         // Save debug unlock state to storage
-        if (chrome?.storage?.sync) {
-          chrome.storage.sync.set({ debugUnlocked: true })
-        }
+        storage.setItem('sync:debugUnlocked', true)
 
         // Track hidden settings unlocked
         trackEvent(ANALYTICS_EVENTS.HIDDEN_SETTINGS_UNLOCK)
@@ -93,8 +82,8 @@ export const Settings = React.memo(
       if (onDebugModeChange) onDebugModeChange(checked)
 
       // Clear unlock state when debug mode is turned off
-      if (!checked && chrome?.storage?.sync) {
-        chrome.storage.sync.remove('debugUnlocked')
+      if (!checked) {
+        storage.removeItem('sync:debugUnlocked')
       }
 
       // Track debug mode toggle
@@ -114,7 +103,7 @@ export const Settings = React.memo(
 
     const handleResetSystemPresets = useCallback(async () => {
       try {
-        await chrome.storage.sync.remove('system_preset_status')
+        await storage.removeItem('sync:system_preset_status')
         trackEvent(ANALYTICS_EVENTS.SYSTEM_PRESETS_RESET)
         if (onResetSystemPresets) onResetSystemPresets()
       } catch (error) {

@@ -21,10 +21,8 @@ import {
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { ANALYTICS_EVENTS, trackEvent } from '@/core/analytics'
-import { SYSTEM_PRESETS } from '@/core/system_presets'
-import { MESSAGE_TYPES, Preset, ScrapeConfig, SelectionOptions } from '@/core/types'
 import log from 'loglevel'
+
 import {
   Check,
   ChevronsUpDown,
@@ -220,14 +218,14 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
 
     setGuessButtonState('generating')
     try {
-      chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
+      browser.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
         const tab = tabs[0]
         if (!tab?.id) {
           setGuessButtonState('failure')
           setTimeout(() => setGuessButtonState('idle'), 1500)
           return
         }
-        chrome.tabs.sendMessage(
+        browser.tabs.sendMessage(
           tab.id,
           {
             type: MESSAGE_TYPES.GUESS_CONFIG_FROM_SELECTOR,

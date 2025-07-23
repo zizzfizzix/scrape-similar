@@ -1,6 +1,6 @@
 # Ignore artifacts:
-build
-coverage
+.wxt
+.output
 node_modules
 pnpm-lock.yaml
 pnpm-workspace.yaml

@@ -1,8 +1,6 @@
 import log from 'loglevel'
 // Posthog needs to be imported this way, otherwise the extension doesn't pass the Chrome Web Store review
 // https://github.com/PostHog/posthog-js/issues/1464#issuecomment-2792093981
-import { ANALYTICS_CONSENT_STORAGE_KEY, getConsentState } from '@/core/consent'
-import { getOrCreateDistinctId } from '@/core/device-id'
 import 'posthog-js/dist/dead-clicks-autocapture.js'
 import 'posthog-js/dist/exception-autocapture.js'
 import { PostHog } from 'posthog-js/dist/module.no-external'
@@ -130,39 +128,29 @@ export const PostHogWrapper: React.FC<PostHogWrapperProps> = ({ children }) => {
   useEffect(() => {
     let isMounted = true
 
-    // Create stable function reference for consent change handler
-    const handleConsentChange = (changes: any, area: string) => {
-      if (area === 'local' && changes[ANALYTICS_CONSENT_STORAGE_KEY]) {
-        if (changes[ANALYTICS_CONSENT_STORAGE_KEY].newValue === true) {
+    const unwatchAnalyticsConsent = storage.watch<boolean>(
+      `local:${ANALYTICS_CONSENT_STORAGE_KEY}`,
+      (value) => {
+        if (value === true) {
           // Only initialize if not already initialized
           if (!isPostHogInitialized()) {
             initializePostHog()
           }
-        } else if (changes[ANALYTICS_CONSENT_STORAGE_KEY].newValue === false) {
+        } else if (value === false) {
           // Consent revoked - reset PostHog UI instance
           resetPostHogUI()
         }
-      }
-    }
+      },
+    )
 
     if (isMounted) {
       initializePostHog()
     }
 
-    try {
-      chrome.storage.onChanged.addListener(handleConsentChange)
-    } catch (_) {
-      // Ignore if chrome is not available (e.g., during tests)
-    }
-
     // Cleanup function
     return () => {
       isMounted = false
-      try {
-        chrome.storage.onChanged.removeListener(handleConsentChange)
-      } catch (_) {
-        /* noop */
-      }
+      unwatchAnalyticsConsent()
       if (isPostHogInitialized()) {
         delete (window as any).__scrape_similar_posthog
         log.debug('PostHog instance removed from window')

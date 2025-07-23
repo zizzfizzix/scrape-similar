@@ -6,7 +6,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { ANALYTICS_EVENTS, trackEvent } from '@/core/analytics'
+import { ANALYTICS_EVENTS, trackEvent } from '@/utils/analytics'
 
 export function ModeToggle() {
   const { theme, setTheme } = useTheme()
