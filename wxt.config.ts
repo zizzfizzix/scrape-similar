@@ -5,6 +5,9 @@ import { defineConfig, type WxtViteConfig } from 'wxt'
 // See https://wxt.dev/api/config.html
 export default defineConfig({
   srcDir: 'src',
+  webExt: {
+    chromiumArgs: ['--user-data-dir=./.wxt/chrome-data'],
+  },
   manifest: ({ mode }) => {
     // Google APIs domains for CSP
     const googleDomains = [
