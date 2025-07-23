@@ -104,12 +104,29 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
   // Add ref for main selector input
   const mainSelectorInputRef = useRef<HTMLInputElement>(null)
 
+  /**
+   * Local draft state for the main selector input. We keep the user’s typing
+   * here and only propagate it to the parent (handleConfigChange) when the
+   * input loses focus or the user presses Enter. This prevents a flurry of
+   * UPDATE_SIDEPANEL_DATA messages for every keystroke.
+   */
+  const [mainSelectorDraft, setMainSelectorDraft] = useState(config.mainSelector)
+
+  // Keep draft in sync with external changes (e.g. preset load, storage sync)
+  useEffect(() => {
+    setMainSelectorDraft(config.mainSelector)
+  }, [config.mainSelector])
+
   // Add ref and state for dynamic end adornment width
   const [endAdornmentWidth, setEndAdornmentWidth] = useState(0)
   const endAdornmentRef = useRef<HTMLDivElement>(null)
 
-  // Derived: is mainSelector valid (highlight returned a number and no error)
-  const isMainSelectorValid = typeof highlightMatchCount === 'number' && !highlightError
+  // Derived flags
+  const hasUncommittedChanges = mainSelectorDraft !== config.mainSelector
+
+  // Show highlight/error badges only when selector is committed
+  const isMainSelectorValid =
+    !hasUncommittedChanges && typeof highlightMatchCount === 'number' && !highlightError
 
   // Debug logging for validation state changes
   useEffect(() => {
@@ -159,12 +176,14 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
     }
   }, [highlightError, highlightMatchCount])
 
-  // Handle main selector change
-  const handleMainSelectorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onChange({
-      ...config,
-      mainSelector: e.target.value,
-    })
+  // Commit the draft main selector to parent state and trigger highlight
+  const commitMainSelector = (value: string) => {
+    if (value !== config.mainSelector) {
+      onChange({ ...config, mainSelector: value })
+    }
+    if (value.trim()) {
+      onHighlight(value)
+    }
   }
 
   // Handle column name change
@@ -470,17 +489,16 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
           <Input
             type="text"
             id="mainSelector"
-            value={config.mainSelector}
-            onChange={handleMainSelectorChange}
-            onBlur={() => {
-              if (config.mainSelector) {
-                onHighlight(config.mainSelector)
-              }
-            }}
+            value={mainSelectorDraft}
+            onChange={(e) => setMainSelectorDraft(e.target.value)}
+            onBlur={() => commitMainSelector(mainSelectorDraft)}
             placeholder="Enter XPath selector"
             ref={mainSelectorInputRef}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && config.mainSelector.trim()) {
+              if (e.key === 'Enter' && mainSelectorDraft.trim()) {
+                // Commit any un-saved draft first, then scrape
+                commitMainSelector(mainSelectorDraft)
+                // blur after commit so highlight badge updates correctly
                 mainSelectorInputRef.current?.blur()
                 onScrape()
               }
@@ -492,7 +510,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
             ref={endAdornmentRef}
             className="absolute inset-y-0 right-0 flex items-center gap-x-1 pr-1"
           >
-            {highlightError ? (
+            {hasUncommittedChanges ? null : highlightError ? (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <span>
@@ -508,16 +526,14 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                   {highlightError}
                 </TooltipContent>
               </Tooltip>
-            ) : (
-              isMainSelectorValid && (
-                <Badge
-                  variant={highlightMatchCount === 0 ? 'destructive' : 'default'}
-                  className="flex items-center justify-center min-w-[1.5rem] h-6 px-1.5 py-0 text-xs"
-                >
-                  {highlightMatchCount}
-                </Badge>
-              )
-            )}
+            ) : isMainSelectorValid ? (
+              <Badge
+                variant={highlightMatchCount === 0 ? 'destructive' : 'default'}
+                className="flex items-center justify-center min-w-[1.5rem] h-6 px-1.5 py-0 text-xs"
+              >
+                {highlightMatchCount}
+              </Badge>
+            ) : null}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button

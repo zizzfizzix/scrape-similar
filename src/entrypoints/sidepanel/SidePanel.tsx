@@ -281,8 +281,8 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
     setIsExporting(false)
 
     // Restore highlight state if present
-    setHighlightMatchCount(highlightMatchCount)
-    setHighlightError(highlightError)
+    setHighlightMatchCount(highlightMatchCount ?? undefined)
+    setHighlightError(highlightError ?? undefined)
   }, [])
 
   // Initialize: load presets, listen for messages, AND listen for tab activation
@@ -470,15 +470,18 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
           setContentScriptCommsError(
             'Could not connect to the content script. Please reload the page or ensure the extension is enabled for this site.',
           )
-        } else if (response && response.success === false && response.error) {
+          return
+        }
+
+        if (response && response.success === false && response.error) {
           saveSidePanelState(targetTabId, {
-            highlightMatchCount: undefined,
+            highlightMatchCount: null,
             highlightError: response.error,
           })
         } else if (response && typeof response.matchCount === 'number') {
           saveSidePanelState(targetTabId, {
             highlightMatchCount: response.matchCount,
-            highlightError: undefined,
+            highlightError: null,
           })
         }
       },
