@@ -19,17 +19,26 @@ jobs:
         with:
           fetch-depth: 0
 
+      - uses: pnpm/action-setup@v4
+        name: Install pnpm
+        with:
+          version: 10
+          run_install: false
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          cache: 'npm'
+          node-version: 22
+          cache: 'pnpm'
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install
+
+      - name: Format check
+        run: pnpm fmt-check
 
       - name: Build and create extension package
-        run: npm run zip
+        run: pnpm zip
 
       - name: Generate Release Notes using conventional-changelog
         id: generate_release_notes
