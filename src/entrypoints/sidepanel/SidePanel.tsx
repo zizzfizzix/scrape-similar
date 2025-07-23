@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,13 +13,47 @@ import slugify from 'slugify'
 import { toast } from 'sonner'
 
 // Simple splash screen component
-const SplashScreen: React.FC = () => (
+const SplashScreen: React.FC<{ tabUrl: string }> = ({ tabUrl }) => (
   <div className="flex flex-1 items-center justify-center w-full min-w-0">
     <div className="flex flex-col items-center justify-center text-center w-full max-w-md mx-auto">
       <h2 className="text-2xl mb-4">Unsupported URL</h2>
       <p className="text-lg mb-2">
-        For security reasons this extension can't work on chrome:// and Chrome Web Store URLs.
+        For security reasons this extension can't work on{' '}
+        <span className="italic">{getInjectableUrlPattern(tabUrl)}</span> pages.
       </p>
+      <p className="text-lg mb-2">Try one of these websites:</p>
+      <div className="flex flex-col items-left justify-between gap-2 h-full">
+        <a href="https://www.wikipedia.org" target="_blank" rel="noopener">
+          <Card className="flex flex-row items-center gap-2 p-2 w-full h-full">
+            <img src="/img/favicon-wikipedia.ico" alt="Wikipedia" className="w-4 h-4" /> Wikipedia
+          </Card>
+        </a>
+        <a href="https://www.ourworldindata.org" target="_blank" rel="noopener">
+          <Card className="flex flex-row items-center gap-2 p-2 w-full h-full">
+            <img
+              src="/img/favicon-ourworldindata.ico"
+              alt="Our World in Data"
+              className="w-4 h-4"
+            />{' '}
+            Our World in Data
+          </Card>
+        </a>
+        <a href="https://www.cia.gov/the-world-factbook/" target="_blank" rel="noopener">
+          <Card className="flex flex-row items-center gap-2 p-2 w-full h-full">
+            <img
+              src="/img/favicon-cia-world-factbook.webp"
+              alt="CIA World Factbook"
+              className="w-4 h-4"
+            />{' '}
+            CIA World Factbook
+          </Card>
+        </a>
+        <a href="https://www.imdb.com" target="_blank" rel="noopener">
+          <Card className="flex flex-row items-center gap-2 p-2 w-full h-full">
+            <img src="/img/favicon-imdb.png" alt="IMDb" className="w-4 h-4" /> IMDb
+          </Card>
+        </a>
+      </div>
     </div>
   </div>
 )
@@ -727,7 +762,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
     return (
       <div className="flex flex-col h-screen font-sans min-w-0 max-w-full w-full box-border">
         <main className="flex-1 flex min-w-0 w-full">
-          <SplashScreen />
+          <SplashScreen tabUrl={tabUrl} />
         </main>
         <Footer
           showSettings={true}
