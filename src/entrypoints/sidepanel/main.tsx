@@ -16,11 +16,11 @@ if (!appElement) {
 
     // On startup, set log level and state from storage
     useEffect(() => {
-      storage.getItem<boolean>('sync:debugMode').then((val) => {
+      storage.getItem<boolean>('local:debugMode').then((val) => {
         setDebugMode(!!val)
         log.setLevel(val ? 'trace' : 'error')
       })
-      const unwatch = storage.watch<boolean>('sync:debugMode', (val) => {
+      const unwatch = storage.watch<boolean>('local:debugMode', (val) => {
         setDebugMode(!!val)
         log.setLevel(val ? 'trace' : 'error')
       })
@@ -30,7 +30,7 @@ if (!appElement) {
     const handleDebugModeChange = (enabled: boolean) => {
       setDebugMode(enabled)
       log.setLevel(enabled ? 'trace' : 'error')
-      storage.setItem('sync:debugMode', enabled)
+      storage.setItem('local:debugMode', enabled)
     }
 
     return (

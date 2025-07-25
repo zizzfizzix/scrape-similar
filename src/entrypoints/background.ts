@@ -5,7 +5,7 @@ log.setDefaultLevel('error')
 
 export default defineBackground(() => {
   // Initialise log level from persistent storage
-  storage.getItem<boolean>('sync:debugMode').then((debug) => {
+  storage.getItem<boolean>('local:debugMode').then((debug) => {
     log.setLevel(debug ? 'trace' : 'error')
   })
 
@@ -31,7 +31,7 @@ export default defineBackground(() => {
   }
 
   // React to debugMode changes
-  storage.watch<boolean>('sync:debugMode', (value) => {
+  storage.watch<boolean>('local:debugMode', (value) => {
     log.setLevel(value ? 'trace' : 'error')
     broadcastDebugMode(!!value)
   })
@@ -351,7 +351,7 @@ export default defineBackground(() => {
         }
         case MESSAGE_TYPES.GET_DEBUG_MODE: {
           log.debug(`Content script in tab ${tabId} requested debug mode status`)
-          const debugSetting = await storage.getItem<boolean>('sync:debugMode')
+          const debugSetting = await storage.getItem<boolean>('local:debugMode')
           sendResponse({ success: true, debugMode: !!debugSetting })
           break
         }

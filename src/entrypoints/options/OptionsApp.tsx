@@ -8,12 +8,12 @@ const OptionsApp: React.FC = () => {
 
   // Load debug mode from storage on mount
   useEffect(() => {
-    storage.getItem<boolean>('sync:debugMode').then((val) => {
+    storage.getItem<boolean>('local:debugMode').then((val) => {
       setDebugMode(!!val)
       log.setLevel(val ? 'trace' : 'error')
     })
 
-    const unwatch = storage.watch<boolean>('sync:debugMode', (val) => {
+    const unwatch = storage.watch<boolean>('local:debugMode', (val) => {
       setDebugMode(!!val)
       log.setLevel(val ? 'trace' : 'error')
     })
@@ -25,7 +25,7 @@ const OptionsApp: React.FC = () => {
 
   const handleDebugModeChange = (enabled: boolean) => {
     setDebugMode(enabled)
-    storage.setItem('sync:debugMode', enabled)
+    storage.setItem('local:debugMode', enabled)
   }
 
   const handleTitleClick = () => {

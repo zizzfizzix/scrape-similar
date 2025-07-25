@@ -11,7 +11,6 @@ interface SettingsProps {
   debugMode?: boolean
   onDebugModeChange?: (enabled: boolean) => void
   className?: string
-  onTitleClick?: () => void
   ref?: React.Ref<{ unlockDebugMode: () => void }>
 }
 
@@ -21,7 +20,6 @@ export const Settings = React.memo(
     debugMode = false,
     onDebugModeChange,
     className,
-    onTitleClick,
     ref,
   }: SettingsProps) => {
     const [showDebugRow, setShowDebugRow] = useState(debugMode)
@@ -32,18 +30,18 @@ export const Settings = React.memo(
     // Load debug unlock state from storage on mount
     useEffect(() => {
       storage
-        .getItems(['sync:debugMode', 'sync:debugUnlocked'])
-        .then(([debugModeStored, debugUnlocked]) => {
-          setShowDebugRow(!!debugModeStored || !!debugUnlocked)
+        .getItems(['local:debugMode', 'local:debugUnlocked'])
+        .then(([debugMode, debugUnlocked]) => {
+          setShowDebugRow(!!debugMode || !!debugUnlocked)
         })
     }, [])
 
     // Listen for debug state changes in storage
     useEffect(() => {
-      const unwatchDebugMode = storage.watch<boolean>('sync:debugMode', (val) => {
+      const unwatchDebugMode = storage.watch<boolean>('local:debugMode', (val) => {
         setShowDebugRow((prev) => (val ? true : prev))
       })
-      const unwatchDebugUnlocked = storage.watch<boolean>('sync:debugUnlocked', (val) => {
+      const unwatchDebugUnlocked = storage.watch<boolean>('local:debugUnlocked', (val) => {
         setShowDebugRow((prev) => (val ? true : prev))
       })
       return () => {
@@ -71,7 +69,7 @@ export const Settings = React.memo(
         }
 
         // Save debug unlock state to storage
-        storage.setItem('sync:debugUnlocked', true)
+        storage.setItem('local:debugUnlocked', true)
 
         // Track hidden settings unlocked
         trackEvent(ANALYTICS_EVENTS.HIDDEN_SETTINGS_UNLOCK)
@@ -84,7 +82,7 @@ export const Settings = React.memo(
 
       // Clear unlock state when debug mode is turned off
       if (!checked) {
-        storage.removeItem('sync:debugUnlocked')
+        storage.removeItem('local:debugUnlocked')
       }
 
       // Track debug mode toggle

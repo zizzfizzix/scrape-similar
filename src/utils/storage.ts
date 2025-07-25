@@ -65,7 +65,7 @@ export const initializeStorage = async (): Promise<void> => {
     // Check if we're in development mode
     const isDev = process.env.NODE_ENV === 'development'
     if (isDev) {
-      await storage.setItem('sync:debugMode', isDev)
+      await storage.setItem('local:debugMode', isDev)
       log.debug(`Debug setting forced to ${isDev}`)
     }
   } catch (error) {
