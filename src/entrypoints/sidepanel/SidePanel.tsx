@@ -764,9 +764,11 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
   if (tabUrl !== null && !isInjectableUrl(tabUrl)) {
     return (
       <div className="flex flex-col h-screen font-sans min-w-0 max-w-full w-full box-border">
-        <main className="flex-1 flex min-w-0 w-full">
-          <SplashScreen tabUrl={tabUrl} />
-        </main>
+        <ConsentWrapper>
+          <main className="flex-1 flex min-w-0 w-full">
+            <SplashScreen tabUrl={tabUrl} />
+          </main>
+        </ConsentWrapper>
         <Footer
           showSettings={true}
           onResetSystemPresets={handleResetSystemPresets}
@@ -780,75 +782,77 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
   return (
     <div className="flex flex-col h-screen font-sans overflow-visible min-w-0 max-w-full w-full box-border">
       <Toaster />
-      <main className="flex-1 overflow-y-auto p-4 w-full min-w-0 box-border">
-        <div className="flex flex-col gap-10 w-full min-w-0 box-border">
-          <ConfigForm
-            config={config}
-            onChange={handleConfigChange}
-            onScrape={handleScrape}
-            onHighlight={handleHighlight}
-            isLoading={isScraping}
-            initialOptions={initialOptions}
-            presets={presets}
-            onLoadPreset={handleLoadPreset}
-            onSavePreset={handleSavePreset}
-            onDeletePreset={handleDeletePreset}
-            showPresets={showPresets}
-            setShowPresets={setShowPresets}
-            lastScrapeRowCount={lastScrapeRowCount}
-            onClearLastScrapeRowCount={() => setLastScrapeRowCount(null)}
-            highlightMatchCount={highlightMatchCount}
-            highlightError={highlightError}
-          />
-          {scrapeResult && scrapeResult.data.length > 0 && (
-            <div className="flex flex-col gap-6" ref={dataTableRef}>
-              <div className="flex items-center justify-between gap-4">
-                <h2 className="text-2xl font-bold">Extracted Data</h2>
-                <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline">Export</Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem
-                      onSelect={(e) => {
-                        e.preventDefault()
-                        if (!isExporting) handleExport()
-                      }}
-                      disabled={isExporting}
-                    >
-                      {isExporting ? 'Exporting…' : 'Export to Google Sheets'}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onSelect={(e) => {
-                        e.preventDefault()
-                        handleCsvExport()
-                      }}
-                    >
-                      Save as CSV
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onSelect={(e) => {
-                        e.preventDefault()
-                        handleCopyTsv()
-                      }}
-                    >
-                      Copy to clipboard
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+      <ConsentWrapper>
+        <main className="flex-1 overflow-y-auto p-4 w-full min-w-0 box-border">
+          <div className="flex flex-col gap-10 w-full min-w-0 box-border">
+            <ConfigForm
+              config={config}
+              onChange={handleConfigChange}
+              onScrape={handleScrape}
+              onHighlight={handleHighlight}
+              isLoading={isScraping}
+              initialOptions={initialOptions}
+              presets={presets}
+              onLoadPreset={handleLoadPreset}
+              onSavePreset={handleSavePreset}
+              onDeletePreset={handleDeletePreset}
+              showPresets={showPresets}
+              setShowPresets={setShowPresets}
+              lastScrapeRowCount={lastScrapeRowCount}
+              onClearLastScrapeRowCount={() => setLastScrapeRowCount(null)}
+              highlightMatchCount={highlightMatchCount}
+              highlightError={highlightError}
+            />
+            {scrapeResult && scrapeResult.data.length > 0 && (
+              <div className="flex flex-col gap-6" ref={dataTableRef}>
+                <div className="flex items-center justify-between gap-4">
+                  <h2 className="text-2xl font-bold">Extracted Data</h2>
+                  <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline">Export</Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onSelect={(e) => {
+                          e.preventDefault()
+                          if (!isExporting) handleExport()
+                        }}
+                        disabled={isExporting}
+                      >
+                        {isExporting ? 'Exporting…' : 'Export to Google Sheets'}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onSelect={(e) => {
+                          e.preventDefault()
+                          handleCsvExport()
+                        }}
+                      >
+                        Save as CSV
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onSelect={(e) => {
+                          e.preventDefault()
+                          handleCopyTsv()
+                        }}
+                      >
+                        Copy to clipboard
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+                <DataTable
+                  data={scrapeResult.data || []}
+                  onRowHighlight={handleRowHighlight}
+                  config={config}
+                  columnOrder={scrapeResult.columnOrder}
+                  showEmptyRows={showEmptyRows}
+                  onShowEmptyRowsChange={setShowEmptyRows}
+                />
               </div>
-              <DataTable
-                data={scrapeResult.data || []}
-                onRowHighlight={handleRowHighlight}
-                config={config}
-                columnOrder={scrapeResult.columnOrder}
-                showEmptyRows={showEmptyRows}
-                onShowEmptyRowsChange={setShowEmptyRows}
-              />
-            </div>
-          )}
-        </div>
-      </main>
+            )}
+          </div>
+        </main>
+      </ConsentWrapper>
       <Footer
         showSettings={true}
         onResetSystemPresets={handleResetSystemPresets}

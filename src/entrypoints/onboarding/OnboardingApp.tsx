@@ -60,6 +60,7 @@ const Logo: React.FC<{ className?: string }> = ({ className = 'h-12 w-12' }) => 
 const OnboardingApp: React.FC = () => {
   const [currentSlide, setCurrentSlide] = useState(0)
   const [platform, setPlatform] = useState<'mac' | 'win'>('win')
+  const { loading: isLoading, state: consentState, setConsent } = useConsent()
 
   useEffect(() => {
     // Detect platform
@@ -67,21 +68,24 @@ const OnboardingApp: React.FC = () => {
     setPlatform(isMac ? 'mac' : 'win')
   }, [])
 
-  // Track card views when slide changes
+  // Track card views when slide changes (after consent decision)
   useEffect(() => {
-    const currentSlideData = slides[currentSlide]
-    trackEvent(ANALYTICS_EVENTS.ONBOARDING_CARD_VIEW, {
-      slide_number: currentSlide + 1,
-      slide_id: currentSlideData.id,
-      slide_title: currentSlideData.title,
-      slide_description: currentSlideData.description,
-      is_first_slide: currentSlide === 0,
-      is_last_slide: currentSlide === slides.length - 1,
-      total_slides: slides.length,
-    })
-  }, [currentSlide])
+    if (consentState !== undefined) {
+      const currentSlideData = slides[currentSlide]
+      trackEvent(ANALYTICS_EVENTS.ONBOARDING_CARD_VIEW, {
+        slide_number: currentSlide + 1,
+        slide_id: currentSlideData.id,
+        slide_title: currentSlideData.title,
+        slide_description: currentSlideData.description,
+        is_first_slide: currentSlide === 0,
+        is_last_slide: currentSlide === slides.length - 1,
+        total_slides: slides.length,
+      })
+    }
+  }, [currentSlide, consentState])
 
   const handleNext = () => {
+    if (consentState === undefined) return
     if (currentSlide < slides.length - 1) {
       const nextSlide = currentSlide + 1
       setCurrentSlide(nextSlide)
@@ -108,6 +112,7 @@ const OnboardingApp: React.FC = () => {
   }
 
   const handlePrevious = () => {
+    if (consentState === undefined) return
     if (currentSlide > 0) {
       const prevSlide = currentSlide - 1
       setCurrentSlide(prevSlide)
@@ -124,6 +129,11 @@ const OnboardingApp: React.FC = () => {
         },
       })
     }
+  }
+
+  const onConsentChange = async (accepted: boolean) => {
+    await setConsent(accepted)
+    setCurrentSlide(0)
   }
 
   const slides: OnboardingSlide[] = [
@@ -430,6 +440,44 @@ const OnboardingApp: React.FC = () => {
     },
   ]
 
+  // Wait for consent state to load
+  if (isLoading) {
+    return null
+  }
+
+  // Show consent form first
+  if (consentState === undefined) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        <div className="flex-1 p-4">
+          <div className="w-full max-w-2xl mx-auto pt-8">
+            <div className="text-center mb-8">
+              <div className="flex justify-center mb-4">
+                <Logo className="h-16 w-16" />
+              </div>
+              <h1 className="text-3xl font-bold mb-2">Welcome to Scrape Similar</h1>
+              <p className="text-lg text-muted-foreground">
+                Extract data from websites into spreadsheets with ease
+              </p>
+            </div>
+
+            <Card className="relative">
+              <CardHeader className="pb-4">
+                <ConsentCard onDecision={onConsentChange} />
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <ConsentContent />
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        <Footer />
+      </div>
+    )
+  }
+
+  // Show regular onboarding after consent decision
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <div className="flex-1 p-4">

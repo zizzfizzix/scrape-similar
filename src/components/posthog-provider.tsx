@@ -125,38 +125,28 @@ async function initializePostHog(): Promise<void> {
 }
 
 export const PostHogWrapper: React.FC<PostHogWrapperProps> = ({ children }) => {
+  const { loading, state: consentState } = useConsent()
+
+  // Whenever consent changes, (init / reset) PostHog
   useEffect(() => {
-    let isMounted = true
+    if (loading) return
 
-    const unwatchAnalyticsConsent = storage.watch<boolean>(
-      `local:${ANALYTICS_CONSENT_STORAGE_KEY}`,
-      (value) => {
-        if (value === true) {
-          // Only initialize if not already initialized
-          if (!isPostHogInitialized()) {
-            initializePostHog()
-          }
-        } else if (value === false) {
-          // Consent revoked - reset PostHog UI instance
-          resetPostHogUI()
-        }
-      },
-    )
-
-    if (isMounted) {
+    if (consentState === true && !isPostHogInitialized()) {
       initializePostHog()
+    } else if (consentState === false) {
+      resetPostHogUI()
+    } else if (consentState === undefined) {
+      // undecided – ensure PostHog is reset
+      resetPostHogUI()
     }
 
-    // Cleanup function
     return () => {
-      isMounted = false
-      unwatchAnalyticsConsent()
       if (isPostHogInitialized()) {
         delete (window as any).__scrape_similar_posthog
         log.debug('PostHog instance removed from window')
       }
     }
-  }, []) // Empty dependency array since all functions are defined within the effect
+  }, [loading, consentState])
 
   return <>{children}</>
 }

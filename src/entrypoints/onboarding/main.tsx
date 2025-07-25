@@ -6,9 +6,11 @@ import ReactDOM from 'react-dom/client'
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ThemeProvider>
-      <PostHogWrapper>
-        <OnboardingApp />
-      </PostHogWrapper>
+      <ConsentProvider>
+        <PostHogWrapper>
+          <OnboardingApp />
+        </PostHogWrapper>
+      </ConsentProvider>
     </ThemeProvider>
   </React.StrictMode>,
 )

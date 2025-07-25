@@ -25,6 +25,7 @@ export const Settings = React.memo(
     ref,
   }: SettingsProps) => {
     const [showDebugRow, setShowDebugRow] = useState(debugMode)
+    const { loading: consentLoading, state: consentState, setConsent } = useConsent()
     const clickCountRef = useRef(0)
     const timerRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -111,6 +112,10 @@ export const Settings = React.memo(
       }
     }, [onResetSystemPresets])
 
+    const handleAnalyticsToggle = (checked: boolean) => {
+      setConsent(checked)
+    }
+
     // Expose the unlock function via ref
     React.useImperativeHandle(ref, () => ({
       unlockDebugMode: handleTitleClick,
@@ -153,6 +158,12 @@ export const Settings = React.memo(
             Reset
           </Button>
         </div>
+        {!consentLoading && (
+          <div className="flex items-center justify-between gap-4">
+            <span className="text-sm font-medium">Anonymous analytics</span>
+            <Switch checked={consentState === true} onCheckedChange={handleAnalyticsToggle} />
+          </div>
+        )}
         {showDebugRow && (
           <div className="flex items-center justify-between gap-4">
             <span className="text-sm font-medium">Debug mode</span>

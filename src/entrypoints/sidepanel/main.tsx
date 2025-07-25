@@ -43,8 +43,10 @@ if (!appElement) {
   // Create React root and render
   const root = createRoot(appElement)
   root.render(
-    <PostHogWrapper>
-      <SidePanelRoot />
-    </PostHogWrapper>,
+    <ConsentProvider>
+      <PostHogWrapper>
+        <SidePanelRoot />
+      </PostHogWrapper>
+    </ConsentProvider>,
   )
 }

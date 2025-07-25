@@ -1,4 +1,5 @@
 import log from 'loglevel'
+import { PostHog } from 'posthog-js/dist/module.no-external'
 
 log.setDefaultLevel('error')
 
@@ -613,6 +614,14 @@ export default defineBackground(() => {
           return
         }
 
+        // Set rate limiting to match the queue length temporarily so PostHog doesn't drop events
+        ph.set_config({
+          rate_limiting: {
+            events_per_second: queue.length,
+            events_burst_limit: queue.length * 10,
+          },
+        })
+
         log.debug(`Flushing ${queue.length} queued events...`)
 
         // Process events sequentially to avoid overwhelming PostHog
@@ -634,10 +643,29 @@ export default defineBackground(() => {
           }
         }
 
+        // Reset rate limiting to default
+        ph.set_config({
+          rate_limiting: {
+            events_per_second: 10,
+            events_burst_limit: 10 * 10,
+          },
+        })
+
         // Clear the queue after successful processing
         await storage.setItem(`local:${EVENT_QUEUE_STORAGE_KEY}`, [])
         log.debug(`Successfully flushed ${queue.length} buffered analytics events`)
       } catch (error) {
+        const ph = await getPostHogBackground()
+
+        if (ph && ph instanceof PostHog) {
+          ph.set_config({
+            rate_limiting: {
+              events_per_second: 10,
+              events_burst_limit: 10 * 10,
+            },
+          })
+        }
+
         log.error('Error flushing queued events:', error)
       }
     })
@@ -647,11 +675,13 @@ export default defineBackground(() => {
   getPostHogBackground().then(flushQueuedEvents)
 
   // Listen for consent changes to (re)initialize PostHog and flush queued events
-  storage.watch<boolean>(`local:${ANALYTICS_CONSENT_STORAGE_KEY}`, (value) => {
-    if (value === true) {
+  storage.watch<boolean | null | string>(`sync:${ANALYTICS_CONSENT_STORAGE_KEY}`, (value) => {
+    const sanitizedConsentState =
+      value === '' || value === null || value === undefined ? undefined : !!value
+    if (sanitizedConsentState === true) {
       // Consent granted - initialize PostHog and flush queue
       getPostHogBackground().then(flushQueuedEvents)
-    } else if (value === false) {
+    } else if (sanitizedConsentState === false) {
       // Consent declined - reset PostHog instance and clear the queue safely
       resetPostHogInstance()
 
