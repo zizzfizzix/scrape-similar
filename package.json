@@ -1,6 +1,5 @@
 {
-  "name": "scrape-similar",
-  "displayName": "Scrape Similar",
+  "name": "Scrape Similar",
   "description": "Extract data from websites into spreadsheets.",
   "private": true,
   "version": "0.2.0",
@@ -17,7 +16,8 @@
     "zip:firefox": "wxt zip -b firefox",
     "compile": "tsc --noEmit",
     "postinstall": "wxt prepare",
-    "prepare": "husky"
+    "prepare": "husky",
+    "test": "vitest --run"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.14",
@@ -53,10 +53,12 @@
     "@wxt-dev/module-react": "^1.1.3",
     "conventional-changelog-cli": "^5.0.0",
     "husky": "^9.1.7",
+    "jsdom": "^26.1.0",
     "prettier": "^3.6.2",
     "prettier-plugin-organize-imports": "^4.1.0",
     "tw-animate-css": "^1.3.5",
     "typescript": "^5.8.3",
+    "vitest": "^3.2.4",
     "wxt": "^0.20.6"
   },
   "conventionalChangelog": {
@@ -109,5 +111,6 @@
         "section": "↩️ Reverts"
       }
     ]
-  }
+  },
+  "packageManager": "pnpm@10.13.1+sha512.37ebf1a5c7a30d5fabe0c5df44ee8da4c965ca0c5af3dbab28c3a1681b70a256218d05c81c9c0dcf767ef6b8551eb5b960042b9ed4300c59242336377e01cfad"
 }

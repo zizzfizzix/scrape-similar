@@ -32,5 +32,8 @@ jobs:
       - name: Format check
         run: pnpm fmt-check
 
+      - name: Run tests
+        run: pnpm test
+
       - name: Build and create extension package
         run: pnpm zip
