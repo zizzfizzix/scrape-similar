@@ -54,7 +54,7 @@ export const getPostHogBackground = async (): Promise<PostHog | null> => {
       const apiHost = import.meta.env.VITE_PUBLIC_POSTHOG_HOST
 
       if (!apiKey) {
-        log.warn('PostHog API key or host not found in environment variables for background script')
+        log.warn('PostHog API key not found in environment variables for background script')
         return null
       }
 

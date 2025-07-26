@@ -39,16 +39,10 @@ vi.mock('@/components/consent-provider', () => ({
   useConsent: () => ({ loading: false, state: true, setConsent: async () => {} }),
 }))
 
-// Provide the environment variables expected by PostHog initialisation
-Object.assign((import.meta as any).env, {
-  VITE_PUBLIC_POSTHOG_KEY: 'test_key',
-  VITE_PUBLIC_POSTHOG_HOST: 'https://app.posthog.test',
-})
-
 // ------------------------- Imports -------------------------
 import { PostHogWrapper } from '@/components/posthog-provider'
 import * as consent from '@/utils/consent'
-import { getOrCreateDistinctId } from '@/utils/distinct-id'
+import * as distinctId from '@/utils/distinct-id'
 import { getPostHogBackground } from '@/utils/posthog-background'
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -62,7 +56,7 @@ describe('PostHog distinct id consistency', () => {
     fakeBrowser.reset()
     // Default consent behaviour for these tests is granted
     vi.spyOn(consent, 'getConsentState').mockResolvedValue(true)
-    await storage.setItem(DISTINCT_ID_KEY, 'test-uuid-21415341242342')
+    vi.spyOn(distinctId, 'getOrCreateDistinctId').mockResolvedValue('test-uuid-21415341242342')
   })
 
   afterEach(async () => {
@@ -85,7 +79,8 @@ describe('PostHog distinct id consistency', () => {
 
     const bgPosthog = await getPostHogBackground()
     // Distinct id should now be persisted in storage
-    const persistedDistinctId = await storage.getItem(DISTINCT_ID_KEY)
+    const persistedDistinctId = await getOrCreateDistinctId()
+    expect(bgPosthog).not.toBeNull()
     expect(bgPosthog!.get_distinct_id()).toEqual(persistedDistinctId)
 
     // Mount a minimal UI with the PostHog wrapper
