@@ -510,12 +510,14 @@ const OnboardingApp: React.FC = () => {
                       Previous
                     </Button>
                   )}
-                  {currentSlide < slides.length - 1 && (
-                    <Button size="sm" onClick={handleNext}>
-                      Next
-                      <ChevronRight className="h-4 w-4 ml-2" />
-                    </Button>
-                  )}
+                  <Button
+                    size="sm"
+                    onClick={handleNext}
+                    disabled={currentSlide === slides.length - 1}
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4 ml-2" />
+                  </Button>
                 </div>
               </div>
             </CardHeader>
