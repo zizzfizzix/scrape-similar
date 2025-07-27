@@ -8,7 +8,14 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { ANALYTICS_EVENTS, trackEvent } from '@/utils/analytics'
 
-export function ModeToggle() {
+interface ModeToggleProps {
+  /** id passed to the underlying button for accessibility purposes */
+  id?: string
+  /** Accessibility label reference describing the toggle purpose */
+  ariaLabelledby?: string
+}
+
+export function ModeToggle({ id, ariaLabelledby }: ModeToggleProps) {
   const { theme, setTheme } = useTheme()
 
   // Handle theme change with analytics tracking
@@ -30,7 +37,13 @@ export function ModeToggle() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className="justify-between">
+        <Button
+          id={id}
+          aria-labelledby={ariaLabelledby}
+          variant="outline"
+          size="sm"
+          className="justify-between"
+        >
           {themeLabel}
         </Button>
       </DropdownMenuTrigger>

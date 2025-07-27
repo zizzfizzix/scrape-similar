@@ -1,0 +1,43 @@
+name: E2E Tests
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+jobs:
+  test:
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        name: Install pnpm
+        with:
+          run_install: false
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Install Playwright Browsers
+        run: pnpm dlx playwright install chromium --with-deps
+
+      - name: Build extension in test mode
+        run: pnpm build:test
+
+      - name: Run Playwright tests
+        run: pnpm test:e2e
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: test-results
+          path: test-results/
+          retention-days: 30

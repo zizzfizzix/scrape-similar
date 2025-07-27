@@ -4,7 +4,7 @@ import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import log from 'loglevel'
 import { Clipboard } from 'lucide-react'
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useId, useRef, useState } from 'react'
 
 interface SettingsProps {
   onResetSystemPresets?: () => void
@@ -123,6 +123,13 @@ export const Settings = React.memo(
       setConsent(checked)
     }
 
+    // Generate unique ids for switch components for accessibility
+    const analyticsSwitchId = useId()
+    const debugSwitchId = useId()
+    const themeToggleId = useId()
+    const keyboardShortcutId = useId()
+    const systemPresetsId = useId()
+
     // Expose the unlock function via ref
     React.useImperativeHandle(ref, () => ({
       unlockDebugMode: handleTitleClick,
@@ -130,20 +137,25 @@ export const Settings = React.memo(
 
     return (
       <div className={`flex flex-col gap-4 ${className || ''}`}>
-        <div className="flex items-center justify-between gap-4">
-          <span className="text-sm font-medium">Theme</span>
-          <ModeToggle />
-        </div>
-        <div className="flex items-center justify-between gap-4">
-          <span className="text-sm font-medium">Keyboard shortcut</span>
+        <label htmlFor={themeToggleId} className="flex items-center justify-between gap-4">
+          <span className="text-sm font-medium" id={`${themeToggleId}-label`} aria-hidden>
+            Theme
+          </span>
+          <ModeToggle id={themeToggleId} aria-labelledby={`${themeToggleId}-label`} />
+        </label>
+        <label htmlFor={keyboardShortcutId} className="flex items-center justify-between gap-4">
+          <span className="text-sm font-medium" id={`${keyboardShortcutId}-label`} aria-hidden>
+            Keyboard shortcut
+          </span>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
+                id={keyboardShortcutId}
                 type="button"
                 variant="outline"
                 size="sm"
                 className="flex items-center gap-2"
-                aria-label="Go to Chrome shortcut settings"
+                aria-labelledby={`${keyboardShortcutId}-label`}
                 onClick={handleKeyboardShortcutClick}
               >
                 <Clipboard className="size-4 ml-1" />
@@ -152,30 +164,47 @@ export const Settings = React.memo(
             </TooltipTrigger>
             <TooltipContent>Paste in a new tab to open settings</TooltipContent>
           </Tooltip>
-        </div>
-        <div className="flex items-center justify-between gap-4">
-          <span className="text-sm font-medium">System presets</span>
+        </label>
+        <label htmlFor={systemPresetsId} className="flex items-center justify-between gap-4">
+          <span className="text-sm font-medium" id={`${systemPresetsId}-label`} aria-hidden>
+            System presets
+          </span>
           <Button
+            id={systemPresetsId}
             type="button"
             variant="outline"
             size="sm"
             onClick={handleResetSystemPresets}
-            aria-label="Reset system presets"
+            aria-labelledby={`${systemPresetsId}-label`}
           >
             Reset
           </Button>
-        </div>
+        </label>
         {!consentLoading && (
-          <div className="flex items-center justify-between gap-4">
-            <span className="text-sm font-medium">Anonymous analytics</span>
-            <Switch checked={consentState === true} onCheckedChange={handleAnalyticsToggle} />
-          </div>
+          <label htmlFor={analyticsSwitchId} className="flex items-center justify-between gap-4">
+            <span className="text-sm font-medium" id={`${analyticsSwitchId}-label`} aria-hidden>
+              Anonymous analytics
+            </span>
+            <Switch
+              id={analyticsSwitchId}
+              aria-labelledby={`${analyticsSwitchId}-label`}
+              checked={consentState === true}
+              onCheckedChange={handleAnalyticsToggle}
+            />
+          </label>
         )}
         {showDebugRow && (
-          <div className="flex items-center justify-between gap-4">
-            <span className="text-sm font-medium">Debug mode</span>
-            <Switch checked={debugMode} onCheckedChange={handleDebugSwitch} />
-          </div>
+          <label htmlFor={debugSwitchId} className="flex items-center justify-between gap-4">
+            <span className="text-sm font-medium" id={`${debugSwitchId}-label`} aria-hidden>
+              Debug mode
+            </span>
+            <Switch
+              id={debugSwitchId}
+              aria-labelledby={`${debugSwitchId}-label`}
+              checked={debugMode}
+              onCheckedChange={handleDebugSwitch}
+            />
+          </label>
         )}
       </div>
     )

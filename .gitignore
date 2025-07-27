@@ -6,6 +6,10 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+test-results/
+
+# Test browser user data
+.browser
 
 node_modules
 .output

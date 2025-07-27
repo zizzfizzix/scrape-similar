@@ -28,7 +28,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: lts/*
           cache: 'pnpm'
 
       - name: Install dependencies
@@ -49,7 +49,7 @@ jobs:
           VERSION_NUMBER=${VERSION#v}
 
           # Generate changelog with unreleased section
-          npx conventional-changelog -i CHANGELOG.md --same-file -p angular -r 0 --output-unreleased
+          pnpm dlx conventional-changelog -i CHANGELOG.md --same-file -p angular -r 0 --output-unreleased
 
           # Extract the unreleased section for release notes
           if [ -f "CHANGELOG.md" ]; then
