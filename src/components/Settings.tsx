@@ -27,23 +27,32 @@ export const Settings = React.memo(
     const clickCountRef = useRef(0)
     const timerRef = useRef<NodeJS.Timeout | null>(null)
 
-    // Load debug unlock state from storage on mount
+    // Keep local copies of storage flags so we can compute visibility without extra storage reads
+    const debugModeValRef = useRef(false)
+    const debugUnlockedValRef = useRef(false)
+
+    // Load debug flags from storage on mount
     useEffect(() => {
       storage
         .getItems(['local:debugMode', 'local:debugUnlocked'])
         .then(([debugMode, debugUnlocked]) => {
-          setShowDebugRow(!!debugMode || !!debugUnlocked)
+          debugModeValRef.current = !!debugMode.value
+          debugUnlockedValRef.current = !!debugUnlocked.value
+          setShowDebugRow(debugModeValRef.current || debugUnlockedValRef.current)
         })
     }, [])
 
-    // Listen for debug state changes in storage
+    // Listen for changes to either flag and update visibility
     useEffect(() => {
       const unwatchDebugMode = storage.watch<boolean>('local:debugMode', (val) => {
-        setShowDebugRow((prev) => (val ? true : prev))
+        debugModeValRef.current = !!val
+        setShowDebugRow(debugModeValRef.current || debugUnlockedValRef.current)
       })
       const unwatchDebugUnlocked = storage.watch<boolean>('local:debugUnlocked', (val) => {
-        setShowDebugRow((prev) => (val ? true : prev))
+        debugUnlockedValRef.current = !!val
+        setShowDebugRow(debugModeValRef.current || debugUnlockedValRef.current)
       })
+
       return () => {
         unwatchDebugMode()
         unwatchDebugUnlocked()
