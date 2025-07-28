@@ -5,7 +5,12 @@ on:
   pull_request:
     branches: [main, master]
 jobs:
-  test:
+  e2e-tests:
+    environment: test
+    env:
+      NODE_ENV: test
+      VITE_PUBLIC_POSTHOG_KEY: ${{ secrets.VITE_PUBLIC_POSTHOG_KEY }}
+      VITE_PUBLIC_POSTHOG_HOST: ${{ secrets.VITE_PUBLIC_POSTHOG_HOST }}
     timeout-minutes: 60
     runs-on: ubuntu-latest
     steps:

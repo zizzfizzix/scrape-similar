@@ -7,6 +7,11 @@ on:
 
 jobs:
   release:
+    environment: production
+    env:
+      NODE_ENV: production
+      VITE_PUBLIC_POSTHOG_KEY: ${{ secrets.VITE_PUBLIC_POSTHOG_KEY }}
+      VITE_PUBLIC_POSTHOG_HOST: ${{ secrets.VITE_PUBLIC_POSTHOG_HOST }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
