@@ -1,3 +1,4 @@
+import fs from 'fs/promises'
 import { expect, test } from './fixtures'
 
 test.describe('Sidepanel', () => {
@@ -107,5 +108,255 @@ test.describe('Sidepanel', () => {
     await sidePanel.getByRole('button', { name: /settings/i }).click()
     const debugSwitchAfterReload = sidePanel.getByRole('switch', { name: /debug mode/i })
     await expect(debugSwitchAfterReload).toHaveAttribute('data-state', 'checked')
+  })
+
+  test('shows error badge for invalid XPath selector', async ({
+    context,
+    serviceWorker,
+    openSidePanel,
+  }) => {
+    const sidePanel = await openSidePanel()
+
+    const testPage = await context.newPage()
+    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+
+    // Dismiss consent modal
+    await serviceWorker.evaluate(() => {
+      chrome.storage.sync.set({ analytics_consent: false })
+    })
+
+    // Type an obviously invalid XPath selector and commit with Enter.
+    const input = sidePanel
+      .getByLabel('Main Selector', { exact: false })
+      .or(sidePanel.locator('#mainSelector'))
+    await input.fill('//*[')
+    await input.press('Enter')
+
+    // Expect a destructive badge with an alert icon (svg) to appear.
+    const errorBadge = sidePanel.locator('[data-slot="badge"] svg')
+    await expect(errorBadge).toBeVisible({ timeout: 1000 })
+  })
+
+  test('shows numeric match-count badge for valid XPath selector', async ({
+    context,
+    serviceWorker,
+    openSidePanel,
+  }) => {
+    const sidePanel = await openSidePanel()
+
+    const testPage = await context.newPage()
+    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+
+    // Dismiss consent modal
+    await serviceWorker.evaluate(() => {
+      chrome.storage.sync.set({ analytics_consent: false })
+    })
+
+    // Provide a valid selector that should match many elements.
+    const input = sidePanel
+      .getByLabel('Main Selector', { exact: false })
+      .or(sidePanel.locator('#mainSelector'))
+    await input.fill('//p')
+    await input.press('Enter')
+
+    // Expect a badge whose text is a positive integer to appear.
+    const countBadge = sidePanel.locator('[data-slot="badge"]').filter({ hasText: /^\d+$/ })
+    await expect(countBadge).toBeVisible({ timeout: 5000 })
+    const badgeText = await countBadge.textContent()
+    expect(parseInt(badgeText || '0', 10)).toBeGreaterThan(0)
+  })
+
+  test('scrapes page and displays data table for matching selector', async ({
+    context,
+    serviceWorker,
+    openSidePanel,
+  }) => {
+    const sidePanel = await openSidePanel()
+
+    // Open a real, injectable page so the content script can run.
+    const testPage = await context.newPage()
+    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+
+    // Dismiss consent modal
+    await serviceWorker.evaluate(() => {
+      chrome.storage.sync.set({ analytics_consent: false })
+    })
+
+    // Enter selector that matches multiple elements and commit.
+    const input = sidePanel.locator('#mainSelector')
+    await input.fill('//h2')
+    await input.press('Enter')
+
+    // Wait for match-count badge to appear confirming highlight is done.
+    const countBadge = sidePanel.locator('[data-slot="badge"]').filter({ hasText: /^\d+$/ })
+    await expect(countBadge).toBeVisible({ timeout: 5000 })
+
+    // Click the Scrape button.
+    const scrapeBtn = sidePanel.getByRole('button', { name: /^scrape$/i })
+    await scrapeBtn.click()
+
+    // Data table heading should appear.
+    await expect(sidePanel.getByRole('heading', { name: /extracted data/i })).toBeVisible({
+      timeout: 50000,
+    })
+  })
+
+  test('shows "0 found" state when scrape yields no results', async ({
+    context,
+    serviceWorker,
+    openSidePanel,
+  }) => {
+    const sidePanel = await openSidePanel()
+
+    // Open a real page.
+    const testPage = await context.newPage()
+    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+
+    // Bring side-panel to front.
+    await sidePanel.bringToFront()
+
+    // Dismiss consent modal
+    await serviceWorker.evaluate(() => {
+      chrome.storage.sync.set({ analytics_consent: false })
+    })
+
+    // Enter selector that matches nothing.
+    const input = sidePanel.locator('#mainSelector')
+    await input.fill('//*[@id="nonexistent_element_for_test"]')
+    await input.press('Enter')
+
+    // Wait for highlight badge (will show 0).
+    const zeroBadge = sidePanel.locator('[data-slot="badge"]').filter({ hasText: /^0$/ })
+    await expect(zeroBadge).toBeVisible({ timeout: 5000 })
+
+    // Click Scrape.
+    const scrapeBtn = sidePanel.getByRole('button', { name: /^scrape$/i })
+    await scrapeBtn.click()
+
+    // Expect button text to show "0 found".
+    await expect(sidePanel.getByRole('button', { name: /0 found/i })).toBeVisible({ timeout: 1500 })
+  })
+
+  test('can save preset and reload it via Load combobox', async ({
+    context,
+    serviceWorker,
+    openSidePanel,
+  }) => {
+    const sidePanel = await openSidePanel()
+
+    // Open real page for highlight/scrape logic.
+    const testPage = await context.newPage()
+    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+
+    // Dismiss consent modal
+    await serviceWorker.evaluate(() => {
+      chrome.storage.sync.set({ analytics_consent: false })
+    })
+
+    // Configure selector.
+    const selectorValue = '//h2'
+    const mainSelector = sidePanel.locator('#mainSelector')
+    await mainSelector.fill(selectorValue)
+    await mainSelector.press('Enter')
+
+    // Wait for valid badge so Save button becomes enabled.
+    const countBadge = sidePanel.locator('[data-slot="badge"]').filter({ hasText: /^\d+$/ })
+    await expect(countBadge).toBeVisible({ timeout: 5000 })
+
+    // Open Save Preset drawer.
+    await sidePanel
+      .getByRole('button', { name: /^save$/i })
+      .first()
+      .click()
+
+    const presetName = `Test Preset ${Date.now()}`
+    const presetNameInput = sidePanel.getByPlaceholder('Preset name')
+    await presetNameInput.fill(presetName)
+
+    // Click inner Save button.
+    await sidePanel.getByRole('button', { name: /^save$/i }).click()
+
+    // Wait for drawer to close (input hidden).
+    await expect(presetNameInput).toBeHidden({ timeout: 5000 })
+
+    // Clear the main selector input.
+    await mainSelector.clear()
+
+    // Open Load combobox.
+    await sidePanel.getByRole('button', { name: /load/i }).click()
+
+    // Select the preset.
+    const loadItem = sidePanel.getByRole('option', { name: new RegExp(presetName, 'i') })
+    await loadItem.click()
+
+    // After load the main selector input should contain the preset's selector.
+    await expect(mainSelector).toHaveValue(selectorValue)
+  })
+
+  test('exports scraped data as CSV download', async ({
+    context,
+    serviceWorker,
+    openSidePanel,
+  }) => {
+    const sidePanel = await openSidePanel()
+
+    // Navigate to real page for scraping.
+    const livePage = await context.newPage()
+    await livePage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+
+    // Dismiss consent modal
+    await serviceWorker.evaluate(() => {
+      chrome.storage.sync.set({ analytics_consent: false })
+    })
+
+    // Prepare selector.
+    const mainSelector = sidePanel.locator('#mainSelector')
+    await mainSelector.fill('//h2')
+    await mainSelector.press('Enter')
+
+    // Press automagic config button
+    await sidePanel
+      .getByRole('button', { name: /auto-generate configuration from selector/i })
+      .click()
+
+    // Wait for badge.
+    const countBadge = sidePanel.locator('[data-slot="badge"]').filter({ hasText: /^\d+$/ })
+    await expect(countBadge).toBeVisible({ timeout: 5000 })
+
+    // Scrape.
+    await sidePanel.getByRole('button', { name: /^scrape$/i }).click()
+    await expect(sidePanel.getByRole('heading', { name: /extracted data/i })).toBeVisible({
+      timeout: 5000,
+    })
+
+    // Open Export dropdown.
+    await sidePanel.getByRole('button', { name: /export/i }).click()
+
+    // Initiate CSV download and wait for it.
+    const [download] = await Promise.all([
+      sidePanel.waitForEvent('download'),
+      sidePanel.getByRole('menuitem', { name: /save as csv/i }).click(),
+    ])
+
+    const fileName = download.suggestedFilename()
+    expect(fileName.toLowerCase()).toMatch(/\.csv$/)
+
+    // Check the file headers correspond to the table headers.
+    const fileData = await download.path()
+    const fileContent = await fs.readFile(fileData, 'utf-8')
+    const headers = fileContent
+      .split('\n')[0]
+      .split(',')
+      .map((header) => header.replace(/"/g, ''))
+
+    const uiHeaders = await sidePanel.evaluate(() => {
+      const ths = Array.from(document.querySelectorAll('table thead th'))
+      // The first two headers are “#” and “Actions”, which arenʼt included in the CSV.
+      return ths
+        .slice(2)
+        .map((th) => th.textContent?.trim() || '')
+        .filter(Boolean)
+    })
+    expect(headers).toEqual(uiHeaders)
   })
 })
