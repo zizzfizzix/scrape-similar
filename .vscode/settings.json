@@ -1,0 +1,8 @@
+{
+  "playwright.env": {
+    "CI": "true",
+    "NODE_ENV": "test",
+    "VITE_PUBLIC_POSTHOG_KEY": "phc_Ledmrp3EXktY7TFBziOARfRdrvq3iU5Ou84uIIUvFJC",
+    "VITE_PUBLIC_POSTHOG_HOST": "https://eu.i.posthog.com"
+  }
+}
