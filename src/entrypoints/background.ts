@@ -312,6 +312,26 @@ export default defineBackground(() => {
   browser.runtime.onMessage.addListener((message: Message, sender, sendResponse) => {
     log.debug('Background received message:', message, 'from sender:', sender)
 
+    // Handle UPDATE_SIDEPANEL_DATA universally before delegating
+    if (message.type === MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA) {
+      const { tabId: explicitTabId, updates } = (message.payload ?? {}) as {
+        tabId?: number
+        updates: Partial<SidePanelConfig>
+      }
+      const targetId = explicitTabId ?? sender.tab?.id
+      if (typeof targetId !== 'number' || !updates) {
+        sendResponse({ success: false, error: 'tabId or sender.tab.id required' })
+        return true
+      }
+      applySidePanelDataUpdates(targetId, updates)
+        .then(() => sendResponse({ success: true }))
+        .catch((error) => {
+          log.error('Error updating sidepanel state:', error)
+          sendResponse({ success: false, error: (error as Error).message })
+        })
+      return true // handled
+    }
+
     // Handle messages from content script (always have sender.tab)
     if (sender.tab && sender.tab.id) {
       handleContentScriptMessage(message, sender, sendResponse)
@@ -434,26 +454,6 @@ export default defineBackground(() => {
         })
         break
       }
-      case MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA: {
-        const { tabId: explicitTabId, updates } = message.payload as {
-          tabId?: number
-          updates: Partial<SidePanelConfig>
-        }
-        const targetId = explicitTabId ?? sender.tab?.id
-        if (typeof targetId !== 'number' || !updates) {
-          sendResponse({ success: false, error: 'tabId or sender.tab.id required' })
-          break
-        }
-        try {
-          await applySidePanelDataUpdates(targetId, updates)
-          sendResponse({ success: true })
-        } catch (error) {
-          log.error('Error updating sidepanel state:', error)
-          sendResponse({ success: false, error: (error as Error).message })
-        }
-        break
-      }
-
       default:
         log.warn(`Unhandled UI message type: ${message.type}`)
         sendResponse({ warning: 'Unhandled message type' })
