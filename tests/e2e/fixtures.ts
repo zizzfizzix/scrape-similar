@@ -6,8 +6,9 @@ import {
   type Worker,
 } from '@playwright/test'
 import fs from 'fs'
+import pkg from '../../package.json' assert { type: 'json' }
 
-export async function waitForChromeApi(worker: Worker, timeout = 5000) {
+async function waitForChromeApi(worker: Worker, timeout = 5000) {
   const start = Date.now()
   while (Date.now() - start < timeout) {
     const hasApi = await worker.evaluate(() => typeof chrome !== 'undefined')
@@ -20,6 +21,7 @@ export async function waitForChromeApi(worker: Worker, timeout = 5000) {
 export const test = base.extend<{
   context: BrowserContext
   extensionId: string
+  serviceWorker: Worker
   openSidePanel: (transitionUrl?: string) => Promise<Page>
 }>({
   // Launch a persistent context with the built extension loaded.
@@ -52,36 +54,39 @@ export const test = base.extend<{
     await context.close()
   },
 
-  // Extract the extension ID so that tests can open extension pages
-  extensionId: async ({ context }, use) => {
-    let [serviceWorker] = context.serviceWorkers()
-    if (!serviceWorker) {
-      serviceWorker = await context.waitForEvent('serviceworker')
+  // Expose the extension ID so that tests can open extension pages
+  extensionId: async ({}, use) => {
+    const extensionId = pkg.chromeExtensionId
+    if (!extensionId) {
+      throw new Error('chromeExtensionId is not set')
     }
-
-    const extensionId = new URL(serviceWorker.url()).hostname
     await use(extensionId)
   },
 
-  openSidePanel: async ({ context, extensionId }, use) => {
+  serviceWorker: async ({ context, extensionId }, use) => {
+    let [serviceWorker] = context.serviceWorkers()
+    if (!serviceWorker) {
+      serviceWorker = await context.waitForEvent('serviceworker', {
+        predicate: (w) => w.url().includes(extensionId),
+      })
+    }
+
+    await waitForChromeApi(serviceWorker)
+
+    await use(serviceWorker)
+  },
+
+  openSidePanel: async ({ context, extensionId, serviceWorker }, use) => {
     const open = async (transitionUrl: string = 'https://one.one.one.one/') => {
       // Navigate to any page (default is a simple Cloudflare IP resolver page).
       const page = await context.newPage()
       await page.goto(transitionUrl)
 
-      // Retrieve the extension's service-worker for later evaluation.
-      let sw = context.serviceWorkers().find((w) => w.url().includes(extensionId))
-      if (!sw) {
-        sw = await context.waitForEvent('serviceworker', {
-          predicate: (w) => w.url().includes(extensionId),
-        })
-      }
-
       // Bring the tab to the foreground so the service-worker can inject scripts.
       await page.bringToFront()
 
       // Register a one-off listener that will open the side-panel once triggered.
-      await sw.evaluate(() => {
+      await serviceWorker.evaluate(() => {
         const handler = (msg: string, sender: chrome.runtime.MessageSender) => {
           if (msg === 'openSidePanelFromTest') {
             if (sender.tab?.id !== undefined && sender.tab.windowId !== undefined) {
@@ -94,7 +99,7 @@ export const test = base.extend<{
       })
 
       // Inject a button into the page that, when clicked, sends the trigger message.
-      await sw.evaluate(async () => {
+      await serviceWorker.evaluate(async () => {
         const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true })
         if (!activeTab?.id) throw new Error('No active tab found')
 

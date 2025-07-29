@@ -5,6 +5,7 @@
   "version": "0.2.0",
   "author": "Kuba Serafinowski",
   "type": "module",
+  "chromeExtensionId": "bhgobenflkkhfcgkikejaaejenoddcmo",
   "scripts": {
     "dev": "wxt",
     "dev:firefox": "wxt -b firefox",

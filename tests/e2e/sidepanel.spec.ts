@@ -1,9 +1,10 @@
-import { expect, test, waitForChromeApi } from './fixtures'
+import { expect, test } from './fixtures'
 
 test.describe('Sidepanel', () => {
   test('sidepanel shows unsupported URL splash when opened on a non-supported URL', async ({
     context,
     extensionId,
+    serviceWorker,
     openSidePanel,
   }) => {
     const sidePanel = await openSidePanel()
@@ -13,19 +14,17 @@ test.describe('Sidepanel', () => {
     const testPage = await context.newPage()
     await testPage.goto(`chrome-extension://${extensionId}/options.html`)
 
-    // Dismiss consent modal if present
-    const acceptButton = sidePanel.getByRole('button', { name: /accept/i })
-    if (await acceptButton.isVisible()) {
-      await acceptButton.click()
-      await expect(acceptButton).toBeHidden()
-    }
+    // Dismiss consent modal
+    await serviceWorker.evaluate(() => {
+      chrome.storage.sync.set({ analytics_consent: false })
+    })
 
     await expect(sidePanel.getByText(/unsupported url/i)).toBeVisible()
   })
 
   test("sidepanel doesn't show unsupported URL splash when opened on a supported URL", async ({
     context,
-    extensionId,
+    serviceWorker,
     openSidePanel,
   }) => {
     const sidePanel = await openSidePanel()
@@ -35,29 +34,18 @@ test.describe('Sidepanel', () => {
     const testPage = await context.newPage()
     await testPage.goto('https://one.one.one.one/')
 
-    // Dismiss consent modal if present
-    const acceptButton = sidePanel.getByRole('button', { name: /accept/i })
-    if (await acceptButton.isVisible()) {
-      await acceptButton.click()
-      await expect(acceptButton).toBeHidden()
-    }
+    // Dismiss consent modal
+    await serviceWorker.evaluate(() => {
+      chrome.storage.sync.set({ analytics_consent: false })
+    })
 
     await expect(sidePanel.getByText(/unsupported url/i)).toBeHidden()
   })
 
   test('prompts for analytics consent and persists accept decision', async ({
-    context,
-    extensionId,
+    serviceWorker,
     openSidePanel,
   }) => {
-    // Ensure we have a reference to the extension's service-worker for storage checks.
-    let [serviceWorker] = context.serviceWorkers()
-    if (!serviceWorker) {
-      serviceWorker = await context.waitForEvent('serviceworker', {
-        predicate: (w) => w.url().includes(extensionId),
-      })
-    }
-
     // Open the side-panel on a blank page.
     const sidePanel = await openSidePanel()
 
@@ -70,7 +58,6 @@ test.describe('Sidepanel', () => {
     await expect(acceptButton).toBeHidden()
 
     // Verify chrome.storage.sync.analytics_consent is true.
-    await waitForChromeApi(serviceWorker)
     const consent = await serviceWorker.evaluate(async () => {
       const { analytics_consent } = await chrome.storage.sync.get('analytics_consent')
       return analytics_consent
@@ -80,27 +67,16 @@ test.describe('Sidepanel', () => {
   })
 
   test('allows unlocking and toggling debug mode which persists across reloads', async ({
-    context,
-    extensionId,
+    serviceWorker,
     openSidePanel,
   }) => {
-    // Grab (or wait for) the service-worker to assert storage changes.
-    let [serviceWorker] = context.serviceWorkers()
-    if (!serviceWorker) {
-      serviceWorker = await context.waitForEvent('serviceworker', {
-        predicate: (w) => w.url().includes(extensionId),
-      })
-    }
-
     // Launch the side-panel.
     const sidePanel = await openSidePanel()
 
-    // Dismiss consent modal if present.
-    const acceptButton = sidePanel.getByRole('button', { name: /accept/i })
-    if (await acceptButton.isVisible()) {
-      await acceptButton.click()
-      await expect(acceptButton).toBeHidden()
-    }
+    // Dismiss consent modal
+    await serviceWorker.evaluate(() => {
+      chrome.storage.sync.set({ analytics_consent: false })
+    })
 
     // Open the settings drawer via the toolbar button.
     await sidePanel.getByRole('button', { name: /settings/i }).click()
@@ -120,7 +96,6 @@ test.describe('Sidepanel', () => {
     await expect(debugSwitch).toHaveAttribute('data-state', 'checked')
 
     // Confirm storage mutation (chrome.storage.local.debugMode === true).
-    await waitForChromeApi(serviceWorker)
     const debugMode = await serviceWorker.evaluate(async () => {
       const { debugMode } = await chrome.storage.local.get('debugMode')
       return debugMode

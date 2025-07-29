@@ -1,5 +1,5 @@
 import { BrowserContext, Page } from '@playwright/test'
-import { expect, test, waitForChromeApi } from './fixtures'
+import { expect, test } from './fixtures'
 
 test.describe('Options page', () => {
   const openOptionsPage = async (context: BrowserContext, extensionId: string): Promise<Page> => {
@@ -11,8 +11,8 @@ test.describe('Options page', () => {
   test('prompts for analytics consent and persists accept decision', async ({
     context,
     extensionId,
+    serviceWorker,
   }) => {
-    const [serviceWorker] = context.serviceWorkers()
     const page = await openOptionsPage(context, extensionId)
 
     // The consent modal should appear on first visit.
@@ -23,7 +23,6 @@ test.describe('Options page', () => {
     await expect(acceptButton).toBeHidden()
 
     // Verify chrome.storage.sync.analytics_consent is true
-    await waitForChromeApi(serviceWorker)
     const consent = await serviceWorker.evaluate(async () => {
       const { analytics_consent } = await chrome.storage.sync.get('analytics_consent')
       return analytics_consent
@@ -35,8 +34,8 @@ test.describe('Options page', () => {
   test('prompts for analytics consent and persists decline decision', async ({
     context,
     extensionId,
+    serviceWorker,
   }) => {
-    const [serviceWorker] = context.serviceWorkers()
     const page = await openOptionsPage(context, extensionId)
 
     // The consent modal should appear on first visit.
@@ -47,7 +46,6 @@ test.describe('Options page', () => {
     await expect(declineButton).toBeHidden()
 
     // Verify chrome.storage.sync.analytics_consent is false
-    await waitForChromeApi(serviceWorker)
     const consent = await serviceWorker.evaluate(async () => {
       const { analytics_consent } = await chrome.storage.sync.get('analytics_consent')
       return analytics_consent
@@ -59,20 +57,14 @@ test.describe('Options page', () => {
   test('allows unlocking and toggling debug mode which persists across reloads', async ({
     context,
     extensionId,
+    serviceWorker,
   }) => {
-    let [serviceWorker] = context.serviceWorkers()
-    if (!serviceWorker) {
-      serviceWorker = await context.waitForEvent('serviceworker')
-    }
-
     const page = await openOptionsPage(context, extensionId)
 
-    // Dismiss consent modal if present (reuse helper expectations).
-    const acceptButton = page.getByRole('button', { name: /accept/i })
-    if (await acceptButton.isVisible()) {
-      await acceptButton.click()
-      await expect(acceptButton).toBeHidden()
-    }
+    // Dismiss consent modal
+    await serviceWorker.evaluate(() => {
+      chrome.storage.sync.set({ analytics_consent: false })
+    })
 
     // Unlock hidden debug switch by clicking the heading 5×.
     const heading = page.getByRole('heading', { name: /settings/i })
@@ -88,7 +80,6 @@ test.describe('Options page', () => {
     await expect(debugSwitch).toHaveAttribute('data-state', 'checked')
 
     // Verify storage mutation (chrome.storage.local.debugMode === true).
-    await waitForChromeApi(serviceWorker)
     const debugMode = await serviceWorker.evaluate(async () => {
       const { debugMode } = await chrome.storage.local.get('debugMode')
       return debugMode
@@ -104,14 +95,8 @@ test.describe('Options page', () => {
   test('debug row hidden by default and appears after 5 header clicks', async ({
     context,
     extensionId,
+    serviceWorker,
   }) => {
-    let [serviceWorker] = context.serviceWorkers()
-    if (!serviceWorker) {
-      serviceWorker = await context.waitForEvent('serviceworker')
-    }
-
-    await waitForChromeApi(serviceWorker)
-
     // Reset debug mode and unlock debug row in storage to simulate a fresh state
     await serviceWorker.evaluate(async () => {
       await chrome.storage.local.set({ debugMode: false, debugUnlocked: false })

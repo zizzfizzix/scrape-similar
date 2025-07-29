@@ -1,5 +1,4 @@
-import { BrowserContext } from '@playwright/test'
-import { expect, test, waitForChromeApi } from './fixtures'
+import { expect, test } from './fixtures'
 
 /**
  * Scenarios that verify the extension's default state immediately after a fresh
@@ -24,30 +23,8 @@ test('opens onboarding page on first install', async ({ context, extensionId }) 
   expect(onboardingPage.url()).toBe(`chrome-extension://${extensionId}/onboarding.html`)
 })
 
-test('initialises storage with empty user presets array', async ({
-  context,
-  extensionId,
-}: {
-  context: BrowserContext
-  extensionId: string
-}) => {
-  // Wait for the extension's service worker to be registered. Filter for workers whose
-  // URL scheme is `chrome-extension://` – this ensures we attach to the correct worker.
-  let extensionWorker = context
-    .serviceWorkers()
-    .find((w) => w.url().startsWith(`chrome-extension://${extensionId}`))
-
-  if (!extensionWorker) {
-    extensionWorker = await context.waitForEvent('serviceworker', {
-      predicate: (w) => w.url().startsWith(`chrome-extension://${extensionId}`),
-      timeout: 5_000,
-    })
-  }
-
-  // Wait for the Chrome storage API to be available, sometimes it takes a while
-  await waitForChromeApi(extensionWorker)
-
-  const presets = await extensionWorker.evaluate(async () => {
+test('initialises storage with empty user presets array', async ({ serviceWorker }) => {
+  const presets = await serviceWorker.evaluate(async () => {
     // Register the `onChanged` listener *before* performing the initial read to
     // prevent a race condition where the key is written between the read and
     // listener setup.
