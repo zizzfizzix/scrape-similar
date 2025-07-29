@@ -1,6 +1,7 @@
 import { author } from '@/../package.json'
+import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { HeartPlus } from 'lucide-react'
+import { HeartPlus, MessageSquare } from 'lucide-react'
 import React from 'react'
 
 interface FooterProps {
@@ -21,7 +22,7 @@ export const Footer: React.FC<FooterProps> = ({
   const context = getCurrentContext()
 
   const footerContent = (
-    <span className="flex items-center gap-2">
+    <div className="flex items-center gap-2">
       Made by{' '}
       <a
         className="underline hover:text-primary"
@@ -55,7 +56,15 @@ export const Footer: React.FC<FooterProps> = ({
           <TooltipContent>Support</TooltipContent>
         </Tooltip>
       </a>
-    </span>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="ghost" size="icon" id="feedback-button" aria-label="Provide feedback">
+            <MessageSquare className="size-4 text-primary hover:text-primary/80 stroke-2" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Feedback</TooltipContent>
+      </Tooltip>
+    </div>
   )
 
   if (showSettings) {
