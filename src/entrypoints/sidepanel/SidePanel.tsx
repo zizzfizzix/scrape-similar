@@ -132,7 +132,14 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
   // Request tabId and tabUrl from browser.tabs API on mount
   useEffect(() => {
     log.debug('SidePanel mounted, requesting tabId and URL from browser.tabs API...')
-    browser.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
+    // Use `currentWindow: true` instead of `lastFocusedWindow: true` because the
+    // side-panel itself becomes the *last focused* window in certain testing/
+    // automation scenarios (e.g. Playwright) - likely due to PW_CHROMIUM_ATTACH_TO_OTHER = '1'.
+    // When that happens the query returns an empty array because extension views
+    // are not considered *tabs*, causing our fallback error path to trigger.
+    // Limiting the query to the *current* window reliably returns the active
+    // webpage tab that the side-panel is attached to.
+    browser.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (browser.runtime.lastError) {
         log.error('Error querying tabs:', browser.runtime.lastError.message)
       } else if (tabs && tabs[0] && tabs[0].id) {

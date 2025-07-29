@@ -1,6 +1,6 @@
 import { expect, test, waitForChromeApi } from './fixtures'
 
-test.describe('Side-panel', () => {
+test.describe('Sidepanel', () => {
   test('sidepanel shows unsupported URL splash when opened on a non-supported URL', async ({
     context,
     extensionId,
