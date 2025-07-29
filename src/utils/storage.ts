@@ -61,13 +61,6 @@ export const initializeStorage = async (): Promise<void> => {
     if (presets.length === 0) {
       await storage.setItem(`sync:${STORAGE_KEYS.USER_PRESETS}`, [])
     }
-
-    // Check if we're in development mode
-    const isDev = process.env.NODE_ENV === 'development'
-    if (isDev) {
-      await storage.setItem('local:debugMode', isDev)
-      log.debug(`Debug setting forced to ${isDev}`)
-    }
   } catch (error) {
     log.error('Error initializing storage:', error)
   }

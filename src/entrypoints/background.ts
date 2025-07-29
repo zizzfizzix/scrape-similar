@@ -4,10 +4,17 @@ import { PostHog } from 'posthog-js/dist/module.no-external'
 log.setDefaultLevel('error')
 
 export default defineBackground(() => {
-  // Initialise log level from persistent storage
-  storage.getItem<boolean>('local:debugMode').then((debug) => {
-    log.setLevel(debug ? 'trace' : 'error')
-  })
+  const isDevOrTest = process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test'
+
+  // Always log at trace level in development or test mode
+  if (isDevOrTest) {
+    log.setLevel('trace')
+  } else {
+    // Initialise log level from persistent storage
+    storage.getItem<boolean>('local:debugMode').then((debugMode) => {
+      log.setLevel(debugMode ? 'trace' : 'error')
+    })
+  }
 
   // Broadcast debugMode changes to all tabs
   const broadcastDebugMode = async (debugValue: boolean) => {
@@ -31,9 +38,11 @@ export default defineBackground(() => {
   }
 
   // React to debugMode changes
-  storage.watch<boolean>('local:debugMode', (value) => {
-    log.setLevel(value ? 'trace' : 'error')
-    broadcastDebugMode(!!value)
+  storage.watch<boolean>('local:debugMode', (debugMode) => {
+    if (!isDevOrTest) {
+      log.setLevel(debugMode ? 'trace' : 'error')
+    }
+    broadcastDebugMode(!!debugMode)
   })
 
   // Helper to generate session storage key for a tab

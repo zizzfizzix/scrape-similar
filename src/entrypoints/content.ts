@@ -6,24 +6,31 @@ export default defineContentScript({
   matches: ['http://*/*', 'https://*/*'],
   runAt: 'document_idle',
   main() {
-    // Request current debug mode from the background script since content scripts
-    // do not have direct access to extension storage APIs.
-    browser.runtime.sendMessage(
-      { type: MESSAGE_TYPES.GET_DEBUG_MODE },
-      (response: MessageResponse) => {
-        if (response.success === true && typeof response.debugMode === 'boolean') {
-          log.setLevel(response.debugMode ? 'trace' : 'error')
-        }
-      },
-    )
+    const isDevOrTest = process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test'
 
-    // Listen for debug mode changes broadcast from the background script
-    browser.runtime.onMessage.addListener((msg: Message) => {
-      if (msg.type === MESSAGE_TYPES.DEBUG_MODE_CHANGED) {
-        const { debugMode } = (msg.payload as { debugMode: boolean }) || { debugMode: false }
-        log.setLevel(debugMode ? 'trace' : 'error')
-      }
-    })
+    // Always log at trace level in development or test mode
+    if (isDevOrTest) {
+      log.setLevel('trace')
+    } else {
+      // Request current debug mode from the background script since content scripts
+      // do not have direct access to extension storage APIs.
+      browser.runtime.sendMessage(
+        { type: MESSAGE_TYPES.GET_DEBUG_MODE },
+        (response: MessageResponse) => {
+          if (response.success === true && typeof response.debugMode === 'boolean') {
+            log.setLevel(response.debugMode ? 'trace' : 'error')
+          }
+        },
+      )
+
+      // Listen for debug mode changes broadcast from the background script
+      browser.runtime.onMessage.addListener((msg: Message) => {
+        if (msg.type === MESSAGE_TYPES.DEBUG_MODE_CHANGED) {
+          const { debugMode } = (msg.payload as { debugMode: boolean }) || { debugMode: false }
+          log.setLevel(debugMode ? 'trace' : 'error')
+        }
+      })
+    }
 
     log.info('Scrape Similar content script is running')
 

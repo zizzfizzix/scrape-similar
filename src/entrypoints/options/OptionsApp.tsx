@@ -8,14 +8,22 @@ const OptionsApp: React.FC = () => {
 
   // Load debug mode from storage on mount
   useEffect(() => {
+    const isDevOrTest = process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test'
+
     storage.getItem<boolean>('local:debugMode').then((val) => {
       setDebugMode(!!val)
-      log.setLevel(val ? 'trace' : 'error')
+      if (isDevOrTest) {
+        log.setLevel('trace')
+      } else {
+        log.setLevel(val ? 'trace' : 'error')
+      }
     })
 
     const unwatch = storage.watch<boolean>('local:debugMode', (val) => {
       setDebugMode(!!val)
-      log.setLevel(val ? 'trace' : 'error')
+      if (!isDevOrTest) {
+        log.setLevel(val ? 'trace' : 'error')
+      }
     })
 
     return () => {
