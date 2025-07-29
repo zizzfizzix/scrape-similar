@@ -119,18 +119,19 @@ export const test = base.extend<{
         })
       })
 
-      // Click the injected button to trigger the side-panel opening.
-      await page.click('#openSidePanelBtn')
-
-      // Wait for the side-panel page to appear and return it.
-      const sidePanelPage = await context.waitForEvent('page', {
+      // Get a handle for the sidepanel when it appears.
+      const sidePanelPage = context.waitForEvent('page', {
         predicate: (p) => p.url().startsWith(`chrome-extension://${extensionId}/sidepanel.html`),
       })
+
+      // Click the injected button to trigger the sidepanel opening.
+      await page.click('#openSidePanelBtn')
 
       // Close the transition page.
       await page.close()
 
-      return sidePanelPage
+      // Wait for the sidepanel to appear and return it.
+      return await sidePanelPage
     }
 
     await use(open)
