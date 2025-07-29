@@ -7,6 +7,6 @@ export default defineConfig({
   // Run tests sequentially because all of them share the same persistent context
   workers: 1,
   use: {
-    trace: 'on-first-retry',
+    trace: 'retain-on-failure',
   },
 })
