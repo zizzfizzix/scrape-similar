@@ -50,7 +50,7 @@ jobs:
           VERSION_NUMBER=${VERSION#v}
 
           # Generate changelog with unreleased section
-          pnpm dlx conventional-changelog -i CHANGELOG.md --same-file -p angular -r 0 --output-unreleased
+          pnpm exec conventional-changelog -i CHANGELOG.md --same-file -p angular -r 0 --output-unreleased
 
           # Extract the unreleased section for release notes
           if [ -f "CHANGELOG.md" ]; then
