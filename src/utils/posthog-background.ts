@@ -1,6 +1,7 @@
 // PostHog initialization for background service workers and non-React contexts
 // This allows tracking events directly from the background script without message passing
 
+import { isDevOrTest } from '@/utils/modeTest'
 import log from 'loglevel'
 
 // Import PostHog core library for service workers
@@ -71,6 +72,7 @@ export const getPostHogBackground = async (): Promise<PostHog | null> => {
       // Initialize PostHog instance
       const posthogInstance = new PostHog()
       posthogInstance.init(apiKey, {
+        debug: isDevOrTest || !!(await storage.getItem<boolean>('local:debugMode')),
         // Supply our own distinct_id to ensure consistent distinct_id across extension contexts
         bootstrap: {
           distinctID: distinctId.toString(),
@@ -94,6 +96,13 @@ export const getPostHogBackground = async (): Promise<PostHog | null> => {
           '$session_entry_referrer',
         ],
       })
+
+      // React to debugMode changes in production to keep config in sync
+      if (!isDevOrTest) {
+        storage.watch<boolean>('local:debugMode', (val) => {
+          posthogInstance.set_config({ debug: !!val })
+        })
+      }
 
       log.debug('PostHog background service worker initialized successfully')
       return posthogInstance

@@ -1,3 +1,4 @@
+import { isDevOrTest } from '@/utils/modeTest'
 import log from 'loglevel'
 import React, { useEffect, useRef, useState } from 'react'
 
@@ -8,8 +9,6 @@ const OptionsApp: React.FC = () => {
 
   // Load debug mode from storage on mount
   useEffect(() => {
-    const isDevOrTest = process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test'
-
     storage.getItem<boolean>('local:debugMode').then((val) => {
       setDebugMode(!!val)
       if (isDevOrTest) {

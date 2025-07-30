@@ -1,6 +1,7 @@
 import log from 'loglevel'
 // Posthog needs to be imported this way, otherwise the extension doesn't pass the Chrome Web Store review
 // https://github.com/PostHog/posthog-js/issues/1464#issuecomment-2792093981
+import { isDevOrTest } from '@/utils/modeTest'
 import 'posthog-js/dist/dead-clicks-autocapture.js'
 import 'posthog-js/dist/exception-autocapture.js'
 import { PostHog } from 'posthog-js/dist/module.no-external'
@@ -81,6 +82,7 @@ async function initializePostHog(): Promise<void> {
       // Initialize PostHog instance
       const posthogInstance = new PostHog()
       posthogInstance.init(apiKey, {
+        debug: isDevOrTest || !!(await storage.getItem<boolean>('local:debugMode')),
         // Supply our own distinct_id to ensure consistent distinct_id across extension contexts
         bootstrap: {
           distinctID: distinctId.toString(),
@@ -147,6 +149,21 @@ export const PostHogWrapper: React.FC<PostHogWrapperProps> = ({ children }) => {
       }
     }
   }, [loading, consentState])
+
+  // Sync PostHog debug config with storage changes (production only)
+  useEffect(() => {
+    if (isDevOrTest) return
+
+    const unwatch = storage.watch<boolean>('local:debugMode', (val) => {
+      if (isPostHogInitialized()) {
+        ;(window as any).__scrape_similar_posthog.set_config({ debug: !!val })
+      }
+    })
+
+    return () => {
+      if (unwatch) unwatch()
+    }
+  }, [])
 
   return <>{children}</>
 }

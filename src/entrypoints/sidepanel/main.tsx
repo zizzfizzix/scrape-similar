@@ -1,5 +1,6 @@
 import '@/assets/tailwind.css'
 import SidePanel from '@/entrypoints/sidepanel/SidePanel'
+import { isDevOrTest } from '@/utils/modeTest'
 import log from 'loglevel'
 import { useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -16,8 +17,6 @@ if (!appElement) {
 
     // On startup, set log level and state from storage
     useEffect(() => {
-      const isDevOrTest = process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test'
-
       storage.getItem<boolean>('local:debugMode').then((val) => {
         setDebugMode(!!val)
         if (isDevOrTest) {

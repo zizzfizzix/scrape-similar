@@ -1,11 +1,10 @@
+import { isDevOrTest } from '@/utils/modeTest'
 import log from 'loglevel'
 import { PostHog } from 'posthog-js/dist/module.no-external'
 
 log.setDefaultLevel('error')
 
 export default defineBackground(() => {
-  const isDevOrTest = process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test'
-
   // Always log at trace level in development or test mode
   if (isDevOrTest) {
     log.setLevel('trace')
