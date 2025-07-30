@@ -5,7 +5,7 @@ type Theme = 'dark' | 'light' | 'system'
 type ThemeProviderProps = {
   children: React.ReactNode
   defaultTheme?: Theme
-  storageKey?: string
+  themeStorageKey?: string
 }
 
 type ThemeProviderState = {
@@ -23,14 +23,14 @@ const ThemeProviderContext = createContext<ThemeProviderState>(initialState)
 export function ThemeProvider({
   children,
   defaultTheme = 'system',
-  storageKey = 'vite-ui-theme',
+  themeStorageKey = 'theme',
   ...props
 }: ThemeProviderProps) {
   const [theme, setTheme] = useState<Theme>(defaultTheme)
 
   // Load theme from storage on mount
   useEffect(() => {
-    storage.getItem<Theme>('sync:theme').then((stored) => {
+    storage.getItem<Theme>(`local:${themeStorageKey}`).then((stored) => {
       if (stored && ['light', 'dark', 'system'].includes(stored)) {
         setTheme(stored)
       }
@@ -39,7 +39,7 @@ export function ThemeProvider({
 
   // Listen for theme changes in storage
   useEffect(() => {
-    const unwatchTheme = storage.watch<Theme>('sync:theme', (newTheme) => {
+    const unwatchTheme = storage.watch<Theme>(`local:${themeStorageKey}`, (newTheme) => {
       if (newTheme && ['light', 'dark', 'system'].includes(newTheme)) {
         setTheme(newTheme)
       }
@@ -81,7 +81,7 @@ export function ThemeProvider({
   const value = {
     theme,
     setTheme: (theme: Theme) => {
-      storage.setItem('sync:theme', theme)
+      storage.setItem(`local:${themeStorageKey}`, theme)
       setTheme(theme)
     },
   }
