@@ -5,7 +5,7 @@ type Theme = 'dark' | 'light' | 'system'
 type ThemeProviderProps = {
   children: React.ReactNode
   defaultTheme?: Theme
-  storageKey?: string
+  themeStorageKey?: string
 }
 
 type ThemeProviderState = {
@@ -23,40 +23,29 @@ const ThemeProviderContext = createContext<ThemeProviderState>(initialState)
 export function ThemeProvider({
   children,
   defaultTheme = 'system',
-  storageKey = 'vite-ui-theme',
+  themeStorageKey = 'theme',
   ...props
 }: ThemeProviderProps) {
   const [theme, setTheme] = useState<Theme>(defaultTheme)
 
-  // Load theme from Chrome storage on mount
+  // Load theme from storage on mount
   useEffect(() => {
-    if (chrome?.storage?.sync) {
-      chrome.storage.sync.get(['theme'], (result) => {
-        if (result.theme && ['light', 'dark', 'system'].includes(result.theme)) {
-          setTheme(result.theme)
-        }
-      })
-    }
+    storage.getItem<Theme>(`local:${themeStorageKey}`).then((stored) => {
+      if (stored && ['light', 'dark', 'system'].includes(stored)) {
+        setTheme(stored)
+      }
+    })
   }, [])
 
-  // Listen for theme changes in Chrome storage
+  // Listen for theme changes in storage
   useEffect(() => {
-    const handleStorageChange = (
-      changes: { [key: string]: chrome.storage.StorageChange },
-      areaName: string,
-    ) => {
-      if (areaName === 'sync' && changes.theme) {
-        const newTheme = changes.theme.newValue
-        if (newTheme && ['light', 'dark', 'system'].includes(newTheme)) {
-          setTheme(newTheme)
-        }
+    const unwatchTheme = storage.watch<Theme>(`local:${themeStorageKey}`, (newTheme) => {
+      if (newTheme && ['light', 'dark', 'system'].includes(newTheme)) {
+        setTheme(newTheme)
       }
-    }
-
-    chrome.storage.onChanged.addListener(handleStorageChange)
-
+    })
     return () => {
-      chrome.storage.onChanged.removeListener(handleStorageChange)
+      unwatchTheme()
     }
   }, [])
 
@@ -92,7 +81,7 @@ export function ThemeProvider({
   const value = {
     theme,
     setTheme: (theme: Theme) => {
-      chrome.storage.sync.set({ theme })
+      storage.setItem(`local:${themeStorageKey}`, theme)
       setTheme(theme)
     },
   }

@@ -1,4 +1,9 @@
-if ! npm run fmt-check; then
-  echo "[Husky] Commit blocked: Please run 'npm run fmt' before staging your changes."
+if ! pnpm fmt-check; then
+  echo "[Husky] Commit blocked: Please run 'pnpm run fmt' before staging your changes."
+  exit 1
+fi
+
+if ! pnpm test; then
+  echo "[Husky] Commit blocked: unit tests failed."
   exit 1
 fi

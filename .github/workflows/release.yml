@@ -7,6 +7,11 @@ on:
 
 jobs:
   release:
+    environment: production
+    env:
+      NODE_ENV: production
+      VITE_PUBLIC_POSTHOG_KEY: ${{ secrets.VITE_PUBLIC_POSTHOG_KEY }}
+      VITE_PUBLIC_POSTHOG_HOST: ${{ secrets.VITE_PUBLIC_POSTHOG_HOST }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -19,17 +24,26 @@ jobs:
         with:
           fetch-depth: 0
 
+      - uses: pnpm/action-setup@v4
+        name: Install pnpm
+        with:
+          version: 10
+          run_install: false
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          cache: 'npm'
+          node-version: lts/*
+          cache: 'pnpm'
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install
+
+      - name: Format check
+        run: pnpm fmt-check
 
       - name: Build and create extension package
-        run: npm run zip
+        run: pnpm zip
 
       - name: Generate Release Notes using conventional-changelog
         id: generate_release_notes
@@ -40,7 +54,7 @@ jobs:
           VERSION_NUMBER=${VERSION#v}
 
           # Generate changelog with unreleased section
-          npx conventional-changelog -i CHANGELOG.md --same-file -p angular -r 0 --output-unreleased
+          pnpm dlx conventional-changelog -i CHANGELOG.md --same-file -p angular -r 0 --output-unreleased
 
           # Extract the unreleased section for release notes
           if [ -f "CHANGELOG.md" ]; then

@@ -9,8 +9,6 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { ANALYTICS_EVENTS, trackEvent } from '@/core/analytics'
-import { ScrapeConfig, ScrapedData, ScrapedRow } from '@/core/types'
 import {
   CellContext,
   ColumnDef,

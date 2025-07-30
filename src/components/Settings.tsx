@@ -2,17 +2,15 @@ import { Button } from '@/components/ui/button'
 import { ModeToggle } from '@/components/ui/mode-toggle'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { ANALYTICS_EVENTS, trackEvent } from '@/core/analytics'
 import log from 'loglevel'
 import { Clipboard } from 'lucide-react'
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useId, useRef, useState } from 'react'
 
 interface SettingsProps {
   onResetSystemPresets?: () => void
   debugMode?: boolean
   onDebugModeChange?: (enabled: boolean) => void
   className?: string
-  onTitleClick?: () => void
   ref?: React.Ref<{ unlockDebugMode: () => void }>
 }
 
@@ -22,41 +20,42 @@ export const Settings = React.memo(
     debugMode = false,
     onDebugModeChange,
     className,
-    onTitleClick,
     ref,
   }: SettingsProps) => {
     const [showDebugRow, setShowDebugRow] = useState(debugMode)
+    const { loading: consentLoading, state: consentState, setConsent } = useConsent()
     const clickCountRef = useRef(0)
     const timerRef = useRef<NodeJS.Timeout | null>(null)
 
-    // Load debug unlock state from storage on mount
+    // Keep local copies of storage flags so we can compute visibility without extra storage reads
+    const debugModeValRef = useRef(false)
+    const debugUnlockedValRef = useRef(false)
+
+    // Load debug flags from storage on mount
     useEffect(() => {
-      if (chrome?.storage?.sync) {
-        chrome.storage.sync.get(['debugMode', 'debugUnlocked'], (result) => {
-          setShowDebugRow(!!result.debugMode || !!result.debugUnlocked)
+      storage
+        .getItems(['local:debugMode', 'local:debugUnlocked'])
+        .then(([debugMode, debugUnlocked]) => {
+          debugModeValRef.current = !!debugMode.value
+          debugUnlockedValRef.current = !!debugUnlocked.value
+          setShowDebugRow(debugModeValRef.current || debugUnlockedValRef.current)
         })
-      }
     }, [])
 
-    // Listen for debug state changes in storage
+    // Listen for changes to either flag and update visibility
     useEffect(() => {
-      if (!chrome?.storage?.sync) return
-
-      const handleStorageChange = (
-        changes: { [key: string]: chrome.storage.StorageChange },
-        areaName: string,
-      ) => {
-        if (areaName === 'sync' && (changes.debugMode || changes.debugUnlocked)) {
-          const debugMode = changes.debugMode?.newValue || false
-          const debugUnlocked = changes.debugUnlocked?.newValue || false
-          setShowDebugRow(debugMode || debugUnlocked)
-        }
-      }
-
-      chrome.storage.onChanged.addListener(handleStorageChange)
+      const unwatchDebugMode = storage.watch<boolean>('local:debugMode', (val) => {
+        debugModeValRef.current = !!val
+        setShowDebugRow(debugModeValRef.current || debugUnlockedValRef.current)
+      })
+      const unwatchDebugUnlocked = storage.watch<boolean>('local:debugUnlocked', (val) => {
+        debugUnlockedValRef.current = !!val
+        setShowDebugRow(debugModeValRef.current || debugUnlockedValRef.current)
+      })
 
       return () => {
-        chrome.storage.onChanged.removeListener(handleStorageChange)
+        unwatchDebugMode()
+        unwatchDebugUnlocked()
       }
     }, [])
 
@@ -79,9 +78,7 @@ export const Settings = React.memo(
         }
 
         // Save debug unlock state to storage
-        if (chrome?.storage?.sync) {
-          chrome.storage.sync.set({ debugUnlocked: true })
-        }
+        storage.setItem('local:debugUnlocked', true)
 
         // Track hidden settings unlocked
         trackEvent(ANALYTICS_EVENTS.HIDDEN_SETTINGS_UNLOCK)
@@ -93,8 +90,8 @@ export const Settings = React.memo(
       if (onDebugModeChange) onDebugModeChange(checked)
 
       // Clear unlock state when debug mode is turned off
-      if (!checked && chrome?.storage?.sync) {
-        chrome.storage.sync.remove('debugUnlocked')
+      if (!checked) {
+        storage.removeItem('local:debugUnlocked')
       }
 
       // Track debug mode toggle
@@ -114,13 +111,24 @@ export const Settings = React.memo(
 
     const handleResetSystemPresets = useCallback(async () => {
       try {
-        await chrome.storage.sync.remove('system_preset_status')
+        await storage.removeItem('sync:system_preset_status')
         trackEvent(ANALYTICS_EVENTS.SYSTEM_PRESETS_RESET)
         if (onResetSystemPresets) onResetSystemPresets()
       } catch (error) {
         log.error('Error resetting system presets:', error)
       }
     }, [onResetSystemPresets])
+
+    const handleAnalyticsToggle = (checked: boolean) => {
+      setConsent(checked)
+    }
+
+    // Generate unique ids for switch components for accessibility
+    const analyticsSwitchId = useId()
+    const debugSwitchId = useId()
+    const themeToggleId = useId()
+    const keyboardShortcutId = useId()
+    const systemPresetsId = useId()
 
     // Expose the unlock function via ref
     React.useImperativeHandle(ref, () => ({
@@ -129,20 +137,25 @@ export const Settings = React.memo(
 
     return (
       <div className={`flex flex-col gap-4 ${className || ''}`}>
-        <div className="flex items-center justify-between gap-4">
-          <span className="text-sm font-medium">Theme</span>
-          <ModeToggle />
-        </div>
-        <div className="flex items-center justify-between gap-4">
-          <span className="text-sm font-medium">Keyboard shortcut</span>
+        <label htmlFor={themeToggleId} className="flex items-center justify-between gap-4">
+          <span className="text-sm font-medium" id={`${themeToggleId}-label`} aria-hidden>
+            Theme
+          </span>
+          <ModeToggle id={themeToggleId} aria-labelledby={`${themeToggleId}-label`} />
+        </label>
+        <label htmlFor={keyboardShortcutId} className="flex items-center justify-between gap-4">
+          <span className="text-sm font-medium" id={`${keyboardShortcutId}-label`} aria-hidden>
+            Keyboard shortcut
+          </span>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
+                id={keyboardShortcutId}
                 type="button"
                 variant="outline"
                 size="sm"
                 className="flex items-center gap-2"
-                aria-label="Go to Chrome shortcut settings"
+                aria-labelledby={`${keyboardShortcutId}-label`}
                 onClick={handleKeyboardShortcutClick}
               >
                 <Clipboard className="size-4 ml-1" />
@@ -151,24 +164,47 @@ export const Settings = React.memo(
             </TooltipTrigger>
             <TooltipContent>Paste in a new tab to open settings</TooltipContent>
           </Tooltip>
-        </div>
-        <div className="flex items-center justify-between gap-4">
-          <span className="text-sm font-medium">System presets</span>
+        </label>
+        <label htmlFor={systemPresetsId} className="flex items-center justify-between gap-4">
+          <span className="text-sm font-medium" id={`${systemPresetsId}-label`} aria-hidden>
+            System presets
+          </span>
           <Button
+            id={systemPresetsId}
             type="button"
             variant="outline"
             size="sm"
             onClick={handleResetSystemPresets}
-            aria-label="Reset system presets"
+            aria-labelledby={`${systemPresetsId}-label`}
           >
             Reset
           </Button>
-        </div>
+        </label>
+        {!consentLoading && (
+          <label htmlFor={analyticsSwitchId} className="flex items-center justify-between gap-4">
+            <span className="text-sm font-medium" id={`${analyticsSwitchId}-label`} aria-hidden>
+              Anonymous analytics
+            </span>
+            <Switch
+              id={analyticsSwitchId}
+              aria-labelledby={`${analyticsSwitchId}-label`}
+              checked={consentState === true}
+              onCheckedChange={handleAnalyticsToggle}
+            />
+          </label>
+        )}
         {showDebugRow && (
-          <div className="flex items-center justify-between gap-4">
-            <span className="text-sm font-medium">Debug mode</span>
-            <Switch checked={debugMode} onCheckedChange={handleDebugSwitch} />
-          </div>
+          <label htmlFor={debugSwitchId} className="flex items-center justify-between gap-4">
+            <span className="text-sm font-medium" id={`${debugSwitchId}-label`} aria-hidden>
+              Debug mode
+            </span>
+            <Switch
+              id={debugSwitchId}
+              aria-labelledby={`${debugSwitchId}-label`}
+              checked={debugMode}
+              onCheckedChange={handleDebugSwitch}
+            />
+          </label>
         )}
       </div>
     )
