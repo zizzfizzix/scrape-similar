@@ -17,17 +17,13 @@ export default defineConfig({
       'https://oauth2.googleapis.com',
     ].join(' ')
 
-    const isTest = mode === 'test'
     const isDev = mode === 'development'
     // Allow connecting to vite websocket in dev mode
     const devCSP = isDev ? ' ws://localhost:* http://localhost:*' : ''
 
     return {
       key: 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAu6ONFPt3ct0twLsACoeS7JjXkpEznkKkuh9uTApNa8EToDneOS0JPcD4cD3KEaO+SlsLPjU0JVkqX4/XBM6meSw4UIRydJCEf4UbCD+PR61FyuPq7Gp67Kd9jF0Oet7a/4nE7cNrBhz98CwifvI4MlIQWWK5jwwpAhVf0rQDjpG38H8+t2blGTlH8aP4+S/74qLN2fLILP7rIiovq4uvskBjJ4RwM3d6azdp0eCqrBDF6xAfTqp/8k+ZZ6wzGMsmKQI+yAdRhpsa0gfcFNnnu+ATErKHCL0seQB4kE4pHmA4q0ii70z6nOYO/NlT2wEmOvtfouuhvBGOGbChv9sHgQIDAQAB',
-      permissions: isTest
-        ? // allow injecting scripts for playwright sidepanel tests
-          ['storage', 'tabs', 'contextMenus', 'identity', 'scripting']
-        : ['storage', 'tabs', 'contextMenus', 'identity'],
+      permissions: ['contextMenus', 'identity', 'scripting', 'storage'],
       host_permissions: ['http://*/*', 'https://*/*'],
       action: {
         default_title: 'Open Scrape Similar',
