@@ -237,7 +237,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
 
     setGuessButtonState('generating')
     try {
-      browser.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
+      browser.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         const tab = tabs[0]
         if (!tab?.id) {
           setGuessButtonState('failure')
