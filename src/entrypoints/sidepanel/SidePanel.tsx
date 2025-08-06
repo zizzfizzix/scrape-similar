@@ -7,6 +7,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Toaster } from '@/components/ui/sonner'
+import { rowsToTsv } from '@/utils/tsv'
 import log from 'loglevel'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import slugify from 'slugify'
@@ -724,10 +725,6 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
     }
   }
 
-  // source: https://en.wikipedia.org/wiki/Tab-separated_values#Character_escaping
-  const escapeTsvField = (value: string) =>
-    value.replace(/\\/g, '\\\\').replace(/\t/g, '\\t').replace(/\n/g, '\\n').replace(/\r/g, '\\r')
-
   const handleCopyTsv = async () => {
     if (!scrapeResult) return
     const columns = scrapeResult.columnOrder || []
@@ -742,17 +739,8 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
     // Use column names for headers and keys for data access
     const columnKeys = getColumnKeys(columns, config.columns)
 
-    const tsvContent = [
-      columns.join('\t'),
-      ...dataToExport.map((row) =>
-        columnKeys
-          .map((key) => {
-            const value = row.data[key] || ''
-            return escapeTsvField(String(value))
-          })
-          .join('\t'),
-      ),
-    ].join('\n')
+    const tsvContent = rowsToTsv(dataToExport, columnKeys, columns)
+
     try {
       await copyToClipboard(tsvContent)
       toast.success('Copied to clipboard')
@@ -760,6 +748,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
       trackEvent(ANALYTICS_EVENTS.COPY_TO_CLIPBOARD_TRIGGER, {
         rows_copied: dataToExport.length,
         columns_count: columns.length,
+        export_type: 'data_table_full',
       })
     } catch {
       toast.error('Failed to copy')

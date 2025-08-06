@@ -9,6 +9,9 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { ANALYTICS_EVENTS, trackEvent } from '@/utils/analytics'
+import { getColumnKeys } from '@/utils/getColumnKeys'
+import { rowToTsv } from '@/utils/tsv'
 import {
   CellContext,
   ColumnDef,
@@ -16,8 +19,9 @@ import {
   getCoreRowModel,
   useReactTable,
 } from '@tanstack/react-table'
-import { Highlighter } from 'lucide-react'
+import { Clipboard, Highlighter } from 'lucide-react'
 import React, { useEffect, useMemo, useState } from 'react'
+import { toast } from 'sonner'
 
 interface DataTableProps {
   data: ScrapedData
@@ -75,11 +79,12 @@ const DataTable: React.FC<DataTableProps> = ({
           const originalIndex = row.original.metadata.originalIndex
           const isEmpty = row.original.metadata.isEmpty
 
-          const button = (
+          // Highlight button
+          const highlightButton = (
             <Button
               variant="ghost"
               size="icon"
-              className="size-7"
+              className="size-6"
               aria-label={isEmpty ? undefined : 'Highlight this element'}
               disabled={isEmpty}
               onClick={
@@ -95,16 +100,61 @@ const DataTable: React.FC<DataTableProps> = ({
             </Button>
           )
 
-          // Only wrap with tooltip if row is not empty
+          // Copy row button
+          const copyButton = (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-6"
+              aria-label={isEmpty ? undefined : 'Copy this row'}
+              disabled={isEmpty}
+              onClick={
+                isEmpty
+                  ? undefined
+                  : async () => {
+                      const columnKeys = getColumnKeys(columnsOrder, config.columns)
+                      const tsvContent = rowToTsv(row.original, columnKeys)
+                      try {
+                        await navigator.clipboard.writeText(tsvContent)
+                        toast.success('Copied row to clipboard')
+                        trackEvent(ANALYTICS_EVENTS.COPY_TO_CLIPBOARD_TRIGGER, {
+                          rows_copied: 1,
+                          columns_count: columnKeys.length,
+                          export_type: 'data_table_row',
+                        })
+                      } catch {
+                        toast.error('Failed to copy')
+                        trackEvent(ANALYTICS_EVENTS.COPY_TO_CLIPBOARD_FAILURE)
+                      }
+                    }
+              }
+            >
+              <Clipboard className="size-4" />
+            </Button>
+          )
+
+          // If row is empty, just render buttons without tooltips
           if (isEmpty) {
-            return button
+            return (
+              <div className="flex gap-1">
+                {highlightButton}
+                {copyButton}
+              </div>
+            )
           }
 
+          // Wrap each button with its tooltip for non-empty rows
           return (
-            <Tooltip>
-              <TooltipTrigger asChild>{button}</TooltipTrigger>
-              <TooltipContent>Highlight this element</TooltipContent>
-            </Tooltip>
+            <div className="flex gap-1">
+              <Tooltip>
+                <TooltipTrigger asChild>{highlightButton}</TooltipTrigger>
+                <TooltipContent>Highlight this element</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>{copyButton}</TooltipTrigger>
+                <TooltipContent>Copy this row</TooltipContent>
+              </Tooltip>
+            </div>
           )
         },
         size: 60,

@@ -76,7 +76,7 @@ export const test = base.extend<{
     await use(serviceWorker)
   },
 
-  openSidePanel: async ({ context, extensionId, serviceWorker }, use) => {
+  openSidePanel: async ({ context, extensionId, serviceWorker }, use, testInfo) => {
     const open = async (transitionUrl: string = 'https://one.one.one.one/') => {
       // Navigate to any page (default is a simple Cloudflare IP resolver page).
       const page = await context.newPage()
@@ -136,7 +136,12 @@ export const test = base.extend<{
       await page.close()
 
       // Wait for the sidepanel to appear and return it.
-      return await sidePanelPage
+      return await sidePanelPage.then((p) => {
+        // Due to PW_CHROMIUM_ATTACH_TO_OTHER=1 sidepanel inherits the viewport of other pages,
+        // the viewport size is reset to the default 360px wide and the height from the config..
+        p.setViewportSize({ width: 360, height: testInfo.project.use.viewport?.height ?? 720 })
+        return p
+      })
     }
 
     await use(open)
