@@ -94,6 +94,7 @@ async function initializePostHog(): Promise<void> {
         // Session replay configuration for Manifest V3
         session_recording: {
           recordCrossOriginIframes: false, // Disable for security in extensions
+          maskTextSelector: '.ph_hidden', // masks all elements with the class "ph_hidden"
         },
         property_denylist: [
           '$current_url',

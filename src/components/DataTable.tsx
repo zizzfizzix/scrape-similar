@@ -173,7 +173,13 @@ const DataTable: React.FC<DataTableProps> = ({
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id} style={{ width: header.getSize?.() }}>
+                  <TableHead
+                    key={header.id}
+                    style={{ width: header.getSize?.() }}
+                    className={
+                      header.id === 'rowIndex' || header.id === 'actions' ? '' : 'ph_hidden'
+                    }
+                  >
                     {header.isPlaceholder
                       ? null
                       : flexRender(header.column.columnDef.header, header.getContext())}
@@ -197,7 +203,14 @@ const DataTable: React.FC<DataTableProps> = ({
                   className={row.original.metadata.isEmpty ? 'opacity-60 bg-muted/30' : ''}
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
+                    <TableCell
+                      key={cell.id}
+                      className={
+                        cell.column.id === 'rowIndex' || cell.column.id === 'actions'
+                          ? ''
+                          : 'ph_hidden'
+                      }
+                    >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   ))}
