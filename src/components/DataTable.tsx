@@ -149,22 +149,29 @@ const DataTable: React.FC<DataTableProps> = ({
   return (
     <div className="data-table-container">
       {/* Toggle for showing/hiding empty rows */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <Switch
-            id="show-empty-rows"
-            checked={showEmptyRows}
-            onCheckedChange={onShowEmptyRowsChange}
-          />
-          <label htmlFor="show-empty-rows" className="text-sm font-medium">
-            Show empty rows
-          </label>
-        </div>
-        <div className="text-sm text-muted-foreground">
-          {showEmptyRows
-            ? `${filteredData.length} total rows (${data.filter((r) => r.metadata.isEmpty).length} empty)`
-            : `${filteredData.length} rows with data`}
-        </div>
+      <div className="flex items-center justify-between [&>*:only-child]:ml-auto mb-4">
+        {data.filter((r) => r.metadata.isEmpty).length > 0 ? (
+          <>
+            <div className="flex items-center gap-2">
+              <Switch
+                id="show-empty-rows"
+                checked={showEmptyRows}
+                onCheckedChange={onShowEmptyRowsChange}
+              />
+              <label htmlFor="show-empty-rows" className="text-sm font-medium">
+                Show {data.filter((r) => r.metadata.isEmpty).length} empty rows
+              </label>
+            </div>
+
+            <div className="text-sm text-muted-foreground">
+              {showEmptyRows
+                ? `${filteredData.length} total rows`
+                : `${filteredData.length} rows with data`}
+            </div>
+          </>
+        ) : (
+          <div className="text-sm text-muted-foreground">{filteredData.length} rows with data</div>
+        )}
       </div>
 
       <div className="table-wrapper">
