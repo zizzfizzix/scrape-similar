@@ -555,7 +555,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                   size="icon"
                   type="button"
                   tabIndex={-1}
-                  aria-label="XPath reference"
+                  aria-label="Open XPath reference"
                   className="size-7 p-0.5 rounded focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-0"
                   onClick={() =>
                     window.open(
@@ -569,7 +569,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="top" align="end">
-                XPath reference
+                Open XPath reference
               </TooltipContent>
             </Tooltip>
           </div>
