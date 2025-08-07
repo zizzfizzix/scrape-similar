@@ -115,12 +115,17 @@ export default defineBackground(() => {
       }
     }
 
-    // Create context menu item (only scrape-similar)
+    // Create context menu item
     browser.contextMenus.create(
       {
         id: 'scrape-similar',
         title: 'Scrape similar elements',
         contexts: ['selection', 'page', 'link', 'image'],
+        documentUrlPatterns: [
+          'http://*/*',
+          'https://*/*',
+          `chrome-extension://${browser.runtime.id}/onboarding.html`,
+        ],
       },
       () => {
         // Check for any errors when creating context menu
