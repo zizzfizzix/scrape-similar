@@ -126,11 +126,9 @@ test.describe('Sidepanel', () => {
     })
 
     // Type an obviously invalid XPath selector and commit with Enter.
-    const input = sidePanel
-      .getByLabel('Main Selector', { exact: false })
-      .or(sidePanel.locator('#mainSelector'))
-    await input.fill('//*[')
-    await input.press('Enter')
+    const mainSelector = sidePanel.locator('#mainSelector')
+    await mainSelector.fill('//*[')
+    await mainSelector.press('Enter')
 
     // Expect a destructive badge with an alert icon (svg) to appear.
     const errorBadge = sidePanel.locator('[data-slot="badge"] svg')
@@ -153,11 +151,9 @@ test.describe('Sidepanel', () => {
     })
 
     // Provide a valid selector that should match many elements.
-    const input = sidePanel
-      .getByLabel('Main Selector', { exact: false })
-      .or(sidePanel.locator('#mainSelector'))
-    await input.fill('//p')
-    await input.press('Enter')
+    const mainSelector = sidePanel.locator('#mainSelector')
+    await mainSelector.fill('//p')
+    await mainSelector.press('Enter')
 
     // Expect a badge whose text is a positive integer to appear.
     const countBadge = sidePanel.locator('[data-slot="badge"]').filter({ hasText: /^\d+$/ })
