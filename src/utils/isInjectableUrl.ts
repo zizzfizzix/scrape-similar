@@ -1,5 +1,17 @@
 const nonInjectableUrls = {
-  startsWith: ['chrome://', 'about:', 'chrome-extension://', 'https://chromewebstore.google.com/'],
+  startsWith: [
+    'chrome://',
+    'about:',
+    'chrome-extension://',
+    'https://chromewebstore.google.com/',
+    'file://',
+    'ftp://',
+    'ftps://',
+    'ws://',
+    'wss://',
+    'blob://',
+    'data://',
+  ],
   match: ['^https://chrome.google.com/(.+/)?webstore/'],
 }
 
