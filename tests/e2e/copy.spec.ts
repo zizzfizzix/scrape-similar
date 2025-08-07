@@ -39,11 +39,9 @@ test.describe('Copy to clipboard', () => {
     await page.bringToFront()
 
     // Fill main selector and scrape.
-    const selectorInput = sidePanel
-      .getByLabel('Main Selector', { exact: false })
-      .or(sidePanel.locator('#mainSelector'))
-    await selectorInput.fill('//h2')
-    await selectorInput.press('Enter')
+    const mainSelector = sidePanel.locator('#mainSelector')
+    await mainSelector.fill('//h2')
+    await mainSelector.press('Enter')
 
     await sidePanel
       .getByRole('button', { name: /auto-generate configuration from selector/i })

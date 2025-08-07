@@ -27,6 +27,7 @@ import {
   Check,
   ChevronsUpDown,
   EyeOff,
+  HelpCircle,
   Info,
   OctagonAlert,
   Plus,
@@ -479,12 +480,25 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
 
       {/* Main Selector section */}
       <div className="flex flex-col gap-4 items-start">
-        <h3 className="scroll-m-20 border-b pb-2 text-xl font-semibold tracking-tight first:mt-0">
-          Main Selector
-        </h3>
-        <p className="text-sm text-muted-foreground">
-          This selector identifies the main elements to scrape.
-        </p>
+        <div className="flex items-baseline gap-2">
+          <h3 className="scroll-m-20 border-b pb-2 text-xl font-semibold tracking-tight first:mt-0">
+            Main Selector
+          </h3>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span
+                tabIndex={-1}
+                aria-label="Main selector info"
+                className="cursor-default leading-none"
+              >
+                <HelpCircle className="w-4 h-4" />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              This selector identifies the main elements to scrape
+            </TooltipContent>
+          </Tooltip>
+        </div>
         <div className="relative w-full">
           <Input
             type="text"
@@ -541,7 +555,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                   size="icon"
                   type="button"
                   tabIndex={-1}
-                  aria-label="XPath reference"
+                  aria-label="Open XPath reference"
                   className="size-7 p-0.5 rounded focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-0"
                   onClick={() =>
                     window.open(
@@ -555,7 +569,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="top" align="end">
-                XPath reference
+                Open XPath reference
               </TooltipContent>
             </Tooltip>
           </div>
@@ -564,13 +578,22 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
 
       {/* Columns section */}
       <div className="flex flex-col gap-4 items-start">
-        <h3 className="scroll-m-20 border-b pb-2 text-xl font-semibold tracking-tight first:mt-0">
-          Columns
-        </h3>
-        <p className="text-sm text-muted-foreground">
-          Define what data to extract from each main element. Use "." to get the text content of the
-          element itself, or "@attr" to get an attribute.
-        </p>
+        <div className="flex items-baseline gap-2">
+          <h3 className="scroll-m-20 border-b pb-2 text-xl font-semibold tracking-tight first:mt-0">
+            Columns
+          </h3>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span tabIndex={-1} aria-label="Columns info" className="cursor-default leading-none">
+                <HelpCircle className="w-4 h-4" />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-xs text-left">
+              Define what data to extract from each main element. Use "." to get the text content of
+              the element itself, or "@attr" to get an attribute
+            </TooltipContent>
+          </Tooltip>
+        </div>
         <div className="flex w-full justify-between">
           <div
             className="overflow-x-auto grid grid-flow-col auto-cols-min gap-4"
