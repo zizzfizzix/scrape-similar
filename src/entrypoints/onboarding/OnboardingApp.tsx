@@ -216,6 +216,34 @@ const OnboardingApp: React.FC = () => {
             <Pin className="h-4 w-4" />
             <span>Pinned extensions stay visible in your toolbar</span>
           </div>
+
+          {/* Toolbar pin visual indicator */}
+          <div className="pointer-events-none fixed top-4 right-[70px] z-[60] flex flex-col items-center gap-1.5">
+            <div className="relative">
+              <svg
+                className="absolute left-1/2 top-1/2 h-5 w-5 dark:text-white text-black opacity-80 blur-[6px] [animation:triangle-ping_1.1s_cubic-bezier(0.22,1,0.36,1)_infinite] will-change-transform"
+                viewBox="0 0 12 10"
+                fill="none"
+                aria-hidden="true"
+                focusable="false"
+                style={{ transform: 'translate(-50%, -50%)' }}
+              >
+                <polygon points="6,0 12,10 0,10" fill="currentColor" />
+              </svg>
+              <svg
+                className="relative h-4 w-4 dark:text-white text-black drop-shadow-[0_0_8px_rgba(255,255,255,0.85)]"
+                viewBox="0 0 12 10"
+                fill="none"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <polygon points="6,0 12,10 0,10" fill="currentColor" />
+              </svg>
+            </div>
+            <div className="mt-0.5 bg-background/95 px-3 py-0.5 text-[11px] font-medium text-foreground">
+              Click to pin
+            </div>
+          </div>
         </div>
       ),
     },
@@ -229,7 +257,7 @@ const OnboardingApp: React.FC = () => {
           <p className="text-muted-foreground">
             Use the keyboard shortcut to quickly open and close the Scrape Similar side panel.
           </p>
-          <div className="bg-muted p-4 rounded-lg">
+          <div className="p-4">
             <div className="flex items-center justify-center space-x-2">
               {platform === 'mac' ? (
                 <>
@@ -462,7 +490,7 @@ const OnboardingApp: React.FC = () => {
             </div>
 
             <Card className="relative">
-              <CardHeader className="pb-4">
+              <CardHeader>
                 <ConsentCard onDecision={onConsentChange} />
               </CardHeader>
               <CardContent className="space-y-6">
@@ -493,7 +521,7 @@ const OnboardingApp: React.FC = () => {
           </div>
 
           <Card className="relative">
-            <CardHeader className="pb-4">
+            <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
                   {slides[currentSlide].icon}
