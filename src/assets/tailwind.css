@@ -123,3 +123,51 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Custom keyframes for triangular ping (extra-smooth multi-step) */
+@keyframes triangle-ping {
+  0% {
+    transform: translate3d(-50%, -50%, 0) scale(1);
+    opacity: 1;
+  }
+  10% {
+    transform: translate3d(-50%, -50%, 0) scale(1.053);
+    opacity: 0.95;
+  }
+  20% {
+    transform: translate3d(-50%, -50%, 0) scale(1.123);
+    opacity: 0.85;
+  }
+  30% {
+    transform: translate3d(-50%, -50%, 0) scale(1.193);
+    opacity: 0.7;
+  }
+  40% {
+    transform: translate3d(-50%, -50%, 0) scale(1.263);
+    opacity: 0.55;
+  }
+  50% {
+    transform: translate3d(-50%, -50%, 0) scale(1.333);
+    opacity: 0.42;
+  }
+  60% {
+    transform: translate3d(-50%, -50%, 0) scale(1.403);
+    opacity: 0.3;
+  }
+  70% {
+    transform: translate3d(-50%, -50%, 0) scale(1.473);
+    opacity: 0.22;
+  }
+  80% {
+    transform: translate3d(-50%, -50%, 0) scale(1.543);
+    opacity: 0.14;
+  }
+  90% {
+    transform: translate3d(-50%, -50%, 0) scale(1.613);
+    opacity: 0.08;
+  }
+  100% {
+    transform: translate3d(-50%, -50%, 0) scale(1.7);
+    opacity: 0;
+  }
+}
