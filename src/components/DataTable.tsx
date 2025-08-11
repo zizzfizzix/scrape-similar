@@ -19,7 +19,7 @@ import {
   getCoreRowModel,
   useReactTable,
 } from '@tanstack/react-table'
-import { Clipboard, Highlighter } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Clipboard, Highlighter } from 'lucide-react'
 import React, { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -294,7 +294,7 @@ const DataTable: React.FC<DataTableProps> = ({
           disabled={pagination.pageIndex === 0}
           aria-label="Previous page"
         >
-          Previous
+          <ChevronLeft className="size-4" />
         </Button>
         <span className="text-sm text-muted-foreground">
           Page {pagination.pageIndex + 1} of {totalPages}
@@ -314,7 +314,7 @@ const DataTable: React.FC<DataTableProps> = ({
           disabled={pagination.pageIndex >= totalPages - 1}
           aria-label="Next page"
         >
-          Next
+          <ChevronRight className="size-4" />
         </Button>
       </div>
     </div>
