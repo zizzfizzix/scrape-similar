@@ -355,4 +355,95 @@ test.describe('Sidepanel', () => {
     })
     expect(headers).toEqual(uiHeaders)
   })
+
+  test('shows rescrape indicator when config changes after successful scrape', async ({
+    context,
+    serviceWorker,
+    openSidePanel,
+  }) => {
+    const sidePanel = await openSidePanel()
+
+    // Navigate to Wikipedia for testing
+    const testPage = await context.newPage()
+    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+
+    // Dismiss consent modal
+    await serviceWorker.evaluate(() => {
+      chrome.storage.sync.set({ analytics_consent: false })
+    })
+
+    // Load first system preset: "Internal (relative) Links"
+    await sidePanel.getByRole('button', { name: /load/i }).click()
+    const linksPresetOption = sidePanel.getByRole('option', { name: /internal.*relative.*links/i })
+    await linksPresetOption.click()
+
+    // Wait for valid badge after preset loads
+    const countBadge = sidePanel.locator('[data-slot="badge"]').filter({ hasText: /^\d+$/ })
+    await expect(countBadge).toBeVisible({ timeout: 5000 })
+
+    // Perform initial scrape to establish baseline
+    const scrapeBtn = sidePanel.getByRole('button', { name: /^scrape$/i })
+    await scrapeBtn.click()
+
+    // Wait for data table to appear
+    await expect(sidePanel.getByRole('heading', { name: /extracted data/i })).toBeVisible({
+      timeout: 10000,
+    })
+
+    const rescrapeIcon = sidePanel.locator('svg.lucide-refresh-ccw')
+
+    // At this point, no rescrape indicator should be visible
+    await expect(rescrapeIcon).toBeHidden({ timeout: 2000 })
+
+    // Load second system preset: "Headings (H1-H6)" - this should trigger rescrape indicator
+    await sidePanel.getByRole('button', { name: /load/i }).click()
+    const headingsPresetOption = sidePanel.getByRole('option', { name: /headings.*h1.*h6/i })
+    await headingsPresetOption.click()
+
+    // Wait for new badge
+    await expect(countBadge).toBeVisible({ timeout: 5000 })
+
+    // Verify rescrape indicator appears when config differs from scraped data
+    // (button should now contain refresh icon before "Scrape" text)
+    await expect(rescrapeIcon).toBeVisible({ timeout: 2000 })
+
+    // Scrape with new config - rescrape indicator should disappear
+    await scrapeBtn.click()
+    await expect(sidePanel.getByRole('heading', { name: /extracted data/i })).toBeVisible({
+      timeout: 10000,
+    })
+    await expect(rescrapeIcon).toBeHidden({ timeout: 2000 })
+
+    // Load the first preset again - rescrape indicator should appear again
+    await sidePanel.getByRole('button', { name: /load/i }).click()
+    await linksPresetOption.click()
+
+    // Rescrape indicator should appear since config now differs from current results
+    await expect(rescrapeIcon).toBeVisible({ timeout: 2000 })
+
+    // Load the second preset again - indicator should disappear since it matches current results
+    await sidePanel.getByRole('button', { name: /load/i }).click()
+    await headingsPresetOption.click()
+
+    // Rescrape indicator should disappear since this config matches current results
+    await expect(rescrapeIcon).toBeHidden({ timeout: 2000 })
+
+    // Make a small change to trigger indicator again
+    const mainSelector = sidePanel.locator('#mainSelector')
+    await mainSelector.fill('//h2')
+    await mainSelector.press('Enter')
+
+    // Wait for badge
+    await expect(countBadge).toBeVisible({ timeout: 5000 })
+
+    // Rescrape indicator should appear
+    await expect(rescrapeIcon).toBeVisible({ timeout: 2000 })
+
+    // Scrape with modified config - indicator should disappear
+    await scrapeBtn.click()
+    await expect(sidePanel.getByRole('heading', { name: /extracted data/i })).toBeVisible({
+      timeout: 10000,
+    })
+    await expect(rescrapeIcon).toBeHidden({ timeout: 2000 })
+  })
 })

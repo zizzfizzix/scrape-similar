@@ -48,6 +48,7 @@ export interface SidePanelConfig {
   selectionOptions?: SelectionOptions
   currentScrapeConfig?: ScrapeConfig
   scrapeResult?: ScrapeResult
+  resultProducingConfig?: ScrapeConfig // Config that produced the current scrapeResult
   highlightMatchCount?: number | null
   highlightError?: string | null
 }

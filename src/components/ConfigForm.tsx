@@ -31,6 +31,7 @@ import {
   Info,
   OctagonAlert,
   Plus,
+  RefreshCcw,
   Trash2,
   Wand,
   X,
@@ -55,6 +56,7 @@ interface ConfigFormProps {
   onClearLastScrapeRowCount?: () => void
   highlightMatchCount?: number
   highlightError?: string
+  rescrapeAdvised?: boolean
 }
 
 // Helper to check if a preset is a system preset
@@ -77,6 +79,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
   onClearLastScrapeRowCount,
   highlightMatchCount,
   highlightError,
+  rescrapeAdvised = false,
 }) => {
   // Local state for adding a new column
   const [newColumnName, setNewColumnName] = useState('')
@@ -692,7 +695,16 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
             loading={isLoading}
             disabled={isLoading || config.columns.length === 0 || !isMainSelectorValid}
           >
-            {scrapeButtonState === 'zero-found' ? '0 found' : 'Scrape'}
+            {rescrapeAdvised && scrapeButtonState !== 'zero-found' ? (
+              <>
+                <RefreshCcw />
+                <span>Scrape</span>
+              </>
+            ) : scrapeButtonState === 'zero-found' ? (
+              '0 found'
+            ) : (
+              'Scrape'
+            )}
           </Button>
         </div>
       </div>
