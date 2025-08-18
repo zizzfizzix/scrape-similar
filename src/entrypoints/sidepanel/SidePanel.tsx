@@ -9,6 +9,7 @@ import {
 import { Toaster } from '@/components/ui/sonner'
 import { rowsToTsv } from '@/utils/tsv'
 import log from 'loglevel'
+import { ChevronsUpDown } from 'lucide-react'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import slugify from 'slugify'
 import { toast } from 'sonner'
@@ -805,7 +806,10 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
                   <h2 className="text-2xl font-bold">Extracted Data</h2>
                   <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="outline">Export</Button>
+                      <Button variant="outline">
+                        Export
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem
