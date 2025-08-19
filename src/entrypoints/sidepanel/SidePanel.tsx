@@ -9,6 +9,7 @@ import {
 import { Toaster } from '@/components/ui/sonner'
 import { rowsToTsv } from '@/utils/tsv'
 import log from 'loglevel'
+import { ChevronsUpDown } from 'lucide-react'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import slugify from 'slugify'
 import { toast } from 'sonner'
@@ -87,6 +88,8 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
     columns: [{ name: 'Text', selector: '.' }],
   })
   const [scrapeResult, setScrapeResult] = useState<ScrapeResult | null>(null)
+  // Track the configuration that produced the current scrapeResult
+  const [resultProducingConfig, setResultProducingConfig] = useState<ScrapeConfig | null>(null)
   const [presets, setPresets] = useState<Preset[]>([])
   const [isScraping, setIsScraping] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
@@ -173,6 +176,11 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
     })
   }, [])
 
+  // Reset result-producing config when switching tabs
+  useEffect(() => {
+    setResultProducingConfig(null)
+  }, [targetTabId])
+
   // --- Unified utility to save all sidepanel state to session storage ---
   const saveSidePanelState = useCallback((tabId: number, updates: Partial<SidePanelConfig>) => {
     browser.runtime.sendMessage({
@@ -226,6 +234,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
       currentScrapeConfig,
       initialSelectionText,
       scrapeResult,
+      resultProducingConfig,
       highlightMatchCount,
       highlightError,
     } = payload.config || {} // Default to empty object
@@ -280,8 +289,13 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
     // Load saved scraped data from session storage if available
     if (scrapeResult) {
       setScrapeResult(scrapeResult)
+      // Set the config that produced these results
+      if (resultProducingConfig) {
+        setResultProducingConfig(resultProducingConfig)
+      }
     } else {
       setScrapeResult(null)
+      setResultProducingConfig(null)
     }
 
     setExportStatus(null)
@@ -430,6 +444,8 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
     setContentScriptCommsError(null)
     if (!targetTabId) return
     setIsScraping(true)
+    // Capture the exact config used for this scrape
+    const configAtScrapeTime = config
     browser.tabs.sendMessage(
       targetTabId,
       {
@@ -450,6 +466,14 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
           setLastScrapeRowCount(null)
           log.error('Error during scrape:', response.error)
           return
+        }
+        // Successful scrape – remember the config used to produce current results
+        if (response?.success === true) {
+          setResultProducingConfig(configAtScrapeTime)
+          // Also save to storage so it persists
+          if (targetTabId !== null) {
+            saveSidePanelState(targetTabId, { resultProducingConfig: configAtScrapeTime })
+          }
         }
         setLastScrapeRowCount(response?.data?.data?.length ?? 0)
       },
@@ -798,6 +822,34 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
               onClearLastScrapeRowCount={() => setLastScrapeRowCount(null)}
               highlightMatchCount={highlightMatchCount}
               highlightError={highlightError}
+              // Show rescrape hint when there is data and config differs from the config that produced it
+              rescrapeAdvised={
+                !!(scrapeResult && scrapeResult.data && scrapeResult.data.length > 0) &&
+                !!resultProducingConfig &&
+                ((): boolean => {
+                  const current = config
+                  const producing = resultProducingConfig
+
+                  // Check main selector
+                  if (current.mainSelector !== producing.mainSelector) return true
+
+                  // Check columns count
+                  if (current.columns.length !== producing.columns.length) return true
+
+                  // Check each column
+                  for (let i = 0; i < current.columns.length; i++) {
+                    const currentCol = current.columns[i]
+                    const producingCol = producing.columns[i]
+                    if (!producingCol) return true
+                    if (currentCol.name !== producingCol.name) return true
+                    if (currentCol.selector !== producingCol.selector) return true
+                    const currentKey = currentCol.key || currentCol.name
+                    const producingKey = producingCol.key || producingCol.name
+                    if (currentKey !== producingKey) return true
+                  }
+                  return false
+                })()
+              }
             />
             {scrapeResult && scrapeResult.data.length > 0 && (
               <div className="flex flex-col gap-6" ref={dataTableRef}>
@@ -805,7 +857,10 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
                   <h2 className="text-2xl font-bold">Extracted Data</h2>
                   <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="outline">Export</Button>
+                      <Button variant="outline">
+                        Export
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem

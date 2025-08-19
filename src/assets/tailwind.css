@@ -191,6 +191,94 @@
   }
 }
 
+/* Scroll timeline keyframes */
+@keyframes reveal {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes detect-scroll {
+  from,
+  to {
+    --can-scroll: ;
+  }
+}
+
+@layer utilities {
+  /* Scroll timeline container */
+  .scroll-timeline-x {
+    scroll-timeline: --scroll-shadow inline;
+  }
+
+  /* Animation timeline binding */
+  .animation-timeline-scroll {
+    animation-timeline: --scroll-shadow;
+  }
+
+  /* Fade shadow animation */
+  .animate-fade-shadow {
+    animation: fadeShadow 1 both linear;
+  }
+
+  /* Horizontal scroll shadows */
+  .scroll-shadow-horizontal {
+    position: relative;
+    overflow-x: auto;
+    scroll-timeline: --scroll-timeline x;
+    /* Scroller detection */
+    animation: detect-scroll;
+    animation-timeline: --scroll-timeline;
+    animation-fill-mode: none;
+    /* Flex layout for sticky positioning */
+    display: flex;
+    align-items: stretch;
+  }
+
+  .scroll-shadow-horizontal::before,
+  .scroll-shadow-horizontal::after {
+    content: '';
+    position: sticky;
+    width: 0.75rem;
+    pointer-events: none;
+    flex-shrink: 0;
+    /* Animation setup */
+    animation-name: reveal;
+    animation-timeline: --scroll-timeline;
+    animation-fill-mode: both;
+    /* Visibility toggle based on scrollability */
+    --visibility-if-can-scroll: var(--can-scroll) visible;
+    --visibility-if-cant-scroll: hidden;
+    visibility: var(--visibility-if-can-scroll, var(--visibility-if-cant-scroll));
+  }
+
+  /* Left shadow */
+  .scroll-shadow-horizontal::before {
+    left: 0;
+    background: radial-gradient(
+      farthest-side at 0% 50%,
+      oklch(from var(--foreground) l c h / 0.25),
+      transparent
+    );
+    animation-range: 1em 2em;
+  }
+
+  /* Right shadow */
+  .scroll-shadow-horizontal::after {
+    right: 0;
+    background: radial-gradient(
+      farthest-side at 100% 50%,
+      oklch(from var(--foreground) l c h / 0.25),
+      transparent
+    );
+    animation-direction: reverse;
+    animation-range: calc(100% - 2em) calc(100% - 1em);
+  }
+}
+
 /* Custom keyframes for triangular ping (extra-smooth multi-step) */
 @keyframes triangle-ping {
   0% {

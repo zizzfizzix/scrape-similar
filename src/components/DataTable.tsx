@@ -19,7 +19,7 @@ import {
   getCoreRowModel,
   useReactTable,
 } from '@tanstack/react-table'
-import { Clipboard, Highlighter } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Clipboard, Highlighter } from 'lucide-react'
 import React, { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -224,59 +224,55 @@ const DataTable: React.FC<DataTableProps> = ({
         )}
       </div>
 
-      <div className="table-wrapper">
-        <Table key={columnsOrder.join('-')}>
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead
-                    key={header.id}
-                    style={{ width: header.getSize?.() }}
+      <Table key={columnsOrder.join('-')}>
+        <TableHeader>
+          {table.getHeaderGroups().map((headerGroup) => (
+            <TableRow key={headerGroup.id}>
+              {headerGroup.headers.map((header) => (
+                <TableHead
+                  key={header.id}
+                  style={{ width: header.getSize?.() }}
+                  className={header.id === 'rowIndex' || header.id === 'actions' ? '' : 'ph_hidden'}
+                >
+                  {header.isPlaceholder
+                    ? null
+                    : flexRender(header.column.columnDef.header, header.getContext())}
+                </TableHead>
+              ))}
+            </TableRow>
+          ))}
+        </TableHeader>
+        <TableBody>
+          {paginatedRows.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={columns.length} className="text-center text-muted-foreground">
+                No data
+              </TableCell>
+            </TableRow>
+          ) : (
+            paginatedRows.map((row) => (
+              <TableRow
+                key={row.id}
+                data-state={row.getIsSelected() && 'selected'}
+                className={row.original.metadata.isEmpty ? 'opacity-60 bg-muted/30' : ''}
+              >
+                {row.getVisibleCells().map((cell) => (
+                  <TableCell
+                    key={cell.id}
                     className={
-                      header.id === 'rowIndex' || header.id === 'actions' ? '' : 'ph_hidden'
+                      cell.column.id === 'rowIndex' || cell.column.id === 'actions'
+                        ? ''
+                        : 'ph_hidden'
                     }
                   >
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(header.column.columnDef.header, header.getContext())}
-                  </TableHead>
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </TableCell>
                 ))}
               </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {paginatedRows.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={columns.length} className="text-center text-muted-foreground">
-                  No data
-                </TableCell>
-              </TableRow>
-            ) : (
-              paginatedRows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && 'selected'}
-                  className={row.original.metadata.isEmpty ? 'opacity-60 bg-muted/30' : ''}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell
-                      key={cell.id}
-                      className={
-                        cell.column.id === 'rowIndex' || cell.column.id === 'actions'
-                          ? ''
-                          : 'ph_hidden'
-                      }
-                    >
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+            ))
+          )}
+        </TableBody>
+      </Table>
       {/* Pagination Controls */}
       <div className="flex items-center justify-center gap-2 mt-4">
         <Button
@@ -294,7 +290,7 @@ const DataTable: React.FC<DataTableProps> = ({
           disabled={pagination.pageIndex === 0}
           aria-label="Previous page"
         >
-          Previous
+          <ChevronLeft className="size-4" />
         </Button>
         <span className="text-sm text-muted-foreground">
           Page {pagination.pageIndex + 1} of {totalPages}
@@ -314,7 +310,7 @@ const DataTable: React.FC<DataTableProps> = ({
           disabled={pagination.pageIndex >= totalPages - 1}
           aria-label="Next page"
         >
-          Next
+          <ChevronRight className="size-4" />
         </Button>
       </div>
     </div>

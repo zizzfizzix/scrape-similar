@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/drawer'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Textarea } from '@/components/ui/textarea'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import log from 'loglevel'
 
@@ -31,6 +32,7 @@ import {
   Info,
   OctagonAlert,
   Plus,
+  RefreshCcw,
   Trash2,
   Wand,
   X,
@@ -55,6 +57,7 @@ interface ConfigFormProps {
   onClearLastScrapeRowCount?: () => void
   highlightMatchCount?: number
   highlightError?: string
+  rescrapeAdvised?: boolean
 }
 
 // Helper to check if a preset is a system preset
@@ -77,6 +80,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
   onClearLastScrapeRowCount,
   highlightMatchCount,
   highlightError,
+  rescrapeAdvised = false,
 }) => {
   // Local state for adding a new column
   const [newColumnName, setNewColumnName] = useState('')
@@ -103,7 +107,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
   const [presetToDelete, setPresetToDelete] = useState<Preset | null>(null)
 
   // Add ref for main selector input
-  const mainSelectorInputRef = useRef<HTMLInputElement>(null)
+  const mainSelectorInputRef = useRef<HTMLTextAreaElement>(null)
 
   /**
    * Local draft state for the main selector input. We keep the user’s typing
@@ -500,9 +504,9 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
           </Tooltip>
         </div>
         <div className="relative w-full">
-          <Input
-            type="text"
+          <Textarea
             id="mainSelector"
+            className="field-sizing-content resize-none overflow-hidden min-h-9"
             value={mainSelectorDraft}
             onChange={(e) => setMainSelectorDraft(e.target.value)}
             onBlur={() => commitMainSelector(mainSelectorDraft)}
@@ -524,7 +528,10 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
             ref={endAdornmentRef}
             className="absolute inset-y-0 right-0 flex items-center gap-x-1 pr-1"
           >
-            {hasUncommittedChanges ? null : highlightError ? (
+            {hasUncommittedChanges ? (
+              // Empty div to reserve space for the badge and prevent layout shifts
+              <div className="flex items-center justify-center min-w-[1.5rem] h-6" />
+            ) : highlightError ? (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <span>
@@ -547,7 +554,9 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
               >
                 {highlightMatchCount}
               </Badge>
-            ) : null}
+            ) : (
+              <div className="flex items-center justify-center min-w-[1.5rem] h-6" />
+            )}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -595,48 +604,50 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
           </Tooltip>
         </div>
         <div className="flex w-full justify-between">
-          <div
-            className="overflow-x-auto grid grid-flow-col auto-cols-min gap-4"
-            ref={columnsListRef}
-          >
-            {config.columns.map((column, index) => (
-              <div
-                key={index}
-                className="flex flex-col gap-2 items-stretch mb-0 p-2 border rounded min-w-max"
-              >
-                <Input
-                  type="text"
-                  value={column.name}
-                  onChange={(e) => handleColumnNameChange(index, e.target.value)}
-                  placeholder="Column name"
-                  className="p-2 border rounded text-sm"
-                />
-                <Input
-                  type="text"
-                  value={column.selector}
-                  onChange={(e) => handleColumnSelectorChange(index, e.target.value)}
-                  placeholder="Selector"
-                  className="p-2 border rounded text-sm"
-                />
-                <div className="flex gap-1 justify-around">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="bg-transparent border-none cursor-pointer p-1 rounded"
-                        onClick={() => removeColumn(index)}
-                        disabled={config.columns.length <= 1}
-                        aria-label="Remove column"
-                      >
-                        <X />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Remove column</TooltipContent>
-                  </Tooltip>
+          <div className="scroll-shadow-horizontal">
+            <div
+              className="grid grid-flow-col auto-cols-min gap-4 -ml-3 -mr-3"
+              ref={columnsListRef}
+            >
+              {config.columns.map((column, index) => (
+                <div
+                  key={index}
+                  className="flex flex-col gap-2 items-stretch mb-0 p-2 border rounded min-w-max"
+                >
+                  <Input
+                    type="text"
+                    value={column.name}
+                    onChange={(e) => handleColumnNameChange(index, e.target.value)}
+                    placeholder="Column name"
+                    className="p-2 border rounded text-sm"
+                  />
+                  <Input
+                    type="text"
+                    value={column.selector}
+                    onChange={(e) => handleColumnSelectorChange(index, e.target.value)}
+                    placeholder="Selector"
+                    className="p-2 border rounded text-sm"
+                  />
+                  <div className="flex gap-1 justify-around">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="bg-transparent border-none cursor-pointer p-1 rounded"
+                          onClick={() => removeColumn(index)}
+                          disabled={config.columns.length <= 1}
+                          aria-label="Remove column"
+                        >
+                          <X />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Remove column</TooltipContent>
+                    </Tooltip>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
           <div className="flex flex-col justify-between ml-3 gap-2">
             <Tooltip>
@@ -692,7 +703,16 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
             loading={isLoading}
             disabled={isLoading || config.columns.length === 0 || !isMainSelectorValid}
           >
-            {scrapeButtonState === 'zero-found' ? '0 found' : 'Scrape'}
+            {rescrapeAdvised && scrapeButtonState !== 'zero-found' ? (
+              <>
+                <RefreshCcw />
+                <span>Scrape</span>
+              </>
+            ) : scrapeButtonState === 'zero-found' ? (
+              '0 found'
+            ) : (
+              'Scrape'
+            )}
           </Button>
         </div>
       </div>
