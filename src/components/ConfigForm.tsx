@@ -604,48 +604,50 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
           </Tooltip>
         </div>
         <div className="flex w-full justify-between">
-          <div
-            className="overflow-x-auto grid grid-flow-col auto-cols-min gap-4"
-            ref={columnsListRef}
-          >
-            {config.columns.map((column, index) => (
-              <div
-                key={index}
-                className="flex flex-col gap-2 items-stretch mb-0 p-2 border rounded min-w-max"
-              >
-                <Input
-                  type="text"
-                  value={column.name}
-                  onChange={(e) => handleColumnNameChange(index, e.target.value)}
-                  placeholder="Column name"
-                  className="p-2 border rounded text-sm"
-                />
-                <Input
-                  type="text"
-                  value={column.selector}
-                  onChange={(e) => handleColumnSelectorChange(index, e.target.value)}
-                  placeholder="Selector"
-                  className="p-2 border rounded text-sm"
-                />
-                <div className="flex gap-1 justify-around">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="bg-transparent border-none cursor-pointer p-1 rounded"
-                        onClick={() => removeColumn(index)}
-                        disabled={config.columns.length <= 1}
-                        aria-label="Remove column"
-                      >
-                        <X />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Remove column</TooltipContent>
-                  </Tooltip>
+          <div className="scroll-shadow-horizontal">
+            <div
+              className="grid grid-flow-col auto-cols-min gap-4 -ml-3 -mr-3"
+              ref={columnsListRef}
+            >
+              {config.columns.map((column, index) => (
+                <div
+                  key={index}
+                  className="flex flex-col gap-2 items-stretch mb-0 p-2 border rounded min-w-max"
+                >
+                  <Input
+                    type="text"
+                    value={column.name}
+                    onChange={(e) => handleColumnNameChange(index, e.target.value)}
+                    placeholder="Column name"
+                    className="p-2 border rounded text-sm"
+                  />
+                  <Input
+                    type="text"
+                    value={column.selector}
+                    onChange={(e) => handleColumnSelectorChange(index, e.target.value)}
+                    placeholder="Selector"
+                    className="p-2 border rounded text-sm"
+                  />
+                  <div className="flex gap-1 justify-around">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="bg-transparent border-none cursor-pointer p-1 rounded"
+                          onClick={() => removeColumn(index)}
+                          disabled={config.columns.length <= 1}
+                          aria-label="Remove column"
+                        >
+                          <X />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Remove column</TooltipContent>
+                    </Tooltip>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
           <div className="flex flex-col justify-between ml-3 gap-2">
             <Tooltip>
