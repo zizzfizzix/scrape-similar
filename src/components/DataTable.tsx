@@ -19,7 +19,7 @@ import {
   getCoreRowModel,
   useReactTable,
 } from '@tanstack/react-table'
-import { ChevronLeft, ChevronRight, Clipboard, Highlighter } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Clipboard, Expand, Highlighter } from 'lucide-react'
 import React, { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -30,6 +30,7 @@ interface DataTableProps {
   columnOrder?: string[]
   showEmptyRows: boolean
   onShowEmptyRowsChange?: (show: boolean) => void
+  tabId?: number | null
 }
 
 const DataTable: React.FC<DataTableProps> = ({
@@ -39,6 +40,7 @@ const DataTable: React.FC<DataTableProps> = ({
   columnOrder,
   showEmptyRows = false,
   onShowEmptyRowsChange,
+  tabId,
 }) => {
   // Use columnOrder if provided, otherwise fallback to config.columns order
   const columnsOrder =
@@ -196,8 +198,17 @@ const DataTable: React.FC<DataTableProps> = ({
 
   const totalPages = Math.max(1, Math.ceil(filteredData.length / pagination.pageSize))
 
+  // Handle opening full data view
+  const handleOpenFullView = () => {
+    if (tabId) {
+      // Use type assertion since WXT will generate this entrypoint
+      const fullViewUrl = browser.runtime.getURL(`/full-data-view.html?tabId=${tabId}` as any)
+      browser.tabs.create({ url: fullViewUrl })
+    }
+  }
+
   return (
-    <div className="data-table-container">
+    <div className="data-table-container relative group">
       {/* Toggle for showing/hiding empty rows */}
       <div className="flex items-center justify-between [&>*:only-child]:ml-auto mb-4">
         {data.filter((r) => r.metadata.isEmpty).length > 0 ? (
@@ -313,6 +324,26 @@ const DataTable: React.FC<DataTableProps> = ({
           <ChevronRight className="size-4" />
         </Button>
       </div>
+
+      {/* Fixed expand button that follows viewport when scrolling */}
+      {tabId && (
+        <div className="fixed bottom-16 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-30">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleOpenFullView}
+                className="shadow-md bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+                aria-label="Open in full view"
+              >
+                <Expand className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Open in full view</TooltipContent>
+          </Tooltip>
+        </div>
+      )}
     </div>
   )
 }

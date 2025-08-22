@@ -8,6 +8,7 @@ export const EXTENSION_CONTEXTS = {
   POPUP: 'popup',
   OPTIONS: 'options',
   ONBOARDING: 'onboarding',
+  FULL_DATA_VIEW: 'full_data_view',
   UNKNOWN: 'unknown',
 } as const
 
@@ -81,6 +82,14 @@ export const isOnboardingPage = (): boolean => {
   )
 }
 
+export const isFullDataView = (): boolean => {
+  return (
+    typeof window !== 'undefined' &&
+    window.location.protocol === 'chrome-extension:' &&
+    window.location.pathname.includes('full-data-view')
+  )
+}
+
 /**
  * Gets the current extension context
  */
@@ -107,6 +116,10 @@ export const getCurrentContext = (): ExtensionContext => {
 
   if (isOnboardingPage()) {
     return EXTENSION_CONTEXTS.ONBOARDING
+  }
+
+  if (isFullDataView()) {
+    return EXTENSION_CONTEXTS.FULL_DATA_VIEW
   }
 
   return EXTENSION_CONTEXTS.UNKNOWN

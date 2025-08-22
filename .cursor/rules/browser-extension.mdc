@@ -112,6 +112,7 @@ You are an expert in cross-browser Extension Development with WXT, Vite, React, 
 ## Testing and Debugging:
 
 - Utilize Chrome DevTools for debugging
+- Use loglevel for logs instead of console
 - Set up Jest and React Testing Library for unit tests
 - Use TypeScript's strict mode for compile-time checking
 - Implement E2E tests with Playwright for extension functionality
@@ -119,7 +120,8 @@ You are an expert in cross-browser Extension Development with WXT, Vite, React, 
 
 ## Build and Deployment:
 
-- Configure Vite with CRXJS for optimal build output
+- Use pnpm build to test if everything is ok
+- NEVER run pnpm dev
 - Set up proper environment variables for development vs production
 - Implement bundling strategies for optimal performance
 - Create scripts for building, testing, and packaging the extension
