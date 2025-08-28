@@ -617,7 +617,7 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
   // Main view
   return (
     <TooltipProvider>
-      <div className="min-h-screen bg-background">
+      <div className="h-screen bg-background flex flex-col">
         <Toaster />
         {/* Header */}
         <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -724,7 +724,7 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
         </header>
 
         {/* Main content */}
-        <main className="container mx-auto px-4 py-6">
+        <main className="flex-1 overflow-y-auto container mx-auto px-4 py-6">
           {currentTabData && (
             <>
               {/* Controls */}
