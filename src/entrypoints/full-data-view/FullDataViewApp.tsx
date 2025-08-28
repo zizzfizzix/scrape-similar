@@ -807,9 +807,11 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
                                 : undefined,
                             }}
                             className={
-                              header.id === 'rowIndex' || header.id === 'actions'
-                                ? ''
-                                : 'cursor-pointer select-none'
+                              header.id === 'select'
+                                ? 'px-3'
+                                : header.id === 'rowIndex' || header.id === 'actions'
+                                  ? ''
+                                  : 'cursor-pointer select-none'
                             }
                             onClick={
                               header.column.getCanSort()
