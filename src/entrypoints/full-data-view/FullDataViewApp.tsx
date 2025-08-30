@@ -147,6 +147,10 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
               // Fallback to first available tab if specified tab not found
               setCurrentTabId(tabsWithData[0].tabId)
               setCurrentTabData(tabsWithData[0])
+            } else if (!currentData && tabsWithData.length === 0) {
+              // No data available anywhere, reset current tab
+              setCurrentTabId(null)
+              setCurrentTabData(null)
             }
           } else if (tabsWithData.length > 0) {
             // No specific tab requested, use first available
@@ -245,15 +249,36 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
 
               setAllTabsData((prev) => {
                 const existingIndex = prev.findIndex((tabData) => tabData.tabId === tab.id!)
+                let newTabs: TabData[]
                 if (existingIndex >= 0) {
                   // Update existing tab
-                  const newTabs = [...prev]
+                  newTabs = [...prev]
                   newTabs[existingIndex] = updatedTabData
-                  return newTabs
                 } else {
                   // Add new tab
-                  return [...prev, updatedTabData]
+                  newTabs = [...prev, updatedTabData]
                 }
+
+                // If there's no current tab selected and this is the first/only tab, select it
+                if (currentTabId === null && newTabs.length === 1) {
+                  setCurrentTabId(updatedTabData.tabId)
+                  setCurrentTabData(updatedTabData)
+                  // Update URL
+                  const newUrl = new URL(window.location.href)
+                  newUrl.searchParams.set('tabId', updatedTabData.tabId.toString())
+                  window.history.replaceState({}, '', newUrl.toString())
+                } else if (currentTabId === null && newTabs.length > 1 && prev.length === 0) {
+                  // If we had no tabs before and now have multiple, select the first one
+                  const firstTab = newTabs[0]
+                  setCurrentTabId(firstTab.tabId)
+                  setCurrentTabData(firstTab)
+                  // Update URL
+                  const newUrl = new URL(window.location.href)
+                  newUrl.searchParams.set('tabId', firstTab.tabId.toString())
+                  window.history.replaceState({}, '', newUrl.toString())
+                }
+
+                return newTabs
               })
 
               // If this is the current tab, update current data too
