@@ -200,99 +200,109 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
   useEffect(() => {
     const unwatchCallbacks: (() => void)[] = []
 
+    // Function to set up a watcher for a specific tab
+    const setupSingleTabWatcher = (tabId: number) => {
+      const sessionKey = `sidepanel_config_${tabId}`
+      const unwatch = storage.watch<SidePanelConfig>(`session:${sessionKey}`, async (newValue) => {
+        // Update only the specific tab that changed, preserve user's current selection
+        const tabInfo = await browser.tabs.get(tabId).catch(() => null)
+        if (!tabInfo) return
+
+        if (!newValue?.scrapeResult?.data || newValue.scrapeResult.data.length === 0) {
+          // Data was removed - remove this tab from our list
+          setAllTabsData((prev) => {
+            const filtered = prev.filter((tabData) => tabData.tabId !== tabId)
+            // If this was the current tab and there are other tabs, switch to first available
+            if (currentTabId === tabId && filtered.length > 0) {
+              const newTab = filtered[0]
+              setCurrentTabId(newTab.tabId)
+              setCurrentTabData(newTab)
+              // Update URL
+              const newUrl = new URL(window.location.href)
+              newUrl.searchParams.set('tabId', newTab.tabId.toString())
+              window.history.replaceState({}, '', newUrl.toString())
+            } else if (currentTabId === tabId) {
+              // No other tabs available
+              setCurrentTabId(null)
+              setCurrentTabData(null)
+            }
+            return filtered
+          })
+        } else {
+          // Update or add the tab data
+          const updatedTabData: TabData = {
+            tabId: tabId,
+            tabUrl: tabInfo.url || 'Unknown URL',
+            tabTitle: tabInfo.title || 'Unknown Title',
+            scrapeResult: newValue.scrapeResult,
+            config: newValue.currentScrapeConfig || {
+              mainSelector: '',
+              columns: [{ name: 'Text', selector: '.' }],
+            },
+          }
+
+          setAllTabsData((prev) => {
+            const existingIndex = prev.findIndex((tabData) => tabData.tabId === tabId)
+            let newTabs: TabData[]
+            if (existingIndex >= 0) {
+              // Update existing tab
+              newTabs = [...prev]
+              newTabs[existingIndex] = updatedTabData
+            } else {
+              // Add new tab
+              newTabs = [...prev, updatedTabData]
+            }
+
+            // If there's no current tab selected and this is the first/only tab, select it
+            if (currentTabId === null && newTabs.length === 1) {
+              setCurrentTabId(updatedTabData.tabId)
+              setCurrentTabData(updatedTabData)
+              // Update URL
+              const newUrl = new URL(window.location.href)
+              newUrl.searchParams.set('tabId', updatedTabData.tabId.toString())
+              window.history.replaceState({}, '', newUrl.toString())
+            } else if (currentTabId === null && newTabs.length > 1 && prev.length === 0) {
+              // If we had no tabs before and now have multiple, select the first one
+              const firstTab = newTabs[0]
+              setCurrentTabId(firstTab.tabId)
+              setCurrentTabData(firstTab)
+              // Update URL
+              const newUrl = new URL(window.location.href)
+              newUrl.searchParams.set('tabId', firstTab.tabId.toString())
+              window.history.replaceState({}, '', newUrl.toString())
+            }
+
+            return newTabs
+          })
+
+          // If this is the current tab, update current data too
+          if (currentTabId === tabId) {
+            setCurrentTabData(updatedTabData)
+          }
+        }
+      })
+      return unwatch
+    }
+
     // Create storage watchers for each tab we know about
     const setupWatchers = async () => {
       const tabs = await browser.tabs.query({})
       for (const tab of tabs) {
         if (!tab.id) continue
-
-        const sessionKey = `sidepanel_config_${tab.id}`
-        const unwatch = storage.watch<SidePanelConfig>(
-          `session:${sessionKey}`,
-          async (newValue) => {
-            // Update only the specific tab that changed, preserve user's current selection
-            const tabInfo = await browser.tabs.get(tab.id!).catch(() => null)
-            if (!tabInfo) return
-
-            if (!newValue?.scrapeResult?.data || newValue.scrapeResult.data.length === 0) {
-              // Data was removed - remove this tab from our list
-              setAllTabsData((prev) => {
-                const filtered = prev.filter((tabData) => tabData.tabId !== tab.id!)
-                // If this was the current tab and there are other tabs, switch to first available
-                if (currentTabId === tab.id! && filtered.length > 0) {
-                  const newTab = filtered[0]
-                  setCurrentTabId(newTab.tabId)
-                  setCurrentTabData(newTab)
-                  // Update URL
-                  const newUrl = new URL(window.location.href)
-                  newUrl.searchParams.set('tabId', newTab.tabId.toString())
-                  window.history.replaceState({}, '', newUrl.toString())
-                } else if (currentTabId === tab.id!) {
-                  // No other tabs available
-                  setCurrentTabId(null)
-                  setCurrentTabData(null)
-                }
-                return filtered
-              })
-            } else {
-              // Update or add the tab data
-              const updatedTabData: TabData = {
-                tabId: tab.id!,
-                tabUrl: tabInfo.url || 'Unknown URL',
-                tabTitle: tabInfo.title || 'Unknown Title',
-                scrapeResult: newValue.scrapeResult,
-                config: newValue.currentScrapeConfig || {
-                  mainSelector: '',
-                  columns: [{ name: 'Text', selector: '.' }],
-                },
-              }
-
-              setAllTabsData((prev) => {
-                const existingIndex = prev.findIndex((tabData) => tabData.tabId === tab.id!)
-                let newTabs: TabData[]
-                if (existingIndex >= 0) {
-                  // Update existing tab
-                  newTabs = [...prev]
-                  newTabs[existingIndex] = updatedTabData
-                } else {
-                  // Add new tab
-                  newTabs = [...prev, updatedTabData]
-                }
-
-                // If there's no current tab selected and this is the first/only tab, select it
-                if (currentTabId === null && newTabs.length === 1) {
-                  setCurrentTabId(updatedTabData.tabId)
-                  setCurrentTabData(updatedTabData)
-                  // Update URL
-                  const newUrl = new URL(window.location.href)
-                  newUrl.searchParams.set('tabId', updatedTabData.tabId.toString())
-                  window.history.replaceState({}, '', newUrl.toString())
-                } else if (currentTabId === null && newTabs.length > 1 && prev.length === 0) {
-                  // If we had no tabs before and now have multiple, select the first one
-                  const firstTab = newTabs[0]
-                  setCurrentTabId(firstTab.tabId)
-                  setCurrentTabData(firstTab)
-                  // Update URL
-                  const newUrl = new URL(window.location.href)
-                  newUrl.searchParams.set('tabId', firstTab.tabId.toString())
-                  window.history.replaceState({}, '', newUrl.toString())
-                }
-
-                return newTabs
-              })
-
-              // If this is the current tab, update current data too
-              if (currentTabId === tab.id!) {
-                setCurrentTabData(updatedTabData)
-              }
-            }
-          },
-        )
+        const unwatch = setupSingleTabWatcher(tab.id)
         unwatchCallbacks.push(unwatch)
       }
     }
 
     setupWatchers().catch(log.error)
+
+    // Listen for new tabs being created to set up watchers for them
+    const handleTabCreated = (tab: Browser.tabs.Tab) => {
+      if (tab.id) {
+        const unwatch = setupSingleTabWatcher(tab.id)
+        unwatchCallbacks.push(unwatch)
+      }
+    }
 
     // Listen for tab removal
     const handleTabRemoved = (tabId: number) => {
@@ -316,11 +326,13 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
       })
     }
 
+    browser.tabs.onCreated.addListener(handleTabCreated)
     browser.tabs.onRemoved.addListener(handleTabRemoved)
 
     return () => {
       // Clean up all watchers
       unwatchCallbacks.forEach((unwatch) => unwatch())
+      browser.tabs.onCreated.removeListener(handleTabCreated)
       browser.tabs.onRemoved.removeListener(handleTabRemoved)
     }
   }, [currentTabId])
