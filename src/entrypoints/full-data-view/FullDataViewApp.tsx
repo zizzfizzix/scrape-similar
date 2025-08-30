@@ -361,6 +361,16 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
     if (currentTabId) {
       try {
         await browser.tabs.update(currentTabId, { active: true })
+
+        // Reopen the sidepanel for the original tab
+        try {
+          await browser.sidePanel.open({ tabId: currentTabId })
+          log.debug(`Sidepanel reopened for tab ${currentTabId}`)
+        } catch (sidePanelError) {
+          log.warn('Failed to reopen sidepanel:', sidePanelError)
+          // Don't show error to user as this is not critical
+        }
+
         // Close this tab
         const currentTab = await browser.tabs.getCurrent()
         if (currentTab?.id) {
