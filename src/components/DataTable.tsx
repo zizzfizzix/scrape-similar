@@ -15,6 +15,7 @@ import { rowToTsv } from '@/utils/tsv'
 import {
   CellContext,
   ColumnDef,
+  ColumnSizingState,
   flexRender,
   getCoreRowModel,
   useReactTable,
@@ -49,6 +50,9 @@ const DataTable: React.FC<DataTableProps> = ({
   // Pagination state
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 })
 
+  // Column sizing state
+  const [columnSizing, setColumnSizing] = useState<ColumnSizingState>({})
+
   // Filter data based on showEmptyRows toggle
   const filteredData = useMemo(() => {
     return showEmptyRows ? data : data.filter((row) => !row.metadata.isEmpty)
@@ -58,6 +62,41 @@ const DataTable: React.FC<DataTableProps> = ({
   useEffect(() => {
     setPagination((prev) => ({ ...prev, pageIndex: 0 }))
   }, [filteredData])
+
+  // Calculate optimal column widths based on content
+  const calculateOptimalColumnWidth = useCallback(
+    (columnId: string, data: ScrapedRow[], config: ScrapeConfig): number => {
+      if (columnId === 'rowIndex') return 40
+      if (columnId === 'actions') return 60
+
+      // Find the column configuration
+      const columnIndex = config.columns.findIndex((col) => col.name === columnId)
+      if (columnIndex === -1) return 150
+
+      // Sample up to 50 rows for performance (smaller sample for sidepanel)
+      const sampleSize = Math.min(50, data.length)
+      const sampleData = data.slice(0, sampleSize)
+
+      // Calculate max content length
+      let maxLength = columnId.length // Start with header length
+
+      for (const row of sampleData) {
+        const dataKey = config.columns[columnIndex]?.key || columnId
+        const value = row.data[dataKey] || ''
+        const contentLength = String(value).length
+        maxLength = Math.max(maxLength, contentLength)
+      }
+
+      // Convert character count to approximate pixel width
+      // Average character width is about 7px for smaller UI
+      const charWidth = 7
+      const padding = 20 // Account for cell padding
+      const calculatedWidth = Math.min(Math.max(maxLength * charWidth + padding, 80), 300)
+
+      return calculatedWidth
+    },
+    [],
+  )
 
   // Build columns for TanStack Table
   const columns = useMemo<ColumnDef<ScrapedRow>[]>(() => {
@@ -72,6 +111,9 @@ const DataTable: React.FC<DataTableProps> = ({
           return indexInFilteredData + 1
         },
         size: 40,
+        minSize: 40,
+        maxSize: 60,
+        enableResizing: false,
       },
       {
         id: 'actions',
@@ -160,31 +202,55 @@ const DataTable: React.FC<DataTableProps> = ({
           )
         },
         size: 60,
+        minSize: 60,
+        maxSize: 80,
+        enableResizing: false,
       },
-      ...columnsOrder.map(
-        (colName, index): ColumnDef<ScrapedRow> => ({
+      ...columnsOrder.map((colName, index): ColumnDef<ScrapedRow> => {
+        const optimalWidth = calculateOptimalColumnWidth(colName, filteredData, config)
+        return {
           accessorKey: colName,
           header: colName,
           cell: ({ row }: CellContext<ScrapedRow, unknown>) => {
             const dataKey = config.columns[index]?.key || colName
             const value = row.original.data[dataKey] || ''
-            return value && value.length > 100 ? `${value.substring(0, 100)}...` : value
+            return (
+              <div className="min-w-0 truncate" title={value}>
+                {value && value.length > 100 ? `${value.substring(0, 100)}...` : value}
+              </div>
+            )
           },
-        }),
-      ),
+          size: optimalWidth,
+          minSize: 60,
+          maxSize: 400,
+          enableResizing: true,
+        }
+      }),
     ]
     return baseColumns
-  }, [columnsOrder, config.mainSelector, onRowHighlight, filteredData])
+  }, [columnsOrder, config, onRowHighlight, filteredData, calculateOptimalColumnWidth])
 
   const table = useReactTable({
     data: filteredData,
     columns,
     getCoreRowModel: getCoreRowModel(),
+    enableColumnResizing: true,
+    columnResizeMode: 'onChange',
+    columnResizeDirection: 'ltr',
+    defaultColumn: {
+      size: 150,
+      minSize: 60,
+      maxSize: 400,
+    },
     manualPagination: false,
     manualSorting: false,
     manualFiltering: false,
-    state: { pagination },
+    state: {
+      pagination,
+      columnSizing,
+    },
     onPaginationChange: setPagination,
+    onColumnSizingChange: setColumnSizing,
     pageCount: Math.ceil(filteredData.length / pagination.pageSize),
     getPaginationRowModel: undefined, // use built-in client-side pagination
   })
@@ -238,19 +304,39 @@ const DataTable: React.FC<DataTableProps> = ({
         )}
       </div>
 
-      <Table key={columnsOrder.join('-')}>
+      <Table
+        key={columnsOrder.join('-')}
+        style={{
+          width: table.getCenterTotalSize(),
+        }}
+      >
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>
               {headerGroup.headers.map((header) => (
                 <TableHead
                   key={header.id}
-                  style={{ width: header.getSize?.() }}
+                  style={{
+                    width: `${header.getSize()}px`,
+                    position: 'relative',
+                  }}
                   className={header.id === 'rowIndex' || header.id === 'actions' ? '' : 'ph_hidden'}
                 >
                   {header.isPlaceholder
                     ? null
                     : flexRender(header.column.columnDef.header, header.getContext())}
+                  {/* Column resize handle */}
+                  {header.column.getCanResize() && (
+                    <div
+                      onMouseDown={header.getResizeHandler()}
+                      onTouchStart={header.getResizeHandler()}
+                      className={`absolute top-0 right-0 h-full w-1 bg-border cursor-col-resize select-none touch-none hover:bg-primary/50 ${
+                        header.column.getIsResizing()
+                          ? 'bg-primary opacity-100'
+                          : 'opacity-0 hover:opacity-100'
+                      }`}
+                    />
+                  )}
                 </TableHead>
               ))}
             </TableRow>
@@ -273,6 +359,9 @@ const DataTable: React.FC<DataTableProps> = ({
                 {row.getVisibleCells().map((cell) => (
                   <TableCell
                     key={cell.id}
+                    style={{
+                      width: `${cell.column.getSize()}px`,
+                    }}
                     className={
                       cell.column.id === 'rowIndex' || cell.column.id === 'actions'
                         ? ''

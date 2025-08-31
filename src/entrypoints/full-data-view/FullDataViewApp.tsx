@@ -40,6 +40,7 @@ import {
   CellContext,
   ColumnDef,
   ColumnFiltersState,
+  ColumnSizingState,
   flexRender,
   getCoreRowModel,
   getFilteredRowModel,
@@ -92,6 +93,7 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [rowSelection, setRowSelection] = useState({})
+  const [columnSizing, setColumnSizing] = useState<ColumnSizingState>({})
 
   // Pagination state
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 20 })
@@ -347,12 +349,13 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
       const newUrl = new URL(window.location.href)
       newUrl.searchParams.set('tabId', tabId.toString())
       window.history.replaceState({}, '', newUrl.toString())
-      // Reset pagination, filters, and row selection
+      // Reset pagination, filters, row selection, and column sizing
       setPagination({ pageIndex: 0, pageSize: 20 })
       setGlobalFilter('')
       setSorting([])
       setColumnFilters([])
       setRowSelection({})
+      setColumnSizing({})
     }
   }
 
@@ -416,6 +419,42 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
       : currentTabData.scrapeResult.data.filter((row) => !row.metadata.isEmpty)
   }, [currentTabData, showEmptyRows])
 
+  // Calculate optimal column widths based on content
+  const calculateOptimalColumnWidth = useCallback(
+    (columnId: string, data: ScrapedRow[], config: ScrapeConfig): number => {
+      if (columnId === 'select') return 35
+      if (columnId === 'rowIndex') return 35
+      if (columnId === 'actions') return 75
+
+      // Find the column configuration
+      const columnIndex = config.columns.findIndex((col) => col.name === columnId)
+      if (columnIndex === -1) return 200
+
+      // Sample up to 100 rows for performance
+      const sampleSize = Math.min(100, data.length)
+      const sampleData = data.slice(0, sampleSize)
+
+      // Calculate max content length
+      let maxLength = columnId.length // Start with header length
+
+      for (const row of sampleData) {
+        const dataKey = config.columns[columnIndex]?.key || columnId
+        const value = row.data[dataKey] || ''
+        const contentLength = String(value).length
+        maxLength = Math.max(maxLength, contentLength)
+      }
+
+      // Convert character count to approximate pixel width
+      // Average character width is about 8px for most fonts
+      const charWidth = 8
+      const padding = 24 // Account for cell padding
+      const calculatedWidth = Math.min(Math.max(maxLength * charWidth + padding, 100), 400)
+
+      return calculatedWidth
+    },
+    [],
+  )
+
   // Build columns for TanStack Table with enhanced features
   const columns = useMemo<ColumnDef<ScrapedRow>[]>(() => {
     if (!currentTabData) return []
@@ -446,9 +485,12 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
           />
         ),
         size: 35,
+        minSize: 35,
+        maxSize: 35,
         enableSorting: false,
         enableHiding: false,
         enableGlobalFilter: false,
+        enableResizing: false,
       },
       {
         id: 'rowIndex',
@@ -459,8 +501,11 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
           return indexInFilteredData + 1
         },
         size: 35,
+        minSize: 35,
+        maxSize: 60,
         enableSorting: false,
         enableGlobalFilter: false,
+        enableResizing: false,
       },
       {
         id: 'actions',
@@ -544,11 +589,19 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
           )
         },
         size: 75,
+        minSize: 75,
+        maxSize: 100,
         enableSorting: false,
         enableGlobalFilter: false,
+        enableResizing: false,
       },
-      ...columnsOrder.map(
-        (colName, index): ColumnDef<ScrapedRow> => ({
+      ...columnsOrder.map((colName, index): ColumnDef<ScrapedRow> => {
+        const optimalWidth = calculateOptimalColumnWidth(
+          colName,
+          filteredData,
+          currentTabData.config,
+        )
+        return {
           id: colName,
           accessorFn: (row: ScrapedRow) => {
             const dataKey = currentTabData.config.columns[index]?.key || colName
@@ -559,22 +612,23 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
             const dataKey = currentTabData.config.columns[index]?.key || colName
             const value = row.original.data[dataKey] || ''
             return (
-              <div className="min-w-0 max-w-[200px] truncate" title={value}>
+              <div className="min-w-0 truncate" title={value}>
                 {value}
               </div>
             )
           },
-          size: 200,
-          minSize: 100,
-          maxSize: 400,
+          size: optimalWidth,
+          minSize: 80,
+          maxSize: 600,
           filterFn: 'includesString',
           enableColumnFilter: true,
           enableGlobalFilter: true,
-        }),
-      ),
+          enableResizing: true,
+        }
+      }),
     ]
     return baseColumns
-  }, [currentTabData, filteredData])
+  }, [currentTabData, filteredData, calculateOptimalColumnWidth])
 
   const table = useReactTable({
     data: filteredData,
@@ -583,6 +637,14 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    enableColumnResizing: true,
+    columnResizeMode: 'onChange',
+    columnResizeDirection: 'ltr',
+    defaultColumn: {
+      size: 200,
+      minSize: 80,
+      maxSize: 600,
+    },
     state: {
       sorting,
       columnFilters,
@@ -590,6 +652,7 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
       pagination,
       columnVisibility,
       rowSelection,
+      columnSizing,
     },
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
@@ -597,6 +660,7 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
     onPaginationChange: setPagination,
     onColumnVisibilityChange: setColumnVisibility,
     onRowSelectionChange: setRowSelection,
+    onColumnSizingChange: setColumnSizing,
     globalFilterFn: 'includesString',
   })
 
@@ -837,7 +901,13 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
 
               {/* Data table */}
               <div className="border rounded-lg overflow-auto">
-                <Table key={currentTabData?.tabId || 'no-tab'} className="w-full table-fixed">
+                <Table
+                  key={currentTabData?.tabId || 'no-tab'}
+                  className="w-full table-fixed"
+                  style={{
+                    width: table.getCenterTotalSize(),
+                  }}
+                >
                   <TableHeader>
                     {table.getHeaderGroups().map((headerGroup) => (
                       <TableRow key={headerGroup.id}>
@@ -845,13 +915,8 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
                           <TableHead
                             key={header.id}
                             style={{
-                              width: header.getSize ? `${header.getSize()}px` : undefined,
-                              minWidth: header.column.columnDef.minSize
-                                ? `${header.column.columnDef.minSize}px`
-                                : undefined,
-                              maxWidth: header.column.columnDef.maxSize
-                                ? `${header.column.columnDef.maxSize}px`
-                                : undefined,
+                              width: `${header.getSize()}px`,
+                              position: 'relative',
                             }}
                             className={
                               header.id === 'select'
@@ -874,6 +939,18 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
                                 <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
                               )}
                             </div>
+                            {/* Column resize handle */}
+                            {header.column.getCanResize() && (
+                              <div
+                                onMouseDown={header.getResizeHandler()}
+                                onTouchStart={header.getResizeHandler()}
+                                className={`absolute top-0 right-0 h-full w-1 bg-border cursor-col-resize select-none touch-none hover:bg-primary/50 ${
+                                  header.column.getIsResizing()
+                                    ? 'bg-primary opacity-100'
+                                    : 'opacity-0 hover:opacity-100'
+                                }`}
+                              />
+                            )}
                           </TableHead>
                         ))}
                       </TableRow>
@@ -899,15 +976,7 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
                             <TableCell
                               key={cell.id}
                               style={{
-                                width: cell.column.getSize
-                                  ? `${cell.column.getSize()}px`
-                                  : undefined,
-                                minWidth: cell.column.columnDef.minSize
-                                  ? `${cell.column.columnDef.minSize}px`
-                                  : undefined,
-                                maxWidth: cell.column.columnDef.maxSize
-                                  ? `${cell.column.columnDef.maxSize}px`
-                                  : undefined,
+                                width: `${cell.column.getSize()}px`,
                               }}
                               className={
                                 cell.column.id === 'rowIndex' || cell.column.id === 'actions'
