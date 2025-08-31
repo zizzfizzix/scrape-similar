@@ -925,9 +925,9 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
                 </Table>
               </div>
 
-              {/* Pagination */}
+              {/* Pagination controls */}
               <div className="grid grid-cols-[1fr_auto_1fr] items-center mt-4">
-                {/* Left: Rows per page selector */}
+                {/* Left: Rows per page selector - always visible */}
                 <div className="col-span-1 flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">Rows per page:</span>
                   <DropdownMenu>
@@ -956,31 +956,33 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
                   </DropdownMenu>
                 </div>
 
-                {/* Center: Navigation controls */}
-                <div className="col-span-1 flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => table.previousPage()}
-                    disabled={!table.getCanPreviousPage()}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
+                {/* Center: Navigation controls - only show if there are more rows than the current page size */}
+                {table.getFilteredRowModel().rows.length > table.getState().pagination.pageSize && (
+                  <div className="col-span-1 flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => table.previousPage()}
+                      disabled={!table.getCanPreviousPage()}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
 
-                  {/* Page info */}
-                  <span className="text-sm text-muted-foreground px-2">
-                    Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
-                  </span>
+                    {/* Page info */}
+                    <span className="text-sm text-muted-foreground px-2">
+                      Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
+                    </span>
 
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => table.nextPage()}
-                    disabled={!table.getCanNextPage()}
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => table.nextPage()}
+                      disabled={!table.getCanNextPage()}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
               </div>
             </>
           )}

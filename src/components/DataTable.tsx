@@ -290,43 +290,51 @@ const DataTable: React.FC<DataTableProps> = ({
 
       {/* Pagination Controls with relative positioning for the floaty button */}
       <div className="relative flex items-center justify-center gap-2 mt-4">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            trackEvent(ANALYTICS_EVENTS.PAGINATION_BUTTON_PRESS, {
-              direction: 'prev',
-              from_page: pagination.pageIndex + 1,
-              to_page: pagination.pageIndex,
-              total_pages: totalPages,
-            })
-            setPagination((p) => ({ ...p, pageIndex: Math.max(0, p.pageIndex - 1) }))
-          }}
-          disabled={pagination.pageIndex === 0}
-          aria-label="Previous page"
-        >
-          <ChevronLeft className="size-4" />
-        </Button>
-        <span className="text-sm text-muted-foreground">
-          Page {pagination.pageIndex + 1} of {totalPages}
-        </span>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            trackEvent(ANALYTICS_EVENTS.PAGINATION_BUTTON_PRESS, {
-              direction: 'next',
-              from_page: pagination.pageIndex + 1,
-              to_page: pagination.pageIndex + 2,
-              total_pages: totalPages,
-            })
-            setPagination((p) => ({ ...p, pageIndex: Math.min(totalPages - 1, p.pageIndex + 1) }))
-          }}
-          disabled={pagination.pageIndex >= totalPages - 1}
-          aria-label="Next page"
-        >
-          <ChevronRight className="size-4" />
-        </Button>
+        {/* Only show pagination navigation when there are more rows than page size */}
+        {filteredData.length > pagination.pageSize && (
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                trackEvent(ANALYTICS_EVENTS.PAGINATION_BUTTON_PRESS, {
+                  direction: 'prev',
+                  from_page: pagination.pageIndex + 1,
+                  to_page: pagination.pageIndex,
+                  total_pages: totalPages,
+                })
+                setPagination((p) => ({ ...p, pageIndex: Math.max(0, p.pageIndex - 1) }))
+              }}
+              disabled={pagination.pageIndex === 0}
+              aria-label="Previous page"
+            >
+              <ChevronLeft className="size-4" />
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              Page {pagination.pageIndex + 1} of {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                trackEvent(ANALYTICS_EVENTS.PAGINATION_BUTTON_PRESS, {
+                  direction: 'next',
+                  from_page: pagination.pageIndex + 1,
+                  to_page: pagination.pageIndex + 2,
+                  total_pages: totalPages,
+                })
+                setPagination((p) => ({
+                  ...p,
+                  pageIndex: Math.min(totalPages - 1, p.pageIndex + 1),
+                }))
+              }}
+              disabled={pagination.pageIndex >= totalPages - 1}
+              aria-label="Next page"
+            >
+              <ChevronRight className="size-4" />
+            </Button>
+          </>
+        )}
 
         {/* Expand button positioned relative to pagination controls */}
         {tabId && (
