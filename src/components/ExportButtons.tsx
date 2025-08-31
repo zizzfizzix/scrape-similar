@@ -11,7 +11,7 @@ import { rowsToTsv } from '@/utils/tsv'
 import type { ScrapeConfig, ScrapeResult, ScrapedRow } from '@/utils/types'
 import { MESSAGE_TYPES } from '@/utils/types'
 import log from 'loglevel'
-import { ChevronsUpDown } from 'lucide-react'
+import { ChevronsUpDown, Clipboard, FileDown, Sheet } from 'lucide-react'
 import React, { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -68,7 +68,11 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({
 
   // Generate descriptive text for export actions
   const exportText =
-    hasSelection && !isExportingAll ? `${selectedRows!.length} selected rows` : 'all data'
+    hasSelection && !isExportingAll
+      ? selectedRows!.length === 1
+        ? `${selectedRows!.length} row`
+        : `${selectedRows!.length} rows`
+      : 'all'
 
   const handleGoogleSheetsExport = () => {
     if (!dataToExport.length) {
@@ -263,10 +267,17 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({
           }}
           disabled={isExporting}
         >
+          <Sheet className="h-4 w-4" />
           {isExporting ? 'Exporting…' : `Export ${exportText} to Google Sheets`}
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={handleCopyTsv}>Copy {exportText} to clipboard</DropdownMenuItem>
-        <DropdownMenuItem onSelect={handleCsvExport}>Save {exportText} as CSV</DropdownMenuItem>
+        <DropdownMenuItem onSelect={handleCopyTsv}>
+          <Clipboard className="h-4 w-4" />
+          Copy {exportText} to clipboard
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={handleCsvExport}>
+          <FileDown className="h-4 w-4" />
+          Save {exportText} as CSV
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )
