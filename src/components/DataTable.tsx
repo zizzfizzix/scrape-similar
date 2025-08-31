@@ -58,6 +58,11 @@ const DataTable: React.FC<DataTableProps> = ({
     return showEmptyRows ? data : data.filter((row) => !row.metadata.isEmpty)
   }, [data, showEmptyRows])
 
+  // Create a stable key for anchor positioning that changes when data structure changes
+  const anchorKey = useMemo(() => {
+    return `${filteredData.length}-${pagination.pageSize}-${showEmptyRows}`
+  }, [filteredData.length, pagination.pageSize, showEmptyRows])
+
   // Reset pagination when data changes
   useEffect(() => {
     setPagination((prev) => ({ ...prev, pageIndex: 0 }))
@@ -306,6 +311,7 @@ const DataTable: React.FC<DataTableProps> = ({
 
       <Table
         key={columnsOrder.join('-')}
+        className="anchor/data-table"
         style={{
           width: table.getCenterTotalSize(),
         }}
@@ -377,7 +383,7 @@ const DataTable: React.FC<DataTableProps> = ({
         </TableBody>
       </Table>
 
-      {/* Pagination Controls with relative positioning for the floaty button */}
+      {/* Pagination Controls */}
       <div className="relative flex items-center justify-center gap-2 mt-4">
         {/* Only show pagination navigation when there are more rows than page size */}
         {filteredData.length > pagination.pageSize && (
@@ -424,25 +430,36 @@ const DataTable: React.FC<DataTableProps> = ({
             </Button>
           </>
         )}
-
-        {/* Expand button positioned relative to pagination controls */}
-        {tabId && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleOpenFullView}
-                className="absolute right-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-30"
-                aria-label="Open in full view"
-              >
-                <Expand className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Open in full view</TooltipContent>
-          </Tooltip>
-        )}
       </div>
+
+      {/* Floating expand button with anchor positioning */}
+      {tabId && (
+        <Tooltip key={`floating-button-${anchorKey}`}>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleOpenFullView}
+              className="
+                right-4
+                fixed z-50
+                anchored/data-table
+                anchored-bottom-end
+                try-[--avoid-footer,--fallback-bottom]
+                anchored-visible-no-overflow
+                opacity-0 group-hover:opacity-100
+                transition-opacity duration-200
+                [view-transition-name:none]
+                right-anchor-end-4
+              "
+              aria-label="Open in full view"
+            >
+              <Expand className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Open in full view</TooltipContent>
+        </Tooltip>
+      )}
     </div>
   )
 }

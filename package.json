@@ -52,6 +52,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0",
+    "@toolwind/anchors": "^1.0.10",
     "@types/chrome": "^0.1.4",
     "@types/react": "^19.1.11",
     "@types/react-dom": "^19.1.7",

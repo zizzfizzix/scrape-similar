@@ -70,7 +70,7 @@ export const Footer: React.FC<FooterProps> = ({
   if (showSettings) {
     return (
       <footer
-        className={`sticky bottom-0 left-0 w-full z-40 bg-background border-t border-border flex items-center justify-between px-4 h-12 text-sm font-medium text-muted-foreground ${className}`}
+        className={`sticky bottom-0 left-0 w-full z-40 bg-background border-t border-border flex items-center justify-between px-4 h-12 text-sm font-medium text-muted-foreground anchor/footer ${className}`}
         data-slot="footer"
       >
         {footerContent}
@@ -85,7 +85,7 @@ export const Footer: React.FC<FooterProps> = ({
 
   return (
     <footer
-      className={`sticky bottom-0 left-0 w-full z-40 bg-background border-t border-border flex items-center justify-center py-4 text-sm text-muted-foreground ${className}`}
+      className={`sticky bottom-0 left-0 w-full z-40 bg-background border-t border-border flex items-center justify-center py-4 text-sm text-muted-foreground anchor/footer ${className}`}
     >
       {footerContent}
     </footer>
