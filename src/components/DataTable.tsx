@@ -287,8 +287,9 @@ const DataTable: React.FC<DataTableProps> = ({
           )}
         </TableBody>
       </Table>
-      {/* Pagination Controls */}
-      <div className="flex items-center justify-center gap-2 mt-4">
+
+      {/* Pagination Controls with relative positioning for the floaty button */}
+      <div className="relative flex items-center justify-center gap-2 mt-4">
         <Button
           variant="outline"
           size="sm"
@@ -326,18 +327,16 @@ const DataTable: React.FC<DataTableProps> = ({
         >
           <ChevronRight className="size-4" />
         </Button>
-      </div>
 
-      {/* Fixed expand button that follows viewport when scrolling */}
-      {tabId && (
-        <div className="fixed bottom-16 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-30">
+        {/* Expand button positioned relative to pagination controls */}
+        {tabId && (
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                variant="secondary"
+                variant="outline"
                 size="sm"
                 onClick={handleOpenFullView}
-                className="shadow-md bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+                className="absolute right-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-30"
                 aria-label="Open in full view"
               >
                 <Expand className="h-4 w-4" />
@@ -345,8 +344,8 @@ const DataTable: React.FC<DataTableProps> = ({
             </TooltipTrigger>
             <TooltipContent>Open in full view</TooltipContent>
           </Tooltip>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }
