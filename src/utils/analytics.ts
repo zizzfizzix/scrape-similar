@@ -142,7 +142,8 @@ export const trackEvent = async (
       case EXTENSION_CONTEXTS.SIDEPANEL:
       case EXTENSION_CONTEXTS.POPUP:
       case EXTENSION_CONTEXTS.OPTIONS:
-      case EXTENSION_CONTEXTS.ONBOARDING: {
+      case EXTENSION_CONTEXTS.ONBOARDING:
+      case EXTENSION_CONTEXTS.FULL_DATA_VIEW: {
         if ((window as any).__scrape_similar_posthog) {
           ;(window as any).__scrape_similar_posthog.capture(eventName, eventProperties)
           log.debug(`Tracked event in ${context} context: ${eventName}`, eventProperties)
