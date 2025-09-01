@@ -208,6 +208,21 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
     }
   }, [globalFilter])
 
+  // Track search usage with debouncing
+  useEffect(() => {
+    if (globalFilter.length === 0) return
+
+    const timeoutId = setTimeout(() => {
+      trackEvent(ANALYTICS_EVENTS.FULL_DATA_VIEW_SEARCH, {
+        search_term_length: globalFilter.length,
+        filtered_rows: table.getFilteredRowModel().rows.length,
+        total_rows: currentTabData?.scrapeResult.data.length || 0,
+      })
+    }, 1000) // Debounce for 1 second
+
+    return () => clearTimeout(timeoutId)
+  }, [globalFilter, currentTabData])
+
   // Watch for storage changes to update data in real-time
   useEffect(() => {
     const unwatchCallbacks: (() => void)[] = []
@@ -366,6 +381,11 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
       setColumnFilters([])
       setRowSelection({})
       setColumnSizing({})
+
+      // Track tab switch
+      trackEvent(ANALYTICS_EVENTS.FULL_DATA_VIEW_TAB_SWITCH, {
+        total_tabs_available: allTabsData.length,
+      })
     }
   }
 
@@ -373,6 +393,9 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
   const handleBackToTab = async () => {
     if (currentTabId) {
       try {
+        // Track the back to tab action
+        trackEvent(ANALYTICS_EVENTS.FULL_DATA_VIEW_BACK_TO_TAB)
+
         await browser.tabs.update(currentTabId, { active: true })
 
         // Reopen the sidepanel for the original tab
@@ -483,14 +506,32 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
               table.getIsAllPageRowsSelected() ||
               (table.getIsSomePageRowsSelected() && 'indeterminate')
             }
-            onCheckedChange={(value: boolean) => table.toggleAllPageRowsSelected(!!value)}
+            onCheckedChange={(value: boolean) => {
+              table.toggleAllPageRowsSelected(!!value)
+
+              // Track select all action
+              trackEvent(ANALYTICS_EVENTS.FULL_DATA_VIEW_ROW_SELECTION, {
+                selection_type: value ? 'select_all' : 'deselect_all',
+                rows_affected: table.getRowModel().rows.length,
+                total_rows: filteredData.length,
+              })
+            }}
             aria-label="Select all"
           />
         ),
         cell: ({ row }) => (
           <Checkbox
             checked={row.getIsSelected()}
-            onCheckedChange={(value: boolean) => row.toggleSelected(!!value)}
+            onCheckedChange={(value: boolean) => {
+              row.toggleSelected(!!value)
+
+              // Track individual row selection
+              trackEvent(ANALYTICS_EVENTS.FULL_DATA_VIEW_ROW_SELECTION, {
+                selection_type: value ? 'select_individual' : 'deselect_individual',
+                is_empty_row: row.original.metadata.isEmpty,
+                total_selected: table.getSelectedRowModel().rows.length + (value ? 1 : -1),
+              })
+            }}
             aria-label="Select row"
           />
         ),
@@ -1028,8 +1069,16 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
                         <DropdownMenuRadioGroup
                           value={table.getState().pagination.pageSize.toString()}
                           onValueChange={(value) => {
+                            const previousPageSize = table.getState().pagination.pageSize
                             const newPageSize = parseInt(value)
                             table.setPageSize(newPageSize)
+
+                            // Track page size change
+                            trackEvent(ANALYTICS_EVENTS.FULL_DATA_VIEW_PAGE_SIZE_CHANGE, {
+                              previous_page_size: previousPageSize,
+                              new_page_size: newPageSize,
+                              total_rows: table.getFilteredRowModel().rows.length,
+                            })
                           }}
                         >
                           <DropdownMenuRadioItem value="10">10</DropdownMenuRadioItem>

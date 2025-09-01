@@ -270,15 +270,19 @@ const DataTable: React.FC<DataTableProps> = ({
   const totalPages = Math.max(1, Math.ceil(filteredData.length / pagination.pageSize))
 
   // Handle opening full data view
-  const handleOpenFullView = () => {
-    if (tabId) {
-      // Use type assertion since WXT will generate this entrypoint
-      const fullViewUrl = browser.runtime.getURL(`/full-data-view.html?tabId=${tabId}` as any)
-      browser.tabs.create({ url: fullViewUrl })
+  const handleOpenFullView = (tabId: number) => {
+    // Track full data view open
+    trackEvent(ANALYTICS_EVENTS.FULL_DATA_VIEW_OPEN_BUTTON_PRESS, {
+      total_rows: filteredData.length,
+      columns_count: config.columns.length,
+    })
 
-      // Close the sidepanel window after opening the full view
-      window.close()
-    }
+    // Use type assertion since WXT will generate this entrypoint
+    const fullViewUrl = browser.runtime.getURL(`/full-data-view.html?tabId=${tabId}`)
+    browser.tabs.create({ url: fullViewUrl })
+
+    // Close the sidepanel window after opening the full view
+    window.close()
   }
 
   return (
@@ -439,7 +443,7 @@ const DataTable: React.FC<DataTableProps> = ({
             <Button
               variant="outline"
               size="sm"
-              onClick={handleOpenFullView}
+              onClick={() => handleOpenFullView(tabId)}
               className="
                 right-4
                 fixed z-50
