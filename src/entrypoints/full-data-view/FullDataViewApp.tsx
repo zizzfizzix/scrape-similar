@@ -29,13 +29,6 @@ import {
 } from '@/components/ui/table'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
-import ExportButtons from '@/components/ExportButtons'
-import { Footer } from '@/components/footer'
-import { ANALYTICS_EVENTS, trackEvent } from '@/utils/analytics'
-import { getColumnKeys } from '@/utils/getColumnKeys'
-import { rowToTsv } from '@/utils/tsv'
-import type { ScrapeConfig, ScrapedRow, ScrapeResult, SidePanelConfig } from '@/utils/types'
-import { MESSAGE_TYPES } from '@/utils/types'
 import {
   CellContext,
   ColumnDef,
@@ -64,7 +57,6 @@ import {
 } from 'lucide-react'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { storage } from 'wxt/utils/storage'
 
 interface TabData {
   tabId: number
