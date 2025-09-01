@@ -1,8 +1,8 @@
+import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-
-import ExportButtons from '@/components/ExportButtons'
 import { Toaster } from '@/components/ui/sonner'
 import log from 'loglevel'
+import { Minimize2, X } from 'lucide-react'
 
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import slugify from 'slugify'
@@ -54,17 +54,69 @@ const SplashScreen: React.FC<{ tabUrl: string }> = ({ tabUrl }) => (
   </div>
 )
 
-// Clipboard utility
-const copyToClipboard = async (text: string) => {
-  try {
-    await navigator.clipboard.writeText(text)
-    return true
-  } catch (err) {
-    log.error('Failed to copy:', err)
-    return false
-  }
-}
+// Special view for when the side panel is viewing a full data view tab
+const FullDataViewControls: React.FC<{
+  currentTabUrl: string
+  currentTabId: number | null
+}> = ({ currentTabUrl, currentTabId }) => {
+  // Handle going back to the original tab and close the full-data-view tab
+  const handleBackToTab = async () => {
+    try {
+      // Parse the full data view URL to get the original tabId
+      const url = new URL(currentTabUrl)
+      const originalTabId = url.searchParams.get('tabId')
 
+      if (originalTabId) {
+        // Switch to the original tab
+        await browser.tabs.update(Number(originalTabId), { active: true })
+        log.debug(`Switched back to tab ${originalTabId}`)
+
+        // Close the current full-data-view tab (currentTabId is the full-data-view tab)
+        if (currentTabId) {
+          await browser.tabs.remove(currentTabId)
+          log.debug(`Closed full-data-view tab ${currentTabId}`)
+        }
+      } else {
+        toast.error('No target tab ID found')
+        log.error('No tabId parameter found in URL:', currentTabUrl)
+      }
+    } catch (err) {
+      toast.error('Failed to switch back to tab')
+      log.error('Error switching to tab:', err)
+    }
+  }
+
+  // Handle closing the sidepanel
+  const handleCloseSidePanel = async () => {
+    try {
+      // Close the sidepanel by closing the current window
+      window.close()
+    } catch (err) {
+      toast.error('Failed to close sidepanel')
+      log.error('Error closing sidepanel:', err)
+    }
+  }
+
+  return (
+    <div className="flex flex-1 items-center justify-center w-full min-w-0">
+      <div className="flex flex-col items-center justify-center text-center w-full max-w-md mx-auto gap-6">
+        <h2 className="text-2xl mb-4">Full Screen View Active</h2>
+
+        <div className="flex flex-col gap-4">
+          <Button onClick={handleBackToTab}>
+            <Minimize2 className="h-4 w-4" />
+            Compact View
+          </Button>
+
+          <Button onClick={handleCloseSidePanel} variant="outline">
+            <X className="h-4 w-4" />
+            Hide Sidepanel
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
 interface SidePanelProps {
   debugMode: boolean
   onDebugModeChange: (enabled: boolean) => void
@@ -72,7 +124,6 @@ interface SidePanelProps {
 
 const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) => {
   // State
-  const [activeTab, setActiveTab] = useState<'config' | 'data' | 'presets'>('config')
   const [targetTabId, setTargetTabId] = useState<number | null>(null)
   // Ref to hold the current targetTabId
   const targetTabIdRef = useRef<number | null>(targetTabId)
@@ -527,7 +578,6 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
 
   const handleLoadPreset = (preset: Preset) => {
     handleConfigChange(preset.config)
-    setActiveTab('config')
 
     // Trigger highlighting if the preset has a main selector
     if (preset.config.mainSelector) {
@@ -623,6 +673,21 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
     trackEvent(ANALYTICS_EVENTS.SYSTEM_PRESETS_RESET, {
       type: 'system',
     })
+  }
+
+  // Check if the current tab is showing the full data view
+  if (
+    tabUrl?.startsWith('chrome-extension://bhgobenflkkhfcgkikejaaejenoddcmo/full-data-view.html')
+  ) {
+    return (
+      <div className="flex flex-col h-screen font-sans min-w-0 max-w-full w-full box-border">
+        <ConsentWrapper>
+          <main className="flex-1 flex min-w-0 w-full">
+            <FullDataViewControls currentTabUrl={tabUrl} currentTabId={targetTabId} />
+          </main>
+        </ConsentWrapper>
+      </div>
+    )
   }
 
   if (tabUrl !== null && !isInjectableUrl(tabUrl)) {
