@@ -174,6 +174,24 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
     loadTabsData()
   }, [loadTabsData])
 
+  useEffect(() => {
+    storage.getItem<boolean>('local:debugMode').then((val) => {
+      if (isDevOrTest) {
+        log.setLevel('trace')
+      } else {
+        log.setLevel(val ? 'trace' : 'error')
+      }
+    })
+
+    const unwatch = storage.watch<boolean>('local:debugMode', (val) => {
+      if (!isDevOrTest) {
+        log.setLevel(val ? 'trace' : 'error')
+      }
+    })
+
+    return () => unwatch()
+  }, [])
+
   // Update document title when current tab changes
   useEffect(() => {
     if (currentTabData?.tabTitle) {
