@@ -761,10 +761,10 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
                     >
                       <div className="flex items-center justify-between w-full">
                         <div className="flex flex-col items-start min-w-0 flex-1">
-                          <div className="font-semibold truncate max-w-md">
+                          <div className="font-semibold truncate max-w-md ph_hidden">
                             {currentTabData?.tabTitle || 'Select Tab'}
                           </div>
-                          <div className="text-xs text-muted-foreground truncate max-w-md">
+                          <div className="text-xs text-muted-foreground truncate max-w-md ph_hidden">
                             {currentTabData?.tabUrl || ''}
                           </div>
                         </div>
@@ -810,10 +810,10 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
                             className="flex items-center justify-between py-3"
                           >
                             <div className="flex flex-col items-start min-w-0 flex-1">
-                              <div className="font-medium truncate w-full">
+                              <div className="font-medium truncate w-full ph_hidden">
                                 {tabData.tabTitle || 'Unknown Title'}
                               </div>
-                              <div className="text-xs text-muted-foreground truncate w-full">
+                              <div className="text-xs text-muted-foreground truncate w-full ph_hidden">
                                 {tabData.tabUrl}
                               </div>
                             </div>
@@ -937,7 +937,7 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
                                   ? 'px-3'
                                   : header.id === 'rowIndex' || header.id === 'actions'
                                     ? ''
-                                    : 'cursor-pointer select-none'
+                                    : 'cursor-pointer select-none ph_hidden'
                               }
                               onClick={
                                 header.column.getCanSort()
@@ -995,9 +995,11 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
                                   width: `${cell.column.getSize()}px`,
                                 }}
                                 className={
-                                  cell.column.id === 'rowIndex' || cell.column.id === 'actions'
-                                    ? 'px-2'
-                                    : 'px-3'
+                                  cell.column.id === 'select'
+                                    ? 'px-3'
+                                    : cell.column.id === 'rowIndex' || cell.column.id === 'actions'
+                                      ? 'px-2'
+                                      : 'px-3 ph_hidden'
                                 }
                               >
                                 {flexRender(cell.column.columnDef.cell, cell.getContext())}
