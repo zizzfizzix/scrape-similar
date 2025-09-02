@@ -8,6 +8,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import slugify from 'slugify'
 import { toast } from 'sonner'
 
+import pkg from '../../../package.json' assert { type: 'json' }
+
 // Simple splash screen component
 const SplashScreen: React.FC<{ tabUrl: string }> = ({ tabUrl }) => (
   <div className="flex flex-1 items-center justify-center w-full min-w-0">
@@ -67,14 +69,25 @@ const FullDataViewControls: React.FC<{
       const originalTabId = url.searchParams.get('tabId')
 
       if (originalTabId) {
-        // Switch to the original tab
-        await browser.tabs.update(Number(originalTabId), { active: true })
-        log.debug(`Switched back to tab ${originalTabId}`)
+        const tabId = Number(originalTabId)
 
-        // Close the current full-data-view tab (currentTabId is the full-data-view tab)
-        if (currentTabId) {
-          await browser.tabs.remove(currentTabId)
-          log.debug(`Closed full-data-view tab ${currentTabId}`)
+        // Validate that the tab exists before trying to switch to it
+        try {
+          await browser.tabs.get(tabId)
+          log.debug(`Tab ${tabId} exists, switching to it`)
+
+          // Switch to the original tab
+          await browser.tabs.update(tabId, { active: true })
+          log.debug(`Switched back to tab ${tabId}`)
+
+          // Close the current full-data-view tab (currentTabId is the full-data-view tab)
+          if (currentTabId) {
+            await browser.tabs.remove(currentTabId)
+            log.debug(`Closed full-data-view tab ${currentTabId}`)
+          }
+        } catch (tabError) {
+          toast.error('Target tab does not exist')
+          log.error(`Tab ${tabId} does not exist:`, tabError)
         }
       } else {
         toast.error('No target tab ID found')
@@ -676,11 +689,10 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
   }
 
   // Check if the current tab is showing the full data view
-  if (
-    tabUrl?.startsWith('chrome-extension://bhgobenflkkhfcgkikejaaejenoddcmo/full-data-view.html')
-  ) {
+  if (tabUrl?.startsWith(`chrome-extension://${pkg.chromeExtensionId}/full-data-view.html`)) {
     return (
       <div className="flex flex-col h-screen font-sans min-w-0 max-w-full w-full box-border">
+        <Toaster />
         <ConsentWrapper>
           <main className="flex-1 flex min-w-0 w-full">
             <FullDataViewControls currentTabUrl={tabUrl} currentTabId={targetTabId} />
@@ -693,6 +705,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
   if (tabUrl !== null && !isInjectableUrl(tabUrl)) {
     return (
       <div className="flex flex-col h-screen font-sans min-w-0 max-w-full w-full box-border">
+        <Toaster />
         <ConsentWrapper>
           <main className="flex-1 flex min-w-0 w-full">
             <SplashScreen tabUrl={tabUrl} />
