@@ -90,7 +90,7 @@ test.describe('Copy to clipboard', () => {
 
     // Open Export dropdown and click "Copy to clipboard" option.
     await sidePanel.getByRole('button', { name: /export/i }).click()
-    await sidePanel.getByRole('menuitem', { name: /copy to clipboard/i }).click()
+    await sidePanel.getByRole('menuitem', { name: /copy all to clipboard/i }).click()
 
     // Verify clipboard capture contains multiple lines.
     const text = await copiedText(sidePanel)

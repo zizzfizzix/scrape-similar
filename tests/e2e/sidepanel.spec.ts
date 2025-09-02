@@ -331,7 +331,7 @@ test.describe('Sidepanel', () => {
     // Initiate CSV download and wait for it.
     const [download] = await Promise.all([
       sidePanel.waitForEvent('download'),
-      sidePanel.getByRole('menuitem', { name: /save as csv/i }).click(),
+      sidePanel.getByRole('menuitem', { name: /save all as csv/i }).click(),
     ])
 
     const fileName = download.suggestedFilename()
