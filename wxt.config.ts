@@ -23,7 +23,7 @@ export default defineConfig({
 
     return {
       key: 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAu6ONFPt3ct0twLsACoeS7JjXkpEznkKkuh9uTApNa8EToDneOS0JPcD4cD3KEaO+SlsLPjU0JVkqX4/XBM6meSw4UIRydJCEf4UbCD+PR61FyuPq7Gp67Kd9jF0Oet7a/4nE7cNrBhz98CwifvI4MlIQWWK5jwwpAhVf0rQDjpG38H8+t2blGTlH8aP4+S/74qLN2fLILP7rIiovq4uvskBjJ4RwM3d6azdp0eCqrBDF6xAfTqp/8k+ZZ6wzGMsmKQI+yAdRhpsa0gfcFNnnu+ATErKHCL0seQB4kE4pHmA4q0ii70z6nOYO/NlT2wEmOvtfouuhvBGOGbChv9sHgQIDAQAB',
-      permissions: ['contextMenus', 'identity', 'scripting', 'storage'],
+      permissions: ['contextMenus', 'identity', 'scripting', 'storage', 'tabs'],
       host_permissions: ['http://*/*', 'https://*/*'],
       action: {
         default_title: 'Open Scrape Similar',
