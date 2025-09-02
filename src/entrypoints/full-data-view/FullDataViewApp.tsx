@@ -1101,6 +1101,7 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
                         size="sm"
                         onClick={() => table.previousPage()}
                         disabled={!table.getCanPreviousPage()}
+                        aria-label="Previous page"
                       >
                         <ChevronLeft className="h-4 w-4" />
                       </Button>
@@ -1115,6 +1116,7 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
                         size="sm"
                         onClick={() => table.nextPage()}
                         disabled={!table.getCanNextPage()}
+                        aria-label="Next page"
                       >
                         <ChevronRight className="h-4 w-4" />
                       </Button>
