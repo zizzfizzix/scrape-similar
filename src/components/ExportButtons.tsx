@@ -83,6 +83,12 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({
     log.debug('🔥 ExportButtons: Starting Google Sheets export')
     setIsExporting(true)
 
+    // Track the export trigger immediately when user clicks, not dependent on success
+    trackEvent(ANALYTICS_EVENTS.EXPORT_TO_SHEETS_TRIGGER, {
+      rows_exported: dataToExport.length,
+      columns_count: columns.length,
+    })
+
     const messagePayload = {
       type: MESSAGE_TYPES.EXPORT_TO_SHEETS,
       payload: {
@@ -149,10 +155,6 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({
               </a>
             </span>
           ),
-        })
-        trackEvent(ANALYTICS_EVENTS.EXPORT_TO_SHEETS_TRIGGER, {
-          rows_exported: dataToExport.length,
-          columns_count: columns.length,
         })
       } else {
         log.error('🔥 ExportButtons: Export failed - Full response:', response)
