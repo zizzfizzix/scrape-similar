@@ -434,6 +434,8 @@ const DataTable: React.FC<DataTableProps> = ({
             </Button>
           </>
         )}
+        {/* Reserve space for pagination when at page size boundary to prevent button overlap */}
+        {filteredData.length === pagination.pageSize && <div className="h-8" aria-hidden="true" />}
       </div>
 
       {/* Floating expand button with anchor positioning */}
