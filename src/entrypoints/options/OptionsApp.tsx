@@ -43,23 +43,12 @@ const OptionsApp: React.FC = () => {
     <div className="min-h-screen bg-background flex flex-col">
       <ConsentWrapper>
         <div className="flex-1 p-4">
-          <div className="w-full max-w-2xl mx-auto pt-8">
+          <div className="w-full max-w-2xl mx-auto">
             <div className="flex items-center justify-between mb-8">
-              <div>
-                <div className="flex items-center gap-3 mb-2">
-                  <img
-                    src={theme === 'dark' ? '/icons/logo-dark.svg' : '/icons/logo-light.svg'}
-                    alt="Scrape Similar Logo"
-                    className="w-8 h-8"
-                  />
-                  <h1 className="text-3xl font-bold" onClick={handleTitleClick}>
-                    Settings
-                  </h1>
-                </div>
-                <p className="text-muted-foreground">Tailor Scrape Similar configuration</p>
-              </div>
+              <h1 className="text-lg font-bold" onClick={handleTitleClick}>
+                Settings
+              </h1>
             </div>
-
             <div className="space-y-6">
               <div className="bg-card border rounded-lg p-6">
                 <Settings
