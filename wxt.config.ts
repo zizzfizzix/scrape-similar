@@ -57,6 +57,7 @@ export default defineConfig({
       resolve: {
         alias: {
           '@': path.resolve(__dirname, './src'),
+          '@@': path.resolve(__dirname, './'),
         },
       },
     }) as WxtViteConfig, // FIXME: WXT incompatible with vite v7, see https://github.com/wxt-dev/wxt/issues/1460#issuecomment-2841437586

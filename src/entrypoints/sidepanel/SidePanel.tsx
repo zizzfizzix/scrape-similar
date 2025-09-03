@@ -1,14 +1,12 @@
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Toaster } from '@/components/ui/sonner'
+import pkg from '@@/package.json' with { type: 'json' }
 import log from 'loglevel'
 import { Minimize2, X } from 'lucide-react'
-
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import slugify from 'slugify'
 import { toast } from 'sonner'
-
-import pkg from '../../../package.json' assert { type: 'json' }
 
 // Simple splash screen component
 const SplashScreen: React.FC<{ tabUrl: string }> = ({ tabUrl }) => (

@@ -4,7 +4,8 @@
     // FIXME: shouldn't do this but see https://github.com/wxt-dev/examples/tree/main/examples/react-shadcn#notes and https://github.com/shadcn-ui/ui/issues/6020
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@@/*": ["./*"]
     },
     "allowImportingTsExtensions": true,
     "jsx": "react-jsx"

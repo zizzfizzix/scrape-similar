@@ -1,3 +1,4 @@
+import pkg from '@@/package.json' assert { type: 'json' }
 import {
   test as base,
   chromium,
@@ -6,7 +7,6 @@ import {
   type Worker,
 } from '@playwright/test'
 import fs from 'fs'
-import pkg from '../../package.json' assert { type: 'json' }
 
 async function waitForChromeApi(worker: Worker, timeout = 5000) {
   const start = Date.now()
