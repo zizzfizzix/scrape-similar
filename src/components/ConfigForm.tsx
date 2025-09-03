@@ -33,6 +33,7 @@ import {
   OctagonAlert,
   Plus,
   RefreshCcw,
+  SquareCheckBig,
   Trash2,
   Wand,
   X,
@@ -701,9 +702,18 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
               onScrape()
             }}
             loading={isLoading}
-            disabled={isLoading || config.columns.length === 0 || !isMainSelectorValid}
+            disabled={
+              isLoading ||
+              config.columns.length === 0 ||
+              (!isMainSelectorValid && !hasUncommittedChanges)
+            }
           >
-            {rescrapeAdvised && scrapeButtonState !== 'zero-found' ? (
+            {hasUncommittedChanges ? (
+              <>
+                <SquareCheckBig className="w-4 h-4" />
+                <span>Validate selector</span>
+              </>
+            ) : rescrapeAdvised && scrapeButtonState !== 'zero-found' ? (
               <>
                 <RefreshCcw />
                 <span>Scrape</span>
