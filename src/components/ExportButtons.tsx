@@ -83,6 +83,12 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({
     log.debug('🔥 ExportButtons: Starting Google Sheets export')
     setIsExporting(true)
 
+    // Track the export trigger immediately when user clicks, not dependent on success
+    trackEvent(ANALYTICS_EVENTS.EXPORT_TO_SHEETS_TRIGGER, {
+      rows_exported: dataToExport.length,
+      columns_count: columns.length,
+    })
+
     const messagePayload = {
       type: MESSAGE_TYPES.EXPORT_TO_SHEETS,
       payload: {
@@ -149,10 +155,6 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({
               </a>
             </span>
           ),
-        })
-        trackEvent(ANALYTICS_EVENTS.EXPORT_TO_SHEETS_TRIGGER, {
-          rows_exported: dataToExport.length,
-          columns_count: columns.length,
         })
       } else {
         log.error('🔥 ExportButtons: Export failed - Full response:', response)
@@ -260,6 +262,14 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
+        <DropdownMenuItem onSelect={handleCopyTsv}>
+          <Clipboard className="h-4 w-4" />
+          Copy {exportText} to clipboard
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={handleCsvExport}>
+          <FileDown className="h-4 w-4" />
+          Save {exportText} as CSV
+        </DropdownMenuItem>
         <DropdownMenuItem
           onSelect={(e) => {
             e.preventDefault()
@@ -269,14 +279,6 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({
         >
           <Sheet className="h-4 w-4" />
           {isExporting ? 'Exporting…' : `Export ${exportText} to Google Sheets`}
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={handleCopyTsv}>
-          <Clipboard className="h-4 w-4" />
-          Copy {exportText} to clipboard
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={handleCsvExport}>
-          <FileDown className="h-4 w-4" />
-          Save {exportText} as CSV
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
