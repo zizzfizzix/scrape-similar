@@ -63,12 +63,8 @@ test.describe('Sidepanel Full Data View Integration', () => {
     const compactViewButton = sidePanel.getByRole('button', { name: /compact view/i })
     await expect(compactViewButton).toBeVisible()
 
-    // Monitor for the full data view page to close
-    const pageClosedPromise = fullDataViewPage.waitForEvent('close')
-    await compactViewButton.click()
-
-    // Verify full data view page closes
-    await pageClosedPromise
+    // Click compact view button and wait for the full data view page to close
+    await Promise.all([fullDataViewPage.waitForEvent('close'), compactViewButton.click()])
 
     // Verify original test page becomes active (this is harder to test directly in Playwright,
     // but we can verify that the page still exists and wasn't closed)
@@ -95,16 +91,11 @@ test.describe('Sidepanel Full Data View Integration', () => {
     // Wait for special controls to appear in the same sidepanel
     await expect(sidePanel.getByRole('heading', { name: 'Full Screen View Active' })).toBeVisible()
 
-    // Click hide sidepanel button
     const hideSidepanelButton = sidePanel.getByRole('button', { name: /hide sidepanel/i })
     await expect(hideSidepanelButton).toBeVisible()
 
-    // Monitor for the sidepanel to close
-    const sidepanelClosedPromise = sidePanel.waitForEvent('close')
-    await hideSidepanelButton.click()
-
-    // Verify sidepanel closes
-    await sidepanelClosedPromise
+    // Click hide sidepanel button and wait for it to close
+    await Promise.all([sidePanel.waitForEvent('close'), hideSidepanelButton.click()])
 
     // Verify full data view page remains open
     expect(fullDataViewPage.isClosed()).toBe(false)

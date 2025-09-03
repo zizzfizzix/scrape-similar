@@ -117,12 +117,8 @@ test.describe('Full Data View', () => {
     const backButton = fullDataViewPage.getByRole('button', { name: /back to tab/i })
     await expect(backButton).toBeVisible()
 
-    // Monitor for tab activation and page closure
-    const pageClosedPromise = fullDataViewPage.waitForEvent('close')
-    await backButton.click()
-
-    // Verify full data view page closes
-    await pageClosedPromise
+    // Click back button and wait for the full data view page to close
+    await Promise.all([fullDataViewPage.waitForEvent('close'), backButton.click()])
 
     // Verify original test page becomes active
     await expect(testPage).toBeTruthy()
