@@ -1,5 +1,4 @@
-import { BrowserContext, Page, Worker } from '@playwright/test'
-import { expect, test } from './fixtures'
+import { expect, test, TestHelpers } from './fixtures'
 
 /**
  * End-to-end tests for sidepanel integration with full data view:
@@ -10,62 +9,6 @@ import { expect, test } from './fixtures'
  * - Proper handling of tab switching from full data view context
  */
 
-// Helper to prepare sidepanel with scraped data
-const prepareSidepanelWithData = async (
-  sidePanel: Page,
-  serviceWorker: Worker,
-  context: BrowserContext,
-) => {
-  // Dismiss analytics consent quickly via storage to avoid modal
-  await serviceWorker.evaluate(() => {
-    chrome.storage.sync.set({ analytics_consent: false })
-  })
-
-  // Navigate to a deterministic page with content to scrape
-  const testPage = await context.newPage()
-  await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
-  await testPage.bringToFront()
-
-  // Configure selector and scrape data
-  const mainSelector = sidePanel.locator('#mainSelector')
-  await mainSelector.fill('//h2')
-  await mainSelector.press('Enter')
-
-  // Auto-generate configuration
-  await sidePanel
-    .getByRole('button', { name: /auto-generate configuration from selector/i })
-    .click()
-
-  // Wait for selector validation
-  const countBadge = sidePanel.locator('[data-slot="badge"]').filter({ hasText: /^\d+$/ })
-  await expect(countBadge).toBeVisible({ timeout: 5000 })
-
-  // Perform scrape
-  await sidePanel.getByRole('button', { name: /^scrape$/i }).click()
-
-  // Wait for data table to appear
-  await expect(sidePanel.getByRole('heading', { name: /extracted data/i })).toBeVisible({
-    timeout: 10000,
-  })
-
-  return testPage
-}
-
-// Helper to open full data view from sidepanel
-const openFullDataView = async (sidePanel: Page, context: BrowserContext): Promise<Page> => {
-  const [fullDataViewPage] = await Promise.all([
-    context
-      .waitForEvent('page', { predicate: (p) => p.url().includes('full-data-view.html') })
-      .then(async (p) => {
-        p.locator('table').waitFor({ state: 'visible' })
-        return p
-      }),
-    sidePanel.getByRole('button', { name: /open in full view/i }).click(),
-  ])
-
-  return fullDataViewPage
-}
-
 test.describe('Sidepanel Full Data View Integration', () => {
   test('shows special full data view controls when sidepanel views full data view tab', async ({
     openSidePanel,
@@ -73,10 +16,10 @@ test.describe('Sidepanel Full Data View Integration', () => {
     context,
   }) => {
     let sidePanel = await openSidePanel()
-    await prepareSidepanelWithData(sidePanel, serviceWorker, context)
+    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context)
 
     // Open full data view
-    const fullDataViewPage = await openFullDataView(sidePanel, context)
+    const fullDataViewPage = await TestHelpers.openFullDataView(sidePanel, context)
 
     // Bring the full data view tab to front - this should cause the sidepanel to switch context
     await fullDataViewPage.bringToFront()
@@ -103,10 +46,10 @@ test.describe('Sidepanel Full Data View Integration', () => {
     context,
   }) => {
     let sidePanel = await openSidePanel()
-    const testPage = await prepareSidepanelWithData(sidePanel, serviceWorker, context)
+    const testPage = await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context)
 
     // Open full data view
-    const fullDataViewPage = await openFullDataView(sidePanel, context)
+    const fullDataViewPage = await TestHelpers.openFullDataView(sidePanel, context)
 
     // Bring the full data view tab to front - sidepanel should switch to show special controls
     await fullDataViewPage.bringToFront()
@@ -139,10 +82,10 @@ test.describe('Sidepanel Full Data View Integration', () => {
     context,
   }) => {
     let sidePanel = await openSidePanel()
-    await prepareSidepanelWithData(sidePanel, serviceWorker, context)
+    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context)
 
     // Open full data view
-    const fullDataViewPage = await openFullDataView(sidePanel, context)
+    const fullDataViewPage = await TestHelpers.openFullDataView(sidePanel, context)
 
     // Bring the full data view tab to front - sidepanel should switch to show special controls
     await fullDataViewPage.bringToFront()
@@ -175,9 +118,7 @@ test.describe('Sidepanel Full Data View Integration', () => {
     extensionId,
   }) => {
     // Dismiss analytics consent quickly via storage to avoid modal
-    await serviceWorker.evaluate(() => {
-      chrome.storage.sync.set({ analytics_consent: false })
-    })
+    await TestHelpers.dismissAnalyticsConsent(serviceWorker)
 
     // Manually navigate to a full data view URL to test detection
     const fullDataViewPage = await context.newPage()
@@ -204,9 +145,7 @@ test.describe('Sidepanel Full Data View Integration', () => {
     extensionId,
   }) => {
     // Dismiss analytics consent quickly via storage to avoid modal
-    await serviceWorker.evaluate(() => {
-      chrome.storage.sync.set({ analytics_consent: false })
-    })
+    await TestHelpers.dismissAnalyticsConsent(serviceWorker)
 
     // Navigate to a full data view URL without tabId parameter
     const fullDataViewPage = await context.newPage()
@@ -235,14 +174,14 @@ test.describe('Sidepanel Full Data View Integration', () => {
   }) => {
     // Start with normal sidepanel
     let sidePanel = await openSidePanel()
-    const testPage = await prepareSidepanelWithData(sidePanel, serviceWorker, context)
+    const testPage = await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context)
 
     // Verify normal sidepanel interface is present
     await expect(sidePanel.getByRole('textbox', { name: /enter xpath selector/i })).toBeVisible()
     await expect(sidePanel.getByRole('heading', { name: /extracted data/i })).toBeVisible()
 
     // Open full data view
-    const fullDataViewPage = await openFullDataView(sidePanel, context)
+    const fullDataViewPage = await TestHelpers.openFullDataView(sidePanel, context)
 
     // Bring the full data view tab to front - sidepanel should switch context
     await fullDataViewPage.bringToFront()
@@ -274,9 +213,7 @@ test.describe('Sidepanel Full Data View Integration', () => {
     extensionId,
   }) => {
     // Dismiss analytics consent quickly via storage to avoid modal
-    await serviceWorker.evaluate(() => {
-      chrome.storage.sync.set({ analytics_consent: false })
-    })
+    await TestHelpers.dismissAnalyticsConsent(serviceWorker)
 
     // Create a full data view URL with a tab ID that doesn't exist
     const fullDataViewPage = await context.newPage()
@@ -308,9 +245,7 @@ test.describe('Sidepanel Full Data View Integration', () => {
     extensionId,
   }) => {
     // Dismiss analytics consent quickly via storage to avoid modal
-    await serviceWorker.evaluate(() => {
-      chrome.storage.sync.set({ analytics_consent: false })
-    })
+    await TestHelpers.dismissAnalyticsConsent(serviceWorker)
 
     // Navigate to full data view
     const fullDataViewPage = await context.newPage()
@@ -350,9 +285,7 @@ test.describe('Sidepanel Full Data View Integration', () => {
     extensionId,
   }) => {
     // Dismiss analytics consent quickly via storage to avoid modal
-    await serviceWorker.evaluate(() => {
-      chrome.storage.sync.set({ analytics_consent: false })
-    })
+    await TestHelpers.dismissAnalyticsConsent(serviceWorker)
 
     // Navigate to full data view
     const fullDataViewPage = await context.newPage()

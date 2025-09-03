@@ -1,4 +1,4 @@
-import { expect, test } from './fixtures'
+import { expect, test, TestHelpers } from './fixtures'
 
 /**
  * Scenarios that verify the extension's default state immediately after a fresh
@@ -64,8 +64,6 @@ test('initialises storage with empty user presets array', async ({ serviceWorker
 })
 
 test('extension loads and exposes options page', async ({ context, extensionId }) => {
-  const page = await context.newPage()
-  await page.goto(`chrome-extension://${extensionId}/options.html`)
-
+  const page = await TestHelpers.openOptionsPage(context, extensionId)
   await expect(page).toHaveTitle('Scrape Similar - Settings')
 })

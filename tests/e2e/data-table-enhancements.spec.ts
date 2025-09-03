@@ -1,5 +1,4 @@
-import { BrowserContext, Page, Worker } from '@playwright/test'
-import { expect, test } from './fixtures'
+import { expect, test, TestHelpers } from './fixtures'
 
 /**
  * End-to-end tests for DataTable enhancements introduced in recent commits:
@@ -10,47 +9,6 @@ import { expect, test } from './fixtures'
  * - Floating button positioning with anchors
  */
 
-// Helper to prepare sidepanel with scraped data
-const prepareSidepanelWithData = async (
-  sidePanel: Page,
-  serviceWorker: Worker,
-  context: BrowserContext,
-) => {
-  // Dismiss analytics consent quickly via storage to avoid modal
-  await serviceWorker.evaluate(() => {
-    chrome.storage.sync.set({ analytics_consent: false })
-  })
-
-  // Navigate to a deterministic page with content to scrape
-  const testPage = await context.newPage()
-  await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
-  await testPage.bringToFront()
-
-  // Configure selector and scrape data
-  const mainSelector = sidePanel.locator('#mainSelector')
-  await mainSelector.fill('//h2')
-  await mainSelector.press('Enter')
-
-  // Auto-generate configuration
-  await sidePanel
-    .getByRole('button', { name: /auto-generate configuration from selector/i })
-    .click()
-
-  // Wait for selector validation
-  const countBadge = sidePanel.locator('[data-slot="badge"]').filter({ hasText: /^\d+$/ })
-  await expect(countBadge).toBeVisible({ timeout: 5000 })
-
-  // Perform scrape
-  await sidePanel.getByRole('button', { name: /^scrape$/i }).click()
-
-  // Wait for data table to appear
-  await expect(sidePanel.getByRole('heading', { name: /extracted data/i })).toBeVisible({
-    timeout: 10000,
-  })
-
-  return testPage
-}
-
 test.describe('DataTable Enhancements', () => {
   test('expand button appears on hover and has proper positioning', async ({
     openSidePanel,
@@ -58,7 +16,7 @@ test.describe('DataTable Enhancements', () => {
     context,
   }) => {
     const sidePanel = await openSidePanel()
-    await prepareSidepanelWithData(sidePanel, serviceWorker, context)
+    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context)
 
     // Find the data table container
     const dataTableContainer = sidePanel.locator('.data-table-container')
@@ -88,7 +46,7 @@ test.describe('DataTable Enhancements', () => {
     context,
   }) => {
     const sidePanel = await openSidePanel()
-    await prepareSidepanelWithData(sidePanel, serviceWorker, context)
+    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context)
 
     // Wait for table to be visible
     const table = sidePanel.getByRole('table')
@@ -160,9 +118,7 @@ test.describe('DataTable Enhancements', () => {
     const sidePanel = await openSidePanel()
 
     // Dismiss consent modal
-    await serviceWorker.evaluate(() => {
-      chrome.storage.sync.set({ analytics_consent: false })
-    })
+    await TestHelpers.dismissAnalyticsConsent(serviceWorker)
 
     // Navigate to a page that will have fewer results
     const testPage = await context.newPage()
@@ -210,7 +166,7 @@ test.describe('DataTable Enhancements', () => {
     context,
   }) => {
     const sidePanel = await openSidePanel()
-    await prepareSidepanelWithData(sidePanel, serviceWorker, context)
+    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context)
 
     // Find export button
     const exportButton = sidePanel.getByRole('button', { name: /export/i })
@@ -261,9 +217,7 @@ test.describe('DataTable Enhancements', () => {
     const sidePanel = await openSidePanel()
 
     // Dismiss consent modal
-    await serviceWorker.evaluate(() => {
-      chrome.storage.sync.set({ analytics_consent: false })
-    })
+    await TestHelpers.dismissAnalyticsConsent(serviceWorker)
 
     // Navigate to a page with varied content lengths
     const testPage = await context.newPage()
@@ -354,7 +308,7 @@ test.describe('DataTable Enhancements', () => {
     context,
   }) => {
     const sidePanel = await openSidePanel()
-    await prepareSidepanelWithData(sidePanel, serviceWorker, context)
+    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context)
 
     // Find the data table with anchor class
     const dataTable = sidePanel.locator('table.anchor\\/data-table')
@@ -389,9 +343,7 @@ test.describe('DataTable Enhancements', () => {
     const sidePanel = await openSidePanel()
 
     // Dismiss consent modal
-    await serviceWorker.evaluate(() => {
-      chrome.storage.sync.set({ analytics_consent: false })
-    })
+    await TestHelpers.dismissAnalyticsConsent(serviceWorker)
 
     // Navigate to page and use selector that might produce empty results
     const testPage = await context.newPage()
@@ -451,7 +403,7 @@ test.describe('DataTable Enhancements', () => {
     context,
   }) => {
     const sidePanel = await openSidePanel()
-    await prepareSidepanelWithData(sidePanel, serviceWorker, context)
+    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context)
 
     // Find action buttons in the first row
     const firstRow = sidePanel.locator('tbody tr').first()
