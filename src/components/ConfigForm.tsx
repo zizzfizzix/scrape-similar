@@ -31,6 +31,7 @@ import {
   HelpCircle,
   Info,
   OctagonAlert,
+  Play,
   Plus,
   RefreshCcw,
   SquareCheckBig,
@@ -721,7 +722,10 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
             ) : scrapeButtonState === 'zero-found' ? (
               '0 found'
             ) : (
-              'Scrape'
+              <>
+                <Play className="w-4 h-4" />
+                <span>Scrape</span>
+              </>
             )}
           </Button>
         </div>
