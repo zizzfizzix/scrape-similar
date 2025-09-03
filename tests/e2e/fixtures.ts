@@ -81,9 +81,6 @@ export const test = base.extend<{
       const page = await context.newPage()
       await page.goto(transitionUrl)
 
-      // Bring the tab to the foreground so the service-worker can inject scripts.
-      await page.bringToFront()
-
       // Register a one-off listener that will open the side-panel once triggered.
       await serviceWorker.evaluate(() => {
         const handler = (msg: string, sender: chrome.runtime.MessageSender) => {
@@ -98,12 +95,12 @@ export const test = base.extend<{
       })
 
       // Inject a button into the page that, when clicked, sends the trigger message.
-      await serviceWorker.evaluate(async () => {
-        const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true })
-        if (!activeTab?.id) throw new Error('No active tab found')
+      await serviceWorker.evaluate(async (tabUrl) => {
+        const [transitionTab] = await chrome.tabs.query({ url: tabUrl })
+        if (!transitionTab?.id) throw new Error('No active tab found')
 
         await chrome.scripting.executeScript({
-          target: { tabId: activeTab.id },
+          target: { tabId: transitionTab.id },
           func: () => {
             if (document.getElementById('openSidePanelBtn')) return
 
@@ -121,7 +118,7 @@ export const test = base.extend<{
             document.body.appendChild(btn)
           },
         })
-      })
+      }, page.url())
 
       // Get a handle for the sidepanel when it appears.
       const sidePanelPage = context.waitForEvent('page', {
