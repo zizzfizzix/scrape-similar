@@ -6,6 +6,7 @@ import {
   getCurrentContext,
   isBackgroundContext,
   isContentScript,
+  isFullDataView,
   isOnboardingPage,
   isOptionsPage,
   isPopup,
@@ -119,6 +120,13 @@ describe('context detection utilities', () => {
 
     expect(isOnboardingPage()).toBe(true)
     expect(getCurrentContext()).toBe(EXTENSION_CONTEXTS.ONBOARDING)
+  })
+
+  it('detects full data view context', () => {
+    vi.stubGlobal('window', createWindow({ pathname: '/full-data-view.html' }))
+
+    expect(isFullDataView()).toBe(true)
+    expect(getCurrentContext()).toBe(EXTENSION_CONTEXTS.FULL_DATA_VIEW)
   })
 
   it.each(getEntrypointPaths())(

@@ -316,6 +316,17 @@ export default defineBackground(() => {
   browser.runtime.onMessage.addListener((message: Message, sender, sendResponse) => {
     log.debug('Background received message:', message, 'from sender:', sender)
 
+    // Special logging for EXPORT_TO_SHEETS messages
+    if (message.type === MESSAGE_TYPES.EXPORT_TO_SHEETS) {
+      log.debug('🔥 EXPORT_TO_SHEETS message received:', {
+        messageType: message.type,
+        hasPayload: !!message.payload,
+        payloadKeys: message.payload ? Object.keys(message.payload) : [],
+        senderTab: sender.tab?.id || 'no-tab',
+        senderUrl: sender.url || 'no-url',
+      })
+    }
+
     // Handle UPDATE_SIDEPANEL_DATA universally before delegating
     if (message.type === MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA) {
       const { tabId: explicitTabId, updates } = (message.payload ?? {}) as {
@@ -336,12 +347,18 @@ export default defineBackground(() => {
       return true // handled
     }
 
-    // Handle messages from content script (always have sender.tab)
+    // Handle messages from content script (always have sender.tab) vs UI
     if (sender.tab && sender.tab.id) {
+      log.debug('🔵 Routing to handleContentScriptMessage - sender has tab:', sender.tab.id)
+      log.debug('🔵 Sender URL:', sender.url)
+      log.debug('🔵 Message type:', message.type)
       handleContentScriptMessage(message, sender, sendResponse)
     }
     // Handle messages from UI (side panel, popup - no sender.tab)
     else {
+      log.debug('🟡 Routing to handleUiMessage - no sender tab')
+      log.debug('🟡 Sender URL:', sender.url)
+      log.debug('🟡 Message type:', message.type)
       handleUiMessage(message, sender, sendResponse)
     }
 
@@ -388,7 +405,101 @@ export default defineBackground(() => {
           sendResponse({ success: true, debugMode: !!debugSetting })
           break
         }
+        case MESSAGE_TYPES.EXPORT_TO_SHEETS: {
+          log.debug('🔵 Processing EXPORT_TO_SHEETS in handleContentScriptMessage')
+
+          // Require filename in payload
+          const { filename, scrapedData, columnOrder, columnKeys } = message?.payload as {
+            filename: string
+            scrapedData: ScrapedData
+            columnOrder?: string[]
+            columnKeys?: string[]
+          }
+
+          log.debug('🔵 Payload validation:', {
+            hasFilename: !!filename,
+            filenameLength: filename?.length || 0,
+            hasScrapedData: !!scrapedData,
+            scrapedDataLength: scrapedData?.length || 0,
+            isArray: Array.isArray(scrapedData),
+          })
+
+          if (!filename || !filename.trim()) {
+            log.error('🔵 Filename validation failed:', filename)
+            sendResponse({ success: false, error: 'Filename is required for export' })
+            return
+          }
+          if (!scrapedData || !Array.isArray(scrapedData) || scrapedData.length === 0) {
+            log.error('🔵 ScrapedData validation failed:', scrapedData)
+            sendResponse({ success: false, error: 'No data to export' })
+            return
+          }
+
+          log.debug('🔵 Validation passed, requesting auth token')
+          log.debug('Requesting export to sheets with filename:', filename)
+          browser.identity.getAuthToken({ interactive: true }, async (token) => {
+            log.debug('🔵 Auth token callback executed:', {
+              hasError: !!browser.runtime.lastError,
+              hasToken: !!token,
+              tokenLength: token?.length || 0,
+            })
+
+            if (browser.runtime.lastError) {
+              log.error('🔵 Auth token error:', browser.runtime.lastError)
+              log.error('Error getting auth token:', browser.runtime.lastError)
+              const errorMessage = browser.runtime.lastError.message || 'Unknown OAuth error'
+
+              // Check if user cancelled the auth flow
+              if (
+                errorMessage.includes('cancelled') ||
+                errorMessage.includes('denied') ||
+                errorMessage.includes('User cancelled')
+              ) {
+                sendResponse({
+                  success: false,
+                  error: 'Google authorization was cancelled',
+                })
+              } else {
+                sendResponse({
+                  success: false,
+                  error: errorMessage,
+                })
+              }
+              return
+            }
+            if (!token) {
+              log.error('🔵 No token received')
+              sendResponse({
+                success: false,
+                error: 'Failed to get authentication token',
+              })
+              return
+            }
+
+            log.debug('🔵 Token received, calling exportToGoogleSheets')
+            try {
+              const exportResult = await exportToGoogleSheets(
+                token.toString(),
+                scrapedData,
+                filename,
+                columnOrder,
+                columnKeys,
+              )
+              log.debug('🔵 Export result:', exportResult)
+              sendResponse(exportResult)
+            } catch (error) {
+              log.error('🔵 Export error:', error)
+              const errorResult = {
+                success: false,
+                error: (error as Error).message,
+              }
+              sendResponse(errorResult)
+            }
+          })
+          break
+        }
         default:
+          log.debug('🔵 Unhandled content script message type:', message.type)
           log.warn(`Unhandled content script message type for tab ${tabId}: ${message.type}`)
           sendResponse({ success: false, warning: 'Unhandled message type' })
       }
@@ -404,8 +515,12 @@ export default defineBackground(() => {
     sender: Browser.runtime.MessageSender,
     sendResponse: (response?: any) => void,
   ) => {
+    log.debug('🟡 handleUiMessage processing:', message.type)
+
     switch (message.type) {
       case MESSAGE_TYPES.EXPORT_TO_SHEETS: {
+        log.debug('🟡 Processing EXPORT_TO_SHEETS in handleUiMessage')
+
         // Require filename in payload
         const { filename, scrapedData, columnOrder, columnKeys } = message?.payload as {
           filename: string
@@ -413,32 +528,68 @@ export default defineBackground(() => {
           columnOrder?: string[]
           columnKeys?: string[]
         }
-        if (!filename.trim()) {
+
+        log.debug('🟡 Payload validation:', {
+          hasFilename: !!filename,
+          filenameLength: filename?.length || 0,
+          hasScrapedData: !!scrapedData,
+          scrapedDataLength: scrapedData?.length || 0,
+          isArray: Array.isArray(scrapedData),
+        })
+
+        if (!filename || !filename.trim()) {
+          log.error('🟡 Filename validation failed:', filename)
           sendResponse({ success: false, error: 'Filename is required for export' })
           return
         }
         if (!scrapedData || !Array.isArray(scrapedData) || scrapedData.length === 0) {
+          log.error('🟡 ScrapedData validation failed:', scrapedData)
           sendResponse({ success: false, error: 'No data to export' })
           return
         }
+
+        log.debug('🟡 Validation passed, requesting auth token')
         log.debug('Requesting export to sheets with filename:', filename)
         browser.identity.getAuthToken({ interactive: true }, async (token) => {
+          log.debug('🟡 Auth token callback executed:', {
+            hasError: !!browser.runtime.lastError,
+            hasToken: !!token,
+            tokenLength: token?.length || 0,
+          })
+
           if (browser.runtime.lastError) {
+            log.error('🟡 Auth token error:', browser.runtime.lastError)
             log.error('Error getting auth token:', browser.runtime.lastError)
             const errorMessage = browser.runtime.lastError.message || 'Unknown OAuth error'
-            sendResponse({
-              success: false,
-              error: errorMessage,
-            })
+
+            // Check if user cancelled the auth flow
+            if (
+              errorMessage.includes('cancelled') ||
+              errorMessage.includes('denied') ||
+              errorMessage.includes('User cancelled')
+            ) {
+              sendResponse({
+                success: false,
+                error: 'Google authorization was cancelled',
+              })
+            } else {
+              sendResponse({
+                success: false,
+                error: errorMessage,
+              })
+            }
             return
           }
           if (!token) {
+            log.error('🟡 No token received')
             sendResponse({
               success: false,
               error: 'Failed to get authentication token',
             })
             return
           }
+
+          log.debug('🟡 Token received, calling exportToGoogleSheets')
           try {
             const exportResult = await exportToGoogleSheets(
               token.toString(),
@@ -447,8 +598,10 @@ export default defineBackground(() => {
               columnOrder,
               columnKeys,
             )
+            log.debug('🟡 Export result:', exportResult)
             sendResponse(exportResult)
           } catch (error) {
+            log.error('🟡 Export error:', error)
             const errorResult = {
               success: false,
               error: (error as Error).message,
@@ -459,6 +612,7 @@ export default defineBackground(() => {
         break
       }
       default:
+        log.debug('🟡 Unhandled UI message type:', message.type)
         log.warn(`Unhandled UI message type: ${message.type}`)
         sendResponse({ warning: 'Unhandled message type' })
     }

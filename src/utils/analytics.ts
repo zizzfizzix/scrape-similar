@@ -89,6 +89,14 @@ export const ANALYTICS_EVENTS = {
   ONBOARDING_NEXT_BUTTON_PRESS: 'onboarding_next_button_press',
   ONBOARDING_PREVIOUS_BUTTON_PRESS: 'onboarding_previous_button_press',
   ONBOARDING_COMPLETE: 'onboarding_complete',
+
+  // Full Data View events
+  FULL_DATA_VIEW_OPEN_BUTTON_PRESS: 'full_data_view_open_button_press',
+  FULL_DATA_VIEW_TAB_SWITCH: 'full_data_view_tab_switch',
+  FULL_DATA_VIEW_BACK_TO_TAB: 'full_data_view_back_to_tab',
+  FULL_DATA_VIEW_PAGE_SIZE_CHANGE: 'full_data_view_page_size_change',
+  FULL_DATA_VIEW_SEARCH: 'full_data_view_search',
+  FULL_DATA_VIEW_ROW_SELECTION: 'full_data_view_row_selection',
 } as const
 
 /**
@@ -142,7 +150,8 @@ export const trackEvent = async (
       case EXTENSION_CONTEXTS.SIDEPANEL:
       case EXTENSION_CONTEXTS.POPUP:
       case EXTENSION_CONTEXTS.OPTIONS:
-      case EXTENSION_CONTEXTS.ONBOARDING: {
+      case EXTENSION_CONTEXTS.ONBOARDING:
+      case EXTENSION_CONTEXTS.FULL_DATA_VIEW: {
         if ((window as any).__scrape_similar_posthog) {
           ;(window as any).__scrape_similar_posthog.capture(eventName, eventProperties)
           log.debug(`Tracked event in ${context} context: ${eventName}`, eventProperties)

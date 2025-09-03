@@ -1,5 +1,6 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
+@import '@toolwind/anchors';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -276,6 +277,21 @@
     );
     animation-direction: reverse;
     animation-range: calc(100% - 2em) calc(100% - 1em);
+  }
+
+  /* Anchor positioning fallbacks for floating button */
+  @position-try --avoid-footer {
+    position-anchor: --tw-anchor_footer;
+    position-area: block-start end;
+    inset-block-end: calc(anchor(--tw-anchor_footer top) + 1rem);
+    inset-inline-end: 1rem;
+  }
+
+  @position-try --fallback-bottom {
+    position-anchor: initial;
+    position-area: block-end end;
+    inset-block-end: 5.5rem;
+    inset-inline-end: 1rem;
   }
 }
 

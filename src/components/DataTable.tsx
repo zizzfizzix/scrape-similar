@@ -15,11 +15,12 @@ import { rowToTsv } from '@/utils/tsv'
 import {
   CellContext,
   ColumnDef,
+  ColumnSizingState,
   flexRender,
   getCoreRowModel,
   useReactTable,
 } from '@tanstack/react-table'
-import { ChevronLeft, ChevronRight, Clipboard, Highlighter } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Clipboard, Expand, Highlighter } from 'lucide-react'
 import React, { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -30,6 +31,7 @@ interface DataTableProps {
   columnOrder?: string[]
   showEmptyRows: boolean
   onShowEmptyRowsChange?: (show: boolean) => void
+  tabId?: number | null
 }
 
 const DataTable: React.FC<DataTableProps> = ({
@@ -39,6 +41,7 @@ const DataTable: React.FC<DataTableProps> = ({
   columnOrder,
   showEmptyRows = false,
   onShowEmptyRowsChange,
+  tabId,
 }) => {
   // Use columnOrder if provided, otherwise fallback to config.columns order
   const columnsOrder =
@@ -47,15 +50,58 @@ const DataTable: React.FC<DataTableProps> = ({
   // Pagination state
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 })
 
+  // Column sizing state
+  const [columnSizing, setColumnSizing] = useState<ColumnSizingState>({})
+
   // Filter data based on showEmptyRows toggle
   const filteredData = useMemo(() => {
     return showEmptyRows ? data : data.filter((row) => !row.metadata.isEmpty)
   }, [data, showEmptyRows])
 
+  // Create a stable key for anchor positioning that changes when data structure changes
+  const anchorKey = useMemo(() => {
+    return `${filteredData.length}-${pagination.pageSize}-${showEmptyRows}`
+  }, [filteredData.length, pagination.pageSize, showEmptyRows])
+
   // Reset pagination when data changes
   useEffect(() => {
     setPagination((prev) => ({ ...prev, pageIndex: 0 }))
   }, [filteredData])
+
+  // Calculate optimal column widths based on content
+  const calculateOptimalColumnWidth = useCallback(
+    (columnId: string, data: ScrapedRow[], config: ScrapeConfig): number => {
+      if (columnId === 'rowIndex') return 40
+      if (columnId === 'actions') return 60
+
+      // Find the column configuration
+      const columnIndex = config.columns.findIndex((col) => col.name === columnId)
+      if (columnIndex === -1) return 150
+
+      // Sample up to 50 rows for performance (smaller sample for sidepanel)
+      const sampleSize = Math.min(50, data.length)
+      const sampleData = data.slice(0, sampleSize)
+
+      // Calculate max content length
+      let maxLength = columnId.length // Start with header length
+
+      for (const row of sampleData) {
+        const dataKey = config.columns[columnIndex]?.key || columnId
+        const value = row.data[dataKey] || ''
+        const contentLength = String(value).length
+        maxLength = Math.max(maxLength, contentLength)
+      }
+
+      // Convert character count to approximate pixel width
+      // Average character width is about 7px for smaller UI
+      const charWidth = 7
+      const padding = 20 // Account for cell padding
+      const calculatedWidth = Math.min(Math.max(maxLength * charWidth + padding, 80), 300)
+
+      return calculatedWidth
+    },
+    [],
+  )
 
   // Build columns for TanStack Table
   const columns = useMemo<ColumnDef<ScrapedRow>[]>(() => {
@@ -70,6 +116,9 @@ const DataTable: React.FC<DataTableProps> = ({
           return indexInFilteredData + 1
         },
         size: 40,
+        minSize: 40,
+        maxSize: 60,
+        enableResizing: false,
       },
       {
         id: 'actions',
@@ -158,31 +207,55 @@ const DataTable: React.FC<DataTableProps> = ({
           )
         },
         size: 60,
+        minSize: 60,
+        maxSize: 80,
+        enableResizing: false,
       },
-      ...columnsOrder.map(
-        (colName, index): ColumnDef<ScrapedRow> => ({
+      ...columnsOrder.map((colName, index): ColumnDef<ScrapedRow> => {
+        const optimalWidth = calculateOptimalColumnWidth(colName, filteredData, config)
+        return {
           accessorKey: colName,
           header: colName,
           cell: ({ row }: CellContext<ScrapedRow, unknown>) => {
             const dataKey = config.columns[index]?.key || colName
             const value = row.original.data[dataKey] || ''
-            return value && value.length > 100 ? `${value.substring(0, 100)}...` : value
+            return (
+              <div className="min-w-0 truncate" title={value}>
+                {value && value.length > 100 ? `${value.substring(0, 100)}...` : value}
+              </div>
+            )
           },
-        }),
-      ),
+          size: optimalWidth,
+          minSize: 60,
+          maxSize: 400,
+          enableResizing: true,
+        }
+      }),
     ]
     return baseColumns
-  }, [columnsOrder, config.mainSelector, onRowHighlight, filteredData])
+  }, [columnsOrder, config, onRowHighlight, filteredData, calculateOptimalColumnWidth])
 
   const table = useReactTable({
     data: filteredData,
     columns,
     getCoreRowModel: getCoreRowModel(),
+    enableColumnResizing: true,
+    columnResizeMode: 'onChange',
+    columnResizeDirection: 'ltr',
+    defaultColumn: {
+      size: 150,
+      minSize: 60,
+      maxSize: 400,
+    },
     manualPagination: false,
     manualSorting: false,
     manualFiltering: false,
-    state: { pagination },
+    state: {
+      pagination,
+      columnSizing,
+    },
     onPaginationChange: setPagination,
+    onColumnSizingChange: setColumnSizing,
     pageCount: Math.ceil(filteredData.length / pagination.pageSize),
     getPaginationRowModel: undefined, // use built-in client-side pagination
   })
@@ -196,8 +269,24 @@ const DataTable: React.FC<DataTableProps> = ({
 
   const totalPages = Math.max(1, Math.ceil(filteredData.length / pagination.pageSize))
 
+  // Handle opening full data view
+  const handleOpenFullView = (tabId: number) => {
+    // Track full data view open
+    trackEvent(ANALYTICS_EVENTS.FULL_DATA_VIEW_OPEN_BUTTON_PRESS, {
+      total_rows: filteredData.length,
+      columns_count: config.columns.length,
+    })
+
+    // Use type assertion since WXT will generate this entrypoint
+    const fullViewUrl = browser.runtime.getURL(`/full-data-view.html?tabId=${tabId}`)
+    browser.tabs.create({ url: fullViewUrl })
+
+    // Close the sidepanel window after opening the full view
+    window.close()
+  }
+
   return (
-    <div className="data-table-container">
+    <div className="data-table-container relative group">
       {/* Toggle for showing/hiding empty rows */}
       <div className="flex items-center justify-between [&>*:only-child]:ml-auto mb-4">
         {data.filter((r) => r.metadata.isEmpty).length > 0 ? (
@@ -224,19 +313,40 @@ const DataTable: React.FC<DataTableProps> = ({
         )}
       </div>
 
-      <Table key={columnsOrder.join('-')}>
+      <Table
+        key={columnsOrder.join('-')}
+        className="anchor/data-table"
+        style={{
+          width: table.getCenterTotalSize(),
+        }}
+      >
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>
               {headerGroup.headers.map((header) => (
                 <TableHead
                   key={header.id}
-                  style={{ width: header.getSize?.() }}
+                  style={{
+                    width: `${header.getSize()}px`,
+                    position: 'relative',
+                  }}
                   className={header.id === 'rowIndex' || header.id === 'actions' ? '' : 'ph_hidden'}
                 >
                   {header.isPlaceholder
                     ? null
                     : flexRender(header.column.columnDef.header, header.getContext())}
+                  {/* Column resize handle */}
+                  {header.column.getCanResize() && (
+                    <div
+                      onMouseDown={header.getResizeHandler()}
+                      onTouchStart={header.getResizeHandler()}
+                      className={`absolute top-0 right-0 h-full w-1 bg-border cursor-col-resize select-none touch-none hover:bg-primary/50 ${
+                        header.column.getIsResizing()
+                          ? 'bg-primary opacity-100'
+                          : 'opacity-0 hover:opacity-100'
+                      }`}
+                    />
+                  )}
                 </TableHead>
               ))}
             </TableRow>
@@ -259,6 +369,9 @@ const DataTable: React.FC<DataTableProps> = ({
                 {row.getVisibleCells().map((cell) => (
                   <TableCell
                     key={cell.id}
+                    style={{
+                      width: `${cell.column.getSize()}px`,
+                    }}
                     className={
                       cell.column.id === 'rowIndex' || cell.column.id === 'actions'
                         ? ''
@@ -273,46 +386,87 @@ const DataTable: React.FC<DataTableProps> = ({
           )}
         </TableBody>
       </Table>
+
       {/* Pagination Controls */}
-      <div className="flex items-center justify-center gap-2 mt-4">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            trackEvent(ANALYTICS_EVENTS.PAGINATION_BUTTON_PRESS, {
-              direction: 'prev',
-              from_page: pagination.pageIndex + 1,
-              to_page: pagination.pageIndex,
-              total_pages: totalPages,
-            })
-            setPagination((p) => ({ ...p, pageIndex: Math.max(0, p.pageIndex - 1) }))
-          }}
-          disabled={pagination.pageIndex === 0}
-          aria-label="Previous page"
-        >
-          <ChevronLeft className="size-4" />
-        </Button>
-        <span className="text-sm text-muted-foreground">
-          Page {pagination.pageIndex + 1} of {totalPages}
-        </span>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            trackEvent(ANALYTICS_EVENTS.PAGINATION_BUTTON_PRESS, {
-              direction: 'next',
-              from_page: pagination.pageIndex + 1,
-              to_page: pagination.pageIndex + 2,
-              total_pages: totalPages,
-            })
-            setPagination((p) => ({ ...p, pageIndex: Math.min(totalPages - 1, p.pageIndex + 1) }))
-          }}
-          disabled={pagination.pageIndex >= totalPages - 1}
-          aria-label="Next page"
-        >
-          <ChevronRight className="size-4" />
-        </Button>
+      <div className="relative flex items-center justify-center gap-2 mt-4">
+        {/* Only show pagination navigation when there are more rows than page size */}
+        {filteredData.length > pagination.pageSize && (
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                trackEvent(ANALYTICS_EVENTS.PAGINATION_BUTTON_PRESS, {
+                  direction: 'prev',
+                  from_page: pagination.pageIndex + 1,
+                  to_page: pagination.pageIndex,
+                  total_pages: totalPages,
+                })
+                setPagination((p) => ({ ...p, pageIndex: Math.max(0, p.pageIndex - 1) }))
+              }}
+              disabled={pagination.pageIndex === 0}
+              aria-label="Previous page"
+            >
+              <ChevronLeft className="size-4" />
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              Page {pagination.pageIndex + 1} of {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                trackEvent(ANALYTICS_EVENTS.PAGINATION_BUTTON_PRESS, {
+                  direction: 'next',
+                  from_page: pagination.pageIndex + 1,
+                  to_page: pagination.pageIndex + 2,
+                  total_pages: totalPages,
+                })
+                setPagination((p) => ({
+                  ...p,
+                  pageIndex: Math.min(totalPages - 1, p.pageIndex + 1),
+                }))
+              }}
+              disabled={pagination.pageIndex >= totalPages - 1}
+              aria-label="Next page"
+            >
+              <ChevronRight className="size-4" />
+            </Button>
+          </>
+        )}
+        {/* Reserve space for pagination when at page size boundary to prevent button overlap */}
+        {filteredData.length === pagination.pageSize && <div className="h-8" aria-hidden="true" />}
       </div>
+
+      {/* Floating expand button with anchor positioning */}
+      {tabId && (
+        <Tooltip key={`floating-button-${anchorKey}`}>
+          <TooltipTrigger asChild>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => handleOpenFullView(tabId)}
+              className="
+                right-4
+                fixed z-50
+                anchored/data-table
+                anchored-bottom-end
+                try-[--avoid-footer,--fallback-bottom]
+                anchored-visible-no-overflow
+                opacity-0 group-hover:opacity-100
+                hover:!bg-secondary hover:scale-105 hover:shadow-md
+                transition-all duration-200
+                [view-transition-name:none]
+                right-anchor-end-4
+              "
+              aria-label="Open in full view"
+            >
+              <Expand className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Open in full view</TooltipContent>
+        </Tooltip>
+      )}
     </div>
   )
 }

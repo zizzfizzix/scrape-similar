@@ -1,3 +1,4 @@
+import pkg from '@@/package.json' assert { type: 'json' }
 import {
   test as base,
   chromium,
@@ -6,16 +7,185 @@ import {
   type Worker,
 } from '@playwright/test'
 import fs from 'fs'
-import pkg from '../../package.json' assert { type: 'json' }
+import { v4 as uuidv4 } from 'uuid'
 
-async function waitForChromeApi(worker: Worker, timeout = 5000) {
+async function waitForChromeApis(worker: Worker, timeout = 5000) {
   const start = Date.now()
   while (Date.now() - start < timeout) {
-    const hasApi = await worker.evaluate(() => typeof chrome !== 'undefined')
+    const hasApi = await worker.evaluate(
+      () =>
+        typeof chrome !== 'undefined' &&
+        typeof chrome?.storage !== 'undefined' &&
+        typeof chrome?.tabs !== 'undefined' &&
+        typeof chrome?.sidePanel !== 'undefined' &&
+        typeof chrome?.runtime !== 'undefined',
+    )
     if (hasApi) return
     await new Promise((r) => setTimeout(r, 50))
   }
   throw new Error('chrome.* APIs never became available')
+}
+
+// Shared test helpers
+export const TestHelpers = {
+  /**
+   * Dismisses analytics consent modal by setting storage directly
+   */
+  async dismissAnalyticsConsent(serviceWorker: Worker): Promise<void> {
+    await serviceWorker.evaluate(() => {
+      chrome.storage.sync.set({ analytics_consent: false })
+    })
+  },
+
+  /**
+   * Opens the options page for the extension
+   */
+  async openOptionsPage(context: BrowserContext, extensionId: string): Promise<Page> {
+    const page = await context.newPage()
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+    return page
+  },
+
+  /**
+   * Opens the onboarding page for the extension
+   */
+  async openOnboardingPage(context: BrowserContext, extensionId: string): Promise<Page> {
+    const page = await context.newPage()
+    await page.goto(`chrome-extension://${extensionId}/onboarding.html`)
+    return page
+  },
+
+  /**
+   * Opens the full data view page for the extension
+   */
+  async openFullDataViewPage(context: BrowserContext, extensionId: string): Promise<Page> {
+    const page = await context.newPage()
+    await page.goto(`chrome-extension://${extensionId}/full-data-view.html`)
+    return page
+  },
+
+  /**
+   * Unlocks debug mode by clicking the settings heading 5 times
+   */
+  async unlockDebugMode(page: Page): Promise<void> {
+    const heading = page.getByRole('heading', { name: /settings/i })
+    for (let i = 0; i < 5; i++) {
+      await heading.click()
+    }
+  },
+
+  /**
+   * Stubs the clipboard API to capture copied text
+   */
+  async stubClipboard(page: Page): Promise<void> {
+    await page.evaluate(() => {
+      ;(window as any).__copied = null
+      navigator.clipboard.writeText = async (t) => {
+        ;(window as any).__copied = t
+        return Promise.resolve()
+      }
+    })
+  },
+
+  /**
+   * Gets the text that was copied to the stubbed clipboard
+   */
+  async getCopiedText(page: Page): Promise<string | null> {
+    return await page.evaluate(() => (window as any).__copied)
+  },
+
+  /**
+   * Prepares sidepanel with scraped data from a test page
+   */
+  async prepareSidepanelWithData(
+    sidePanel: Page,
+    serviceWorker: Worker,
+    context: BrowserContext,
+    options: {
+      testPageUrl?: string
+      selector?: string
+      dismissConsent?: boolean
+    } = {},
+  ): Promise<Page> {
+    const {
+      testPageUrl = 'https://en.wikipedia.org/wiki/Playwright_(software)',
+      selector = '//h2',
+      dismissConsent = true,
+    } = options
+
+    // Dismiss analytics consent if requested
+    if (dismissConsent) {
+      await TestHelpers.dismissAnalyticsConsent(serviceWorker)
+    }
+
+    // Navigate to test page
+    const testPage = await context.newPage()
+    await testPage.goto(testPageUrl)
+    await testPage.bringToFront()
+
+    // Configure selector and scrape data
+    const mainSelector = sidePanel.locator('#mainSelector')
+    await mainSelector.fill(selector)
+    await mainSelector.press('Enter')
+
+    // Auto-generate configuration
+    await sidePanel
+      .getByRole('button', { name: /auto-generate configuration from selector/i })
+      .click()
+
+    // Wait for selector validation
+    const countBadge = sidePanel.locator('[data-slot="badge"]').filter({ hasText: /^\d+$/ })
+    await base.expect(countBadge).toBeVisible({ timeout: 5000 })
+
+    // Perform scrape
+    await sidePanel.getByRole('button', { name: /^scrape$/i }).click()
+
+    // Wait for data table to appear
+    await base.expect(sidePanel.getByRole('heading', { name: /extracted data/i })).toBeVisible({
+      timeout: 10000,
+    })
+
+    return testPage
+  },
+
+  /**
+   * Opens full data view from sidepanel expand button
+   */
+  async openFullDataView(sidePanel: Page, context: BrowserContext): Promise<Page> {
+    const [fullDataViewPage] = await Promise.all([
+      context
+        .waitForEvent('page', { predicate: (p) => p.url().includes('full-data-view.html') })
+        .then(async (p) => {
+          await p.locator('table').waitFor({ state: 'visible' })
+          return p
+        }),
+      sidePanel.getByRole('button', { name: /open in full view/i }).click(),
+    ])
+
+    return fullDataViewPage
+  },
+
+  /**
+   * Verifies analytics consent storage value
+   */
+  async verifyAnalyticsConsent(serviceWorker: Worker, expectedValue: boolean): Promise<void> {
+    const consent = await serviceWorker.evaluate(async () => {
+      const { analytics_consent } = await chrome.storage.sync.get('analytics_consent')
+      return analytics_consent
+    })
+    base.expect(consent).toBe(expectedValue)
+  },
+
+  /**
+   * Verifies debug mode storage value
+   */
+  async verifyDebugMode(serviceWorker: Worker, expectedValue: boolean): Promise<void> {
+    const debugMode = await serviceWorker.evaluate(async () => {
+      const { debugMode } = await chrome.storage.local.get('debugMode')
+      return debugMode
+    })
+    base.expect(debugMode).toBe(expectedValue)
+  },
 }
 
 export const test = base.extend<{
@@ -33,12 +203,8 @@ export const test = base.extend<{
     }
 
     const extensionPath = `${process.cwd()}/.output/chrome-mv3${buildTypeSuffix(process.env.NODE_ENV)}`
-
-    const userDataDir = `${process.cwd()}/.browser`
-    // Reset browser user data before each test
-    if (fs.existsSync(userDataDir)) {
-      fs.rmSync(userDataDir, { recursive: true })
-    }
+    // Use different user data dir for each test run to parallelize tests.
+    const userDataDir = `${process.cwd()}/.browser/${uuidv4()}`
 
     // Allow Playwright to attach to Chrome side-panel targets (workaround for
     // https://github.com/microsoft/playwright/issues/26693).
@@ -52,6 +218,8 @@ export const test = base.extend<{
 
     await use(context)
     await context.close()
+    // Cleanup user data dir after each test run.
+    fs.rmSync(userDataDir, { recursive: true })
   },
 
   // Expose the extension ID so that tests can open extension pages
@@ -71,7 +239,7 @@ export const test = base.extend<{
       })
     }
 
-    await waitForChromeApi(serviceWorker)
+    await waitForChromeApis(serviceWorker)
 
     await use(serviceWorker)
   },
@@ -81,9 +249,6 @@ export const test = base.extend<{
       // Navigate to any page (default is a simple Cloudflare IP resolver page).
       const page = await context.newPage()
       await page.goto(transitionUrl)
-
-      // Bring the tab to the foreground so the service-worker can inject scripts.
-      await page.bringToFront()
 
       // Register a one-off listener that will open the side-panel once triggered.
       await serviceWorker.evaluate(() => {
@@ -99,12 +264,12 @@ export const test = base.extend<{
       })
 
       // Inject a button into the page that, when clicked, sends the trigger message.
-      await serviceWorker.evaluate(async () => {
-        const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true })
-        if (!activeTab?.id) throw new Error('No active tab found')
+      await serviceWorker.evaluate(async (tabUrl) => {
+        const [transitionTab] = await chrome.tabs.query({ url: tabUrl })
+        if (!transitionTab?.id) throw new Error('No active tab found')
 
         await chrome.scripting.executeScript({
-          target: { tabId: activeTab.id },
+          target: { tabId: transitionTab.id },
           func: () => {
             if (document.getElementById('openSidePanelBtn')) return
 
@@ -122,7 +287,7 @@ export const test = base.extend<{
             document.body.appendChild(btn)
           },
         })
-      })
+      }, page.url())
 
       // Get a handle for the sidepanel when it appears.
       const sidePanelPage = context.waitForEvent('page', {

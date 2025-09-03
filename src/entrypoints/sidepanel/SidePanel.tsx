@@ -1,15 +1,9 @@
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { Toaster } from '@/components/ui/sonner'
-import { rowsToTsv } from '@/utils/tsv'
+import pkg from '@@/package.json' with { type: 'json' }
 import log from 'loglevel'
-import { ChevronsUpDown } from 'lucide-react'
+import { Minimize2, X } from 'lucide-react'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import slugify from 'slugify'
 import { toast } from 'sonner'
@@ -60,17 +54,80 @@ const SplashScreen: React.FC<{ tabUrl: string }> = ({ tabUrl }) => (
   </div>
 )
 
-// Clipboard utility
-const copyToClipboard = async (text: string) => {
-  try {
-    await navigator.clipboard.writeText(text)
-    return true
-  } catch (err) {
-    log.error('Failed to copy:', err)
-    return false
-  }
-}
+// Special view for when the side panel is viewing a full data view tab
+const FullDataViewControls: React.FC<{
+  currentTabUrl: string
+  currentTabId: number | null
+}> = ({ currentTabUrl, currentTabId }) => {
+  // Handle going back to the original tab and close the full-data-view tab
+  const handleBackToTab = async () => {
+    try {
+      // Parse the full data view URL to get the original tabId
+      const url = new URL(currentTabUrl)
+      const originalTabId = url.searchParams.get('tabId')
 
+      if (originalTabId) {
+        const tabId = Number(originalTabId)
+
+        // Validate that the tab exists before trying to switch to it
+        try {
+          await browser.tabs.get(tabId)
+          log.debug(`Tab ${tabId} exists, switching to it`)
+
+          // Switch to the original tab
+          await browser.tabs.update(tabId, { active: true })
+          log.debug(`Switched back to tab ${tabId}`)
+
+          // Close the current full-data-view tab (currentTabId is the full-data-view tab)
+          if (currentTabId) {
+            await browser.tabs.remove(currentTabId)
+            log.debug(`Closed full-data-view tab ${currentTabId}`)
+          }
+        } catch (tabError) {
+          toast.error('Target tab does not exist')
+          log.error(`Tab ${tabId} does not exist:`, tabError)
+        }
+      } else {
+        toast.error('No target tab ID found')
+        log.error('No tabId parameter found in URL:', currentTabUrl)
+      }
+    } catch (err) {
+      toast.error('Failed to switch back to tab')
+      log.error('Error switching to tab:', err)
+    }
+  }
+
+  // Handle closing the sidepanel
+  const handleCloseSidePanel = async () => {
+    try {
+      // Close the sidepanel by closing the current window
+      window.close()
+    } catch (err) {
+      toast.error('Failed to close sidepanel')
+      log.error('Error closing sidepanel:', err)
+    }
+  }
+
+  return (
+    <div className="flex flex-1 items-center justify-center w-full min-w-0">
+      <div className="flex flex-col items-center justify-center text-center w-full max-w-md mx-auto gap-6">
+        <h2 className="text-2xl mb-4">Full Screen View Active</h2>
+
+        <div className="flex flex-col gap-4">
+          <Button onClick={handleBackToTab}>
+            <Minimize2 className="h-4 w-4" />
+            Compact View
+          </Button>
+
+          <Button onClick={handleCloseSidePanel} variant="outline">
+            <X className="h-4 w-4" />
+            Hide Sidepanel
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
 interface SidePanelProps {
   debugMode: boolean
   onDebugModeChange: (enabled: boolean) => void
@@ -78,7 +135,6 @@ interface SidePanelProps {
 
 const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) => {
   // State
-  const [activeTab, setActiveTab] = useState<'config' | 'data' | 'presets'>('config')
   const [targetTabId, setTargetTabId] = useState<number | null>(null)
   // Ref to hold the current targetTabId
   const targetTabIdRef = useRef<number | null>(targetTabId)
@@ -92,18 +148,11 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
   const [resultProducingConfig, setResultProducingConfig] = useState<ScrapeConfig | null>(null)
   const [presets, setPresets] = useState<Preset[]>([])
   const [isScraping, setIsScraping] = useState(false)
-  const [isExporting, setIsExporting] = useState(false)
-  const [exportStatus, setExportStatus] = useState<{
-    success?: boolean
-    url?: string
-    error?: string
-  } | null>(null)
   const [tabUrl, setTabUrl] = useState<string | null>(null)
   const [showPresets, setShowPresets] = useState(false)
   const [contentScriptCommsError, setContentScriptCommsError] = useState<string | null>(null)
   // Track last scrape row count for button feedback
   const [lastScrapeRowCount, setLastScrapeRowCount] = useState<number | null>(null)
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const dataTableRef = useRef<HTMLDivElement | null>(null)
   const [highlightMatchCount, setHighlightMatchCount] = useState<number | undefined>(undefined)
   const [highlightError, setHighlightError] = useState<string | undefined>(undefined)
@@ -298,9 +347,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
       setResultProducingConfig(null)
     }
 
-    setExportStatus(null)
     setIsScraping(false)
-    setIsExporting(false)
 
     // Restore highlight state if present
     setHighlightMatchCount(highlightMatchCount ?? undefined)
@@ -542,7 +589,6 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
 
   const handleLoadPreset = (preset: Preset) => {
     handleConfigChange(preset.config)
-    setActiveTab('config')
 
     // Trigger highlighting if the preset has a main selector
     if (preset.config.mainSelector) {
@@ -640,150 +686,24 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
     })
   }
 
-  const handleExport = () => {
-    if (!scrapeResult) return
-    setIsExporting(true)
-    setExportStatus(null)
-
-    // Use appropriate data based on showEmptyRows toggle
-    const dataToExport = showEmptyRows
-      ? scrapeResult.data || []
-      : (scrapeResult.data || []).filter((row) => !row.metadata.isEmpty)
-
-    // Use column names for headers and keys for data access
-    const columnKeys = getColumnKeys(scrapeResult.columnOrder, config.columns)
-
-    browser.runtime.sendMessage(
-      {
-        type: MESSAGE_TYPES.EXPORT_TO_SHEETS,
-        payload: {
-          filename: exportFilename,
-          scrapedData: dataToExport,
-          columnOrder: scrapeResult.columnOrder,
-          columnKeys: columnKeys,
-        },
-      },
-      (response) => {
-        setIsExporting(false)
-        setExportStatus(response)
-        if (response?.success && response.url) {
-          toast.success('Exported to Google Sheets', {
-            description: (
-              <span>
-                <a
-                  href={response.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline text-primary"
-                >
-                  Open Sheet
-                </a>
-              </span>
-            ),
-          })
-          setIsDropdownOpen(false)
-          trackEvent(ANALYTICS_EVENTS.EXPORT_TO_SHEETS_TRIGGER, {
-            rows_exported: dataToExport.length,
-            columns_count: scrapeResult.columnOrder.length,
-          })
-        } else {
-          toast.error(response?.error || 'Export failed')
-          setIsDropdownOpen(false)
-          trackEvent(ANALYTICS_EVENTS.EXPORT_TO_SHEETS_FAILURE, {
-            error: response?.error || 'Unknown error',
-          })
-        }
-      },
+  // Check if the current tab is showing the full data view
+  if (tabUrl?.startsWith(`chrome-extension://${pkg.chromeExtensionId}/full-data-view.html`)) {
+    return (
+      <div className="flex flex-col h-screen font-sans min-w-0 max-w-full w-full box-border">
+        <Toaster />
+        <ConsentWrapper>
+          <main className="flex-1 flex min-w-0 w-full">
+            <FullDataViewControls currentTabUrl={tabUrl} currentTabId={targetTabId} />
+          </main>
+        </ConsentWrapper>
+      </div>
     )
-  }
-
-  const handleCsvExport = () => {
-    if (!scrapeResult) return
-    const columns = scrapeResult.columnOrder || []
-
-    // Use appropriate data based on showEmptyRows toggle
-    const dataToExport = showEmptyRows
-      ? scrapeResult.data || []
-      : (scrapeResult.data || []).filter((row) => !row.metadata.isEmpty)
-
-    if (!dataToExport.length) return
-
-    // Use column names for headers and keys for data access
-    const columnKeys = getColumnKeys(columns, config.columns)
-
-    const csvContent = [
-      columns.map((header) => `"${header.replace(/"/g, '""')}"`).join(','),
-      ...dataToExport.map((row) =>
-        columnKeys
-          .map((key) => {
-            const value = row.data[key] || ''
-            const escapedValue = value.replace(/"/g, '""')
-            return `"${escapedValue}"`
-          })
-          .join(','),
-      ),
-    ].join('\n')
-    const filename = `${exportFilename}.csv`
-    try {
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.setAttribute('href', url)
-      link.setAttribute('download', filename)
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      URL.revokeObjectURL(url)
-      toast.success('CSV file saved')
-      setIsDropdownOpen(false)
-      trackEvent(ANALYTICS_EVENTS.EXPORT_TO_CSV_TRIGGER, {
-        rows_exported: dataToExport.length,
-        columns_count: columns.length,
-      })
-    } catch (e) {
-      toast.error('Failed to save CSV')
-      setIsDropdownOpen(false)
-      trackEvent(ANALYTICS_EVENTS.EXPORT_TO_CSV_FAILURE, {
-        error: (e as Error).message,
-      })
-    }
-  }
-
-  const handleCopyTsv = async () => {
-    if (!scrapeResult) return
-    const columns = scrapeResult.columnOrder || []
-
-    // Use appropriate data based on showEmptyRows toggle
-    const dataToExport = showEmptyRows
-      ? scrapeResult.data || []
-      : (scrapeResult.data || []).filter((row) => !row.metadata.isEmpty)
-
-    if (!dataToExport.length) return
-
-    // Use column names for headers and keys for data access
-    const columnKeys = getColumnKeys(columns, config.columns)
-
-    const tsvContent = rowsToTsv(dataToExport, columnKeys, columns)
-
-    try {
-      await copyToClipboard(tsvContent)
-      toast.success('Copied to clipboard')
-      setIsDropdownOpen(false)
-      trackEvent(ANALYTICS_EVENTS.COPY_TO_CLIPBOARD_TRIGGER, {
-        rows_copied: dataToExport.length,
-        columns_count: columns.length,
-        export_type: 'data_table_full',
-      })
-    } catch {
-      toast.error('Failed to copy')
-      setIsDropdownOpen(false)
-      trackEvent(ANALYTICS_EVENTS.COPY_TO_CLIPBOARD_FAILURE)
-    }
   }
 
   if (tabUrl !== null && !isInjectableUrl(tabUrl)) {
     return (
       <div className="flex flex-col h-screen font-sans min-w-0 max-w-full w-full box-border">
+        <Toaster />
         <ConsentWrapper>
           <main className="flex-1 flex min-w-0 w-full">
             <SplashScreen tabUrl={tabUrl} />
@@ -855,41 +775,13 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
               <div className="flex flex-col gap-6" ref={dataTableRef}>
                 <div className="flex items-center justify-between gap-4">
                   <h2 className="text-2xl font-bold">Extracted Data</h2>
-                  <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline">
-                        Export
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        onSelect={(e) => {
-                          e.preventDefault()
-                          if (!isExporting) handleExport()
-                        }}
-                        disabled={isExporting}
-                      >
-                        {isExporting ? 'Exporting…' : 'Export to Google Sheets'}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onSelect={(e) => {
-                          e.preventDefault()
-                          handleCsvExport()
-                        }}
-                      >
-                        Save as CSV
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onSelect={(e) => {
-                          e.preventDefault()
-                          handleCopyTsv()
-                        }}
-                      >
-                        Copy to clipboard
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <ExportButtons
+                    scrapeResult={scrapeResult}
+                    config={config}
+                    showEmptyRows={showEmptyRows}
+                    filename={exportFilename}
+                    variant="outline"
+                  />
                 </div>
                 <DataTable
                   data={scrapeResult.data || []}
@@ -898,6 +790,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
                   columnOrder={scrapeResult.columnOrder}
                   showEmptyRows={showEmptyRows}
                   onShowEmptyRowsChange={setShowEmptyRows}
+                  tabId={targetTabId}
                 />
               </div>
             )}
