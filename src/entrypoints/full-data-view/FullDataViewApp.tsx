@@ -737,19 +737,22 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
       <TooltipProvider>
         <div className="min-h-screen bg-background">
           <Toaster />
-          <div className="flex items-center justify-center h-screen">
-            <Card className="w-96">
-              <CardHeader>
-                <CardTitle className="text-red-600">Error</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p>{error}</p>
-                <Button onClick={() => loadTabsData()} className="mt-4">
-                  Retry
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
+          <ConsentWrapper>
+            <div className="flex items-center justify-center h-screen">
+              <Card className="w-96">
+                <CardHeader>
+                  <CardTitle className="text-red-600">Error</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p>{error}</p>
+                  <Button onClick={() => loadTabsData()} className="mt-4">
+                    Retry
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          </ConsentWrapper>
+          <Footer />
         </div>
       </TooltipProvider>
     )
@@ -761,16 +764,19 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
       <TooltipProvider>
         <div className="min-h-screen bg-background">
           <Toaster />
-          <div className="flex items-center justify-center h-screen">
-            <Card className="w-96">
-              <CardHeader>
-                <CardTitle>No Data Available</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p>No scraped data found in any tabs. Please scrape some data first.</p>
-              </CardContent>
-            </Card>
-          </div>
+          <ConsentWrapper>
+            <div className="flex items-center justify-center h-screen">
+              <Card className="w-96">
+                <CardHeader>
+                  <CardTitle>No Data Available</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p>No scraped data found in any tabs. Please scrape some data first.</p>
+                </CardContent>
+              </Card>
+            </div>
+          </ConsentWrapper>
+          <Footer />
         </div>
       </TooltipProvider>
     )
@@ -1127,7 +1133,6 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
             )}
           </main>
         </ConsentWrapper>
-
         <Footer />
       </div>
     </TooltipProvider>

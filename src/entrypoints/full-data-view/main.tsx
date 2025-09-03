@@ -5,7 +5,7 @@ import ReactDOM from 'react-dom/client'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <ThemeProvider defaultTheme="system">
+    <ThemeProvider>
       <ConsentProvider>
         <PostHogWrapper>
           <FullDataViewApp />
