@@ -9,10 +9,17 @@ import {
 import fs from 'fs'
 import { v4 as uuidv4 } from 'uuid'
 
-async function waitForChromeApi(worker: Worker, timeout = 5000) {
+async function waitForChromeApis(worker: Worker, timeout = 5000) {
   const start = Date.now()
   while (Date.now() - start < timeout) {
-    const hasApi = await worker.evaluate(() => typeof chrome !== 'undefined')
+    const hasApi = await worker.evaluate(
+      () =>
+        typeof chrome !== 'undefined' &&
+        typeof chrome?.storage !== 'undefined' &&
+        typeof chrome?.tabs !== 'undefined' &&
+        typeof chrome?.sidePanel !== 'undefined' &&
+        typeof chrome?.runtime !== 'undefined',
+    )
     if (hasApi) return
     await new Promise((r) => setTimeout(r, 50))
   }
@@ -232,7 +239,7 @@ export const test = base.extend<{
       })
     }
 
-    await waitForChromeApi(serviceWorker)
+    await waitForChromeApis(serviceWorker)
 
     await use(serviceWorker)
   },
