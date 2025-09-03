@@ -443,7 +443,7 @@ const DataTable: React.FC<DataTableProps> = ({
         <Tooltip key={`floating-button-${anchorKey}`}>
           <TooltipTrigger asChild>
             <Button
-              variant="outline"
+              variant="secondary"
               size="sm"
               onClick={() => handleOpenFullView(tabId)}
               className="
@@ -454,7 +454,8 @@ const DataTable: React.FC<DataTableProps> = ({
                 try-[--avoid-footer,--fallback-bottom]
                 anchored-visible-no-overflow
                 opacity-0 group-hover:opacity-100
-                transition-opacity duration-200
+                hover:!bg-secondary hover:scale-105 hover:shadow-md
+                transition-all duration-200
                 [view-transition-name:none]
                 right-anchor-end-4
               "
