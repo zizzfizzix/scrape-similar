@@ -41,6 +41,9 @@ test.describe('Debug Mode', () => {
       extensionId,
       serviceWorker,
     }) => {
+      // Dismiss consent modal
+      await TestHelpers.dismissAnalyticsConsent(serviceWorker)
+
       // Reset debug mode and unlock debug row in storage to simulate a fresh state
       await serviceWorker.evaluate(async () => {
         await chrome.storage.local.set({ debugMode: false, debugUnlocked: false })
@@ -48,13 +51,6 @@ test.describe('Debug Mode', () => {
 
       const page = await context.newPage()
       await page.goto(`chrome-extension://${extensionId}/options.html`)
-
-      // Dismiss consent modal if it shows up
-      const declineButton = page.getByRole('button', { name: /decline/i })
-      if (await declineButton.isVisible().catch(() => false)) {
-        await declineButton.click()
-        await expect(declineButton).toBeHidden()
-      }
 
       // Debug row should NOT be present initially
       const debugSwitch = page.getByRole('switch', { name: /debug mode/i })
@@ -111,6 +107,9 @@ test.describe('Debug Mode', () => {
       serviceWorker,
       openSidePanel,
     }) => {
+      // Dismiss consent modal
+      await TestHelpers.dismissAnalyticsConsent(serviceWorker)
+
       // Reset debug mode and unlock debug row in storage to simulate a fresh state
       await serviceWorker.evaluate(async () => {
         await chrome.storage.local.set({ debugMode: false, debugUnlocked: false })
@@ -118,13 +117,6 @@ test.describe('Debug Mode', () => {
 
       // Launch the side-panel
       const sidePanel = await openSidePanel()
-
-      // Dismiss consent modal if it shows up
-      const declineButton = sidePanel.getByRole('button', { name: /decline/i })
-      if (await declineButton.isVisible().catch(() => false)) {
-        await declineButton.click()
-        await expect(declineButton).toBeHidden()
-      }
 
       // Open the settings drawer via the toolbar button
       await sidePanel.getByRole('button', { name: /settings/i }).click()
