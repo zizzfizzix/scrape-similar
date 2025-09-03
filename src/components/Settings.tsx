@@ -137,14 +137,14 @@ export const Settings = React.memo(
 
     return (
       <div className={`flex flex-col gap-4 ${className || ''}`}>
-        <label htmlFor={themeToggleId} className="flex items-center justify-between gap-4">
-          <span className="text-sm font-medium" id={`${themeToggleId}-label`} aria-hidden>
+        <div className="flex items-center justify-between gap-4">
+          <span className="text-sm font-medium" id={`${themeToggleId}-label`}>
             Theme
           </span>
           <ModeToggle id={themeToggleId} aria-labelledby={`${themeToggleId}-label`} />
-        </label>
-        <label htmlFor={keyboardShortcutId} className="flex items-center justify-between gap-4">
-          <span className="text-sm font-medium" id={`${keyboardShortcutId}-label`} aria-hidden>
+        </div>
+        <div className="flex items-center justify-between gap-4">
+          <span className="text-sm font-medium" id={`${keyboardShortcutId}-label`}>
             Keyboard shortcut
           </span>
           <Tooltip>
@@ -164,9 +164,9 @@ export const Settings = React.memo(
             </TooltipTrigger>
             <TooltipContent>Paste in a new tab to open settings</TooltipContent>
           </Tooltip>
-        </label>
-        <label htmlFor={systemPresetsId} className="flex items-center justify-between gap-4">
-          <span className="text-sm font-medium" id={`${systemPresetsId}-label`} aria-hidden>
+        </div>
+        <div className="flex items-center justify-between gap-4">
+          <span className="text-sm font-medium" id={`${systemPresetsId}-label`}>
             System presets
           </span>
           <Button
@@ -179,10 +179,10 @@ export const Settings = React.memo(
           >
             Reset
           </Button>
-        </label>
+        </div>
         {!consentLoading && (
-          <label htmlFor={analyticsSwitchId} className="flex items-center justify-between gap-4">
-            <span className="text-sm font-medium" id={`${analyticsSwitchId}-label`} aria-hidden>
+          <div className="flex items-center justify-between gap-4">
+            <span className="text-sm font-medium" id={`${analyticsSwitchId}-label`}>
               Anonymous analytics
             </span>
             <Switch
@@ -191,11 +191,11 @@ export const Settings = React.memo(
               checked={consentState === true}
               onCheckedChange={handleAnalyticsToggle}
             />
-          </label>
+          </div>
         )}
         {showDebugRow && (
-          <label htmlFor={debugSwitchId} className="flex items-center justify-between gap-4">
-            <span className="text-sm font-medium" id={`${debugSwitchId}-label`} aria-hidden>
+          <div className="flex items-center justify-between gap-4">
+            <span className="text-sm font-medium" id={`${debugSwitchId}-label`}>
               Debug mode
             </span>
             <Switch
@@ -204,7 +204,7 @@ export const Settings = React.memo(
               checked={debugMode}
               onCheckedChange={handleDebugSwitch}
             />
-          </label>
+          </div>
         )}
       </div>
     )
