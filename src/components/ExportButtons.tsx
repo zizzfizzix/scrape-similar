@@ -260,6 +260,14 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
+        <DropdownMenuItem onSelect={handleCopyTsv}>
+          <Clipboard className="h-4 w-4" />
+          Copy {exportText} to clipboard
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={handleCsvExport}>
+          <FileDown className="h-4 w-4" />
+          Save {exportText} as CSV
+        </DropdownMenuItem>
         <DropdownMenuItem
           onSelect={(e) => {
             e.preventDefault()
@@ -269,14 +277,6 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({
         >
           <Sheet className="h-4 w-4" />
           {isExporting ? 'Exporting…' : `Export ${exportText} to Google Sheets`}
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={handleCopyTsv}>
-          <Clipboard className="h-4 w-4" />
-          Copy {exportText} to clipboard
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={handleCsvExport}>
-          <FileDown className="h-4 w-4" />
-          Save {exportText} as CSV
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
