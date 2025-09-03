@@ -7,6 +7,7 @@ import {
   type Worker,
 } from '@playwright/test'
 import fs from 'fs'
+import { v4 as uuidv4 } from 'uuid'
 
 async function waitForChromeApi(worker: Worker, timeout = 5000) {
   const start = Date.now()
@@ -33,12 +34,8 @@ export const test = base.extend<{
     }
 
     const extensionPath = `${process.cwd()}/.output/chrome-mv3${buildTypeSuffix(process.env.NODE_ENV)}`
-
-    const userDataDir = `${process.cwd()}/.browser`
-    // Reset browser user data before each test
-    if (fs.existsSync(userDataDir)) {
-      fs.rmSync(userDataDir, { recursive: true })
-    }
+    // Use different user data dir for each test run to parallelize tests.
+    const userDataDir = `${process.cwd()}/.browser/${uuidv4()}`
 
     // Allow Playwright to attach to Chrome side-panel targets (workaround for
     // https://github.com/microsoft/playwright/issues/26693).
@@ -52,6 +49,8 @@ export const test = base.extend<{
 
     await use(context)
     await context.close()
+    // Cleanup user data dir after each test run.
+    fs.rmSync(userDataDir, { recursive: true })
   },
 
   // Expose the extension ID so that tests can open extension pages
