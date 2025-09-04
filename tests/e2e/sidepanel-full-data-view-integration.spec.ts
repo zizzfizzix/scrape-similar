@@ -96,9 +96,10 @@ test.describe('Sidepanel Full Data View Integration', () => {
 
     // Click hide sidepanel button and wait for it to close
     await Promise.all([sidePanel.waitForEvent('close'), hideSidepanelButton.click()])
+    await expect(sidePanel.isClosed()).toBe(true)
 
     // Verify full data view page remains open
-    expect(fullDataViewPage.isClosed()).toBe(false)
+    await expect(fullDataViewPage.isClosed()).toBe(false)
     await expect(fullDataViewPage.locator('table')).toBeVisible()
   })
 

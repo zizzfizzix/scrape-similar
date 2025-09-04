@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Toaster } from '@/components/ui/sonner'
-import pkg from '@@/package.json' with { type: 'json' }
+import { chromeExtensionId } from '@@/package.json' with { type: 'json' }
 import log from 'loglevel'
 import { Minimize2, X } from 'lucide-react'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
@@ -659,14 +659,22 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
       if (success) {
         const updatedPresets = await getAllPresets()
         setPresets(updatedPresets)
-        toast.success(`Preset "${preset.name}" deleted`)
+        toast.success(
+          <>
+            Preset "<span className="ph_hidden">{preset.name}</span>" deleted
+          </>,
+        )
 
         // Track preset deleted event
         trackEvent(ANALYTICS_EVENTS.PRESET_DELETION, {
           type: 'user',
         })
       } else {
-        toast.error(`Error, preset "${preset.name}" couldn't be deleted`)
+        toast.error(
+          <>
+            Error, preset "<span className="ph_hidden">{preset.name}</span>" couldn't be deleted
+          </>,
+        )
       }
     } catch (error) {
       log.error('Error deleting preset:', error)
@@ -687,7 +695,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
   }
 
   // Check if the current tab is showing the full data view
-  if (tabUrl?.startsWith(`chrome-extension://${pkg.chromeExtensionId}/full-data-view.html`)) {
+  if (tabUrl?.startsWith(`chrome-extension://${chromeExtensionId}/full-data-view.html`)) {
     return (
       <div className="flex flex-col h-screen font-sans min-w-0 max-w-full w-full box-border">
         <Toaster />

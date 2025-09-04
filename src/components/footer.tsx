@@ -1,6 +1,6 @@
-import { author } from '@/../package.json'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { author } from '@@/package.json' with { type: 'json' }
 import { HeartPlus, MessageSquare } from 'lucide-react'
 import React from 'react'
 

@@ -1,4 +1,4 @@
-import pkg from '@@/package.json' assert { type: 'json' }
+import pkg from '@@/package.json' with { type: 'json' }
 import {
   test as base,
   chromium,
@@ -7,7 +7,8 @@ import {
   type Worker,
 } from '@playwright/test'
 import fs from 'fs'
-import { v4 as uuidv4 } from 'uuid'
+import { v7 as uuidv7 } from 'uuid'
+const { chromeExtensionId } = pkg
 
 async function waitForChromeApis(worker: Worker, timeout = 5000) {
   const start = Date.now()
@@ -204,7 +205,7 @@ export const test = base.extend<{
 
     const extensionPath = `${process.cwd()}/.output/chrome-mv3${buildTypeSuffix(process.env.NODE_ENV)}`
     // Use different user data dir for each test run to parallelize tests.
-    const userDataDir = `${process.cwd()}/.browser/${uuidv4()}`
+    const userDataDir = `${process.cwd()}/.browser/${uuidv7()}`
 
     // Allow Playwright to attach to Chrome side-panel targets (workaround for
     // https://github.com/microsoft/playwright/issues/26693).
@@ -224,11 +225,10 @@ export const test = base.extend<{
 
   // Expose the extension ID so that tests can open extension pages
   extensionId: async ({}, use) => {
-    const extensionId = pkg.chromeExtensionId
-    if (!extensionId) {
+    if (!chromeExtensionId) {
       throw new Error('chromeExtensionId is not set')
     }
-    await use(extensionId)
+    await use(chromeExtensionId)
   },
 
   serviceWorker: async ({ context, extensionId }, use) => {
