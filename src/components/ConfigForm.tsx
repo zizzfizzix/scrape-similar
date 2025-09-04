@@ -282,7 +282,11 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
     setIsSaving(false)
     setPresetName('')
     setIsSaveDrawerOpen(false)
-    toast.success(`Preset "${presetName.trim()}" saved`)
+    toast.success(
+      <>
+        Preset "<span className="ph_hidden">{presetName.trim()}</span>" saved
+      </>,
+    )
   }
 
   // Load Preset handler
@@ -355,7 +359,9 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                           className="flex items-center justify-between group"
                         >
                           <span className="flex items-center gap-2">
-                            {preset.name}
+                            <span className={isSystemPreset(preset) ? '' : 'ph_hidden'}>
+                              {preset.name}
+                            </span>
                             {isSystemPreset(preset) && (
                               <Badge variant="secondary" className="ml-2">
                                 System
@@ -408,7 +414,11 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                   Are you sure you want to {isSystemPreset(presetToDelete) ? 'hide' : 'delete'} the
                   preset "
                   {presetToDelete ? (
-                    <span className="font-semibold text-destructive">{presetToDelete.name}</span>
+                    <span
+                      className={`font-semibold text-destructive ${isSystemPreset(presetToDelete) ? '' : 'ph_hidden'}`}
+                    >
+                      {presetToDelete.name}
+                    </span>
                   ) : null}
                   "?{isSystemPreset(presetToDelete) ? '' : ' This action cannot be undone.'}
                 </DrawerDescription>
