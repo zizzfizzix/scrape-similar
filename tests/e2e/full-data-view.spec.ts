@@ -106,6 +106,7 @@ test.describe('Full Data View', () => {
     openSidePanel,
     serviceWorker,
     context,
+    extensionId,
   }) => {
     const sidePanel = await openSidePanel()
     const testPage = await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context)
@@ -117,14 +118,16 @@ test.describe('Full Data View', () => {
     const backButton = fullDataViewPage.getByRole('button', { name: /back to tab/i })
     await expect(backButton).toBeVisible()
 
+    const reopenedSidePanel = context.waitForEvent('page', {
+      predicate: (p) => p.url().startsWith(`chrome-extension://${extensionId}/sidepanel.html`),
+    })
+
     // Click back button and wait for the full data view page to close
     await Promise.all([fullDataViewPage.waitForEvent('close'), backButton.click()])
 
-    // Verify original test page becomes active
-    await expect(testPage).toBeTruthy()
-
-    // Note: Sidepanel reopening is harder to test in Playwright due to extension limitations,
-    // but the functionality should activate the original tab
+    // Verify original test page becomes active and sidepanel reopens
+    expect(await testPage.evaluate(() => document.hasFocus())).toBe(true)
+    expect((await reopenedSidePanel).isClosed()).toBe(false)
   })
 
   test('performs global search across all columns', async ({
