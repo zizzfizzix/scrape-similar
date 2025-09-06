@@ -611,6 +611,11 @@ export default defineBackground(() => {
         })
         break
       }
+      case MESSAGE_TYPES.OPEN_SIDEPANEL: {
+        if (sender.tab?.id !== undefined && sender.tab.windowId !== undefined) {
+          chrome.sidePanel.open({ tabId: sender.tab.id, windowId: sender.tab.windowId })
+        }
+      }
       default:
         log.debug('🟡 Unhandled UI message type:', message.type)
         log.warn(`Unhandled UI message type: ${message.type}`)

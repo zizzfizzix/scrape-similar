@@ -106,6 +106,9 @@ export const MESSAGE_TYPES = {
 
   // From sidepanel or content script to background
   UPDATE_SIDEPANEL_DATA: 'update-sidepanel-data',
+
+  // From any entrypoint to background
+  OPEN_SIDEPANEL: 'open_sidepanel',
 } as const
 
 // Analytics message payload interface
