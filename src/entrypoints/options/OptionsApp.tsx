@@ -46,7 +46,7 @@ const OptionsApp: React.FC = () => {
           <div className="w-full max-w-2xl mx-auto">
             <div className="flex items-center justify-between mb-8">
               <h1 className="text-lg font-bold" onClick={handleTitleClick}>
-                Settings
+                {i18n.t('settings')}
               </h1>
             </div>
             <div className="space-y-6">

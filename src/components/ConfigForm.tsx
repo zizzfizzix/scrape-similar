@@ -282,7 +282,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
     setIsSaving(false)
     setPresetName('')
     setIsSaveDrawerOpen(false)
-    toast.success(`Preset "${presetName.trim()}" saved`)
+    toast.success(i18n.t('presetSaved', { name: presetName.trim() }))
   }
 
   // Load Preset handler
@@ -315,13 +315,13 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
     <div className="flex flex-col gap-8">
       {/* Configuration header row with Save/Load Preset buttons */}
       <div className="flex flex-row items-center justify-between gap-4 mb-2">
-        <h2 className="scroll-m-20 text-2xl font-bold tracking-tight">Configuration</h2>
+        <h2 className="scroll-m-20 text-2xl font-bold tracking-tight">{i18n.t('configuration')}</h2>
         <div className="flex flex-row gap-2 items-center">
           {/* Load Preset Combobox */}
           <Popover open={isLoadPopoverOpen} onOpenChange={setIsLoadPopoverOpen}>
             <PopoverTrigger asChild>
               <Button variant="outline" type="button" aria-expanded={isLoadPopoverOpen}>
-                Load
+                {i18n.t('load')}
                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
               </Button>
             </PopoverTrigger>
@@ -335,16 +335,18 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                 }}
               >
                 <CommandInput
-                  placeholder="Search presets..."
+                  placeholder={i18n.t('searchPresets')}
                   value={search}
                   onValueChange={setSearch}
                   autoFocus
                 />
                 <CommandList>
-                  <CommandEmpty>No presets found</CommandEmpty>
-                  <CommandGroup heading="Presets">
+                  <CommandEmpty>{i18n.t('noPresetsFound')}</CommandEmpty>
+                  <CommandGroup heading={i18n.t('presets')}>
                     {presets.length === 0 && (
-                      <div className="p-2 text-sm text-muted-foreground">No presets saved</div>
+                      <div className="p-2 text-sm text-muted-foreground">
+                        {i18n.t('noPresetsSaved')}
+                      </div>
                     )}
                     {presets.map((preset) => {
                       return (
@@ -370,7 +372,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                                   variant="ghost"
                                   size="icon"
                                   className="ml-2 p-1 rounded hover:bg-destructive/10 text-destructive opacity-70 hover:opacity-100 focus:outline-none"
-                                  aria-label={`${isSystemPreset(preset) ? 'Hide' : 'Delete'} preset ${preset.name}`}
+                                  aria-label={`${isSystemPreset(preset) ? i18n.t('hidePreset') : i18n.t('deletePreset')} ${preset.name}`}
                                   disabled={isSaving}
                                   onClick={(e) => {
                                     e.stopPropagation()
@@ -385,7 +387,9 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                                 </Button>
                               </TooltipTrigger>
                               <TooltipContent>
-                                {isSystemPreset(preset) ? 'Hide preset' : 'Delete preset'}
+                                {isSystemPreset(preset)
+                                  ? i18n.t('hidePreset')
+                                  : i18n.t('deletePresetAction')}
                               </TooltipContent>
                             </Tooltip>
                           </div>
@@ -402,15 +406,22 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
             <DrawerContent>
               <DrawerHeader>
                 <DrawerTitle>
-                  {isSystemPreset(presetToDelete) ? 'Hide Preset' : 'Delete Preset'}
+                  {isSystemPreset(presetToDelete)
+                    ? i18n.t('hidePresetTitle')
+                    : i18n.t('deletePresetTitle')}
                 </DrawerTitle>
                 <DrawerDescription>
-                  Are you sure you want to {isSystemPreset(presetToDelete) ? 'hide' : 'delete'} the
-                  preset "
-                  {presetToDelete ? (
-                    <span className="font-semibold text-destructive">{presetToDelete.name}</span>
-                  ) : null}
-                  "?{isSystemPreset(presetToDelete) ? '' : ' This action cannot be undone.'}
+                  {i18n.t('areYouSureWantTo', {
+                    action: isSystemPreset(presetToDelete)
+                      ? i18n.t('hide').toLowerCase()
+                      : i18n.t('delete').toLowerCase(),
+                    name: presetToDelete?.name || i18n.t('unknown'),
+                  })}
+                  {!isSystemPreset(presetToDelete) && (
+                    <span className="block mt-1 text-destructive">
+                      {i18n.t('thisActionCannotBeUndone')}
+                    </span>
+                  )}
                 </DrawerDescription>
               </DrawerHeader>
               <DrawerFooter>
@@ -420,11 +431,11 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                   disabled={isSaving}
                   loading={isSaving}
                 >
-                  {isSystemPreset(presetToDelete) ? 'Hide' : 'Delete'}
+                  {isSystemPreset(presetToDelete) ? i18n.t('hide') : i18n.t('delete')}
                 </Button>
                 <DrawerClose asChild>
                   <Button variant="ghost" type="button" onClick={handleCancelDeletePreset}>
-                    Cancel
+                    {i18n.t('cancel')}
                   </Button>
                 </DrawerClose>
               </DrawerFooter>
@@ -438,18 +449,18 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                 type="button"
                 disabled={isSaving || config.columns.length === 0 || !isMainSelectorValid}
               >
-                Save
+                {i18n.t('save')}
               </Button>
             </DrawerTrigger>
             <DrawerContent>
               <DrawerHeader>
-                <DrawerTitle>Save Preset</DrawerTitle>
-                <DrawerDescription>Name your preset configuration.</DrawerDescription>
+                <DrawerTitle>{i18n.t('savePreset')}</DrawerTitle>
+                <DrawerDescription>{i18n.t('nameYourPreset')}</DrawerDescription>
               </DrawerHeader>
               <div className="p-4">
                 <Input
                   type="text"
-                  placeholder="Preset name"
+                  placeholder={i18n.t('presetName')}
                   value={presetName}
                   onChange={(e) => setPresetName(e.target.value)}
                   autoFocus
@@ -488,21 +499,19 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
       <div className="flex flex-col gap-4 items-start">
         <div className="flex items-baseline gap-2">
           <h3 className="scroll-m-20 border-b pb-2 text-xl font-semibold tracking-tight first:mt-0">
-            Main Selector
+            {i18n.t('mainSelector')}
           </h3>
           <Tooltip>
             <TooltipTrigger asChild>
               <span
                 tabIndex={-1}
-                aria-label="Main selector info"
+                aria-label={i18n.t('mainSelectorInfo')}
                 className="cursor-default leading-none"
               >
                 <HelpCircle className="w-4 h-4" />
               </span>
             </TooltipTrigger>
-            <TooltipContent side="top">
-              This selector identifies the main elements to scrape
-            </TooltipContent>
+            <TooltipContent side="top">{i18n.t('mainSelectorInfo')}</TooltipContent>
           </Tooltip>
         </div>
         <div className="relative w-full">
@@ -512,7 +521,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
             value={mainSelectorDraft}
             onChange={(e) => setMainSelectorDraft(e.target.value)}
             onBlur={() => commitMainSelector(mainSelectorDraft)}
-            placeholder="Enter XPath selector"
+            placeholder={i18n.t('enterXPathSelector')}
             ref={mainSelectorInputRef}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && mainSelectorDraft.trim()) {
@@ -566,7 +575,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                   size="icon"
                   type="button"
                   tabIndex={-1}
-                  aria-label="Open XPath reference"
+                  aria-label={i18n.t('openXPathReference')}
                   className="size-7 p-0.5 rounded focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-0"
                   onClick={() =>
                     window.open(
@@ -591,17 +600,20 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
       <div className="flex flex-col gap-4 items-start">
         <div className="flex items-baseline gap-2">
           <h3 className="scroll-m-20 border-b pb-2 text-xl font-semibold tracking-tight first:mt-0">
-            Columns
+            {i18n.t('columns')}
           </h3>
           <Tooltip>
             <TooltipTrigger asChild>
-              <span tabIndex={-1} aria-label="Columns info" className="cursor-default leading-none">
+              <span
+                tabIndex={-1}
+                aria-label={i18n.t('columnsInfo')}
+                className="cursor-default leading-none"
+              >
                 <HelpCircle className="w-4 h-4" />
               </span>
             </TooltipTrigger>
             <TooltipContent side="top" className="max-w-xs text-left">
-              Define what data to extract from each main element. Use "." to get the text content of
-              the element itself, or "@attr" to get an attribute
+              {i18n.t('columnsTooltip')}
             </TooltipContent>
           </Tooltip>
         </div>
@@ -620,14 +632,14 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                     type="text"
                     value={column.name}
                     onChange={(e) => handleColumnNameChange(index, e.target.value)}
-                    placeholder="Column name"
+                    placeholder={i18n.t('columnName')}
                     className="p-2 border rounded text-sm"
                   />
                   <Input
                     type="text"
                     value={column.selector}
                     onChange={(e) => handleColumnSelectorChange(index, e.target.value)}
-                    placeholder="Selector"
+                    placeholder={i18n.t('selector')}
                     className="p-2 border rounded text-sm"
                   />
                   <div className="flex gap-1 justify-around">
@@ -639,12 +651,12 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                           className="bg-transparent border-none cursor-pointer p-1 rounded"
                           onClick={() => removeColumn(index)}
                           disabled={config.columns.length <= 1}
-                          aria-label="Remove column"
+                          aria-label={i18n.t('removeColumn')}
                         >
                           <X />
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent>Remove column</TooltipContent>
+                      <TooltipContent>{i18n.t('removeColumnTooltip')}</TooltipContent>
                     </Tooltip>
                   </div>
                 </div>
@@ -658,7 +670,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                   onClick={handleGuessConfig}
                   loading={guessButtonState === 'generating'}
                   disabled={guessButtonState === 'generating' || !isMainSelectorValid}
-                  aria-label="Auto-generate configuration from selector"
+                  aria-label={i18n.t('autoGenerateConfigFromSelector')}
                 >
                   {guessButtonState === 'success' ? (
                     <Check />
@@ -669,7 +681,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                   )}
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Auto-generate configuration from selector</TooltipContent>
+              <TooltipContent>{i18n.t('autoGenerateConfigFromSelector')}</TooltipContent>
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -685,12 +697,12 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                     })
                     setShouldScrollToEnd(true)
                   }}
-                  aria-label="Add column"
+                  aria-label={i18n.t('addColumn')}
                 >
                   <Plus />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Add column</TooltipContent>
+              <TooltipContent>{i18n.t('addColumnTooltip')}</TooltipContent>
             </Tooltip>
           </div>
         </div>
@@ -712,19 +724,19 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
             {hasUncommittedChanges ? (
               <>
                 <SquareCheckBig className="w-4 h-4" />
-                <span>Validate selector</span>
+                <span>{i18n.t('validateSelector')}</span>
               </>
             ) : rescrapeAdvised && scrapeButtonState !== 'zero-found' ? (
               <>
                 <RefreshCcw />
-                <span>Scrape</span>
+                <span>{i18n.t('scrape')}</span>
               </>
             ) : scrapeButtonState === 'zero-found' ? (
-              '0 found'
+              i18n.t('zeroFound')
             ) : (
               <>
                 <Play className="w-4 h-4" />
-                <span>Scrape</span>
+                <span>{i18n.t('scrape')}</span>
               </>
             )}
           </Button>

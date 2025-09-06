@@ -48,9 +48,13 @@ export function ModeToggle({ id, ariaLabelledby }: ModeToggleProps) {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => handleSetTheme('light')}>Light</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => handleSetTheme('dark')}>Dark</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => handleSetTheme('system')}>System</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => handleSetTheme('light')}>
+          {i18n.t('light')}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => handleSetTheme('dark')}>{i18n.t('dark')}</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => handleSetTheme('system')}>
+          {i18n.t('system')}
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )

@@ -3,6 +3,7 @@
     "ms-playwright.playwright",
     "vitest.explorer",
     "dbaeumer.vscode-eslint",
-    "esbenp.prettier-vscode"
+    "esbenp.prettier-vscode",
+    "lokalise.i18n-ally"
   ]
 }

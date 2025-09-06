@@ -54,7 +54,7 @@ const Logo: React.FC<{ className?: string }> = ({ className = 'h-12 w-12' }) => 
       ? browser.runtime.getURL('/icons/logo-dark.svg')
       : browser.runtime.getURL('/icons/logo-light.svg')
 
-  return <img src={logoSrc} alt="Scrape Similar Logo" className={className} />
+  return <img src={logoSrc} alt={i18n.t('scrapeSimilarLogo')} className={className} />
 }
 
 const OnboardingApp: React.FC = () => {
@@ -139,8 +139,8 @@ const OnboardingApp: React.FC = () => {
   const slides: OnboardingSlide[] = [
     {
       id: 1,
-      title: 'Get Started',
-      description: 'Learn how to use Scrape Similar',
+      title: i18n.t('getStarted'),
+      description: i18n.t('learnHowToUse'),
       icon: <Zap className="h-8 w-8" />,
       content: (
         <div className="space-y-4">
@@ -149,8 +149,10 @@ const OnboardingApp: React.FC = () => {
               <CardContent className="pt-6">
                 <div className="text-center space-y-2">
                   <MousePointer className="h-6 w-6 mx-auto" />
-                  <p className="text-sm font-medium">Right-click to scrape</p>
-                  <p className="text-xs text-muted-foreground">Select elements and extract data</p>
+                  <p className="text-sm font-medium">{i18n.t('rightClickToScrapeDesc')}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {i18n.t('selectElementsAndExtractData')}
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -158,7 +160,7 @@ const OnboardingApp: React.FC = () => {
               <CardContent className="pt-6">
                 <div className="text-center space-y-2">
                   <Keyboard className="h-6 w-6 mx-auto" />
-                  <p className="text-sm font-medium">Keyboard shortcut</p>
+                  <p className="text-sm font-medium">{i18n.t('keyboardShortcutDesc')}</p>
                   <p className="text-xs text-muted-foreground">
                     {platform === 'mac' ? '⌘+Shift+S' : 'Ctrl+Shift+S'}
                   </p>
@@ -169,52 +171,45 @@ const OnboardingApp: React.FC = () => {
               <CardContent className="pt-6">
                 <div className="text-center space-y-2">
                   <Shield className="h-6 w-6 mx-auto" />
-                  <p className="text-sm font-medium">Privacy first</p>
-                  <p className="text-xs text-muted-foreground">
-                    Your data is private, anonymous statistics help improve the extension
-                  </p>
+                  <p className="text-sm font-medium">{i18n.t('privacyFirstDesc')}</p>
+                  <p className="text-xs text-muted-foreground">{i18n.t('yourDataIsPrivateDesc')}</p>
                 </div>
               </CardContent>
             </Card>
           </div>
           <div className="text-center text-xs text-muted-foreground">
-            Inspired by the legacy{' '}
+            {i18n.t('inspiredByTheLegacy')}{' '}
             <a
               href="https://github.com/mnmldave/scraper"
               target="_blank"
               rel="noopener"
               className="underline hover:text-primary"
             >
-              Scraper
+              {i18n.t('scraper')}
             </a>{' '}
-            extension
+            {i18n.t('scraperExtension')}
           </div>
         </div>
       ),
     },
     {
       id: 2,
-      title: 'Pin the Extension',
-      description: 'Quick access to Scrape Similar',
+      title: i18n.t('pinTheExtension'),
+      description: i18n.t('quickAccessToScrape'),
       icon: <Pin className="h-8 w-8" />,
       content: (
         <div className="space-y-4">
-          <p className="text-muted-foreground">
-            Pin Scrape Similar to your browser toolbar for quick access to the side panel.
-          </p>
+          <p className="text-muted-foreground">{i18n.t('pinScrapeSimilarToToolbar')}</p>
           <div className="bg-muted p-4 rounded-lg">
             <div className="flex items-center space-x-2">
               <Puzzle className="w-4 h-4" />
-              <span className="text-sm font-medium">Scrape Similar</span>
+              <span className="text-sm font-medium">{i18n.t('scrapeSimilarTitle')}</span>
             </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              Click the puzzle piece icon in your browser toolbar, then click the pin icon next to
-              "Scrape Similar"
-            </p>
+            <p className="text-xs text-muted-foreground mt-2">{i18n.t('clickPuzzlePieceIcon')}</p>
           </div>
           <div className="flex items-center space-x-2 text-sm text-muted-foreground">
             <Pin className="h-4 w-4" />
-            <span>Pinned extensions stay visible in your toolbar</span>
+            <span>{i18n.t('pinnedExtensionsStayVisible')}</span>
           </div>
 
           {/* Toolbar pin visual indicator */}
@@ -241,7 +236,7 @@ const OnboardingApp: React.FC = () => {
               </svg>
             </div>
             <div className="mt-0.5 bg-background/95 px-3 py-0.5 text-[11px] font-medium text-foreground">
-              Click to pin
+              {i18n.t('clickToPin')}
             </div>
           </div>
         </div>
@@ -249,14 +244,12 @@ const OnboardingApp: React.FC = () => {
     },
     {
       id: 3,
-      title: 'Keyboard Shortcut',
-      description: 'Toggle the side panel instantly',
+      title: i18n.t('keyboardShortcutTitle'),
+      description: i18n.t('toggleSidePanelInstantly'),
       icon: <Keyboard className="h-8 w-8" />,
       content: (
         <div className="space-y-4">
-          <p className="text-muted-foreground">
-            Use the keyboard shortcut to quickly open and close the Scrape Similar side panel.
-          </p>
+          <p className="text-muted-foreground">{i18n.t('useKeyboardShortcutToToggle')}</p>
           <div className="p-4">
             <div className="flex items-center justify-center space-x-2">
               {platform === 'mac' ? (
@@ -280,9 +273,9 @@ const OnboardingApp: React.FC = () => {
           </div>
           <div className="text-sm text-muted-foreground">
             <ul className="list-disc list-inside">
-              <li>Works on any webpage</li>
-              <li>Toggles the side panel on/off</li>
-              <li>Can be customized in extension settings</li>
+              <li>{i18n.t('worksOnAnyWebpage')}</li>
+              <li>{i18n.t('togglesSidePanelOnOff')}</li>
+              <li>{i18n.t('canBeCustomizedInSettings')}</li>
             </ul>
           </div>
         </div>
@@ -290,23 +283,21 @@ const OnboardingApp: React.FC = () => {
     },
     {
       id: 4,
-      title: 'Right-Click to Scrape',
-      description: 'Extract data from any element',
+      title: i18n.t('rightClickToScrapeTitle'),
+      description: i18n.t('extractDataFromAnyElement'),
       icon: <MousePointer className="h-8 w-8" />,
       content: (
         <div className="space-y-4">
-          <p className="text-muted-foreground">
-            Right-click on any element on a webpage to scrape similar elements.
-          </p>
+          <p className="text-muted-foreground">{i18n.t('rightClickOnAnyElement')}</p>
           <div className="space-y-3">
             <div className="flex items-start space-x-3">
               <div className="w-5 h-5 bg-primary rounded-full mt-1 flex-shrink-0 flex items-center justify-center">
                 <span className="text-xs font-medium text-primary-foreground">1</span>
               </div>
               <div>
-                <p className="text-sm font-medium">Select an element</p>
+                <p className="text-sm font-medium">{i18n.t('selectAnElement')}</p>
                 <p className="text-xs text-muted-foreground">
-                  Right-click on any element you want to scrape
+                  {i18n.t('rightClickOnAnyElementYouWant')}
                 </p>
               </div>
             </div>
@@ -315,8 +306,10 @@ const OnboardingApp: React.FC = () => {
                 <span className="text-xs font-medium text-primary-foreground">2</span>
               </div>
               <div>
-                <p className="text-sm font-medium">Choose "Scrape similar elements"</p>
-                <p className="text-xs text-muted-foreground">From the context menu that appears</p>
+                <p className="text-sm font-medium">{i18n.t('chooseScrapeSimilarElementsDesc')}</p>
+                <p className="text-xs text-muted-foreground">
+                  {i18n.t('fromContextMenuThatAppears')}
+                </p>
               </div>
             </div>
             <div className="flex items-start space-x-3">
@@ -324,18 +317,16 @@ const OnboardingApp: React.FC = () => {
                 <span className="text-xs font-medium text-primary-foreground">3</span>
               </div>
               <div>
-                <p className="text-sm font-medium">Configure and export</p>
+                <p className="text-sm font-medium">{i18n.t('configureAndExport')}</p>
                 <p className="text-xs text-muted-foreground">
-                  Set up your scraping preferences and export to Google Sheets, a CSV, or copy to
-                  clipboard
+                  {i18n.t('setupScrapingPreferences')}
                 </p>
               </div>
             </div>
           </div>
           <div className="bg-muted p-3 rounded-lg">
             <p className="text-xs text-muted-foreground">
-              <strong>Tip:</strong> Works with tables, lists, text, links, images, and all other
-              HTML elements
+              <strong>{i18n.t('tip')}:</strong> {i18n.t('worksWithTablesListsText')}
             </p>
           </div>
         </div>
@@ -343,24 +334,21 @@ const OnboardingApp: React.FC = () => {
     },
     {
       id: 5,
-      title: 'Ready-to-Use Presets',
-      description: 'Quick start with pre-configured settings',
+      title: i18n.t('readyToUsePresets'),
+      description: i18n.t('quickStartWithPreConfigured'),
       icon: <Settings className="h-8 w-8" />,
       content: (
         <div className="space-y-4">
-          <p className="text-muted-foreground">
-            Scrape Similar comes with several ready-to-use presets for common scraping tasks. These
-            can help you get started quickly.
-          </p>
+          <p className="text-muted-foreground">{i18n.t('scrapeSimilarComesWithPresets')}</p>
           <div className="space-y-3">
             <div className="flex items-start space-x-3">
               <div className="w-5 h-5 bg-primary rounded-full mt-1 flex-shrink-0 flex items-center justify-center">
                 <span className="text-xs font-medium text-primary-foreground">1</span>
               </div>
               <div>
-                <p className="text-sm font-medium">Table Scraping</p>
+                <p className="text-sm font-medium">{i18n.t('tableScraping')}</p>
                 <p className="text-xs text-muted-foreground">
-                  Extract data from HTML tables with automatic column detection
+                  {i18n.t('extractDataFromHtmlTables')}
                 </p>
               </div>
             </div>
@@ -369,9 +357,9 @@ const OnboardingApp: React.FC = () => {
                 <span className="text-xs font-medium text-primary-foreground">2</span>
               </div>
               <div>
-                <p className="text-sm font-medium">List Extraction</p>
+                <p className="text-sm font-medium">{i18n.t('listExtraction')}</p>
                 <p className="text-xs text-muted-foreground">
-                  Scrape lists, navigation menus, and repeated elements
+                  {i18n.t('scrapeListsNavigationMenus')}
                 </p>
               </div>
             </div>
@@ -380,17 +368,14 @@ const OnboardingApp: React.FC = () => {
                 <span className="text-xs font-medium text-primary-foreground">3</span>
               </div>
               <div>
-                <p className="text-sm font-medium">Custom Configuration</p>
-                <p className="text-xs text-muted-foreground">
-                  Create your own presets or modify existing ones
-                </p>
+                <p className="text-sm font-medium">{i18n.t('customConfiguration')}</p>
+                <p className="text-xs text-muted-foreground">{i18n.t('createYourOwnPresets')}</p>
               </div>
             </div>
           </div>
           <div className="bg-muted p-3 rounded-lg">
             <p className="text-xs text-muted-foreground">
-              <strong>Note:</strong> Presets can be hidden or customized in the extension settings
-              if you prefer to start from scratch
+              <strong>{i18n.t('note')}:</strong> {i18n.t('presetsCanBeHiddenText')}
             </p>
           </div>
         </div>
@@ -398,52 +383,50 @@ const OnboardingApp: React.FC = () => {
     },
     {
       id: 6,
-      title: 'Privacy & Security',
-      description: 'Your data stays safe on your computer',
+      title: i18n.t('privacyAndSecurity'),
+      description: i18n.t('yourDataStaysSafe'),
       icon: <Shield className="h-8 w-8" />,
       content: (
         <div className="space-y-4">
-          <p className="text-muted-foreground">
-            We take your privacy seriously. Here's how we protect your data:
-          </p>
+          <p className="text-muted-foreground">{i18n.t('weTakePrivacySeriously')}</p>
           <div className="space-y-3">
             <div className="flex items-start space-x-3">
               <CloudOff className="h-5 w-5 mt-0.5 flex-shrink-0" />
               <div>
-                <p className="text-sm font-medium">Local Processing</p>
+                <p className="text-sm font-medium">{i18n.t('localProcessing')}</p>
                 <p className="text-xs text-muted-foreground">
-                  All scraping happens locally in your browser
+                  {i18n.t('allScrapingHappensLocally')}
                 </p>
               </div>
             </div>
             <div className="flex items-start space-x-3">
               <Ban className="h-5 w-5 mt-0.5 flex-shrink-0" />
               <div>
-                <p className="text-sm font-medium">No Scraped Data Collection</p>
+                <p className="text-sm font-medium">{i18n.t('noScrapedDataCollection')}</p>
                 <p className="text-xs text-muted-foreground">
-                  We don't collect or store your scraped data, or metadata on pages you visit
+                  {i18n.t('weDontCollectScrapedData')}
                 </p>
               </div>
             </div>
             <div className="flex items-start space-x-3">
               <Download className="h-5 w-5 mt-0.5 flex-shrink-0" />
               <div>
-                <p className="text-sm font-medium">Direct Export</p>
+                <p className="text-sm font-medium">{i18n.t('directExport')}</p>
                 <p className="text-xs text-muted-foreground">
-                  Data goes directly to your Google Sheets account, CSV file, or clipboard
+                  {i18n.t('dataGoesDirectlyToYourAccount')}
                 </p>
               </div>
             </div>
           </div>
           <Separator />
           <p className="text-sm text-muted-foreground">
-            Read our full{' '}
+            {i18n.t('readOurFull')}{' '}
             <a
               className="text-primary hover:underline focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded"
               href="https://digitall.studio/scrape-similar-privacy-policy.md"
               target="_blank"
             >
-              privacy policy
+              {i18n.t('privacyPolicy')}
             </a>
           </p>
         </div>
@@ -451,15 +434,15 @@ const OnboardingApp: React.FC = () => {
     },
     {
       id: 7,
-      title: "You're all set!",
-      description: 'Ready to start scraping',
+      title: i18n.t('youreAllSet'),
+      description: i18n.t('readyToStartScraping'),
       icon: <Check className="h-8 w-8" />,
       content: (
         <div className="space-y-4">
           <div className="flex justify-center">
             <img
               src={browser.runtime.getURL('/img/screenshot-context-menu.png')}
-              alt="Context menu screenshot showing Scrape Similar option"
+              alt={i18n.t('contextMenuScreenshot')}
               className="max-w-full h-auto rounded-lg border shadow-sm"
             />
           </div>
@@ -483,10 +466,8 @@ const OnboardingApp: React.FC = () => {
               <div className="flex justify-center mb-4">
                 <Logo className="h-16 w-16" />
               </div>
-              <h1 className="text-3xl font-bold mb-2">Welcome to Scrape Similar</h1>
-              <p className="text-lg text-muted-foreground">
-                Extract data from websites into spreadsheets with ease
-              </p>
+              <h1 className="text-3xl font-bold mb-2">{i18n.t('welcomeToScrapeSimilar')}</h1>
+              <p className="text-lg text-muted-foreground">{i18n.t('extractDataDescription')}</p>
             </div>
 
             <Card className="relative">
@@ -514,9 +495,9 @@ const OnboardingApp: React.FC = () => {
             <div className="flex justify-center mb-4">
               <Logo className="h-16 w-16" />
             </div>
-            <h1 className="text-3xl font-bold mb-2">Welcome to Scrape Similar</h1>
+            <h1 className="text-3xl font-bold mb-2">{i18n.t('welcomeToScrapeSimilar')}</h1>
             <p className="text-lg text-muted-foreground">
-              Extract data from websites into spreadsheets with ease
+              {i18n.t('extractDataFromWebsitesDescription')}
             </p>
           </div>
 
@@ -535,7 +516,7 @@ const OnboardingApp: React.FC = () => {
                   {currentSlide > 0 && (
                     <Button variant="outline" size="sm" onClick={handlePrevious}>
                       <ChevronLeft className="h-4 w-4 mr-2" />
-                      Previous
+                      {i18n.t('previous')}
                     </Button>
                   )}
                   <Button
@@ -543,7 +524,7 @@ const OnboardingApp: React.FC = () => {
                     onClick={handleNext}
                     disabled={currentSlide === slides.length - 1}
                   >
-                    Next
+                    {i18n.t('next')}
                     <ChevronRight className="h-4 w-4 ml-2" />
                   </Button>
                 </div>

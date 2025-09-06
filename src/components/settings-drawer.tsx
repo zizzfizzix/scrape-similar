@@ -36,16 +36,18 @@ export const SettingsDrawer: React.FC<SettingsDrawerProps> = ({
       <Tooltip>
         <TooltipTrigger asChild>
           <DrawerTrigger asChild>
-            <Button variant="ghost" size="icon" aria-label="Settings">
+            <Button variant="ghost" size="icon" aria-label={i18n.t('settings')}>
               <SettingsIcon className="size-5" />
             </Button>
           </DrawerTrigger>
         </TooltipTrigger>
-        <TooltipContent>Settings</TooltipContent>
+        <TooltipContent>{i18n.t('settings')}</TooltipContent>
       </Tooltip>
       <DrawerContent className="w-full right-0 fixed border-l bg-background shadow-lg flex flex-col h-autorounded-lg">
         <DrawerHeader>
-          <DrawerTitle onClick={() => settingsRef.current?.unlockDebugMode()}>Settings</DrawerTitle>
+          <DrawerTitle onClick={() => settingsRef.current?.unlockDebugMode()}>
+            {i18n.t('settings')}
+          </DrawerTitle>
         </DrawerHeader>
         <div className="flex-1 p-4">
           <Settings

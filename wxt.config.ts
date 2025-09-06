@@ -6,7 +6,8 @@ import { defineConfig, type WxtViteConfig } from 'wxt'
 export default defineConfig({
   srcDir: 'src',
   webExt: {
-    chromiumArgs: ['--user-data-dir=./.wxt/chrome-data'],
+    chromiumArgs: ['--user-data-dir=./.wxt/chrome-data-pl', '--accept-lang=pl,pl-PL', '--lang=pl'],
+    keepProfileChanges: true,
   },
   manifest: ({ mode }) => {
     // Google APIs domains for CSP
@@ -23,10 +24,13 @@ export default defineConfig({
 
     return {
       key: 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAu6ONFPt3ct0twLsACoeS7JjXkpEznkKkuh9uTApNa8EToDneOS0JPcD4cD3KEaO+SlsLPjU0JVkqX4/XBM6meSw4UIRydJCEf4UbCD+PR61FyuPq7Gp67Kd9jF0Oet7a/4nE7cNrBhz98CwifvI4MlIQWWK5jwwpAhVf0rQDjpG38H8+t2blGTlH8aP4+S/74qLN2fLILP7rIiovq4uvskBjJ4RwM3d6azdp0eCqrBDF6xAfTqp/8k+ZZ6wzGMsmKQI+yAdRhpsa0gfcFNnnu+ATErKHCL0seQB4kE4pHmA4q0ii70z6nOYO/NlT2wEmOvtfouuhvBGOGbChv9sHgQIDAQAB',
+      default_locale: 'en',
       permissions: ['contextMenus', 'identity', 'scripting', 'storage', 'tabs'],
       host_permissions: ['http://*/*', 'https://*/*'],
+      name: '__MSG_extName__',
+      description: '__MSG_extDescription__',
       action: {
-        default_title: 'Open Scrape Similar',
+        default_title: '__MSG_openScrapeSimilar__',
       },
       oauth2: {
         client_id: '98006111902-k2bbkhk8n3nvouh7l6l6r8pft12odjdj.apps.googleusercontent.com',
@@ -38,7 +42,7 @@ export default defineConfig({
             default: 'Ctrl+Shift+S',
             mac: 'Command+Shift+S',
           },
-          description: 'Toggle Scrape Similar',
+          description: '__MSG_toggleScrapeSimilar__',
         },
       },
       content_security_policy: {
@@ -46,7 +50,7 @@ export default defineConfig({
       },
     }
   },
-  modules: ['@wxt-dev/module-react', '@wxt-dev/auto-icons'],
+  modules: ['@wxt-dev/module-react', '@wxt-dev/auto-icons', '@wxt-dev/i18n/module'],
   autoIcons: {
     developmentIndicator: 'overlay',
   },

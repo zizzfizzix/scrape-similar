@@ -1,0 +1,264 @@
+# Extension metadata
+extName: Scrape Similar
+extDescription: Wyodrębnij dane ze stron internetowych do arkuszy kalkulacyjnych.
+
+# General UI
+cancel: Anuluj
+accept: Akceptuj
+decline: Odrzuć
+settings: Ustawienia
+support: Wsparcie
+feedback: Opinie
+
+# Main functionality
+mainSelector: Główny Selektor
+openScrapeSimilar: Otwórz Scrape Similar
+toggleScrapeSimilar: Otwórz/zamknij Scrape Similar
+enterXPathSelector: Wprowadź selektor XPath
+helpImprove: Pomóż ulepszyć Scrape Similar
+usagePatterns: Pozwól nam zrozumieć wzorce użytkowania
+
+# Consent and privacy
+whatWeCollect: Co zbieramy
+whatWeCollectDesc: Anonimowe statystyki użytkowania, aby zrozumieć, jak korzystasz z rozszerzenia i ulepszać funkcje
+whatWeDontCollect: Czego nie zbieramy
+whatWeDontCollectDesc: Żadne dane osobowe, historia przeglądania ani zeskrobane dane nie są nigdy zbierane
+yourChoice: Twój wybór
+yourChoiceDesc: Możesz zmienić tę preferencję w dowolnym momencie w ustawieniach rozszerzenia
+consentExplanation: Akceptując, pomagasz nam zrozumieć, które funkcje są najbardziej przydatne i zidentyfikować obszary do poprawy. Wszystkie dane są przetwarzane anonimowo przez analitykę PostHog.
+
+# Footer
+madeBy: Stworzone przez
+supportAuthor: Wesprzyj Kubę Serafinowskiego na Ko-fi
+provideFeedback: Prześlij opinię
+
+# Tooltips and help
+mainSelectorInfo: Ten selektor identyfikuje główne elementy do zeskrobania
+
+# Actions
+scrape: Zeskrob
+validateSelector: Sprawdź selektor
+zeroFound: 0 znalezionych
+
+# Configuration
+configuration: Konfiguracja
+presets: Szablony
+presetName: Nazwa szablonu
+columnName: Nazwa kolumny
+selector: Selektor
+addColumn: Dodaj kolumnę
+removeColumn: Usuń kolumnę
+columns: Kolumny
+columnsInfo: Skonfiguruj kolumny danych do wyodrębnienia
+
+# Privacy policy
+readFullPrivacyPolicy: Przeczytaj naszą pełną
+readOurFull: Przeczytaj naszą pełną
+privacyPolicy: politykę prywatności
+
+# Onboarding
+welcomeToScrapeSimilar: Witaj w Scrape Similar
+extractDataDescription: Wyodrębniaj dane ze stron internetowych do arkuszy kalkulacyjnych z łatwością
+
+# Side panel
+unsupportedUrl: Nieobsługiwany URL
+securityRestriction: Ze względów bezpieczeństwa to rozszerzenie nie może działać na
+tryTheseWebsites: Wypróbuj jedną z tych stron internetowych
+
+# Settings
+theme: Motyw
+keyboardShortcut: Skrót klawiszowy
+copyAddress: Kopiuj adres
+pasteInNewTab: Wklej w nowej karcie, aby otworzyć ustawienia
+analytics: Analityka
+systemPresets: Szablony systemowe
+reset: Resetuj
+debugMode: Tryb debugowania
+
+# Data table
+highlightThisElement: Podświetl ten element
+copyThisRow: Kopiuj ten wiersz
+openInFullView: Otwórz w pełnym widoku
+previousPage: Poprzednia strona
+nextPage: Następna strona
+# Tooltips and aria labels
+openXPathReference: Otwórz referencję XPath
+selectAll: Zaznacz wszystko
+selectRow: Zaznacz wiersz
+
+# ConfigForm specific
+noPresetsFound: Nie znaleziono szablonów
+noPresetsSaved: Brak zapisanych szablonów
+savePreset: Zapisz Szablon
+nameYourPreset: Nazwij swoją konfigurację szablonu
+deletePreset: Usuń szablon
+removeColumnTooltip: Usuń kolumnę
+addColumnTooltip: Dodaj kolumnę
+columnsTooltip: Określ, jakie dane wyodrębnić z każdego głównego elementu. Użyj "." aby pobrać zawartość tekstową samego elementu, lub "@attr" aby pobrać atrybut
+
+# FullDataViewApp
+error: Błąd
+retry: Ponów
+noDataAvailable: Brak Dostępnych Danych
+noScrapedDataFound: Nie znaleziono zeskrobanych danych w żadnej karcie. Proszę najpierw zeskrobać dane.
+noTabsFound: Nie znaleziono kart
+highlightThisElementTooltip: Podświetl ten element
+copyThisRowTooltip: Kopiuj ten wiersz
+fullScreenViewActive: Aktywny Widok Pełnoekranowy
+extractedData: Wyodrębnione Dane
+
+# Onboarding
+pinnedExtensionsStayVisible: Przypięte rozszerzenia pozostają widoczne na pasku narzędzi
+worksOnAnyWebpage: Działa na każdej stronie internetowej
+selectAnElement: Wybierz element
+configureAndExport: Skonfiguruj i eksportuj
+tableScraping: Zeskrobywanie Tabel
+listExtraction: Wyodrębnianie List
+customConfiguration: Konfiguracja Niestandardowa
+localProcessing: Przetwarzanie Lokalne
+noScrapedDataCollection: Brak Zbierania Zeskrobanych Danych
+directExport: Bezpośredni Eksport
+# Theme toggle
+light: Jasny
+dark: Ciemny
+system: Systemowy
+toggleTheme: Przełącz motyw
+close: Zamknij
+
+# Page titles
+scrapeSimilarTitle: Scrape Similar
+
+# Toast messages
+targetTabDoesNotExist: Docelowa karta nie istnieje
+noTargetTabIdFound: Nie znaleziono ID docelowej karty
+failedToSwitchBackToTab: Nie udało się przełączyć z powrotem na kartę
+failedToCloseSidepanel: Nie udało się zamknąć panelu bocznego
+systemPresetHidden: Szablon systemowy "{name}" ukryty.
+presetDeleted: Szablon "{name}" usunięty
+presetDeleteError: Błąd, szablon "{name}" nie mógł zostać usunięty
+systemPresetsReset: Szablony systemowe zostały zresetowane
+presetSaved: Szablon "{name}" zapisany
+failedToActivateTab: Nie udało się aktywować karty do podświetlenia
+copiedRowToClipboard: Skopiowano wiersz do schowka
+failedToCopy: Nie udało się skopiować
+noDataToExport: Brak danych do eksportu
+exportTimedOut: Eksport przekroczył limit czasu - spróbuj ponownie
+exportedToGoogleSheets: Wyeksportowano do Google Sheets
+googleAuthCancelled: Autoryzacja Google została anulowana
+copiedToClipboard: Skopiowano do schowka
+csvFileSaved: Plik CSV zapisany
+failedToSaveCSV: Nie udało się zapisać CSV
+
+# Default values and labels
+unknownUrl: Nieznany URL
+unknownTitle: Nieznany Tytuł
+unknown: Nieznany
+text: Tekst
+actions: Akcje
+selectTab: Wybierz Kartę
+dataExport: Eksport Danych
+
+# ConfigForm specific
+hidePreset: Ukryj szablon
+deletePresetAction: Usuń szablon
+hidePresetTitle: Ukryj Szablon
+deletePresetTitle: Usuń Szablon
+hide: Ukryj
+delete: Usuń
+save: Zapisz
+load: Wczytaj
+
+# Onboarding slides
+getStarted: Zacznij
+learnHowToUse: Dowiedz się, jak używać Scrape Similar
+keyboardShortcutDesc: Skrót klawiszowy
+privacyFirstDesc: Prywatność na pierwszym miejscu
+scraper: Skrober
+pinTheExtension: Przypnij Rozszerzenie
+quickAccessToScrape: Szybki dostęp do Scrape Similar
+keyboardShortcutTitle: Skrót Klawiszowy
+toggleSidePanelInstantly: Natychmiast przełącz panel boczny
+canBeCustomizedInSettings: Można dostosować w ustawieniach rozszerzenia
+
+rightClickToScrapeTitle: Kliknij Prawym Przyciskiem, aby Zeskrobać
+extractDataFromAnyElement: Wyodrębnij dane z dowolnego elementu
+rightClickOnAnyElement: Kliknij prawym przyciskiem myszy na dowolny element na stronie internetowej, aby zeskrobać podobne elementy.
+chooseScrapeSimilarElementsDesc: Wybierz "Zeskrob podobne elementy"
+privacyAndSecurity: Prywatność i Bezpieczeństwo
+yourDataStaysSafe: Twoje dane pozostają bezpieczne na Twoim komputerze
+readyToStartScraping: Gotowy do rozpoczęcia zeskrobywania
+youreAllSet: Wszystko gotowe!
+
+# Alt text and descriptions
+wikipedia: Wikipedia
+ourWorldInData: Our World in Data
+ciaWorldFactbook: CIA World Factbook
+imdb: IMDb
+scrapeSimilarLogo: Logo Scrape Similar
+contextMenuScreenshot: Zrzut ekranu menu kontekstowego pokazujący opcję Scrape Similar
+
+# Confirmation dialogs
+areYouSureWantTo: Czy na pewno chcesz {action} szablon "{name}"?
+thisActionCannotBeUndone: Ta akcja nie może zostać cofnięta.
+
+# Error messages
+connectionErrorWithMessage: 'Błąd połączenia: {message}'
+couldNotConnectToContentScript: Nie można połączyć się ze skryptem zawartości. Proszę odświeżyć stronę lub upewnić się, że rozszerzenie jest włączone dla tej witryny.
+noDataToCopy: Brak danych do skopiowania
+
+# Export error messages
+exportFailedWithMessage: 'Eksport nieudany: {message}'
+
+# ConfigForm specific
+autoGenerateConfigFromSelector: Automatycznie generuj konfigurację z selektora
+
+# Search placeholders
+searchPresets: Szukaj szablonów...
+searchTabs: Szukaj kart...
+searchAllColumns: Przeszukaj wszystkie kolumny...
+
+# Document titles
+fullDataView: Pełny Widok Danych
+
+# Command palette
+# Onboarding detailed content
+rightClickToScrapeDesc: Kliknij prawym przyciskiem, aby zeskrobać
+selectElementsAndExtractData: Wybierz elementy i wyodrębnij dane
+yourDataIsPrivateDesc: Twoje dane są prywatne, anonimowe statystyki pomagają ulepszyć rozszerzenie
+inspiredByTheLegacy: Zainspirowane dziedzictwem
+scraperExtension: rozszerzenia
+
+pinScrapeSimilarToToolbar: Przypnij Scrape Similar do paska narzędzi przeglądarki, aby uzyskać szybki dostęp do panelu bocznego.
+clickPuzzlePieceIcon: Kliknij ikonę układanki na pasku narzędzi przeglądarki, a następnie kliknij ikonę pinezki obok "Scrape Similar"
+clickToPin: Kliknij, aby przypiąć
+
+useKeyboardShortcutToToggle: Użyj skrótu klawiszowego, aby szybko otwierać i zamykać panel boczny Scrape Similar.
+togglesSidePanelOnOff: Włącza/wyłącza panel boczny
+
+# Additional onboarding content
+rightClickOnAnyElementYouWant: Kliknij prawym przyciskiem myszy na dowolny element, który chcesz zeskrobać
+fromContextMenuThatAppears: Z menu kontekstowego, które się pojawi
+setupScrapingPreferences: Skonfiguruj preferencje zeskrobywania i eksportuj do Google Sheets, CSV lub skopiuj do schowka
+tip: Wskazówka
+worksWithTablesListsText: Działa z tabelami, listami, tekstem, linkami, obrazami i wszystkimi innymi elementami HTML
+
+quickStartWithPreConfigured: Szybki start ze wstępnie skonfigurowanymi ustawieniami
+readyToUsePresets: Gotowe do Użycia Szablony
+scrapeSimilarComesWithPresets: Scrape Similar zawiera kilka gotowych do użycia szablonów dla typowych zadań zeskrobywania. Mogą one pomóc Ci szybko rozpocząć.
+extractDataFromHtmlTables: Wyodrębnij dane z tabel HTML z automatycznym wykrywaniem kolumn
+scrapeListsNavigationMenus: Zeskrob listy, menu nawigacyjne i powtarzające się elementy
+createYourOwnPresets: Twórz własne szablony lub modyfikuj istniejące
+note: Uwaga
+presetsCanBeHiddenText: Szablony można ukryć lub dostosować w ustawieniach rozszerzenia, jeśli wolisz zacząć od zera
+
+weTakePrivacySeriously: 'Poważnie traktujemy Twoją prywatność. Oto jak chronimy Twoje dane:'
+allScrapingHappensLocally: Całe zeskrobywanie odbywa się lokalnie w Twojej przeglądarce
+weDontCollectScrapedData: Nie zbieramy ani nie przechowujemy Twoich zeskrobanych danych, ani metadanych o stronach, które odwiedzasz
+dataGoesDirectlyToYourAccount: Dane trafiają bezpośrednio do Twojego konta Google Sheets, pliku CSV lub schowka
+
+# Navigation buttons
+previous: Poprzedni
+next: Następny
+
+# Welcome screen (after consent)
+extractDataFromWebsitesDescription: Wyodrębniaj dane ze stron internetowych do arkuszy kalkulacyjnych z łatwością

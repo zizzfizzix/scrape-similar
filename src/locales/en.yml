@@ -1,0 +1,264 @@
+# Extension metadata
+extName: Scrape Similar
+extDescription: Extract data from websites into spreadsheets.
+
+# General UI
+cancel: Cancel
+accept: Accept
+decline: Decline
+settings: Settings
+support: Support
+feedback: Feedback
+
+# Main functionality
+mainSelector: Main Selector
+openScrapeSimilar: Open Scrape Similar
+toggleScrapeSimilar: Toggle Scrape Similar
+enterXPathSelector: Enter XPath selector
+helpImprove: Help improve Scrape Similar
+usagePatterns: Let us understand usage patterns
+
+# Consent and privacy
+whatWeCollect: What we collect
+whatWeCollectDesc: Anonymous usage statistics to understand how you use the extension and improve features
+whatWeDontCollect: What we don't collect
+whatWeDontCollectDesc: No personal information, browsing history, or scraped data is ever collected
+yourChoice: Your choice
+yourChoiceDesc: You can change this preference anytime in the extension settings
+consentExplanation: By accepting, you help us understand which features are most useful and identify areas for improvement. All data is processed anonymously through PostHog analytics.
+
+# Footer
+madeBy: Made by
+supportAuthor: Support Kuba Serafinowski on Ko-fi
+provideFeedback: Provide feedback
+
+# Tooltips and help
+mainSelectorInfo: This selector identifies the main elements to scrape
+
+# Actions
+scrape: Scrape
+validateSelector: Validate selector
+zeroFound: 0 found
+
+# Configuration
+configuration: Configuration
+presets: Presets
+presetName: Preset name
+columnName: Column name
+selector: Selector
+addColumn: Add column
+removeColumn: Remove column
+columns: Columns
+columnsInfo: Configure the data columns to extract
+
+# Privacy policy
+readFullPrivacyPolicy: Read our full
+readOurFull: Read our full
+privacyPolicy: privacy policy
+
+# Onboarding
+welcomeToScrapeSimilar: Welcome to Scrape Similar
+extractDataDescription: Extract data from websites into spreadsheets with ease
+
+# Side panel
+unsupportedUrl: Unsupported URL
+securityRestriction: For security reasons this extension can't work on
+tryTheseWebsites: Try one of these websites
+
+# Settings
+theme: Theme
+keyboardShortcut: Keyboard shortcut
+copyAddress: Copy address
+pasteInNewTab: Paste in a new tab to open settings
+analytics: Analytics
+systemPresets: System presets
+reset: Reset
+debugMode: Debug mode
+
+# Data table
+highlightThisElement: Highlight this element
+copyThisRow: Copy this row
+openInFullView: Open in full view
+previousPage: Previous page
+nextPage: Next page
+# Tooltips and aria labels
+openXPathReference: Open XPath reference
+selectAll: Select all
+selectRow: Select row
+
+# ConfigForm specific
+noPresetsFound: No presets found
+noPresetsSaved: No presets saved
+savePreset: Save Preset
+nameYourPreset: Name your preset configuration
+deletePreset: Delete preset
+removeColumnTooltip: Remove column
+addColumnTooltip: Add column
+columnsTooltip: Define what data to extract from each main element. Use "." to get the text content of the element itself, or "@attr" to get an attribute
+
+# FullDataViewApp
+error: Error
+retry: Retry
+noDataAvailable: No Data Available
+noScrapedDataFound: No scraped data found in any tabs. Please scrape some data first.
+noTabsFound: No tabs found
+highlightThisElementTooltip: Highlight this element
+copyThisRowTooltip: Copy this row
+fullScreenViewActive: Full Screen View Active
+extractedData: Extracted Data
+
+# Onboarding
+pinnedExtensionsStayVisible: Pinned extensions stay visible in your toolbar
+worksOnAnyWebpage: Works on any webpage
+selectAnElement: Select an element
+configureAndExport: Configure and export
+tableScraping: Table Scraping
+listExtraction: List Extraction
+customConfiguration: Custom Configuration
+localProcessing: Local Processing
+noScrapedDataCollection: No Scraped Data Collection
+directExport: Direct Export
+# Theme toggle
+light: Light
+dark: Dark
+system: System
+toggleTheme: Toggle theme
+close: Close
+
+# Page titles
+scrapeSimilarTitle: Scrape Similar
+
+# Toast messages
+targetTabDoesNotExist: Target tab does not exist
+noTargetTabIdFound: No target tab ID found
+failedToSwitchBackToTab: Failed to switch back to tab
+failedToCloseSidepanel: Failed to close sidepanel
+systemPresetHidden: System preset "{name}" hidden.
+presetDeleted: Preset "{name}" deleted
+presetDeleteError: Error, preset "{name}" couldn't be deleted
+systemPresetsReset: System presets have been reset
+presetSaved: Preset "{name}" saved
+failedToActivateTab: Failed to activate tab for highlighting
+copiedRowToClipboard: Copied row to clipboard
+failedToCopy: Failed to copy
+noDataToExport: No data to export
+exportTimedOut: Export timed out - please try again
+exportedToGoogleSheets: Exported to Google Sheets
+googleAuthCancelled: Google authorization was cancelled
+copiedToClipboard: Copied to clipboard
+csvFileSaved: CSV file saved
+failedToSaveCSV: Failed to save CSV
+
+# Default values and labels
+unknownUrl: Unknown URL
+unknownTitle: Unknown Title
+unknown: Unknown
+text: Text
+actions: Actions
+selectTab: Select Tab
+dataExport: Data Export
+
+# ConfigForm specific
+hidePreset: Hide preset
+deletePresetAction: Delete preset
+hidePresetTitle: Hide Preset
+deletePresetTitle: Delete Preset
+hide: Hide
+delete: Delete
+save: Save
+load: Load
+
+# Onboarding slides
+getStarted: Get Started
+learnHowToUse: Learn how to use Scrape Similar
+keyboardShortcutDesc: Keyboard shortcut
+privacyFirstDesc: Privacy first
+scraper: Scraper
+pinTheExtension: Pin the Extension
+quickAccessToScrape: Quick access to Scrape Similar
+keyboardShortcutTitle: Keyboard Shortcut
+toggleSidePanelInstantly: Toggle the side panel instantly
+canBeCustomizedInSettings: Can be customized in extension settings
+
+rightClickToScrapeTitle: Right-Click to Scrape
+extractDataFromAnyElement: Extract data from any element
+rightClickOnAnyElement: Right-click on any element on a webpage to scrape similar elements.
+chooseScrapeSimilarElementsDesc: Choose "Scrape similar elements"
+privacyAndSecurity: Privacy and Security
+yourDataStaysSafe: Your data stays safe on your computer
+readyToStartScraping: Ready to start scraping
+youreAllSet: You're all set!
+
+# Alt text and descriptions
+wikipedia: Wikipedia
+ourWorldInData: Our World in Data
+ciaWorldFactbook: CIA World Factbook
+imdb: IMDb
+scrapeSimilarLogo: Scrape Similar Logo
+contextMenuScreenshot: Context menu screenshot showing Scrape Similar option
+
+# Confirmation dialogs
+areYouSureWantTo: Are you sure you want to {action} the preset "{name}"?
+thisActionCannotBeUndone: This action cannot be undone.
+
+# Error messages
+connectionErrorWithMessage: 'Connection error: {message}'
+couldNotConnectToContentScript: Could not connect to the content script. Please reload the page or ensure the extension is enabled for this site.
+noDataToCopy: No data to copy
+
+# Export error messages
+exportFailedWithMessage: 'Export failed: {message}'
+
+# ConfigForm specific
+autoGenerateConfigFromSelector: Auto-generate configuration from selector
+
+# Search placeholders
+searchPresets: Search presets...
+searchTabs: Search tabs...
+searchAllColumns: Search all columns...
+
+# Document titles
+fullDataView: Full Data View
+
+# Command palette
+# Onboarding detailed content
+rightClickToScrapeDesc: Right-click to scrape
+selectElementsAndExtractData: Select elements and extract data
+yourDataIsPrivateDesc: Your data is private, anonymous statistics help improve the extension
+inspiredByTheLegacy: Inspired by the legacy
+scraperExtension: extension
+
+pinScrapeSimilarToToolbar: Pin Scrape Similar to your browser toolbar for quick access to the side panel.
+clickPuzzlePieceIcon: Click the puzzle piece icon in your browser toolbar, then click the pin icon next to "Scrape Similar"
+clickToPin: Click to pin
+
+useKeyboardShortcutToToggle: Use the keyboard shortcut to quickly open and close the Scrape Similar side panel.
+togglesSidePanelOnOff: Toggles the side panel on/off
+
+# Additional onboarding content
+rightClickOnAnyElementYouWant: Right-click on any element you want to scrape
+fromContextMenuThatAppears: From the context menu that appears
+setupScrapingPreferences: Set up your scraping preferences and export to Google Sheets, a CSV, or copy to clipboard
+tip: Tip
+worksWithTablesListsText: Works with tables, lists, text, links, images, and all other HTML elements
+
+quickStartWithPreConfigured: Quick start with pre-configured settings
+readyToUsePresets: Ready-to-Use Presets
+scrapeSimilarComesWithPresets: Scrape Similar comes with several ready-to-use presets for common scraping tasks. These can help you get started quickly.
+extractDataFromHtmlTables: Extract data from HTML tables with automatic column detection
+scrapeListsNavigationMenus: Scrape lists, navigation menus, and repeated elements
+createYourOwnPresets: Create your own presets or modify existing ones
+note: Note
+presetsCanBeHiddenText: Presets can be hidden or customized in the extension settings if you prefer to start from scratch
+
+weTakePrivacySeriously: "We take your privacy seriously. Here's how we protect your data:"
+allScrapingHappensLocally: All scraping happens locally in your browser
+weDontCollectScrapedData: We don't collect or store your scraped data, or metadata on pages you visit
+dataGoesDirectlyToYourAccount: Data goes directly to your Google Sheets account, CSV file, or clipboard
+
+# Navigation buttons
+previous: Previous
+next: Next
+
+# Welcome screen (after consent)
+extractDataFromWebsitesDescription: Extract data from websites into spreadsheets with ease

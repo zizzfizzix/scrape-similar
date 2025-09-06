@@ -76,7 +76,7 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({
 
   const handleGoogleSheetsExport = () => {
     if (!dataToExport.length) {
-      toast.error('No data to export')
+      toast.error(i18n.t('noDataToExport'))
       return
     }
 
@@ -111,7 +111,7 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({
       log.warn('🔥 ExportButtons: Export timeout - resetting button state')
       setIsExporting(false)
       setIsDropdownOpen(false)
-      toast.error('Export timed out - please try again')
+      toast.error(i18n.t('exportTimedOut'))
       trackEvent(ANALYTICS_EVENTS.EXPORT_TO_SHEETS_FAILURE, {
         error: 'Export timeout',
       })
@@ -133,7 +133,9 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({
 
       if (browser.runtime.lastError) {
         log.error('🔥 ExportButtons: Runtime error:', browser.runtime.lastError)
-        toast.error(`Connection error: ${browser.runtime.lastError.message}`)
+        toast.error(
+          i18n.t('connectionErrorWithMessage', { message: browser.runtime.lastError.message }),
+        )
         trackEvent(ANALYTICS_EVENTS.EXPORT_TO_SHEETS_FAILURE, {
           error: browser.runtime.lastError.message,
         })
@@ -142,7 +144,7 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({
 
       if (response?.success && response.url) {
         log.debug('🔥 ExportButtons: Export successful')
-        toast.success('Exported to Google Sheets', {
+        toast.success(i18n.t('exportedToGoogleSheets'), {
           description: (
             <span>
               <a
@@ -172,9 +174,9 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({
           errorMessage.includes('denied') ||
           errorMessage.includes('Authorization')
         ) {
-          toast.error('Google authorization was cancelled')
+          toast.error(i18n.t('googleAuthCancelled'))
         } else {
-          toast.error(`Export failed: ${errorMessage}`)
+          toast.error(i18n.t('exportFailedWithMessage', { message: errorMessage }))
         }
 
         trackEvent(ANALYTICS_EVENTS.EXPORT_TO_SHEETS_FAILURE, {
@@ -186,7 +188,7 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({
 
   const handleCopyTsv = async () => {
     if (!dataToExport.length) {
-      toast.error('No data to copy')
+      toast.error(i18n.t('noDataToCopy'))
       return
     }
 
@@ -194,7 +196,7 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({
 
     try {
       await navigator.clipboard.writeText(tsvContent)
-      toast.success('Copied to clipboard')
+      toast.success(i18n.t('copiedToClipboard'))
       setIsDropdownOpen(false)
       trackEvent(ANALYTICS_EVENTS.COPY_TO_CLIPBOARD_TRIGGER, {
         rows_copied: dataToExport.length,
@@ -202,7 +204,7 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({
         export_type: 'data_table_full',
       })
     } catch {
-      toast.error('Failed to copy')
+      toast.error(i18n.t('failedToCopy'))
       setIsDropdownOpen(false)
       trackEvent(ANALYTICS_EVENTS.COPY_TO_CLIPBOARD_FAILURE)
     }
@@ -210,7 +212,7 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({
 
   const handleCsvExport = () => {
     if (!dataToExport.length) {
-      toast.error('No data to export')
+      toast.error(i18n.t('noDataToExport'))
       return
     }
 
@@ -238,14 +240,14 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({
       link.click()
       document.body.removeChild(link)
       URL.revokeObjectURL(url)
-      toast.success('CSV file saved')
+      toast.success(i18n.t('csvFileSaved'))
       setIsDropdownOpen(false)
       trackEvent(ANALYTICS_EVENTS.EXPORT_TO_CSV_TRIGGER, {
         rows_exported: dataToExport.length,
         columns_count: columns.length,
       })
     } catch (e) {
-      toast.error('Failed to save CSV')
+      toast.error(i18n.t('failedToSaveCSV'))
       setIsDropdownOpen(false)
       trackEvent(ANALYTICS_EVENTS.EXPORT_TO_CSV_FAILURE, {
         error: (e as Error).message,

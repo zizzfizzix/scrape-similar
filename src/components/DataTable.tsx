@@ -122,7 +122,7 @@ const DataTable: React.FC<DataTableProps> = ({
       },
       {
         id: 'actions',
-        header: 'Actions',
+        header: i18n.t('actions'),
         cell: ({ row }: CellContext<ScrapedRow, unknown>) => {
           // Use the original index for highlighting
           const originalIndex = row.original.metadata.originalIndex
@@ -165,14 +165,14 @@ const DataTable: React.FC<DataTableProps> = ({
                       const tsvContent = rowToTsv(row.original, columnKeys)
                       try {
                         await navigator.clipboard.writeText(tsvContent)
-                        toast.success('Copied row to clipboard')
+                        toast.success(i18n.t('copiedRowToClipboard'))
                         trackEvent(ANALYTICS_EVENTS.COPY_TO_CLIPBOARD_TRIGGER, {
                           rows_copied: 1,
                           columns_count: columnKeys.length,
                           export_type: 'data_table_row',
                         })
                       } catch {
-                        toast.error('Failed to copy')
+                        toast.error(i18n.t('failedToCopy'))
                         trackEvent(ANALYTICS_EVENTS.COPY_TO_CLIPBOARD_FAILURE)
                       }
                     }
@@ -197,11 +197,11 @@ const DataTable: React.FC<DataTableProps> = ({
             <div className="flex gap-1">
               <Tooltip>
                 <TooltipTrigger asChild>{highlightButton}</TooltipTrigger>
-                <TooltipContent>Highlight this element</TooltipContent>
+                <TooltipContent>{i18n.t('highlightThisElement')}</TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>{copyButton}</TooltipTrigger>
-                <TooltipContent>Copy this row</TooltipContent>
+                <TooltipContent>{i18n.t('copyThisRow')}</TooltipContent>
               </Tooltip>
             </div>
           )
@@ -405,7 +405,7 @@ const DataTable: React.FC<DataTableProps> = ({
                 setPagination((p) => ({ ...p, pageIndex: Math.max(0, p.pageIndex - 1) }))
               }}
               disabled={pagination.pageIndex === 0}
-              aria-label="Previous page"
+              aria-label={i18n.t('previousPage')}
             >
               <ChevronLeft className="size-4" />
             </Button>
@@ -428,7 +428,7 @@ const DataTable: React.FC<DataTableProps> = ({
                 }))
               }}
               disabled={pagination.pageIndex >= totalPages - 1}
-              aria-label="Next page"
+              aria-label={i18n.t('nextPage')}
             >
               <ChevronRight className="size-4" />
             </Button>
@@ -459,12 +459,12 @@ const DataTable: React.FC<DataTableProps> = ({
                 [view-transition-name:none]
                 right-anchor-end-4
               "
-              aria-label="Open in full view"
+              aria-label={i18n.t('openInFullView')}
             >
               <Expand className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Open in full view</TooltipContent>
+          <TooltipContent>{i18n.t('openInFullView')}</TooltipContent>
         </Tooltip>
       )}
     </div>

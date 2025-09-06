@@ -23,7 +23,7 @@ export const Footer: React.FC<FooterProps> = ({
 
   const footerContent = (
     <div className="flex items-center gap-2">
-      Made by{' '}
+      {i18n.t('madeBy')}{' '}
       <a
         className="underline hover:text-primary"
         href={`https://www.linkedin.com/in/kubaserafinowski/?utm_source=scrape-similar-extension&utm_campaign=${import.meta.env.BROWSER}-${context}`}
@@ -42,7 +42,7 @@ export const Footer: React.FC<FooterProps> = ({
         href={`https://ko-fi.com/kubaserafinowski?utm_source=scrape-similar-extension&utm_campaign=${import.meta.env.BROWSER}-${context}`}
         target="_blank"
         rel="noopener"
-        aria-label="Support Kuba Serafinowski on Ko-fi"
+        aria-label={i18n.t('supportAuthor')}
         onClick={(e) =>
           trackEvent(ANALYTICS_EVENTS.SUPPORT_ICON_PRESS, {
             url: e.currentTarget.href,
@@ -53,16 +53,21 @@ export const Footer: React.FC<FooterProps> = ({
           <TooltipTrigger asChild>
             <HeartPlus className="size-4 text-red-500 hover:text-red-600 stroke-3" />
           </TooltipTrigger>
-          <TooltipContent>Support</TooltipContent>
+          <TooltipContent>{i18n.t('support')}</TooltipContent>
         </Tooltip>
       </a>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" id="feedback-button" aria-label="Provide feedback">
+          <Button
+            variant="ghost"
+            size="icon"
+            id="feedback-button"
+            aria-label={i18n.t('provideFeedback')}
+          >
             <MessageSquare className="size-4 text-primary hover:text-primary/80 stroke-2" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent>Feedback</TooltipContent>
+        <TooltipContent>{i18n.t('feedback')}</TooltipContent>
       </Tooltip>
     </div>
   )

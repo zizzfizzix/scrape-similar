@@ -9,51 +9,41 @@ export const ConsentContent: React.FC = () => {
         <div className="flex items-start gap-3">
           <DatabaseIcon className="h-5 w-5 mt-0.5 flex-shrink-0" />
           <div>
-            <p className="font-medium">What we collect</p>
-            <p className="text-sm text-muted-foreground">
-              Anonymous usage statistics to understand how you use the extension and improve
-              features
-            </p>
+            <p className="font-medium">{i18n.t('whatWeCollect')}</p>
+            <p className="text-sm text-muted-foreground">{i18n.t('whatWeCollectDesc')}</p>
           </div>
         </div>
 
         <div className="flex items-start gap-3">
           <EyeOffIcon className="h-5 w-5 mt-0.5 flex-shrink-0" />
           <div>
-            <p className="font-medium">What we don't collect</p>
-            <p className="text-sm text-muted-foreground">
-              No personal information, browsing history, or scraped data is ever collected
-            </p>
+            <p className="font-medium">{i18n.t('whatWeDontCollect')}</p>
+            <p className="text-sm text-muted-foreground">{i18n.t('whatWeDontCollectDesc')}</p>
           </div>
         </div>
 
         <div className="flex items-start gap-3">
           <SlidersHorizontalIcon className="h-5 w-5 mt-0.5 flex-shrink-0" />
           <div>
-            <p className="font-medium">Your choice</p>
-            <p className="text-sm text-muted-foreground">
-              You can change this preference anytime in the extension settings
-            </p>
+            <p className="font-medium">{i18n.t('yourChoice')}</p>
+            <p className="text-sm text-muted-foreground">{i18n.t('yourChoiceDesc')}</p>
           </div>
         </div>
       </div>
 
       <div className="bg-muted/50 p-4 rounded-lg">
-        <p className="text-sm text-muted-foreground">
-          By accepting, you help us understand which features are most useful and identify areas for
-          improvement. All data is processed anonymously through PostHog analytics.
-        </p>
+        <p className="text-sm text-muted-foreground">{i18n.t('consentExplanation')}</p>
       </div>
       <Separator />
       <p className="text-sm text-muted-foreground">
-        Read our full{' '}
+        {i18n.t('readFullPrivacyPolicy')}{' '}
         <a
           className="text-primary hover:underline focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded"
           href="https://digitall.studio/scrape-similar-privacy-policy.md"
           target="_blank"
           rel="noopener"
         >
-          privacy policy
+          {i18n.t('privacyPolicy')}
         </a>
       </p>
     </div>

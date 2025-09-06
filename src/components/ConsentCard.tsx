@@ -49,14 +49,14 @@ export const ConsentCard: React.FC<ConsentCardProps> = ({ onDecision, className 
 
           <div>
             <h2 className={clsx(isWide ? 'text-xl font-semibold' : 'text-2xl font-bold mb-2')}>
-              Help improve Scrape Similar
+              {i18n.t('helpImprove')}
             </h2>
             <p
               className={clsx(
                 isWide ? 'text-sm text-muted-foreground' : 'text-lg text-muted-foreground',
               )}
             >
-              Let us understand usage patterns
+              {i18n.t('usagePatterns')}
             </p>
           </div>
         </div>
@@ -75,7 +75,7 @@ export const ConsentCard: React.FC<ConsentCardProps> = ({ onDecision, className 
             className={clsx(!isWide && 'flex-1 max-w-32')}
           >
             <X className="h-4 w-4 mr-2" />
-            Decline
+            {i18n.t('decline')}
           </Button>
           <Button
             size={isWide ? 'sm' : undefined}
@@ -83,7 +83,7 @@ export const ConsentCard: React.FC<ConsentCardProps> = ({ onDecision, className 
             className={clsx(!isWide && 'flex-1 max-w-32')}
           >
             <CheckIcon className="h-4 w-4 mr-2" />
-            Accept
+            {i18n.t('accept')}
           </Button>
         </div>
       </div>

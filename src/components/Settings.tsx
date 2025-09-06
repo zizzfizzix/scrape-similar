@@ -139,13 +139,13 @@ export const Settings = React.memo(
       <div className={`flex flex-col gap-4 ${className || ''}`}>
         <div className="flex items-center justify-between gap-4">
           <span className="text-sm font-medium" id={`${themeToggleId}-label`}>
-            Theme
+            {i18n.t('theme')}
           </span>
           <ModeToggle id={themeToggleId} aria-labelledby={`${themeToggleId}-label`} />
         </div>
         <div className="flex items-center justify-between gap-4">
           <span className="text-sm font-medium" id={`${keyboardShortcutId}-label`}>
-            Keyboard shortcut
+            {i18n.t('keyboardShortcut')}
           </span>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -159,15 +159,15 @@ export const Settings = React.memo(
                 onClick={handleKeyboardShortcutClick}
               >
                 <Clipboard className="size-4 ml-1" />
-                Copy address
+                {i18n.t('copyAddress')}
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Paste in a new tab to open settings</TooltipContent>
+            <TooltipContent>{i18n.t('pasteInNewTab')}</TooltipContent>
           </Tooltip>
         </div>
         <div className="flex items-center justify-between gap-4">
           <span className="text-sm font-medium" id={`${systemPresetsId}-label`}>
-            System presets
+            {i18n.t('systemPresets')}
           </span>
           <Button
             id={systemPresetsId}
@@ -177,13 +177,13 @@ export const Settings = React.memo(
             onClick={handleResetSystemPresets}
             aria-labelledby={`${systemPresetsId}-label`}
           >
-            Reset
+            {i18n.t('reset')}
           </Button>
         </div>
         {!consentLoading && (
           <div className="flex items-center justify-between gap-4">
             <span className="text-sm font-medium" id={`${analyticsSwitchId}-label`}>
-              Anonymous analytics
+              {i18n.t('analytics')}
             </span>
             <Switch
               id={analyticsSwitchId}
@@ -196,7 +196,7 @@ export const Settings = React.memo(
         {showDebugRow && (
           <div className="flex items-center justify-between gap-4">
             <span className="text-sm font-medium" id={`${debugSwitchId}-label`}>
-              Debug mode
+              {i18n.t('debugMode')}
             </span>
             <Switch
               id={debugSwitchId}

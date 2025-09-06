@@ -12,41 +12,43 @@ import { toast } from 'sonner'
 const SplashScreen: React.FC<{ tabUrl: string }> = ({ tabUrl }) => (
   <div className="flex flex-1 items-center justify-center w-full min-w-0">
     <div className="flex flex-col items-center justify-center text-center w-full max-w-md mx-auto">
-      <h2 className="text-2xl mb-4">Unsupported URL</h2>
+      <h2 className="text-2xl mb-4">{i18n.t('unsupportedUrl')}</h2>
       <p className="text-lg mb-2">
-        For security reasons this extension can't work on{' '}
+        {i18n.t('securityRestriction')}{' '}
         <span className="italic">{getInjectableUrlPattern(tabUrl)}</span> pages.
       </p>
-      <p className="text-lg mb-2">Try one of these websites:</p>
+      <p className="text-lg mb-2">{i18n.t('tryTheseWebsites')}</p>
       <div className="flex flex-col items-left justify-between gap-2 h-full">
         <a href="https://www.wikipedia.org" target="_blank" rel="noopener">
           <Card className="flex flex-row items-center gap-2 p-2 w-full h-full">
-            <img src="/img/favicon-wikipedia.ico" alt="Wikipedia" className="w-4 h-4" /> Wikipedia
+            <img src="/img/favicon-wikipedia.ico" alt={i18n.t('wikipedia')} className="w-4 h-4" />{' '}
+            {i18n.t('wikipedia')}
           </Card>
         </a>
         <a href="https://www.ourworldindata.org" target="_blank" rel="noopener">
           <Card className="flex flex-row items-center gap-2 p-2 w-full h-full">
             <img
               src="/img/favicon-ourworldindata.ico"
-              alt="Our World in Data"
+              alt={i18n.t('ourWorldInData')}
               className="w-4 h-4"
             />{' '}
-            Our World in Data
+            {i18n.t('ourWorldInData')}
           </Card>
         </a>
         <a href="https://www.cia.gov/the-world-factbook/" target="_blank" rel="noopener">
           <Card className="flex flex-row items-center gap-2 p-2 w-full h-full">
             <img
               src="/img/favicon-cia-world-factbook.webp"
-              alt="CIA World Factbook"
+              alt={i18n.t('ciaWorldFactbook')}
               className="w-4 h-4"
             />{' '}
-            CIA World Factbook
+            {i18n.t('ciaWorldFactbook')}
           </Card>
         </a>
         <a href="https://www.imdb.com" target="_blank" rel="noopener">
           <Card className="flex flex-row items-center gap-2 p-2 w-full h-full">
-            <img src="/img/favicon-imdb.png" alt="IMDb" className="w-4 h-4" /> IMDb
+            <img src="/img/favicon-imdb.png" alt={i18n.t('imdb')} className="w-4 h-4" />{' '}
+            {i18n.t('imdb')}
           </Card>
         </a>
       </div>
@@ -84,15 +86,15 @@ const FullDataViewControls: React.FC<{
             log.debug(`Closed full-data-view tab ${currentTabId}`)
           }
         } catch (tabError) {
-          toast.error('Target tab does not exist')
+          toast.error(i18n.t('targetTabDoesNotExist'))
           log.error(`Tab ${tabId} does not exist:`, tabError)
         }
       } else {
-        toast.error('No target tab ID found')
+        toast.error(i18n.t('noTargetTabIdFound'))
         log.error('No tabId parameter found in URL:', currentTabUrl)
       }
     } catch (err) {
-      toast.error('Failed to switch back to tab')
+      toast.error(i18n.t('failedToSwitchBackToTab'))
       log.error('Error switching to tab:', err)
     }
   }
@@ -103,7 +105,7 @@ const FullDataViewControls: React.FC<{
       // Close the sidepanel by closing the current window
       window.close()
     } catch (err) {
-      toast.error('Failed to close sidepanel')
+      toast.error(i18n.t('failedToCloseSidepanel'))
       log.error('Error closing sidepanel:', err)
     }
   }
@@ -111,7 +113,7 @@ const FullDataViewControls: React.FC<{
   return (
     <div className="flex flex-1 items-center justify-center w-full min-w-0">
       <div className="flex flex-col items-center justify-center text-center w-full max-w-md mx-auto gap-6">
-        <h2 className="text-2xl mb-4">Full Screen View Active</h2>
+        <h2 className="text-2xl mb-4">{i18n.t('fullScreenViewActive')}</h2>
 
         <div className="flex flex-col gap-4">
           <Button onClick={handleBackToTab}>
@@ -141,7 +143,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
   const [initialOptions, setInitialOptions] = useState<SelectionOptions | null>(null)
   const [config, setConfig] = useState<ScrapeConfig>({
     mainSelector: '',
-    columns: [{ name: 'Text', selector: '.' }],
+    columns: [{ name: i18n.t('text'), selector: '.' }],
   })
   const [scrapeResult, setScrapeResult] = useState<ScrapeResult | null>(null)
   // Track the configuration that produced the current scrapeResult
@@ -291,7 +293,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
     // --- Reset state before applying new data ---
     const defaultConfig: ScrapeConfig = {
       mainSelector: '',
-      columns: [{ name: 'Text', selector: '.' }],
+      columns: [{ name: i18n.t('text'), selector: '.' }],
     }
     let newConfig = defaultConfig
     let newOptions: SelectionOptions | null = null // Explicitly allow null
@@ -502,9 +504,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
       (response) => {
         setIsScraping(false)
         if (!response && browser.runtime.lastError) {
-          setContentScriptCommsError(
-            'Could not connect to the content script. Please reload the page or ensure the extension is enabled for this site.',
-          )
+          setContentScriptCommsError(i18n.t('couldNotConnectToContentScript'))
           setLastScrapeRowCount(null)
           return
         }
@@ -546,9 +546,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
       },
       (response) => {
         if (!response && browser.runtime.lastError) {
-          setContentScriptCommsError(
-            'Could not connect to the content script. Please reload the page or ensure the extension is enabled for this site.',
-          )
+          setContentScriptCommsError(i18n.t('couldNotConnectToContentScript'))
           return
         }
 
@@ -579,9 +577,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
       },
       (response) => {
         if (!response && browser.runtime.lastError) {
-          setContentScriptCommsError(
-            'Could not connect to the content script. Please reload the page or ensure the extension is enabled for this site.',
-          )
+          setContentScriptCommsError(i18n.t('couldNotConnectToContentScript'))
         }
       },
     )
@@ -640,7 +636,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
       const statusMap = await getSystemPresetStatus()
       statusMap[preset.id] = false
       await setSystemPresetStatus(statusMap)
-      toast.success(`System preset "${preset.name}" hidden.`)
+      toast.success(i18n.t('systemPresetHidden', { name: preset.name }))
       // Reload all presets
       const updatedPresets = await getAllPresets()
       setPresets(updatedPresets)
@@ -659,14 +655,14 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
       if (success) {
         const updatedPresets = await getAllPresets()
         setPresets(updatedPresets)
-        toast.success(`Preset "${preset.name}" deleted`)
+        toast.success(i18n.t('presetDeleted', { name: preset.name }))
 
         // Track preset deleted event
         trackEvent(ANALYTICS_EVENTS.PRESET_DELETION, {
           type: 'user',
         })
       } else {
-        toast.error(`Error, preset "${preset.name}" couldn't be deleted`)
+        toast.error(i18n.t('presetDeleteError', { name: preset.name }))
       }
     } catch (error) {
       log.error('Error deleting preset:', error)
@@ -678,7 +674,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
     await setSystemPresetStatus({}) // Clear all disables
     const updatedPresets = await getAllPresets()
     setPresets(updatedPresets)
-    toast.success('System presets have been reset')
+    toast.success(i18n.t('systemPresetsReset'))
 
     // Track system presets reset event
     trackEvent(ANALYTICS_EVENTS.SYSTEM_PRESETS_RESET, {
@@ -774,7 +770,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
             {scrapeResult && scrapeResult.data.length > 0 && (
               <div className="flex flex-col gap-6" ref={dataTableRef}>
                 <div className="flex items-center justify-between gap-4">
-                  <h2 className="text-2xl font-bold">Extracted Data</h2>
+                  <h2 className="text-2xl font-bold">{i18n.t('extractedData')}</h2>
                   <ExportButtons
                     scrapeResult={scrapeResult}
                     config={config}

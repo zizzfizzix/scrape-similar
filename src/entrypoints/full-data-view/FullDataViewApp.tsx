@@ -115,12 +115,12 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
             if (storedData?.scrapeResult?.data && storedData.scrapeResult.data.length > 0) {
               tabsWithData.push({
                 tabId: tab.id,
-                tabUrl: tab.url || 'Unknown URL',
-                tabTitle: tab.title || 'Unknown Title',
+                tabUrl: tab.url || i18n.t('unknownUrl'),
+                tabTitle: tab.title || i18n.t('unknownTitle'),
                 scrapeResult: storedData.scrapeResult,
                 config: storedData.currentScrapeConfig || {
                   mainSelector: '',
-                  columns: [{ name: 'Text', selector: '.' }],
+                  columns: [{ name: i18n.t('text'), selector: '.' }],
                 },
               })
             }
@@ -195,9 +195,9 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
   // Update document title when current tab changes
   useEffect(() => {
     if (currentTabData?.tabTitle) {
-      document.title = `${currentTabData.tabTitle} - Extracted Data - Scrape Similar`
+      document.title = `${currentTabData.tabTitle} - ${i18n.t('extractedData')} - Scrape Similar`
     } else {
-      document.title = 'Full Data View - Scrape Similar'
+      document.title = `${i18n.t('fullDataView')} - Scrape Similar`
     }
   }, [currentTabData?.tabTitle])
 
@@ -259,8 +259,8 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
           // Update or add the tab data
           const updatedTabData: TabData = {
             tabId: tabId,
-            tabUrl: tabInfo.url || 'Unknown URL',
-            tabTitle: tabInfo.title || 'Unknown Title',
+            tabUrl: tabInfo.url || i18n.t('unknownUrl'),
+            tabTitle: tabInfo.title || i18n.t('unknownTitle'),
             scrapeResult: newValue.scrapeResult,
             config: newValue.currentScrapeConfig || {
               mainSelector: '',
@@ -413,7 +413,7 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
           await browser.tabs.remove(currentTab.id)
         }
       } catch (err) {
-        toast.error('Failed to switch back to tab')
+        toast.error(i18n.t('failedToSwitchBackToTab'))
       }
     }
   }
@@ -440,7 +440,7 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
         },
       )
     } catch (err) {
-      toast.error('Failed to activate tab for highlighting')
+      toast.error(i18n.t('failedToActivateTab'))
     }
   }
 
@@ -516,7 +516,7 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
                 total_rows: filteredData.length,
               })
             }}
-            aria-label="Select all"
+            aria-label={i18n.t('selectAll')}
           />
         ),
         cell: ({ row }) => (
@@ -532,7 +532,7 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
                 total_selected: table.getSelectedRowModel().rows.length + (value ? 1 : -1),
               })
             }}
-            aria-label="Select row"
+            aria-label={i18n.t('selectRow')}
           />
         ),
         size: 35,
@@ -560,7 +560,7 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
       },
       {
         id: 'actions',
-        header: 'Actions',
+        header: i18n.t('actions'),
         cell: ({ row }: CellContext<ScrapedRow, unknown>) => {
           const isEmpty = row.original.metadata.isEmpty
           const originalIndex = row.original.metadata.originalIndex
@@ -600,14 +600,14 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
                       const tsvContent = rowToTsv(row.original, columnKeys)
                       try {
                         await navigator.clipboard.writeText(tsvContent)
-                        toast.success('Copied row to clipboard')
+                        toast.success(i18n.t('copiedRowToClipboard'))
                         trackEvent(ANALYTICS_EVENTS.COPY_TO_CLIPBOARD_TRIGGER, {
                           rows_copied: 1,
                           columns_count: columnKeys.length,
                           export_type: 'full_data_view_row',
                         })
                       } catch {
-                        toast.error('Failed to copy')
+                        toast.error(i18n.t('failedToCopy'))
                         trackEvent(ANALYTICS_EVENTS.COPY_TO_CLIPBOARD_FAILURE)
                       }
                     }
@@ -630,11 +630,11 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
             <div className="flex gap-1">
               <Tooltip>
                 <TooltipTrigger asChild>{highlightButton}</TooltipTrigger>
-                <TooltipContent>Highlight this element</TooltipContent>
+                <TooltipContent>{i18n.t('highlightThisElementTooltip')}</TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>{copyButton}</TooltipTrigger>
-                <TooltipContent>Copy this row</TooltipContent>
+                <TooltipContent>{i18n.t('copyThisRowTooltip')}</TooltipContent>
               </Tooltip>
             </div>
           )
@@ -741,12 +741,12 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
             <div className="flex items-center justify-center h-screen">
               <Card className="w-96">
                 <CardHeader>
-                  <CardTitle className="text-red-600">Error</CardTitle>
+                  <CardTitle className="text-red-600">{i18n.t('error')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p>{error}</p>
                   <Button onClick={() => loadTabsData()} className="mt-4">
-                    Retry
+                    {i18n.t('retry')}
                   </Button>
                 </CardContent>
               </Card>
@@ -768,10 +768,10 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
             <div className="flex items-center justify-center h-screen">
               <Card className="w-96">
                 <CardHeader>
-                  <CardTitle>No Data Available</CardTitle>
+                  <CardTitle>{i18n.t('noDataAvailable')}</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p>No scraped data found in any tabs. Please scrape some data first.</p>
+                  <p>{i18n.t('noScrapedDataFound')}</p>
                 </CardContent>
               </Card>
             </div>
@@ -809,7 +809,7 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
                       <div className="flex items-center justify-between w-full">
                         <div className="flex flex-col items-start min-w-0 flex-1">
                           <div className="font-semibold truncate max-w-md ph_hidden">
-                            {currentTabData?.tabTitle || 'Select Tab'}
+                            {currentTabData?.tabTitle || i18n.t('selectTab')}
                           </div>
                           <div className="text-xs text-muted-foreground truncate max-w-md ph_hidden">
                             {currentTabData?.tabUrl || ''}
@@ -838,13 +838,13 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
                       }}
                     >
                       <CommandInput
-                        placeholder="Search tabs..."
+                        placeholder={i18n.t('searchTabs')}
                         value={tabSearch}
                         onValueChange={setTabSearch}
                         autoFocus
                       />
                       <CommandList>
-                        <CommandEmpty>No tabs found</CommandEmpty>
+                        <CommandEmpty>{i18n.t('noTabsFound')}</CommandEmpty>
                         {allTabsData.map((tabData) => (
                           <CommandItem
                             key={tabData.tabId}
@@ -858,7 +858,7 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
                           >
                             <div className="flex flex-col items-start min-w-0 flex-1">
                               <div className="font-medium truncate w-full ph_hidden">
-                                {tabData.tabTitle || 'Unknown Title'}
+                                {tabData.tabTitle || i18n.t('unknownTitle')}
                               </div>
                               <div className="text-xs text-muted-foreground truncate w-full ph_hidden">
                                 {tabData.tabUrl}
@@ -884,7 +884,7 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
                       selectedRows={table
                         .getFilteredSelectedRowModel()
                         .rows.map((row) => row.original)}
-                      filename={`${currentTabData.tabTitle || 'Data Export'} - ${new Date().toISOString().split('T')[0]}`}
+                      filename={`${currentTabData.tabTitle || i18n.t('dataExport')} - ${new Date().toISOString().split('T')[0]}`}
                       size="sm"
                       variant="outline"
                     />
@@ -915,7 +915,7 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
                     <div className="relative">
                       <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                       <Input
-                        placeholder="Search all columns..."
+                        placeholder={i18n.t('searchAllColumns')}
                         value={globalFilter}
                         onChange={(e) => setGlobalFilter(e.target.value)}
                         className="pl-8 w-64"
@@ -1107,7 +1107,7 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
                         size="sm"
                         onClick={() => table.previousPage()}
                         disabled={!table.getCanPreviousPage()}
-                        aria-label="Previous page"
+                        aria-label={i18n.t('previousPage')}
                       >
                         <ChevronLeft className="h-4 w-4" />
                       </Button>
@@ -1122,7 +1122,7 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
                         size="sm"
                         onClick={() => table.nextPage()}
                         disabled={!table.getCanNextPage()}
-                        aria-label="Next page"
+                        aria-label={i18n.t('nextPage')}
                       >
                         <ChevronRight className="h-4 w-4" />
                       </Button>
