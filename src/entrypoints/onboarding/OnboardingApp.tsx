@@ -13,6 +13,7 @@ import {
   MousePointer,
   Pin,
   Puzzle,
+  Rocket,
   Settings,
   Shield,
   Zap,
@@ -134,6 +135,21 @@ const OnboardingApp: React.FC = () => {
   const onConsentChange = async (accepted: boolean) => {
     await setConsent(accepted)
     setCurrentSlide(0)
+  }
+
+  const handleOpenSidepanel = async () => {
+    try {
+      await browser.runtime.sendMessage({ type: MESSAGE_TYPES.OPEN_SIDEPANEL })
+
+      // Track sidepanel opening from onboarding
+      trackEvent(ANALYTICS_EVENTS.SIDE_PANEL_OPEN, {
+        trigger: 'onboarding_completion_button_press',
+      })
+
+      window.location.replace('https://en.wikipedia.org/wiki/Special:Random')
+    } catch (error) {
+      console.error('Failed to open sidepanel:', error)
+    }
   }
 
   const slides: OnboardingSlide[] = [
@@ -538,14 +554,17 @@ const OnboardingApp: React.FC = () => {
                       Previous
                     </Button>
                   )}
-                  <Button
-                    size="sm"
-                    onClick={handleNext}
-                    disabled={currentSlide === slides.length - 1}
-                  >
-                    Next
-                    <ChevronRight className="h-4 w-4 ml-2" />
-                  </Button>
+                  {currentSlide === slides.length - 1 ? (
+                    <Button size="sm" onClick={handleOpenSidepanel}>
+                      Start
+                      <Rocket className="h-4 w-4 ml-2" />
+                    </Button>
+                  ) : (
+                    <Button size="sm" onClick={handleNext}>
+                      Next
+                      <ChevronRight className="h-4 w-4 ml-2" />
+                    </Button>
+                  )}
                 </div>
               </div>
             </CardHeader>

@@ -12,16 +12,20 @@ test.describe('Sidepanel Core Functionality', () => {
     serviceWorker,
     openSidePanel,
   }) => {
-    const sidePanel = await openSidePanel()
-
-    await expect(sidePanel).toBeTruthy()
-
-    const testPage = await context.newPage()
-    await testPage.goto(`chrome-extension://${extensionId}/options.html`)
-
     // Dismiss consent modal
     await TestHelpers.dismissAnalyticsConsent(serviceWorker)
 
+    // Open sidepanel
+    const sidePanel = await openSidePanel()
+
+    expect(sidePanel).toBeTruthy()
+
+    // Now navigate the tab to an unsupported URL
+    const testPage = await context.newPage()
+    await testPage.goto('chrome://version/')
+    await testPage.bringToFront()
+
+    // The sidepanel should now show the unsupported URL message
     await expect(sidePanel.getByText(/unsupported url/i)).toBeVisible()
   })
 

@@ -61,6 +61,27 @@ export default defineBackground(() => {
     })
   }
 
+  // Helper to handle OPEN_SIDEPANEL messages from any context
+  const handleOpenSidepanel = async (
+    sender: Browser.runtime.MessageSender,
+    sendResponse: (response?: MessageResponse) => void,
+  ): Promise<void> => {
+    try {
+      const options: Partial<chrome.sidePanel.OpenOptions> = {}
+      if (sender.tab?.id) options.tabId = sender.tab.id
+      if (sender.tab?.windowId) options.windowId = sender.tab.windowId
+
+      await chrome.sidePanel.open(options as chrome.sidePanel.OpenOptions)
+      log.debug(
+        `Sidepanel opened for ${sender.tab?.id ? `tab ${sender.tab.id}` : 'current active tab'}`,
+      )
+      sendResponse({ success: true })
+    } catch (error) {
+      log.error(`Error opening sidepanel:`, error)
+      sendResponse({ success: false, error: (error as Error).message })
+    }
+  }
+
   // Inject content script into all eligible tabs
   const injectContentScriptToAllTabs = async () => {
     // Get all tabs
@@ -498,6 +519,11 @@ export default defineBackground(() => {
           })
           break
         }
+        case MESSAGE_TYPES.OPEN_SIDEPANEL: {
+          log.debug(`Content script in tab ${tabId} requested to open sidepanel`)
+          await handleOpenSidepanel(sender, sendResponse)
+          break
+        }
         default:
           log.debug('🔵 Unhandled content script message type:', message.type)
           log.warn(`Unhandled content script message type for tab ${tabId}: ${message.type}`)
@@ -609,6 +635,11 @@ export default defineBackground(() => {
             sendResponse(errorResult)
           }
         })
+        break
+      }
+      case MESSAGE_TYPES.OPEN_SIDEPANEL: {
+        log.debug('UI requested to open sidepanel')
+        await handleOpenSidepanel(sender, sendResponse)
         break
       }
       default:
