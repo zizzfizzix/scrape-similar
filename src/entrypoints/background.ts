@@ -92,10 +92,12 @@ export default defineBackground(() => {
     if (!contentScripts?.length) return
 
     // Get injectable tabs and script files
-    const injectableTabs = tabs.filter((tab) => tab.id && isInjectableUrl(tab.url))
+    const injectableTabs = tabs.filter(
+      (tab: Browser.tabs.Tab) => tab.id && isInjectableUrl(tab.url),
+    )
     const scriptFiles = contentScripts
-      .filter((script) => script.js?.length)
-      .flatMap((script) => script.js as string[])
+      .filter((script: Browser.runtime.ContentScript) => script.js?.length)
+      .flatMap((script: Browser.runtime.ContentScript) => script.js as string[])
 
     // Inject scripts into each eligible tab
     for (const tab of injectableTabs) {
@@ -117,7 +119,7 @@ export default defineBackground(() => {
   }
 
   // Initialize extension when installed or updated
-  browser.runtime.onInstalled.addListener(async (details) => {
+  browser.runtime.onInstalled.addListener(async (details: Browser.runtime.OnInstalledDetails) => {
     log.debug('Scrape Similar extension installed')
 
     // Initialize storage
@@ -174,9 +176,7 @@ export default defineBackground(() => {
     log.debug('Service worker is running')
 
     // Track extension installation/update
-    trackEvent(ANALYTICS_EVENTS.EXTENSION_INSTALLATION, {
-      extension_version: browser.runtime.getManifest().version,
-    })
+    trackEvent(ANALYTICS_EVENTS.EXTENSION_INSTALLATION)
   })
 
   // Inject content script into all tabs on browser startup (extension enabled)
@@ -187,7 +187,7 @@ export default defineBackground(() => {
   })
 
   // Handle action button clicks to toggle sidepanel
-  browser.action.onClicked.addListener(async (tab) => {
+  browser.action.onClicked.addListener(async (tab: Browser.tabs.Tab) => {
     if (!tab?.id) return
     const tabId = tab.id
 
@@ -241,88 +241,92 @@ export default defineBackground(() => {
   })
 
   // Handle context menu clicks
-  browser.contextMenus.onClicked.addListener(async (info, tab) => {
-    log.debug('Context menu clicked:', info, tab)
+  browser.contextMenus.onClicked.addListener(
+    async (info: Browser.contextMenus.OnClickData, tab: Browser.tabs.Tab) => {
+      log.debug('Context menu clicked:', info, tab)
 
-    if (!tab?.id) {
-      log.error('No tab ID available')
-      return
-    }
-    const targetTabId = tab.id
-
-    if (info.menuItemId === 'scrape-similar') {
-      log.debug(
-        'Scrape similar selected, opening side panel and triggering element details save...',
-      )
-
-      // Always open the side panel (safe even if already open)
-      try {
-        await browser.sidePanel.open({ tabId: targetTabId })
-        log.debug(`Side panel opened for tab ${targetTabId}`)
-      } catch (error) {
-        log.error(`Error opening side panel for tab ${targetTabId}:`, error)
+      if (!tab?.id) {
+        log.error('No tab ID available')
+        return
       }
+      const targetTabId = tab.id
 
-      // Tell content script to save element details to storage, then trigger highlight, then scrape
-      try {
-        const saveResp = await browser.tabs.sendMessage(targetTabId, {
-          type: MESSAGE_TYPES.SAVE_ELEMENT_DETAILS_TO_STORAGE,
-        })
-        if (!saveResp?.success)
-          throw new Error('Failed to save element details: ' + (saveResp?.error || 'Unknown error'))
-        log.debug('Told content script to save element details to storage.')
+      if (info.menuItemId === 'scrape-similar') {
+        log.debug(
+          'Scrape similar selected, opening side panel and triggering element details save...',
+        )
 
-        // Fetch the latest config from session storage
-        const sessionKey = getSessionKey(targetTabId)
-        const mutex = getStorageMutex(sessionKey)
-        const currentData =
-          (await mutex.runExclusive(async () =>
-            storage.getItem<SidePanelConfig>(`session:${sessionKey}`),
-          )) || {}
-        const config = currentData.currentScrapeConfig
-        if (config && config.mainSelector) {
-          // Highlight elements before scraping
-          const highlightResp = await browser.tabs.sendMessage(targetTabId, {
-            type: MESSAGE_TYPES.HIGHLIGHT_ELEMENTS,
-            payload: { selector: config.mainSelector },
-          })
-          // Store highlight result in session storage immediately
-          await applySidePanelDataUpdates(targetTabId, {
-            highlightMatchCount: highlightResp.matchCount,
-            highlightError: highlightResp.error,
-          })
-          if (
-            !highlightResp?.success ||
-            typeof highlightResp.matchCount !== 'number' ||
-            highlightResp.matchCount === 0
-          ) {
-            log.warn('Highlight failed or no elements found for selector, aborting scrape.')
-            return
-          }
-          // Send START_SCRAPE to content script
-          const scrapeResp = await browser.tabs.sendMessage(targetTabId, {
-            type: MESSAGE_TYPES.START_SCRAPE,
-            payload: config,
-          })
-          if (!scrapeResp?.success)
-            throw new Error('Failed to trigger scrape: ' + (scrapeResp?.error || 'Unknown error'))
-          log.debug('Scrape triggered successfully.')
-
-          // Track successful scrape initiation from context menu
-          trackEvent(ANALYTICS_EVENTS.SCRAPE_INITIATION_FROM_CONTEXT_MENU, {
-            has_config: !!config,
-          })
-        } else {
-          log.warn('No currentScrapeConfig found in session storage, cannot auto-scrape.')
+        // Always open the side panel (safe even if already open)
+        try {
+          await browser.sidePanel.open({ tabId: targetTabId })
+          log.debug(`Side panel opened for tab ${targetTabId}`)
+        } catch (error) {
+          log.error(`Error opening side panel for tab ${targetTabId}:`, error)
         }
-      } catch (error) {
-        log.error('Error in right-click scrape flow:', error)
+
+        // Tell content script to save element details to storage, then trigger highlight, then scrape
+        try {
+          const saveResp = await browser.tabs.sendMessage(targetTabId, {
+            type: MESSAGE_TYPES.SAVE_ELEMENT_DETAILS_TO_STORAGE,
+          })
+          if (!saveResp?.success)
+            throw new Error(
+              'Failed to save element details: ' + (saveResp?.error || 'Unknown error'),
+            )
+          log.debug('Told content script to save element details to storage.')
+
+          // Fetch the latest config from session storage
+          const sessionKey = getSessionKey(targetTabId)
+          const mutex = getStorageMutex(sessionKey)
+          const currentData =
+            (await mutex.runExclusive(async () =>
+              storage.getItem<SidePanelConfig>(`session:${sessionKey}`),
+            )) || {}
+          const config = currentData.currentScrapeConfig
+          if (config && config.mainSelector) {
+            // Highlight elements before scraping
+            const highlightResp = await browser.tabs.sendMessage(targetTabId, {
+              type: MESSAGE_TYPES.HIGHLIGHT_ELEMENTS,
+              payload: { selector: config.mainSelector },
+            })
+            // Store highlight result in session storage immediately
+            await applySidePanelDataUpdates(targetTabId, {
+              highlightMatchCount: highlightResp.matchCount,
+              highlightError: highlightResp.error,
+            })
+            if (
+              !highlightResp?.success ||
+              typeof highlightResp.matchCount !== 'number' ||
+              highlightResp.matchCount === 0
+            ) {
+              log.warn('Highlight failed or no elements found for selector, aborting scrape.')
+              return
+            }
+            // Send START_SCRAPE to content script
+            const scrapeResp = await browser.tabs.sendMessage(targetTabId, {
+              type: MESSAGE_TYPES.START_SCRAPE,
+              payload: config,
+            })
+            if (!scrapeResp?.success)
+              throw new Error('Failed to trigger scrape: ' + (scrapeResp?.error || 'Unknown error'))
+            log.debug('Scrape triggered successfully.')
+
+            // Track successful scrape initiation from context menu
+            trackEvent(ANALYTICS_EVENTS.SCRAPE_INITIATION_FROM_CONTEXT_MENU, {
+              has_config: !!config,
+            })
+          } else {
+            log.warn('No currentScrapeConfig found in session storage, cannot auto-scrape.')
+          }
+        } catch (error) {
+          log.error('Error in right-click scrape flow:', error)
+        }
       }
-    }
-  })
+    },
+  )
 
   // Listen for tab removal
-  browser.tabs.onRemoved.addListener(async (tabId) => {
+  browser.tabs.onRemoved.addListener(async (tabId: number) => {
     log.debug(`Tab removed: ${tabId}`)
     const sessionKey = getSessionKey(tabId)
     try {
@@ -334,58 +338,64 @@ export default defineBackground(() => {
   })
 
   // Handle messages from content scripts and UI
-  browser.runtime.onMessage.addListener((message: Message, sender, sendResponse) => {
-    log.debug('Background received message:', message, 'from sender:', sender)
+  browser.runtime.onMessage.addListener(
+    (
+      message: Message,
+      sender: Browser.runtime.MessageSender,
+      sendResponse: (response?: MessageResponse) => void,
+    ) => {
+      log.debug('Background received message:', message, 'from sender:', sender)
 
-    // Special logging for EXPORT_TO_SHEETS messages
-    if (message.type === MESSAGE_TYPES.EXPORT_TO_SHEETS) {
-      log.debug('🔥 EXPORT_TO_SHEETS message received:', {
-        messageType: message.type,
-        hasPayload: !!message.payload,
-        payloadKeys: message.payload ? Object.keys(message.payload) : [],
-        senderTab: sender.tab?.id || 'no-tab',
-        senderUrl: sender.url || 'no-url',
-      })
-    }
-
-    // Handle UPDATE_SIDEPANEL_DATA universally before delegating
-    if (message.type === MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA) {
-      const { tabId: explicitTabId, updates } = (message.payload ?? {}) as {
-        tabId?: number
-        updates: Partial<SidePanelConfig>
-      }
-      const targetId = explicitTabId ?? sender.tab?.id
-      if (typeof targetId !== 'number' || !updates) {
-        sendResponse({ success: false, error: 'tabId or sender.tab.id required' })
-        return true
-      }
-      applySidePanelDataUpdates(targetId, updates)
-        .then(() => sendResponse({ success: true }))
-        .catch((error) => {
-          log.error('Error updating sidepanel state:', error)
-          sendResponse({ success: false, error: (error as Error).message })
+      // Special logging for EXPORT_TO_SHEETS messages
+      if (message.type === MESSAGE_TYPES.EXPORT_TO_SHEETS) {
+        log.debug('🔥 EXPORT_TO_SHEETS message received:', {
+          messageType: message.type,
+          hasPayload: !!message.payload,
+          payloadKeys: message.payload ? Object.keys(message.payload) : [],
+          senderTab: sender.tab?.id || 'no-tab',
+          senderUrl: sender.url || 'no-url',
         })
-      return true // handled
-    }
+      }
 
-    // Handle messages from content script (always have sender.tab) vs UI
-    if (sender.tab && sender.tab.id) {
-      log.debug('🔵 Routing to handleContentScriptMessage - sender has tab:', sender.tab.id)
-      log.debug('🔵 Sender URL:', sender.url)
-      log.debug('🔵 Message type:', message.type)
-      handleContentScriptMessage(message, sender, sendResponse)
-    }
-    // Handle messages from UI (side panel, popup - no sender.tab)
-    else {
-      log.debug('🟡 Routing to handleUiMessage - no sender tab')
-      log.debug('🟡 Sender URL:', sender.url)
-      log.debug('🟡 Message type:', message.type)
-      handleUiMessage(message, sender, sendResponse)
-    }
+      // Handle UPDATE_SIDEPANEL_DATA universally before delegating
+      if (message.type === MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA) {
+        const { tabId: explicitTabId, updates } = (message.payload ?? {}) as {
+          tabId?: number
+          updates: Partial<SidePanelConfig>
+        }
+        const targetId = explicitTabId ?? sender.tab?.id
+        if (typeof targetId !== 'number' || !updates) {
+          sendResponse({ success: false, error: 'tabId or sender.tab.id required' })
+          return true
+        }
+        applySidePanelDataUpdates(targetId, updates)
+          .then(() => sendResponse({ success: true }))
+          .catch((error) => {
+            log.error('Error updating sidepanel state:', error)
+            sendResponse({ success: false, error: (error as Error).message })
+          })
+        return true // handled
+      }
 
-    // Return true to indicate async response possibility
-    return true
-  })
+      // Handle messages from content script (always have sender.tab) vs UI
+      if (sender.tab && sender.tab.id) {
+        log.debug('🔵 Routing to handleContentScriptMessage - sender has tab:', sender.tab.id)
+        log.debug('🔵 Sender URL:', sender.url)
+        log.debug('🔵 Message type:', message.type)
+        handleContentScriptMessage(message, sender, sendResponse)
+      }
+      // Handle messages from UI (side panel, popup - no sender.tab)
+      else {
+        log.debug('🟡 Routing to handleUiMessage - no sender tab')
+        log.debug('🟡 Sender URL:', sender.url)
+        log.debug('🟡 Message type:', message.type)
+        handleUiMessage(message, sender, sendResponse)
+      }
+
+      // Return true to indicate async response possibility
+      return true
+    },
+  )
 
   // Handle messages from content script
   const handleContentScriptMessage = async (
@@ -498,24 +508,26 @@ export default defineBackground(() => {
 
   // Shared auth token request handler
   const requestAuthToken = (): Promise<{ success: boolean; token?: string; error?: string }> =>
-    browser.identity.getAuthToken({ interactive: true }).then((result) => {
-      if (browser.runtime.lastError) {
-        const errorMessage = browser.runtime.lastError.message || 'Unknown OAuth error'
+    browser.identity
+      .getAuthToken({ interactive: true })
+      .then((result: Browser.identity.AuthTokenResult) => {
+        if (browser.runtime.lastError) {
+          const errorMessage = browser.runtime.lastError.message || 'Unknown OAuth error'
 
-        // Check if user cancelled the auth flow
-        if (errorMessage.includes('cancelled') || errorMessage.includes('denied')) {
-          return { success: false, error: 'Google authorization was cancelled' }
-        } else {
-          return { success: false, error: errorMessage }
+          // Check if user cancelled the auth flow
+          if (errorMessage.includes('cancelled') || errorMessage.includes('denied')) {
+            return { success: false, error: 'Google authorization was cancelled' }
+          } else {
+            return { success: false, error: errorMessage }
+          }
         }
-      }
 
-      if (!result?.token) {
-        return { success: false, error: 'Failed to get authentication token' }
-      }
+        if (!result?.token) {
+          return { success: false, error: 'Failed to get authentication token' }
+        }
 
-      return { success: true, token: result.token }
-    })
+        return { success: true, token: result.token }
+      })
 
   // Shared PostHog rate limiting configuration
   const configurePostHogRateLimit = (ph: PostHog, eventsPerSecond: number = 10) => {
