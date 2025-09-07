@@ -1,3 +1,4 @@
+import { MESSAGE_TYPES } from '@/utils/types'
 import pkg from '@@/package.json' with { type: 'json' }
 import {
   test as base,
@@ -250,44 +251,37 @@ export const test = base.extend<{
       const page = await context.newPage()
       await page.goto(transitionUrl)
 
-      // Register a one-off listener that will open the side-panel once triggered.
-      await serviceWorker.evaluate(() => {
-        const handler = (msg: string, sender: chrome.runtime.MessageSender) => {
-          if (msg === 'openSidePanelFromTest') {
-            if (sender.tab?.id !== undefined && sender.tab.windowId !== undefined) {
-              chrome.sidePanel.open({ tabId: sender.tab.id, windowId: sender.tab.windowId })
-            }
-            chrome.runtime.onMessage.removeListener(handler)
-          }
-        }
-        chrome.runtime.onMessage.addListener(handler)
-      })
-
       // Inject a button into the page that, when clicked, sends the trigger message.
-      await serviceWorker.evaluate(async (tabUrl) => {
-        const [transitionTab] = await chrome.tabs.query({ url: tabUrl })
-        if (!transitionTab?.id) throw new Error('No active tab found')
+      await serviceWorker.evaluate(
+        async (arg) => {
+          const { tabUrl, MESSAGE_TYPES } = arg
+          console.log(JSON.stringify(arg))
+          const [transitionTab] = await chrome.tabs.query({ url: tabUrl })
+          if (!transitionTab?.id) throw new Error('No active tab found')
 
-        await chrome.scripting.executeScript({
-          target: { tabId: transitionTab.id },
-          func: () => {
-            if (document.getElementById('openSidePanelBtn')) return
+          await chrome.scripting.executeScript({
+            target: { tabId: transitionTab.id },
+            func: (MESSAGE_TYPES) => {
+              if (document.getElementById('openSidePanelBtn')) return
 
-            const btn = document.createElement('button')
-            btn.id = 'openSidePanelBtn'
-            btn.textContent = 'Open Side Panel'
-            btn.style.position = 'fixed'
-            btn.style.bottom = '10px'
-            btn.style.right = '10px'
-            btn.style.zIndex = '2147483647'
-            btn.addEventListener('click', () => {
-              chrome.runtime.sendMessage('openSidePanelFromTest')
-            })
+              const btn = document.createElement('button')
+              btn.id = 'openSidePanelBtn'
+              btn.textContent = 'Open Side Panel'
+              btn.style.position = 'fixed'
+              btn.style.bottom = '10px'
+              btn.style.right = '10px'
+              btn.style.zIndex = '2147483647'
+              btn.addEventListener('click', () => {
+                chrome.runtime.sendMessage({ type: MESSAGE_TYPES.OPEN_SIDEPANEL })
+              })
 
-            document.body.appendChild(btn)
-          },
-        })
-      }, page.url())
+              document.body.appendChild(btn)
+            },
+            args: [MESSAGE_TYPES],
+          })
+        },
+        { tabUrl: page.url(), MESSAGE_TYPES },
+      )
 
       // Get a handle for the sidepanel when it appears.
       const sidePanelPage = context.waitForEvent('page', {

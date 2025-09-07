@@ -96,6 +96,10 @@ async function initializePostHog(): Promise<void> {
           recordCrossOriginIframes: false, // Disable for security in extensions
           maskTextSelector: '.ph_hidden', // masks all elements with the class "ph_hidden"
         },
+        // Required to capture exceptions from a browser extension
+        error_tracking: {
+          captureExtensionExceptions: true,
+        },
         property_denylist: [
           '$current_url',
           '$referrer',

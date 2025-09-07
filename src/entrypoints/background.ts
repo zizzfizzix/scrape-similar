@@ -61,6 +61,27 @@ export default defineBackground(() => {
     })
   }
 
+  // Helper to handle OPEN_SIDEPANEL messages from any context
+  const handleOpenSidepanel = async (
+    sender: Browser.runtime.MessageSender,
+    sendResponse: (response?: MessageResponse) => void,
+  ): Promise<void> => {
+    try {
+      const options: Partial<chrome.sidePanel.OpenOptions> = {}
+      if (sender.tab?.id) options.tabId = sender.tab.id
+      if (sender.tab?.windowId) options.windowId = sender.tab.windowId
+
+      await chrome.sidePanel.open(options as chrome.sidePanel.OpenOptions)
+      log.debug(
+        `Sidepanel opened for ${sender.tab?.id ? `tab ${sender.tab.id}` : 'current active tab'}`,
+      )
+      sendResponse({ success: true })
+    } catch (error) {
+      log.error(`Error opening sidepanel:`, error)
+      sendResponse({ success: false, error: (error as Error).message })
+    }
+  }
+
   // Inject content script into all eligible tabs
   const injectContentScriptToAllTabs = async () => {
     // Get all tabs
@@ -406,96 +427,12 @@ export default defineBackground(() => {
           break
         }
         case MESSAGE_TYPES.EXPORT_TO_SHEETS: {
-          log.debug('🔵 Processing EXPORT_TO_SHEETS in handleContentScriptMessage')
-
-          // Require filename in payload
-          const { filename, scrapedData, columnOrder, columnKeys } = message?.payload as {
-            filename: string
-            scrapedData: ScrapedData
-            columnOrder?: string[]
-            columnKeys?: string[]
-          }
-
-          log.debug('🔵 Payload validation:', {
-            hasFilename: !!filename,
-            filenameLength: filename?.length || 0,
-            hasScrapedData: !!scrapedData,
-            scrapedDataLength: scrapedData?.length || 0,
-            isArray: Array.isArray(scrapedData),
-          })
-
-          if (!filename || !filename.trim()) {
-            log.error('🔵 Filename validation failed:', filename)
-            sendResponse({ success: false, error: 'Filename is required for export' })
-            return
-          }
-          if (!scrapedData || !Array.isArray(scrapedData) || scrapedData.length === 0) {
-            log.error('🔵 ScrapedData validation failed:', scrapedData)
-            sendResponse({ success: false, error: 'No data to export' })
-            return
-          }
-
-          log.debug('🔵 Validation passed, requesting auth token')
-          log.debug('Requesting export to sheets with filename:', filename)
-          browser.identity.getAuthToken({ interactive: true }, async (token) => {
-            log.debug('🔵 Auth token callback executed:', {
-              hasError: !!browser.runtime.lastError,
-              hasToken: !!token,
-              tokenLength: token?.length || 0,
-            })
-
-            if (browser.runtime.lastError) {
-              log.error('🔵 Auth token error:', browser.runtime.lastError)
-              log.error('Error getting auth token:', browser.runtime.lastError)
-              const errorMessage = browser.runtime.lastError.message || 'Unknown OAuth error'
-
-              // Check if user cancelled the auth flow
-              if (
-                errorMessage.includes('cancelled') ||
-                errorMessage.includes('denied') ||
-                errorMessage.includes('User cancelled')
-              ) {
-                sendResponse({
-                  success: false,
-                  error: 'Google authorization was cancelled',
-                })
-              } else {
-                sendResponse({
-                  success: false,
-                  error: errorMessage,
-                })
-              }
-              return
-            }
-            if (!token) {
-              log.error('🔵 No token received')
-              sendResponse({
-                success: false,
-                error: 'Failed to get authentication token',
-              })
-              return
-            }
-
-            log.debug('🔵 Token received, calling exportToGoogleSheets')
-            try {
-              const exportResult = await exportToGoogleSheets(
-                token.toString(),
-                scrapedData,
-                filename,
-                columnOrder,
-                columnKeys,
-              )
-              log.debug('🔵 Export result:', exportResult)
-              sendResponse(exportResult)
-            } catch (error) {
-              log.error('🔵 Export error:', error)
-              const errorResult = {
-                success: false,
-                error: (error as Error).message,
-              }
-              sendResponse(errorResult)
-            }
-          })
+          await handleExportToSheets(message.payload, sendResponse, '🔵')
+          break
+        }
+        case MESSAGE_TYPES.OPEN_SIDEPANEL: {
+          log.debug(`Content script in tab ${tabId} requested to open sidepanel`)
+          await handleOpenSidepanel(sender, sendResponse)
           break
         }
         default:
@@ -519,102 +456,123 @@ export default defineBackground(() => {
 
     switch (message.type) {
       case MESSAGE_TYPES.EXPORT_TO_SHEETS: {
-        log.debug('🟡 Processing EXPORT_TO_SHEETS in handleUiMessage')
-
-        // Require filename in payload
-        const { filename, scrapedData, columnOrder, columnKeys } = message?.payload as {
-          filename: string
-          scrapedData: ScrapedData
-          columnOrder?: string[]
-          columnKeys?: string[]
-        }
-
-        log.debug('🟡 Payload validation:', {
-          hasFilename: !!filename,
-          filenameLength: filename?.length || 0,
-          hasScrapedData: !!scrapedData,
-          scrapedDataLength: scrapedData?.length || 0,
-          isArray: Array.isArray(scrapedData),
-        })
-
-        if (!filename || !filename.trim()) {
-          log.error('🟡 Filename validation failed:', filename)
-          sendResponse({ success: false, error: 'Filename is required for export' })
-          return
-        }
-        if (!scrapedData || !Array.isArray(scrapedData) || scrapedData.length === 0) {
-          log.error('🟡 ScrapedData validation failed:', scrapedData)
-          sendResponse({ success: false, error: 'No data to export' })
-          return
-        }
-
-        log.debug('🟡 Validation passed, requesting auth token')
-        log.debug('Requesting export to sheets with filename:', filename)
-        browser.identity.getAuthToken({ interactive: true }, async (token) => {
-          log.debug('🟡 Auth token callback executed:', {
-            hasError: !!browser.runtime.lastError,
-            hasToken: !!token,
-            tokenLength: token?.length || 0,
-          })
-
-          if (browser.runtime.lastError) {
-            log.error('🟡 Auth token error:', browser.runtime.lastError)
-            log.error('Error getting auth token:', browser.runtime.lastError)
-            const errorMessage = browser.runtime.lastError.message || 'Unknown OAuth error'
-
-            // Check if user cancelled the auth flow
-            if (
-              errorMessage.includes('cancelled') ||
-              errorMessage.includes('denied') ||
-              errorMessage.includes('User cancelled')
-            ) {
-              sendResponse({
-                success: false,
-                error: 'Google authorization was cancelled',
-              })
-            } else {
-              sendResponse({
-                success: false,
-                error: errorMessage,
-              })
-            }
-            return
-          }
-          if (!token) {
-            log.error('🟡 No token received')
-            sendResponse({
-              success: false,
-              error: 'Failed to get authentication token',
-            })
-            return
-          }
-
-          log.debug('🟡 Token received, calling exportToGoogleSheets')
-          try {
-            const exportResult = await exportToGoogleSheets(
-              token.toString(),
-              scrapedData,
-              filename,
-              columnOrder,
-              columnKeys,
-            )
-            log.debug('🟡 Export result:', exportResult)
-            sendResponse(exportResult)
-          } catch (error) {
-            log.error('🟡 Export error:', error)
-            const errorResult = {
-              success: false,
-              error: (error as Error).message,
-            }
-            sendResponse(errorResult)
-          }
-        })
+        await handleExportToSheets(message.payload, sendResponse, '🟡')
+        break
+      }
+      case MESSAGE_TYPES.OPEN_SIDEPANEL: {
+        log.debug('UI requested to open sidepanel')
+        await handleOpenSidepanel(sender, sendResponse)
         break
       }
       default:
         log.debug('🟡 Unhandled UI message type:', message.type)
         log.warn(`Unhandled UI message type: ${message.type}`)
         sendResponse({ warning: 'Unhandled message type' })
+    }
+  }
+
+  // Shared payload validation for EXPORT_TO_SHEETS
+  const validateExportPayload = (
+    payload: any,
+  ): {
+    isValid: boolean
+    error?: string
+    data?: {
+      filename: string
+      scrapedData: ScrapedData
+      columnOrder?: string[]
+      columnKeys?: string[]
+    }
+  } => {
+    const { filename, scrapedData, columnOrder, columnKeys } = payload || {}
+
+    if (!filename || !filename.trim()) {
+      return { isValid: false, error: 'Filename is required for export' }
+    }
+    if (!scrapedData || !Array.isArray(scrapedData) || scrapedData.length === 0) {
+      return { isValid: false, error: 'No data to export' }
+    }
+
+    return { isValid: true, data: { filename, scrapedData, columnOrder, columnKeys } }
+  }
+
+  // Shared auth token request handler
+  const requestAuthToken = (): Promise<{ success: boolean; token?: string; error?: string }> =>
+    browser.identity.getAuthToken({ interactive: true }).then((result) => {
+      if (browser.runtime.lastError) {
+        const errorMessage = browser.runtime.lastError.message || 'Unknown OAuth error'
+
+        // Check if user cancelled the auth flow
+        if (errorMessage.includes('cancelled') || errorMessage.includes('denied')) {
+          return { success: false, error: 'Google authorization was cancelled' }
+        } else {
+          return { success: false, error: errorMessage }
+        }
+      }
+
+      if (!result?.token) {
+        return { success: false, error: 'Failed to get authentication token' }
+      }
+
+      return { success: true, token: result.token }
+    })
+
+  // Shared PostHog rate limiting configuration
+  const configurePostHogRateLimit = (ph: PostHog, eventsPerSecond: number = 10) => {
+    ph.set_config({
+      rate_limiting: {
+        events_per_second: eventsPerSecond,
+        events_burst_limit: eventsPerSecond * 10,
+      },
+    })
+  }
+
+  // Shared EXPORT_TO_SHEETS handler
+  const handleExportToSheets = async (
+    payload: any,
+    sendResponse: (response?: MessageResponse) => void,
+    logPrefix: string = '',
+  ): Promise<void> => {
+    log.debug(`${logPrefix} Processing EXPORT_TO_SHEETS`)
+
+    const validation = validateExportPayload(payload)
+    if (!validation.isValid) {
+      log.error(`${logPrefix} Validation failed:`, validation.error)
+      sendResponse({ success: false, error: validation.error || 'Validation failed' })
+      return
+    }
+
+    const { filename, scrapedData, columnOrder, columnKeys } = validation.data!
+
+    log.debug(`${logPrefix} Validation passed, requesting auth token`)
+
+    try {
+      const authResult = await requestAuthToken()
+      if (!authResult.success || !authResult.token) {
+        log.error(`${logPrefix} Auth token error:`, authResult.error)
+        sendResponse({ success: false, error: authResult.error || 'Authentication failed' })
+        return
+      }
+
+      log.debug(`${logPrefix} Token received, calling exportToGoogleSheets`)
+      const exportResult = await exportToGoogleSheets(
+        authResult.token,
+        scrapedData,
+        filename,
+        columnOrder,
+        columnKeys,
+      )
+
+      log.debug(`${logPrefix} Export result:`, exportResult)
+
+      if (exportResult.success) {
+        sendResponse({ success: true, url: exportResult.url })
+      } else {
+        sendResponse({ success: false, error: exportResult.error || 'Export failed' })
+      }
+    } catch (error) {
+      log.error(`${logPrefix} Export error:`, error)
+      sendResponse({ success: false, error: (error as Error).message })
     }
   }
 
@@ -782,12 +740,7 @@ export default defineBackground(() => {
         }
 
         // Set rate limiting to match the queue length temporarily so PostHog doesn't drop events
-        ph.set_config({
-          rate_limiting: {
-            events_per_second: queue.length,
-            events_burst_limit: queue.length * 10,
-          },
-        })
+        configurePostHogRateLimit(ph, queue.length)
 
         log.debug(`Flushing ${queue.length} queued events...`)
 
@@ -811,12 +764,7 @@ export default defineBackground(() => {
         }
 
         // Reset rate limiting to default
-        ph.set_config({
-          rate_limiting: {
-            events_per_second: 10,
-            events_burst_limit: 10 * 10,
-          },
-        })
+        configurePostHogRateLimit(ph)
 
         // Clear the queue after successful processing
         await storage.setItem(`local:${EVENT_QUEUE_STORAGE_KEY}`, [])
@@ -825,12 +773,7 @@ export default defineBackground(() => {
         const ph = await getPostHogBackground()
 
         if (ph && ph instanceof PostHog) {
-          ph.set_config({
-            rate_limiting: {
-              events_per_second: 10,
-              events_burst_limit: 10 * 10,
-            },
-          })
+          configurePostHogRateLimit(ph)
         }
 
         log.error('Error flushing queued events:', error)

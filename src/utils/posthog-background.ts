@@ -79,6 +79,10 @@ export const getPostHogBackground = async (): Promise<PostHog | null> => {
         },
         api_host: apiHost,
         persistence: 'localStorage',
+        // Required to capture exceptions from a browser extension
+        error_tracking: {
+          captureExtensionExceptions: true,
+        },
         // Not applicable in service worker
         disable_session_recording: true,
         disable_surveys: true,

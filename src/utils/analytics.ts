@@ -1,6 +1,7 @@
 // Analytics utility for tracking events with environment property
 // Can be used in background scripts, content scripts, and UI contexts
 
+import { version } from '@@/package.json' with { type: 'json' }
 import { Mutex } from 'async-mutex'
 import log from 'loglevel'
 
@@ -127,6 +128,7 @@ export const trackEvent = async (
       ...(environment && { environment }),
       // Don't override extension_context if it's already set e.g. from content script
       extension_context: properties.extension_context || context,
+      extension_version: version,
     }
 
     if (consentState === undefined) {
