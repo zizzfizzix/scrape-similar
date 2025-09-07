@@ -458,11 +458,10 @@ export default defineBackground(() => {
 
           log.debug('🔵 Validation passed, requesting auth token')
           log.debug('Requesting export to sheets with filename:', filename)
-          browser.identity.getAuthToken({ interactive: true }, async (token) => {
+          browser.identity.getAuthToken({ interactive: true }, async (result) => {
             log.debug('🔵 Auth token callback executed:', {
               hasError: !!browser.runtime.lastError,
-              hasToken: !!token,
-              tokenLength: token?.length || 0,
+              hasToken: !!result?.token,
             })
 
             if (browser.runtime.lastError) {
@@ -488,7 +487,7 @@ export default defineBackground(() => {
               }
               return
             }
-            if (!token) {
+            if (!result?.token) {
               log.error('🔵 No token received')
               sendResponse({
                 success: false,
@@ -500,21 +499,23 @@ export default defineBackground(() => {
             log.debug('🔵 Token received, calling exportToGoogleSheets')
             try {
               const exportResult = await exportToGoogleSheets(
-                token.toString(),
+                result.token,
                 scrapedData,
                 filename,
                 columnOrder,
                 columnKeys,
               )
               log.debug('🔵 Export result:', exportResult)
-              sendResponse(exportResult)
+
+              // Convert ExportResult to MessageResponse
+              if (exportResult.success) {
+                sendResponse({ success: true })
+              } else {
+                sendResponse({ success: false, error: exportResult.error || 'Export failed' })
+              }
             } catch (error) {
               log.error('🔵 Export error:', error)
-              const errorResult = {
-                success: false,
-                error: (error as Error).message,
-              }
-              sendResponse(errorResult)
+              sendResponse({ success: false, error: (error as Error).message })
             }
           })
           break
@@ -576,11 +577,10 @@ export default defineBackground(() => {
 
         log.debug('🟡 Validation passed, requesting auth token')
         log.debug('Requesting export to sheets with filename:', filename)
-        browser.identity.getAuthToken({ interactive: true }, async (token) => {
+        browser.identity.getAuthToken({ interactive: true }, async (result) => {
           log.debug('🟡 Auth token callback executed:', {
             hasError: !!browser.runtime.lastError,
-            hasToken: !!token,
-            tokenLength: token?.length || 0,
+            hasToken: !!result?.token,
           })
 
           if (browser.runtime.lastError) {
@@ -606,7 +606,7 @@ export default defineBackground(() => {
             }
             return
           }
-          if (!token) {
+          if (!result?.token) {
             log.error('🟡 No token received')
             sendResponse({
               success: false,
@@ -618,21 +618,23 @@ export default defineBackground(() => {
           log.debug('🟡 Token received, calling exportToGoogleSheets')
           try {
             const exportResult = await exportToGoogleSheets(
-              token.toString(),
+              result.token,
               scrapedData,
               filename,
               columnOrder,
               columnKeys,
             )
             log.debug('🟡 Export result:', exportResult)
-            sendResponse(exportResult)
+
+            // Convert ExportResult to MessageResponse
+            if (exportResult.success) {
+              sendResponse({ success: true })
+            } else {
+              sendResponse({ success: false, error: exportResult.error || 'Export failed' })
+            }
           } catch (error) {
             log.error('🟡 Export error:', error)
-            const errorResult = {
-              success: false,
-              error: (error as Error).message,
-            }
-            sendResponse(errorResult)
+            sendResponse({ success: false, error: (error as Error).message })
           }
         })
         break
