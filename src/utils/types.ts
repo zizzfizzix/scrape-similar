@@ -83,6 +83,10 @@ export type MessageResponse =
       success: false
       warning: string
     }
+  | {
+      success: true
+      url: string
+    }
 
 // Message types
 export const MESSAGE_TYPES = {
