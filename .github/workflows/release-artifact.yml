@@ -1,0 +1,58 @@
+name: Build and Upload Release Assets
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build-and-upload:
+    environment: production
+    env:
+      NODE_ENV: production
+      VITE_PUBLIC_POSTHOG_KEY: ${{ secrets.VITE_PUBLIC_POSTHOG_KEY }}
+      VITE_PUBLIC_POSTHOG_HOST: ${{ secrets.VITE_PUBLIC_POSTHOG_HOST }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        name: Install pnpm
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build and create extension package
+        run: pnpm zip
+
+      - name: Get version number
+        id: get_version_number
+        run: echo "version_number=${GITHUB_REF_NAME//v/}" >> $GITHUB_OUTPUT
+
+      - name: Upload Release Asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            .output/scrape-similar-${{ steps.get_version_number.outputs.version_number }}-chrome.zip
+          append_body: |
+
+            ## Installation
+
+            Download the `scrape-similar-${{ steps.get_version_number.outputs.version_number }}-chrome.zip` file and install it manually in Chrome at `chrome://extensions/`.
+
+            ## Support
+
+            If you encounter any issues or have questions, please [open an issue](https://github.com/${{ github.repository }}/issues) on GitHub.
