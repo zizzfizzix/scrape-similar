@@ -1,0 +1,56 @@
+{
+  "release-type": "node",
+  "include-v-in-tag": true,
+  "changelog-sections": [
+    {
+      "type": "feat",
+      "section": "🚀 New Features"
+    },
+    {
+      "type": "fix",
+      "section": "🐛 Bug Fixes"
+    },
+    {
+      "type": "docs",
+      "section": "📚 Documentation"
+    },
+    {
+      "type": "style",
+      "section": "🎨 Code Style"
+    },
+    {
+      "type": "refactor",
+      "section": "🔧 Refactoring"
+    },
+    {
+      "type": "perf",
+      "section": "⚡ Performance Improvements"
+    },
+    {
+      "type": "test",
+      "section": "🧪 Tests"
+    },
+    {
+      "type": "build",
+      "section": "🏗️ Build System"
+    },
+    {
+      "type": "ci",
+      "section": "🔄 CI/CD"
+    },
+    {
+      "type": "chore",
+      "section": "🔧 Maintenance"
+    },
+    {
+      "type": "revert",
+      "section": "↩️ Reverts"
+    }
+  ],
+  "pull-request-title-pattern": "chore: release ${version}",
+  "pull-request-header": "This PR was generated automatically by [release-please](https://github.com/googleapis/release-please).",
+  "separate-pull-requests": false,
+  "tag-separator": "",
+  "bump-minor-pre-major": true,
+  "bump-patch-for-minor-pre-major": true
+}
