@@ -1,9 +1,7 @@
 name: E2E Tests
 on:
-  push:
-    branches: [main, master]
   pull_request:
-    branches: [main, master]
+    branches: [main]
 jobs:
   e2e-tests:
     environment: test
