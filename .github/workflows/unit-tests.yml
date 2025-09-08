@@ -6,6 +6,8 @@ on:
 
 jobs:
   unit-tests:
+    # Skip release PRs created by release-please
+    if: ${{ !startsWith(github.head_ref, 'release-please--') }}
     environment: test
     env:
       NODE_ENV: test
