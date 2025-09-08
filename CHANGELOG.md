@@ -5,5 +5,4 @@
 
 ### Bug Fixes
 
-* google sheets export doesn't work when google account language isn't English ([b1ce6e1](https://github.com/zizzfizzix/scrape-similar/commit/b1ce6e1782e0f5459e7b69a8e071f02a5b6562f6))
 * google sheets export doesn't work when google account language isn't English ([5bc057f](https://github.com/zizzfizzix/scrape-similar/commit/5bc057f3905b7d0c0f6d0c9d68d8a7247f344f65))
