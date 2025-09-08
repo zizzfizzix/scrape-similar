@@ -47,7 +47,8 @@ jobs:
         with:
           files: |
             .output/scrape-similar-${{ steps.get_version_number.outputs.version_number }}-chrome.zip
-          append_body: |
+          append_body: true
+          body: |
 
             ## Installation
 
