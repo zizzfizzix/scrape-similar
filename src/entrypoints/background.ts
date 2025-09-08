@@ -660,11 +660,11 @@ export default defineBackground(() => {
 
       // Update values in the sheet first
       await makeRequest(
-        `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/Sheet1!A1:append?valueInputOption=USER_ENTERED`,
+        `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/A1:append?valueInputOption=USER_ENTERED`,
         {
           method: 'POST',
           body: JSON.stringify({
-            range: 'Sheet1!A1',
+            range: 'A1',
             majorDimension: 'ROWS',
             values,
           }),
