@@ -341,12 +341,16 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
     }, 150)
   }
 
-  // Handle main selector change with autosuggest
+  // Sanitize to single-line by replacing CR/LF with a single space
+  const sanitizeToSingleLine = (value: string) => value.replace(/[\r\n]+/g, ' ')
+
+  // Handle main selector change with autosuggest (newline-less)
   const handleMainSelectorChange = (value: string) => {
-    setMainSelectorDraft(value)
-    if (!isAutosuggestOpen && value.length > 0) {
+    const sanitized = sanitizeToSingleLine(value)
+    setMainSelectorDraft(sanitized)
+    if (!isAutosuggestOpen && sanitized.length > 0) {
       setIsAutosuggestOpen(true)
-    } else if (value.length === 0) {
+    } else if (sanitized.length === 0) {
       setIsAutosuggestOpen(false)
     }
   }
@@ -416,8 +420,9 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
     }
 
     if (e.key === 'Enter') {
+      // Always prevent newline insertion
+      e.preventDefault()
       if (isAutosuggestOpen && selectedAutosuggestIndex >= 0) {
-        e.preventDefault()
         const preset = filteredPresetsForAutosuggest[selectedAutosuggestIndex]
         if (preset) handleAutosuggestSelect(preset)
         return
@@ -630,6 +635,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
           <Textarea
             id="mainSelector"
             className="field-sizing-content resize-none overflow-hidden min-h-9"
+            rows={1}
             value={mainSelectorDraft}
             onChange={(e) => handleMainSelectorChange(e.target.value)}
             onFocus={handleMainSelectorFocus}
