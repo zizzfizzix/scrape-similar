@@ -62,18 +62,12 @@ interface ConfigFormProps {
   rescrapeAdvised?: boolean
 }
 
-// Helper to check if a preset is a system preset
-const isSystemPreset = (preset: Preset | null | undefined): boolean => {
-  return !!preset && SYSTEM_PRESETS.some((sys) => sys.id === preset.id)
-}
-
 const ConfigForm: React.FC<ConfigFormProps> = ({
   config,
   onChange,
   onScrape,
   onHighlight,
   isLoading,
-  initialOptions,
   presets,
   onLoadPreset,
   onSavePreset,

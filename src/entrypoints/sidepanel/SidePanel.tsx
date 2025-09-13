@@ -596,11 +596,10 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
     }
 
     // Track preset loaded event
-    const isSystemPreset = SYSTEM_PRESETS.some((p) => p.id === preset.id)
     trackEvent(ANALYTICS_EVENTS.PRESET_LOAD, {
-      type: isSystemPreset ? 'system' : 'user',
-      preset_name: isSystemPreset ? preset.name : null,
-      preset_id: isSystemPreset ? preset.id : null,
+      type: isSystemPreset(preset) ? 'system' : 'user',
+      preset_name: isSystemPreset(preset) ? preset.name : null,
+      preset_id: isSystemPreset(preset) ? preset.id : null,
     })
   }
 
@@ -633,9 +632,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
 
   // Hide system preset or delete user preset
   const handleDeletePreset = async (preset: Preset) => {
-    // Check if this is a system preset
-    const isSystemPreset = SYSTEM_PRESETS.some((p) => p.id === preset.id)
-    if (isSystemPreset) {
+    if (isSystemPreset(preset)) {
       // Hide system preset by setting enabled=false in status map
       const statusMap = await getSystemPresetStatus()
       statusMap[preset.id] = false
