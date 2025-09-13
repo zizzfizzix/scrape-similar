@@ -27,7 +27,6 @@ import log from 'loglevel'
 import {
   Check,
   ChevronsUpDown,
-  EyeOff,
   HelpCircle,
   Info,
   OctagonAlert,
@@ -35,7 +34,6 @@ import {
   Plus,
   RefreshCcw,
   SquareCheckBig,
-  Trash2,
   Wand,
   X,
 } from 'lucide-react'
@@ -102,6 +100,13 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [presetToDelete, setPresetToDelete] = useState<Preset | null>(null)
 
+  // State for main selector autosuggest (using Command component)
+  const [isAutosuggestOpen, setIsAutosuggestOpen] = useState(false)
+  const autosuggestRef = useRef<HTMLDivElement | null>(null)
+  const commandRef = useRef<HTMLDivElement | null>(null)
+  const [selectedAutosuggestIndex, setSelectedAutosuggestIndex] = useState<number>(-1)
+  const [cmdkSelectedId, setCmdkSelectedId] = useState<string | undefined>(undefined)
+
   // Add ref for main selector input
   const mainSelectorInputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -116,6 +121,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
   // Keep draft in sync with external changes (e.g. preset load, storage sync)
   useEffect(() => {
     setMainSelectorDraft(config.mainSelector)
+    setIsAutosuggestOpen(false)
   }, [config.mainSelector])
 
   // Add ref and state for dynamic end adornment width
@@ -309,6 +315,141 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
     setPresetToDelete(null)
   }
 
+  // Handle autosuggest preset selection
+  const handleAutosuggestSelect = (preset: Preset) => {
+    setMainSelectorDraft(preset.config.mainSelector)
+    commitMainSelector(preset.config.mainSelector)
+    setIsAutosuggestOpen(false)
+    mainSelectorInputRef.current?.focus()
+  }
+
+  // Handle main selector focus
+  const handleMainSelectorFocus = () => {
+    setIsAutosuggestOpen(true)
+  }
+
+  // Handle main selector blur with delay to allow for clicks
+  const handleMainSelectorBlur = () => {
+    setTimeout(() => {
+      // If focus moved into the autosuggest dropdown, keep it open
+      const active = document.activeElement as HTMLElement | null
+      const movedIntoDropdown = !!(active && autosuggestRef.current?.contains(active))
+      if (movedIntoDropdown) return
+
+      setIsAutosuggestOpen(false)
+      commitMainSelector(mainSelectorDraft)
+    }, 150)
+  }
+
+  // Handle main selector change with autosuggest
+  const handleMainSelectorChange = (value: string) => {
+    setMainSelectorDraft(value)
+    if (!isAutosuggestOpen && value.length > 0) {
+      setIsAutosuggestOpen(true)
+    } else if (value.length === 0) {
+      setIsAutosuggestOpen(false)
+    }
+  }
+
+  // Presets filtered by the main selector draft (acts as search term)
+  const filteredPresetsForAutosuggest = React.useMemo(() => {
+    const query = (mainSelectorDraft || '').toLowerCase().trim()
+    if (!query) return presets
+    return presets.filter((p) => {
+      const name = p.name.toLowerCase()
+      const xpath = (p.config.mainSelector || '').toLowerCase()
+      return name.includes(query) || xpath.includes(query)
+    })
+  }, [presets, mainSelectorDraft])
+
+  // Handle keyboard navigation from textarea while dropdown is open/closed
+  const handleAutosuggestKeyDown = (e: React.KeyboardEvent) => {
+    const ensureVisible = (index: number) => {
+      const items = autosuggestRef.current?.querySelectorAll('[cmdk-item]')
+      const el = items && items[index] ? (items[index] as HTMLElement) : null
+      if (el) el.scrollIntoView({ block: 'nearest' })
+    }
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      if (!isAutosuggestOpen) {
+        setIsAutosuggestOpen(true)
+        // after open, focus command root so cmdk handles keys
+        requestAnimationFrame(() => {
+          commandRef.current?.focus()
+          setSelectedAutosuggestIndex(0)
+          setCmdkSelectedId(filteredPresetsForAutosuggest[0]?.id ?? undefined)
+          ensureVisible(0)
+        })
+      } else if (filteredPresetsForAutosuggest.length > 0) {
+        setSelectedAutosuggestIndex((prev) => {
+          const next = prev < filteredPresetsForAutosuggest.length - 1 ? prev + 1 : 0
+          setCmdkSelectedId(filteredPresetsForAutosuggest[next]?.id)
+          requestAnimationFrame(() => ensureVisible(next))
+          return next
+        })
+      }
+      return
+    }
+
+    if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      if (!isAutosuggestOpen) {
+        setIsAutosuggestOpen(true)
+        requestAnimationFrame(() => {
+          commandRef.current?.focus()
+          const last = Math.max(0, filteredPresetsForAutosuggest.length - 1)
+          setSelectedAutosuggestIndex(last)
+          setCmdkSelectedId(filteredPresetsForAutosuggest[last]?.id ?? undefined)
+          ensureVisible(last)
+        })
+      } else if (filteredPresetsForAutosuggest.length > 0) {
+        setSelectedAutosuggestIndex((prev) => {
+          const lastIdx = filteredPresetsForAutosuggest.length - 1
+          const next = prev > 0 ? prev - 1 : lastIdx
+          setCmdkSelectedId(filteredPresetsForAutosuggest[next]?.id)
+          requestAnimationFrame(() => ensureVisible(next))
+          return next
+        })
+      }
+      return
+    }
+
+    if (e.key === 'Enter') {
+      if (isAutosuggestOpen && selectedAutosuggestIndex >= 0) {
+        e.preventDefault()
+        const preset = filteredPresetsForAutosuggest[selectedAutosuggestIndex]
+        if (preset) handleAutosuggestSelect(preset)
+        return
+      }
+      if (!isAutosuggestOpen && mainSelectorDraft.trim()) {
+        commitMainSelector(mainSelectorDraft)
+        mainSelectorInputRef.current?.blur()
+        onScrape()
+      }
+      return
+    }
+
+    if (e.key === 'Escape' && isAutosuggestOpen) {
+      e.preventDefault()
+      setIsAutosuggestOpen(false)
+      return
+    }
+  }
+
+  // When autosuggest opens, preselect the first item and focus it
+  useEffect(() => {
+    if (!isAutosuggestOpen) return
+    const first = filteredPresetsForAutosuggest[0]
+    setSelectedAutosuggestIndex(first ? 0 : -1)
+    setCmdkSelectedId(first ? first.id : undefined)
+    const raf = requestAnimationFrame(() => {
+      const firstItem = autosuggestRef.current?.querySelector('[cmdk-item]') as HTMLElement | null
+      firstItem?.focus()
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [isAutosuggestOpen, filteredPresetsForAutosuggest.length])
+
   return (
     <div className="flex flex-col gap-8">
       {/* Configuration header row with Save/Load Preset buttons */}
@@ -350,45 +491,15 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                           key={preset.id}
                           value={preset.id}
                           onSelect={() => handleSelectPreset(preset)}
-                          className="flex items-center justify-between group"
+                          className="p-0"
                         >
-                          <span className="flex items-center gap-2">
-                            <span className={isSystemPreset(preset) ? '' : 'ph_hidden'}>
-                              {preset.name}
-                            </span>
-                            {isSystemPreset(preset) && (
-                              <Badge variant="secondary" className="ml-2">
-                                System
-                              </Badge>
-                            )}
-                          </span>
-                          <div className="flex items-center gap-1">
-                            {selectedPresetId === preset.id && <Check className="ml-2 h-4 w-4" />}
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="ml-2 p-1 rounded hover:bg-destructive/10 text-destructive opacity-70 hover:opacity-100 focus:outline-none"
-                                  aria-label={`${isSystemPreset(preset) ? 'Hide' : 'Delete'} preset ${preset.name}`}
-                                  disabled={isSaving}
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleRequestDeletePreset(preset)
-                                  }}
-                                >
-                                  {isSystemPreset(preset) ? (
-                                    <EyeOff className="h-4 w-4" />
-                                  ) : (
-                                    <Trash2 className="h-4 w-4" />
-                                  )}
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                {isSystemPreset(preset) ? 'Hide preset' : 'Delete preset'}
-                              </TooltipContent>
-                            </Tooltip>
-                          </div>
+                          <PresetItem
+                            preset={preset}
+                            onSelect={handleSelectPreset}
+                            onDelete={handleRequestDeletePreset}
+                            isSelected={selectedPresetId === preset.id}
+                            className="w-full hover:bg-transparent"
+                          />
                         </CommandItem>
                       )
                     })}
@@ -402,19 +513,25 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
             <DrawerContent>
               <DrawerHeader>
                 <DrawerTitle>
-                  {isSystemPreset(presetToDelete) ? 'Hide Preset' : 'Delete Preset'}
+                  {presetToDelete && isSystemPreset(presetToDelete)
+                    ? 'Hide Preset'
+                    : 'Delete Preset'}
                 </DrawerTitle>
                 <DrawerDescription>
-                  Are you sure you want to {isSystemPreset(presetToDelete) ? 'hide' : 'delete'} the
-                  preset "
+                  Are you sure you want to{' '}
+                  {presetToDelete && isSystemPreset(presetToDelete) ? 'hide' : 'delete'} the preset
+                  "
                   {presetToDelete ? (
                     <span
-                      className={`font-semibold text-destructive ${isSystemPreset(presetToDelete) ? '' : 'ph_hidden'}`}
+                      className={`font-semibold text-destructive ${presetToDelete && isSystemPreset(presetToDelete) ? '' : 'ph_hidden'}`}
                     >
                       {presetToDelete.name}
                     </span>
                   ) : null}
-                  "?{isSystemPreset(presetToDelete) ? '' : ' This action cannot be undone.'}
+                  "?
+                  {presetToDelete && isSystemPreset(presetToDelete)
+                    ? ''
+                    : ' This action cannot be undone.'}
                 </DrawerDescription>
               </DrawerHeader>
               <DrawerFooter>
@@ -424,7 +541,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                   disabled={isSaving}
                   loading={isSaving}
                 >
-                  {isSystemPreset(presetToDelete) ? 'Hide' : 'Delete'}
+                  {presetToDelete && isSystemPreset(presetToDelete) ? 'Hide' : 'Delete'}
                 </Button>
                 <DrawerClose asChild>
                   <Button variant="ghost" type="button" onClick={handleCancelDeletePreset}>
@@ -514,21 +631,58 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
             id="mainSelector"
             className="field-sizing-content resize-none overflow-hidden min-h-9"
             value={mainSelectorDraft}
-            onChange={(e) => setMainSelectorDraft(e.target.value)}
-            onBlur={() => commitMainSelector(mainSelectorDraft)}
-            placeholder="Enter XPath selector"
+            onChange={(e) => handleMainSelectorChange(e.target.value)}
+            onFocus={handleMainSelectorFocus}
+            onBlur={handleMainSelectorBlur}
+            placeholder="What do you want to scrape?"
             ref={mainSelectorInputRef}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && mainSelectorDraft.trim()) {
-                // Commit any un-saved draft first, then scrape
-                commitMainSelector(mainSelectorDraft)
-                // blur after commit so highlight badge updates correctly
-                mainSelectorInputRef.current?.blur()
-                onScrape()
-              }
-            }}
+            onKeyDown={handleAutosuggestKeyDown}
             style={{ paddingRight: endAdornmentWidth ? endAdornmentWidth + 8 : undefined }}
           />
+
+          {/* Autosuggest dropdown using Command component (manual filtering) */}
+          {isAutosuggestOpen && (
+            <div
+              className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-lg"
+              ref={autosuggestRef}
+            >
+              <Command
+                shouldFilter={false}
+                value={cmdkSelectedId}
+                onValueChange={setCmdkSelectedId}
+                ref={commandRef as any}
+                tabIndex={-1}
+              >
+                <CommandList className="max-h-60">
+                  {filteredPresetsForAutosuggest.length === 0 ? (
+                    <CommandEmpty>No suggestions found</CommandEmpty>
+                  ) : (
+                    <CommandGroup>
+                      {filteredPresetsForAutosuggest.map((preset, index) => (
+                        <CommandItem
+                          key={preset.id}
+                          value={preset.id}
+                          onSelect={() => handleAutosuggestSelect(preset)}
+                          className="p-0"
+                          data-selected={index === selectedAutosuggestIndex || undefined}
+                        >
+                          <PresetItem
+                            preset={preset}
+                            onSelect={handleAutosuggestSelect}
+                            onDelete={(preset) => {
+                              handleRequestDeletePreset(preset)
+                              setIsAutosuggestOpen(false)
+                            }}
+                            className="w-full hover:bg-transparent"
+                          />
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  )}
+                </CommandList>
+              </Command>
+            </div>
+          )}
           {/* End adornments: badges and info button */}
           <div
             ref={endAdornmentRef}
