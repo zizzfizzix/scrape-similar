@@ -27,6 +27,7 @@ import log from 'loglevel'
 import {
   Check,
   ChevronsUpDown,
+  ClockFading,
   HelpCircle,
   Info,
   OctagonAlert,
@@ -104,6 +105,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
   const [isAutosuggestOpen, setIsAutosuggestOpen] = useState(false)
   const autosuggestRef = useRef<HTMLDivElement | null>(null)
   const commandRef = useRef<HTMLDivElement | null>(null)
+  const autosuggestContainerRef = useRef<HTMLDivElement | null>(null)
   const [selectedAutosuggestIndex, setSelectedAutosuggestIndex] = useState<number>(-1)
   const [cmdkSelectedId, setCmdkSelectedId] = useState<string | undefined>(undefined)
 
@@ -348,10 +350,14 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
   const handleMainSelectorChange = (value: string) => {
     const sanitized = sanitizeToSingleLine(value)
     setMainSelectorDraft(sanitized)
-    if (!isAutosuggestOpen && sanitized.length > 0) {
+    // Keep dropdown open while typing (including when cleared) if the textarea has focus
+    if (!isAutosuggestOpen) {
       setIsAutosuggestOpen(true)
-    } else if (sanitized.length === 0) {
-      setIsAutosuggestOpen(false)
+    }
+    // When cleared, reset selection but do not close; show all suggestions
+    if (sanitized.length === 0) {
+      setSelectedAutosuggestIndex(-1)
+      setCmdkSelectedId(undefined)
     }
   }
 
@@ -365,6 +371,41 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
       return name.includes(query) || xpath.includes(query)
     })
   }, [presets, mainSelectorDraft])
+
+  // Recent selectors state
+  const [recentSelectors, setRecentSelectors] = useState<string[]>([])
+
+  useEffect(() => {
+    getRecentMainSelectors().then(setRecentSelectors)
+  }, [])
+
+  // Watch local storage for recents updates and refresh state
+  useEffect(() => {
+    const unwatch = storage.watch<string[]>(
+      `local:${STORAGE_KEYS.RECENT_MAIN_SELECTORS}` as const,
+      (list) => {
+        setRecentSelectors(Array.isArray(list) ? list : [])
+      },
+    )
+    return () => unwatch()
+  }, [])
+
+  const recentSuggestions = React.useMemo(() => {
+    const query = (mainSelectorDraft || '').toLowerCase().trim()
+    const presetSelectors = new Set(
+      presets.map((p) => (p.config.mainSelector || '').trim()).filter(Boolean),
+    )
+    return recentSelectors
+      .filter((s) => !presetSelectors.has(s))
+      .filter((s) => (query ? s.toLowerCase().includes(query) : true))
+  }, [recentSelectors, presets, mainSelectorDraft])
+
+  // Combined navigation order for cmdk (recents first, then presets)
+  const combinedSuggestionValues = React.useMemo(() => {
+    const recents = recentSuggestions.map((_, i) => `recent-${i}`)
+    const presetsVals = filteredPresetsForAutosuggest.map((p) => p.id)
+    return [...recents, ...presetsVals]
+  }, [recentSuggestions, filteredPresetsForAutosuggest])
 
   // Handle keyboard navigation from textarea while dropdown is open/closed
   const handleAutosuggestKeyDown = (e: React.KeyboardEvent) => {
@@ -382,13 +423,15 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
         requestAnimationFrame(() => {
           commandRef.current?.focus()
           setSelectedAutosuggestIndex(0)
-          setCmdkSelectedId(filteredPresetsForAutosuggest[0]?.id ?? undefined)
+          setCmdkSelectedId(combinedSuggestionValues[0])
           ensureVisible(0)
         })
       } else if (filteredPresetsForAutosuggest.length > 0) {
         setSelectedAutosuggestIndex((prev) => {
-          const next = prev < filteredPresetsForAutosuggest.length - 1 ? prev + 1 : 0
-          setCmdkSelectedId(filteredPresetsForAutosuggest[next]?.id)
+          const total = combinedSuggestionValues.length
+          if (total === 0) return -1
+          const next = prev < total - 1 ? prev + 1 : 0
+          setCmdkSelectedId(combinedSuggestionValues[next])
           requestAnimationFrame(() => ensureVisible(next))
           return next
         })
@@ -402,16 +445,18 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
         setIsAutosuggestOpen(true)
         requestAnimationFrame(() => {
           commandRef.current?.focus()
-          const last = Math.max(0, filteredPresetsForAutosuggest.length - 1)
+          const last = Math.max(0, combinedSuggestionValues.length - 1)
           setSelectedAutosuggestIndex(last)
-          setCmdkSelectedId(filteredPresetsForAutosuggest[last]?.id ?? undefined)
+          setCmdkSelectedId(combinedSuggestionValues[last])
           ensureVisible(last)
         })
       } else if (filteredPresetsForAutosuggest.length > 0) {
         setSelectedAutosuggestIndex((prev) => {
-          const lastIdx = filteredPresetsForAutosuggest.length - 1
+          const total = combinedSuggestionValues.length
+          if (total === 0) return -1
+          const lastIdx = total - 1
           const next = prev > 0 ? prev - 1 : lastIdx
-          setCmdkSelectedId(filteredPresetsForAutosuggest[next]?.id)
+          setCmdkSelectedId(combinedSuggestionValues[next])
           requestAnimationFrame(() => ensureVisible(next))
           return next
         })
@@ -427,10 +472,22 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
         if (preset) handleAutosuggestSelect(preset)
         return
       }
-      if (!isAutosuggestOpen && mainSelectorDraft.trim()) {
-        commitMainSelector(mainSelectorDraft)
-        mainSelectorInputRef.current?.blur()
-        onScrape()
+      if (mainSelectorDraft.trim()) {
+        // Save to recents if not a preset, then commit and scrape
+        ;(async () => {
+          const all = await getAllPresets()
+          const isPreset = all.some(
+            (p) => (p.config.mainSelector || '').trim() === mainSelectorDraft.trim(),
+          )
+          if (!isPreset) {
+            await pushRecentMainSelector(mainSelectorDraft)
+            const updated = await getRecentMainSelectors()
+            setRecentSelectors(updated)
+          }
+          commitMainSelector(mainSelectorDraft)
+          mainSelectorInputRef.current?.blur()
+          onScrape()
+        })()
       }
       return
     }
@@ -442,18 +499,27 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
     }
   }
 
-  // When autosuggest opens, preselect the first item and focus it
+  // When autosuggest opens, do not preselect or focus any item.
   useEffect(() => {
     if (!isAutosuggestOpen) return
-    const first = filteredPresetsForAutosuggest[0]
-    setSelectedAutosuggestIndex(first ? 0 : -1)
-    setCmdkSelectedId(first ? first.id : undefined)
-    const raf = requestAnimationFrame(() => {
-      const firstItem = autosuggestRef.current?.querySelector('[cmdk-item]') as HTMLElement | null
-      firstItem?.focus()
-    })
-    return () => cancelAnimationFrame(raf)
-  }, [isAutosuggestOpen, filteredPresetsForAutosuggest.length])
+    setSelectedAutosuggestIndex(-1)
+    setCmdkSelectedId(undefined)
+  }, [isAutosuggestOpen])
+
+  // Close autosuggest on outside click (since focus may be inside Command)
+  useEffect(() => {
+    if (!isAutosuggestOpen) return
+    const handleMouseDown = (e: MouseEvent) => {
+      const container = autosuggestContainerRef.current
+      if (container && !container.contains(e.target as Node)) {
+        setIsAutosuggestOpen(false)
+        setSelectedAutosuggestIndex(-1)
+        setCmdkSelectedId(undefined)
+      }
+    }
+    document.addEventListener('mousedown', handleMouseDown)
+    return () => document.removeEventListener('mousedown', handleMouseDown)
+  }, [isAutosuggestOpen])
 
   return (
     <div className="flex flex-col gap-8">
@@ -650,27 +716,83 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
           {isAutosuggestOpen && (
             <div
               className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-lg"
-              ref={autosuggestRef}
+              ref={(el) => {
+                autosuggestRef.current = el
+                autosuggestContainerRef.current = el
+              }}
             >
               <Command
                 shouldFilter={false}
-                value={cmdkSelectedId}
+                value={cmdkSelectedId ?? '__none__'}
                 onValueChange={setCmdkSelectedId}
                 ref={commandRef as any}
                 tabIndex={-1}
               >
                 <CommandList className="max-h-60">
-                  {filteredPresetsForAutosuggest.length === 0 ? (
+                  {recentSuggestions.length === 0 && filteredPresetsForAutosuggest.length === 0 ? (
                     <CommandEmpty>No suggestions found</CommandEmpty>
                   ) : (
                     <CommandGroup>
+                      {/* Recent (non-preset) selectors */}
+                      {recentSuggestions.length > 0 && (
+                        <>
+                          {recentSuggestions.map((selector, index) => (
+                            <CommandItem
+                              key={`recent-${index}-${selector}`}
+                              value={`recent-${index}`}
+                              onSelect={() => {
+                                setMainSelectorDraft(selector)
+                                commitMainSelector(selector)
+                                setIsAutosuggestOpen(false)
+                                mainSelectorInputRef.current?.focus()
+                              }}
+                              className="p-0"
+                            >
+                              <div className="flex items-center justify-between px-3 py-2 w-full">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <ClockFading className="h-3 w-3 text-muted-foreground" />
+                                  <span className="text-xs text-muted-foreground font-mono ph_hidden truncate">
+                                    {selector}
+                                  </span>
+                                </div>
+                                <Button
+                                  aria-label={`Remove recent selector`}
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 p-0 justify-center rounded hover:bg-destructive/10 opacity-70 hover:opacity-100 focus:outline-none"
+                                  onClick={(e) => {
+                                    e.preventDefault()
+                                    e.stopPropagation()
+                                    removeRecentMainSelector(selector).then(() => {
+                                      getRecentMainSelectors().then((updated) => {
+                                        setRecentSelectors(updated)
+                                        // Keep dropdown open and move focus back to Command root
+                                        requestAnimationFrame(() => {
+                                          commandRef.current?.focus()
+                                        })
+                                      })
+                                    })
+                                  }}
+                                >
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </CommandItem>
+                          ))}
+                          {/* Divider between recents and presets when both exist */}
+                          {filteredPresetsForAutosuggest.length > 0 && (
+                            <div className="h-px bg-border my-1 mx-1" />
+                          )}
+                        </>
+                      )}
+
+                      {/* Preset suggestions */}
                       {filteredPresetsForAutosuggest.map((preset, index) => (
                         <CommandItem
                           key={preset.id}
                           value={preset.id}
                           onSelect={() => handleAutosuggestSelect(preset)}
                           className="p-0"
-                          data-selected={index === selectedAutosuggestIndex || undefined}
                         >
                           <PresetItem
                             preset={preset}

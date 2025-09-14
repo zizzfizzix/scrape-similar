@@ -521,6 +521,22 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
           if (targetTabId !== null) {
             saveSidePanelState(targetTabId, { resultProducingConfig: configAtScrapeTime })
           }
+          // Persist recent main selector (local only) if it is not a preset selector
+          ;(async () => {
+            const selectorUsed = (configAtScrapeTime.mainSelector || '').trim()
+            if (!selectorUsed) return
+            try {
+              const allPresets = await getAllPresets()
+              const isPresetSelector = allPresets.some(
+                (p) => (p.config.mainSelector || '').trim() === selectorUsed,
+              )
+              if (!isPresetSelector) {
+                await pushRecentMainSelector(selectorUsed)
+              }
+            } catch (err) {
+              // Non-fatal: ignore errors when saving recent selectors
+            }
+          })()
         }
         setLastScrapeRowCount(response?.data?.data?.length ?? 0)
       },

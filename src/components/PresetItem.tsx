@@ -51,7 +51,7 @@ const PresetItem: React.FC<PresetItemProps> = ({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-6 w-6 p-0 rounded hover:bg-destructive/10 text-destructive opacity-70 hover:opacity-100 focus:outline-none"
+                className="h-6 w-6 p-0 rounded hover:bg-destructive/10 opacity-70 hover:opacity-100 focus:outline-none"
                 aria-label={`${isSystemPreset(preset) ? 'Hide' : 'Delete'} preset "${preset.name}"`}
                 onClick={(e) => {
                   e.stopPropagation()
