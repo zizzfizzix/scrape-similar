@@ -1,6 +1,4 @@
-import { Moon, Sun } from 'lucide-react'
-import { useTheme } from 'next-themes'
-
+import { useTheme } from '@/components/theme-provider'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -8,23 +6,65 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { ANALYTICS_EVENTS, trackEvent } from '@/utils/analytics'
+import { ChevronsUpDown, Moon, Sun, SunMoon } from 'lucide-react'
 
-export default function ModeToggle() {
-  const { setTheme } = useTheme()
+interface ModeToggleProps {
+  /** id passed to the underlying button for accessibility purposes */
+  id?: string
+  /** Accessibility label reference describing the toggle purpose */
+  ariaLabelledby?: string
+}
+
+export function ModeToggle({ id, ariaLabelledby }: ModeToggleProps) {
+  const { theme, setTheme } = useTheme()
+
+  // Handle theme change with analytics tracking
+  const handleSetTheme = (newTheme: 'light' | 'dark' | 'system') => {
+    const previousTheme = theme
+    setTheme(newTheme)
+
+    // Track theme change (only if it's actually different)
+    if (previousTheme !== newTheme) {
+      trackEvent(ANALYTICS_EVENTS.THEME_CHANGE, {
+        from_theme: previousTheme,
+        to_theme: newTheme,
+      })
+    }
+  }
+
+  const themeLabel = theme === 'light' ? 'Light' : theme === 'dark' ? 'Dark' : 'System'
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="icon">
-          <Sun className="h-[1.2rem] w-[1.2rem] scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90" />
-          <Moon className="absolute h-[1.2rem] w-[1.2rem] scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0" />
-          <span className="sr-only">Toggle theme</span>
+        <Button
+          id={id}
+          aria-labelledby={ariaLabelledby}
+          variant="outline"
+          size="sm"
+          className="justify-between"
+        >
+          {theme === 'light' ? (
+            <Sun className="mr-1" />
+          ) : theme === 'dark' ? (
+            <Moon className="mr-1" />
+          ) : (
+            <SunMoon className="mr-1" />
+          )}
+          {themeLabel} <ChevronsUpDown className="ml-1" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => setTheme('light')}>Light</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme('dark')}>Dark</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme('system')}>System</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => handleSetTheme('light')}>
+          <Sun className="mr-1" /> <span>Light</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => handleSetTheme('dark')}>
+          <Moon className="mr-1" /> <span>Dark</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => handleSetTheme('system')}>
+          <SunMoon className="mr-1" /> <span>System</span>
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )

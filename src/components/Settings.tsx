@@ -1,5 +1,4 @@
 import { Button } from '@/components/ui/button'
-import { ModeToggle } from '@/components/ui/mode-toggle'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import log from 'loglevel'
@@ -158,7 +157,7 @@ export const Settings = React.memo(
                 aria-labelledby={`${keyboardShortcutId}-label`}
                 onClick={handleKeyboardShortcutClick}
               >
-                <Clipboard className="size-4 ml-1" />
+                <Clipboard className="mr-1" />
                 Copy address
               </Button>
             </TooltipTrigger>
