@@ -3,6 +3,7 @@ import log from 'loglevel'
 // Storage keys
 export const STORAGE_KEYS = {
   USER_PRESETS: 'user_presets',
+  RECENT_MAIN_SELECTORS: 'recent_main_selectors',
 }
 
 // Get presets from storage
@@ -93,4 +94,48 @@ export const getAllPresets = async (): Promise<Preset[]> => {
   const enabledSystemPresets = SYSTEM_PRESETS.filter((preset) => statusMap[preset.id] !== false)
   // Merge: user presets first, then system presets
   return [...userPresets, ...enabledSystemPresets]
+}
+
+// -----------------------------------------------
+// Recent main selectors (local area, capped to 5)
+// -----------------------------------------------
+
+export const getRecentMainSelectors = async (): Promise<string[]> => {
+  try {
+    return (await storage.getItem<string[]>(`local:${STORAGE_KEYS.RECENT_MAIN_SELECTORS}`)) ?? []
+  } catch (error) {
+    log.error('Error getting recent main selectors:', error)
+    return []
+  }
+}
+
+export const setRecentMainSelectors = async (selectors: string[]): Promise<void> => {
+  try {
+    await storage.setItem(`local:${STORAGE_KEYS.RECENT_MAIN_SELECTORS}`, selectors)
+  } catch (error) {
+    log.error('Error setting recent main selectors:', error)
+  }
+}
+
+export const pushRecentMainSelector = async (selector: string): Promise<void> => {
+  try {
+    const current = await getRecentMainSelectors()
+    const sanitized = selector.trim()
+    if (!sanitized) return
+    const withoutDup = current.filter((s) => s !== sanitized)
+    const updated = [sanitized, ...withoutDup].slice(0, 5)
+    await setRecentMainSelectors(updated)
+  } catch (error) {
+    log.error('Error pushing recent main selector:', error)
+  }
+}
+
+export const removeRecentMainSelector = async (selector: string): Promise<void> => {
+  try {
+    const current = await getRecentMainSelectors()
+    const updated = current.filter((s) => s !== selector)
+    await setRecentMainSelectors(updated)
+  } catch (error) {
+    log.error('Error removing recent main selector:', error)
+  }
 }

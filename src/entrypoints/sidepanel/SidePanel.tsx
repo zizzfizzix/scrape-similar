@@ -521,6 +521,22 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
           if (targetTabId !== null) {
             saveSidePanelState(targetTabId, { resultProducingConfig: configAtScrapeTime })
           }
+          // Persist recent main selector (local only) if it is not a preset selector
+          ;(async () => {
+            const selectorUsed = (configAtScrapeTime.mainSelector || '').trim()
+            if (!selectorUsed) return
+            try {
+              const allPresets = await getAllPresets()
+              const isPresetSelector = allPresets.some(
+                (p) => (p.config.mainSelector || '').trim() === selectorUsed,
+              )
+              if (!isPresetSelector) {
+                await pushRecentMainSelector(selectorUsed)
+              }
+            } catch (err) {
+              // Non-fatal: ignore errors when saving recent selectors
+            }
+          })()
         }
         setLastScrapeRowCount(response?.data?.data?.length ?? 0)
       },
@@ -596,11 +612,10 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
     }
 
     // Track preset loaded event
-    const isSystemPreset = SYSTEM_PRESETS.some((p) => p.id === preset.id)
     trackEvent(ANALYTICS_EVENTS.PRESET_LOAD, {
-      type: isSystemPreset ? 'system' : 'user',
-      preset_name: isSystemPreset ? preset.name : null,
-      preset_id: isSystemPreset ? preset.id : null,
+      type: isSystemPreset(preset) ? 'system' : 'user',
+      preset_name: isSystemPreset(preset) ? preset.name : null,
+      preset_id: isSystemPreset(preset) ? preset.id : null,
     })
   }
 
@@ -633,9 +648,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
 
   // Hide system preset or delete user preset
   const handleDeletePreset = async (preset: Preset) => {
-    // Check if this is a system preset
-    const isSystemPreset = SYSTEM_PRESETS.some((p) => p.id === preset.id)
-    if (isSystemPreset) {
+    if (isSystemPreset(preset)) {
       // Hide system preset by setting enabled=false in status map
       const statusMap = await getSystemPresetStatus()
       statusMap[preset.id] = false
