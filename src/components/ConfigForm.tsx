@@ -112,6 +112,12 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
   // Add ref for main selector input
   const mainSelectorInputRef = useRef<HTMLTextAreaElement>(null)
 
+  // Keep latest config in a ref to avoid stale closures in delayed commits (e.g., blur timeout)
+  const latestConfigRef = useRef(config)
+  useEffect(() => {
+    latestConfigRef.current = config
+  }, [config])
+
   /**
    * Local draft state for the main selector input. We keep the user’s typing
    * here and only propagate it to the parent (handleConfigChange) when the
@@ -187,8 +193,9 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
 
   // Commit the draft main selector to parent state and trigger highlight
   const commitMainSelector = (value: string) => {
-    if (value !== config.mainSelector) {
-      onChange({ ...config, mainSelector: value })
+    const latest = latestConfigRef.current
+    if (value !== latest.mainSelector) {
+      onChange({ ...latest, mainSelector: value })
     }
     if (value.trim()) {
       onHighlight(value)
@@ -239,13 +246,18 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
 
   // Handler to guess config from selector
   const handleGuessConfig = async () => {
-    if (!config.mainSelector.trim()) return
+    const selector = (mainSelectorDraft || config.mainSelector).trim()
+    if (!selector) return
 
     // Track auto-generate config button press
     trackEvent(ANALYTICS_EVENTS.AUTO_GENERATE_CONFIG_BUTTON_PRESS)
 
     setGuessButtonState('generating')
     try {
+      // Ensure the committed config matches the selector we're about to use
+      if (selector !== config.mainSelector) {
+        commitMainSelector(selector)
+      }
       browser.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         const tab = tabs[0]
         if (!tab?.id) {
@@ -257,7 +269,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
           tab.id,
           {
             type: MESSAGE_TYPES.GUESS_CONFIG_FROM_SELECTOR,
-            payload: { mainSelector: config.mainSelector },
+            payload: { mainSelector: selector },
           },
           (response) => {
             if (response && response.success === true) {
@@ -473,7 +485,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
         return
       }
       if (mainSelectorDraft.trim()) {
-        // Save to recents if not a preset, then commit and scrape
+        // Save to recents if not a preset, then either validate (if changed) or scrape (if unchanged and valid)
         ;(async () => {
           const all = await getAllPresets()
           const isPreset = all.some(
@@ -484,9 +496,19 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
             const updated = await getRecentMainSelectors()
             setRecentSelectors(updated)
           }
-          commitMainSelector(mainSelectorDraft)
-          mainSelectorInputRef.current?.blur()
-          onScrape()
+          if (hasUncommittedChanges) {
+            // First Enter after changes: validate selector via highlight
+            commitMainSelector(mainSelectorDraft)
+            mainSelectorInputRef.current?.blur()
+          } else {
+            // No changes: if valid, trigger scrape; otherwise, validate again
+            if (isMainSelectorValid) {
+              onScrape()
+            } else {
+              commitMainSelector(mainSelectorDraft)
+              mainSelectorInputRef.current?.blur()
+            }
+          }
         })()
       }
       return

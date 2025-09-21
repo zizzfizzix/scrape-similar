@@ -137,7 +137,7 @@ export const TestHelpers = {
 
     // Wait for selector validation
     const countBadge = sidePanel.locator('[data-slot="badge"]').filter({ hasText: /^\d+$/ })
-    await base.expect(countBadge).toBeVisible({ timeout: 5000 })
+    await base.expect(countBadge).toBeVisible()
 
     // Perform scrape
     await sidePanel.getByRole('button', { name: /^scrape$/i }).click()
