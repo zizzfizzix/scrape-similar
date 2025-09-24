@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/zizzfizzix/scrape-similar/compare/v0.3.3...v0.4.0) (2025-09-24)
+
+
+### Features
+
+* theme setting button visual improvements ([#63](https://github.com/zizzfizzix/scrape-similar/issues/63)) ([12accca](https://github.com/zizzfizzix/scrape-similar/commit/12acccab9a80501c3133eaaba8f468dd34ed4d9f))
+
 ## [0.3.3](https://github.com/zizzfizzix/scrape-similar/compare/v0.3.2...v0.3.3) (2025-09-08)
 
 
