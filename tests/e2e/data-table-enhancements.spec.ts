@@ -231,11 +231,13 @@ test.describe('DataTable Enhancements', () => {
 
     // Wait for selector validation
     const countBadge = sidePanel.locator('[data-slot="badge"]').filter({ hasText: /^\d+$/ })
-    await expect(countBadge).toBeVisible({ timeout: 5000 })
+    await expect(countBadge).toBeVisible()
 
     // Manually configure columns to ensure we have multiple columns with different content
     // Add a second column that will have different content lengths
     await sidePanel.getByRole('button', { name: /add column/i }).click()
+    const columns = sidePanel.locator('input[placeholder="Selector"]')
+    await expect(columns).toHaveCount(2)
 
     // Configure second column to get different content (like parent element text)
     const secondColumnSelector = sidePanel.locator('input[placeholder="Selector"]').last()
