@@ -259,7 +259,7 @@ test.describe('Main selector autosuggest', () => {
     await expect(removeButtons).toHaveCount(Math.max(0, before - 1))
   })
 
-  test('selecting an autosuggest preset fills textarea but does not scrape', async ({
+  test('selecting an autosuggest preset loads full preset (main selector and columns) but does not scrape', async ({
     openSidePanel,
     context,
     serviceWorker,
@@ -277,8 +277,84 @@ test.describe('Main selector autosuggest', () => {
     await input.press('ArrowDown')
     await sidePanel.keyboard.press('Enter')
 
+    // Verify main selector is loaded
     await expect(input).toHaveValue('//h1 | //h2 | //h3 | //h4 | //h5 | //h6')
+
+    // Verify columns are loaded (Headings preset has 4 columns: Level, Text, ID, Class)
+    const columnNames = sidePanel.locator('input[placeholder="Column name"]')
+    await expect(columnNames).toHaveCount(4)
+    await expect(columnNames.nth(0)).toHaveValue('Level')
+    await expect(columnNames.nth(1)).toHaveValue('Text')
+    await expect(columnNames.nth(2)).toHaveValue('ID')
+    await expect(columnNames.nth(3)).toHaveValue('Class')
+
+    // Verify it doesn't auto-scrape
     await expect(sidePanel.getByRole('heading', { name: /extracted data/i })).toBeHidden()
+  })
+
+  test('selecting a recent selector only loads main selector without affecting columns', async ({
+    openSidePanel,
+    context,
+    serviceWorker,
+  }) => {
+    await TestHelpers.dismissAnalyticsConsent(serviceWorker)
+    const sidePanel = await openSidePanel()
+
+    const testPage = await context.newPage()
+    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+    await testPage.bringToFront()
+
+    // Verify default state has 1 column (Text)
+    const columnNames = sidePanel.locator('input[placeholder="Column name"]')
+    await expect(columnNames).toHaveCount(1)
+    await expect(columnNames.first()).toHaveValue('Text')
+
+    // Add a second column manually
+    await sidePanel.getByRole('button', { name: /add column/i }).click()
+    await expect(columnNames).toHaveCount(2)
+    await expect(columnNames.nth(0)).toHaveValue('Text')
+    await expect(columnNames.nth(1)).toHaveValue('Column 2')
+
+    // Enter a selector to create a recent entry
+    const input = sidePanel.locator('#mainSelector')
+    await input.fill('//div[@class="test"]')
+    await input.press('Enter')
+
+    // Wait for it to be committed
+    await expect(sidePanel.locator('[data-slot="badge"]')).toBeVisible()
+
+    // Clear and enter a different selector
+    await input.fill('//span')
+    await input.press('Enter')
+    await expect(sidePanel.locator('[data-slot="badge"]')).toBeVisible()
+
+    // Now select the recent selector from autosuggest using keyboard
+    await input.fill('')
+    await input.focus()
+
+    // Wait for dropdown to show recents
+    const dropdown = sidePanel.locator('[data-slot="command-list"]')
+    await expect(dropdown).toBeVisible()
+
+    // Find and verify the recent item is visible (it should be the second item since //span is most recent)
+    const recentItem = sidePanel
+      .locator('[data-slot="command-item"]')
+      .filter({ hasText: '//div[@class="test"]' })
+      .first()
+    await expect(recentItem).toBeVisible()
+
+    // Use keyboard to select it (ArrowDown twice since //span is first, //div[@class="test"] is second)
+    await input.press('ArrowDown')
+    await input.press('ArrowDown')
+    await input.press('Enter')
+
+    // Verify main selector changed to the recent one
+    await expect(input).toHaveValue('//div[@class="test"]')
+
+    // Verify columns were NOT changed (should still have our 2 columns)
+    await expect(columnNames).toHaveCount(2)
+    await expect(columnNames.nth(0)).toHaveValue('Text')
+    await expect(columnNames.nth(1)).toHaveValue('Column 2')
   })
 
   test('outside click closes; blur commits pending value (badge after commit)', async ({

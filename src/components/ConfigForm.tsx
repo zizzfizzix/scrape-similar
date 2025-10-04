@@ -331,8 +331,8 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
 
   // Handle autosuggest preset selection
   const handleAutosuggestSelect = (preset: Preset) => {
-    setMainSelectorDraft(preset.config.mainSelector)
-    commitMainSelector(preset.config.mainSelector)
+    // Load the full preset (including columns) just like the Load button does
+    onLoadPreset(preset)
     setIsAutosuggestOpen(false)
     mainSelectorInputRef.current?.focus()
   }
@@ -480,8 +480,23 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
       // Always prevent newline insertion
       e.preventDefault()
       if (isAutosuggestOpen && selectedAutosuggestIndex >= 0) {
-        const preset = filteredPresetsForAutosuggest[selectedAutosuggestIndex]
-        if (preset) handleAutosuggestSelect(preset)
+        // Check if the selected item is a recent or a preset
+        const selectedId = combinedSuggestionValues[selectedAutosuggestIndex]
+        if (selectedId?.startsWith('recent-')) {
+          // Extract the index from the recent ID (e.g., "recent-0" -> 0)
+          const recentIndex = parseInt(selectedId.split('-')[1], 10)
+          const selector = recentSuggestions[recentIndex]
+          if (selector) {
+            setMainSelectorDraft(selector)
+            commitMainSelector(selector)
+            setIsAutosuggestOpen(false)
+            mainSelectorInputRef.current?.focus()
+          }
+        } else {
+          // It's a preset ID
+          const preset = filteredPresetsForAutosuggest.find((p) => p.id === selectedId)
+          if (preset) handleAutosuggestSelect(preset)
+        }
         return
       }
       if (mainSelectorDraft.trim()) {
