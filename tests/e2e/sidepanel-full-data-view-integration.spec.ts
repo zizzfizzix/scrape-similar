@@ -28,10 +28,7 @@ test.describe('Sidepanel Full Data View Integration', () => {
 
     // The same sidepanel should now detect that it's viewing a full data view tab
     // and show the special controls
-    await expect(
-      sidePanel.getByRole('heading', { name: /full screen view active/i }),
-      // ).toBeVisible()
-    ).toBeVisible({ timeout: 0 })
+    await expect(sidePanel.getByRole('heading', { name: /full screen view active/i })).toBeVisible()
     await expect(sidePanel.getByRole('button', { name: /compact view/i })).toBeVisible()
     await expect(sidePanel.getByRole('button', { name: /hide sidepanel/i })).toBeVisible()
 
@@ -169,7 +166,7 @@ test.describe('Sidepanel Full Data View Integration', () => {
     const testPage = await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context)
 
     // Verify normal sidepanel interface is present
-    await expect(sidePanel.getByRole('textbox', { name: /enter xpath selector/i })).toBeVisible()
+    await expect(sidePanel.locator('#mainSelector')).toBeVisible()
     await expect(sidePanel.getByRole('heading', { name: /extracted data/i })).toBeVisible()
 
     // Open full data view
@@ -194,7 +191,7 @@ test.describe('Sidepanel Full Data View Integration', () => {
     await testPage.bringToFront()
 
     // Should show normal interface again in the same sidepanel
-    await expect(sidePanel.getByRole('textbox', { name: /enter xpath selector/i })).toBeVisible()
+    await expect(sidePanel.locator('#mainSelector')).toBeVisible()
     await expect(sidePanel.getByRole('heading', { name: /full screen view active/i })).toBeHidden()
   })
 

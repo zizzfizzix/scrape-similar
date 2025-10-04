@@ -86,7 +86,7 @@ test.describe('Sidepanel Core Functionality', () => {
 
     // Expect a destructive badge with an alert icon (svg) to appear
     const errorBadge = sidePanel.locator('[data-slot="badge"] svg')
-    await expect(errorBadge).toBeVisible({ timeout: 1000 })
+    await expect(errorBadge).toBeVisible()
   })
 
   test('shows numeric match-count badge for valid XPath selector', async ({
@@ -109,7 +109,7 @@ test.describe('Sidepanel Core Functionality', () => {
 
     // Expect a badge whose text is a positive integer to appear
     const countBadge = sidePanel.locator('[data-slot="badge"]').filter({ hasText: /^\d+$/ })
-    await expect(countBadge).toBeVisible({ timeout: 5000 })
+    await expect(countBadge).toBeVisible()
     const badgeText = await countBadge.textContent()
     expect(parseInt(badgeText || '0', 10)).toBeGreaterThan(0)
   })
@@ -169,14 +169,14 @@ test.describe('Sidepanel Core Functionality', () => {
 
     // Wait for highlight badge (will show 0)
     const zeroBadge = sidePanel.locator('[data-slot="badge"]').filter({ hasText: /^0$/ })
-    await expect(zeroBadge).toBeVisible({ timeout: 5000 })
+    await expect(zeroBadge).toBeVisible()
 
     // Click Scrape
     const scrapeBtn = sidePanel.getByRole('button', { name: /^scrape$/i })
     await scrapeBtn.click()
 
     // Expect button text to show "0 found"
-    await expect(sidePanel.getByRole('button', { name: /0 found/i })).toBeVisible({ timeout: 1500 })
+    await expect(sidePanel.getByRole('button', { name: /0 found/i })).toBeVisible()
   })
 
   test('can save preset and reload it via Load combobox', async ({
@@ -201,7 +201,7 @@ test.describe('Sidepanel Core Functionality', () => {
 
     // Wait for valid badge so Save button becomes enabled
     const countBadge = sidePanel.locator('[data-slot="badge"]').filter({ hasText: /^\d+$/ })
-    await expect(countBadge).toBeVisible({ timeout: 5000 })
+    await expect(countBadge).toBeVisible()
 
     // Open Save Preset drawer
     await sidePanel
@@ -217,7 +217,7 @@ test.describe('Sidepanel Core Functionality', () => {
     await sidePanel.getByRole('button', { name: /^save$/i }).click()
 
     // Wait for drawer to close (input hidden)
-    await expect(presetNameInput).toBeHidden({ timeout: 5000 })
+    await expect(presetNameInput).toBeHidden()
 
     // Clear the main selector input
     await mainSelector.clear()
@@ -297,7 +297,7 @@ test.describe('Sidepanel Core Functionality', () => {
 
     // Wait for valid badge after preset loads
     const countBadge = sidePanel.locator('[data-slot="badge"]').filter({ hasText: /^\d+$/ })
-    await expect(countBadge).toBeVisible({ timeout: 5000 })
+    await expect(countBadge).toBeVisible()
 
     // Perform initial scrape to establish baseline
     const scrapeBtn = sidePanel.getByRole('button', { name: /^scrape$/i })
@@ -311,7 +311,7 @@ test.describe('Sidepanel Core Functionality', () => {
     const rescrapeIcon = sidePanel.locator('svg.lucide-refresh-ccw')
 
     // At this point, no rescrape indicator should be visible
-    await expect(rescrapeIcon).toBeHidden({ timeout: 2000 })
+    await expect(rescrapeIcon).toBeHidden()
 
     // Load second system preset: "Headings (H1-H6)" - this should trigger rescrape indicator
     await sidePanel.getByRole('button', { name: /load/i }).click()
@@ -319,32 +319,32 @@ test.describe('Sidepanel Core Functionality', () => {
     await headingsPresetOption.click()
 
     // Wait for new badge
-    await expect(countBadge).toBeVisible({ timeout: 5000 })
+    await expect(countBadge).toBeVisible()
 
     // Verify rescrape indicator appears when config differs from scraped data
     // (button should now contain refresh icon before "Scrape" text)
-    await expect(rescrapeIcon).toBeVisible({ timeout: 2000 })
+    await expect(rescrapeIcon).toBeVisible()
 
     // Scrape with new config - rescrape indicator should disappear
     await scrapeBtn.click()
     await expect(sidePanel.getByRole('heading', { name: /extracted data/i })).toBeVisible({
       timeout: 10000,
     })
-    await expect(rescrapeIcon).toBeHidden({ timeout: 2000 })
+    await expect(rescrapeIcon).toBeHidden()
 
     // Load the first preset again - rescrape indicator should appear again
     await sidePanel.getByRole('button', { name: /load/i }).click()
     await linksPresetOption.click()
 
     // Rescrape indicator should appear since config now differs from current results
-    await expect(rescrapeIcon).toBeVisible({ timeout: 2000 })
+    await expect(rescrapeIcon).toBeVisible()
 
     // Load the second preset again - indicator should disappear since it matches current results
     await sidePanel.getByRole('button', { name: /load/i }).click()
     await headingsPresetOption.click()
 
     // Rescrape indicator should disappear since this config matches current results
-    await expect(rescrapeIcon).toBeHidden({ timeout: 2000 })
+    await expect(rescrapeIcon).toBeHidden()
 
     // Make a small change to trigger indicator again
     const mainSelector = sidePanel.locator('#mainSelector')
@@ -352,17 +352,17 @@ test.describe('Sidepanel Core Functionality', () => {
     await mainSelector.press('Enter')
 
     // Wait for badge
-    await expect(countBadge).toBeVisible({ timeout: 5000 })
+    await expect(countBadge).toBeVisible()
 
     // Rescrape indicator should appear
-    await expect(rescrapeIcon).toBeVisible({ timeout: 2000 })
+    await expect(rescrapeIcon).toBeVisible()
 
     // Scrape with modified config - indicator should disappear
     await scrapeBtn.click()
     await expect(sidePanel.getByRole('heading', { name: /extracted data/i })).toBeVisible({
       timeout: 10000,
     })
-    await expect(rescrapeIcon).toBeHidden({ timeout: 2000 })
+    await expect(rescrapeIcon).toBeHidden()
   })
 
   test('settings drawer opens and closes correctly', async ({ openSidePanel, serviceWorker }) => {

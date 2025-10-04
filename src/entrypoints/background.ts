@@ -56,7 +56,29 @@ export default defineBackground(() => {
     const mutex = getStorageMutex(sessionKey)
     await mutex.runExclusive(async () => {
       const current = (await storage.getItem<SidePanelConfig>(`session:${sessionKey}`)) || {}
+      // Shallow-merge top-level, but carefully merge nested config to avoid losing fields
       const next: SidePanelConfig = { ...current, ...updates }
+      if (updates.currentScrapeConfig) {
+        const prevConfig = current.currentScrapeConfig || ({} as ScrapeConfig)
+        const incoming = updates.currentScrapeConfig
+        // If mainSelector changed, we keep existing columns from prev unless incoming explicitly provides columns
+        const selectorChanged =
+          typeof incoming.mainSelector === 'string' &&
+          incoming.mainSelector !== prevConfig.mainSelector
+        const shouldUseIncomingColumns = Array.isArray(incoming.columns)
+        const mergedColumns = shouldUseIncomingColumns
+          ? (incoming.columns as ColumnDefinition[])
+          : selectorChanged
+            ? prevConfig.columns || []
+            : prevConfig.columns || []
+
+        const merged: ScrapeConfig = {
+          ...prevConfig,
+          ...incoming,
+          columns: mergedColumns,
+        }
+        next.currentScrapeConfig = merged
+      }
       await storage.setItem(`session:${sessionKey}`, next)
     })
   }
@@ -96,8 +118,8 @@ export default defineBackground(() => {
       (tab: Browser.tabs.Tab) => tab.id && isInjectableUrl(tab.url),
     )
     const scriptFiles = contentScripts
-      .filter((script: Browser.runtime.ContentScript) => script.js?.length)
-      .flatMap((script: Browser.runtime.ContentScript) => script.js as string[])
+      .flatMap((script) => script.js)
+      .filter((script) => script !== undefined)
 
     // Inject scripts into each eligible tab
     for (const tab of injectableTabs) {
@@ -119,7 +141,7 @@ export default defineBackground(() => {
   }
 
   // Initialize extension when installed or updated
-  browser.runtime.onInstalled.addListener(async (details: Browser.runtime.OnInstalledDetails) => {
+  browser.runtime.onInstalled.addListener(async (details: Browser.runtime.InstalledDetails) => {
     log.debug('Scrape Similar extension installed')
 
     // Initialize storage
@@ -242,7 +264,7 @@ export default defineBackground(() => {
 
   // Handle context menu clicks
   browser.contextMenus.onClicked.addListener(
-    async (info: Browser.contextMenus.OnClickData, tab: Browser.tabs.Tab) => {
+    async (info: Browser.contextMenus.OnClickData, tab?: Browser.tabs.Tab) => {
       log.debug('Context menu clicked:', info, tab)
 
       if (!tab?.id) {
@@ -510,7 +532,7 @@ export default defineBackground(() => {
   const requestAuthToken = (): Promise<{ success: boolean; token?: string; error?: string }> =>
     browser.identity
       .getAuthToken({ interactive: true })
-      .then((result: Browser.identity.AuthTokenResult) => {
+      .then((result: Browser.identity.GetAuthTokenResult) => {
         if (browser.runtime.lastError) {
           const errorMessage = browser.runtime.lastError.message || 'Unknown OAuth error'
 

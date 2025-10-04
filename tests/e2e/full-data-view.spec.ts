@@ -534,7 +534,7 @@ test.describe('Full Data View', () => {
     await expect(async () => {
       const newRowCount = await fullDataViewPage.getByRole('row').count()
       expect(newRowCount).toBe(initialRowCount + 1)
-    }).toPass({ timeout: 5000 })
+    }).toPass()
 
     // Verify the new row appears in the table
     await expect(fullDataViewPage.getByText('New Test Heading Added')).toBeVisible()
@@ -560,7 +560,7 @@ test.describe('Full Data View', () => {
     await expect(async () => {
       const finalRowCount = await fullDataViewPage.getByRole('row').count()
       expect(finalRowCount).toBe(initialRowCount)
-    }).toPass({ timeout: 5000 })
+    }).toPass()
 
     // Verify the added row is no longer visible
     await expect(fullDataViewPage.getByText('New Test Heading Added')).toBeHidden()
