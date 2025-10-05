@@ -357,6 +357,99 @@ test.describe('Main selector autosuggest', () => {
     await expect(columnNames.nth(1)).toHaveValue('Column 2')
   })
 
+  test('selecting a preset from autosuggest preserves mainSelector after validation', async ({
+    openSidePanel,
+    context,
+    serviceWorker,
+  }) => {
+    await TestHelpers.dismissAnalyticsConsent(serviceWorker)
+    const sidePanel = await openSidePanel()
+
+    const testPage = await context.newPage()
+    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+    await testPage.bringToFront()
+
+    const input = sidePanel.locator('#mainSelector')
+
+    // Step 1: Type to filter presets
+    await input.focus()
+
+    // Step 2: Select a preset from autosuggest using keyboard
+    await input.press('ArrowDown')
+    await input.press('ArrowDown')
+    await input.press('ArrowDown')
+    await input.press('ArrowDown')
+    await input.press('ArrowDown')
+    await input.press('Enter')
+
+    // Verify preset is loaded with its full selector
+    await expect(input).toHaveValue('//h1 | //h2 | //h3 | //h4 | //h5 | //h6')
+
+    // Step 3: Trigger validation by focusing and blurring
+    await input.blur()
+    await testPage.waitForTimeout(1000) // Wait for blur handler delay
+
+    // Bug fix verification: selector should still have the preset value, not be empty
+    await expect(input).toHaveValue('//h1 | //h2 | //h3 | //h4 | //h5 | //h6')
+
+    // Verify columns are still loaded from preset (Headings has 4 columns)
+    const columnNames = sidePanel.locator('input[placeholder="Column name"]')
+    await expect(columnNames).toHaveCount(4)
+    await expect(columnNames.nth(0)).toHaveValue('Level')
+    await expect(columnNames.nth(1)).toHaveValue('Text')
+    await expect(columnNames.nth(2)).toHaveValue('ID')
+    await expect(columnNames.nth(3)).toHaveValue('Class')
+  })
+
+  test('clicking a preset from autosuggest preserves mainSelector after validation', async ({
+    openSidePanel,
+    context,
+    serviceWorker,
+  }) => {
+    await TestHelpers.dismissAnalyticsConsent(serviceWorker)
+    const sidePanel = await openSidePanel()
+
+    const testPage = await context.newPage()
+    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+    await testPage.bringToFront()
+
+    const input = sidePanel.locator('#mainSelector')
+
+    // Step 1: Type to filter presets
+    await input.focus()
+    await input.fill('imag')
+
+    // Step 2: Click on a preset from autosuggest
+    const dropdown = sidePanel.locator('[data-slot="command-list"]')
+    await expect(dropdown).toBeVisible()
+
+    const presetItem = sidePanel
+      .locator('[data-slot="command-item"]')
+      .filter({ hasText: 'Images' })
+      .first()
+    await presetItem.click()
+
+    // Wait a moment for the preset to load and state to update
+    await testPage.waitForTimeout(100)
+
+    // Verify preset is loaded with its full selector
+    await expect(input).toHaveValue('//img')
+
+    // Step 3: Trigger validation by blurring
+    await input.blur()
+    await testPage.waitForTimeout(100) // Wait for blur handler delay
+
+    // Bug fix verification: selector should still have the preset value, not be empty
+    await expect(input).toHaveValue('//img')
+
+    // Verify columns are still loaded from preset (Images has 6 columns)
+    const columnNames = sidePanel.locator('input[placeholder="Column name"]')
+    await expect(columnNames).toHaveCount(6)
+    await expect(columnNames.nth(0)).toHaveValue('Source')
+    await expect(columnNames.nth(1)).toHaveValue('Alt Text')
+    await expect(columnNames.nth(2)).toHaveValue('Title')
+  })
+
   test('outside click closes; blur commits pending value (badge after commit)', async ({
     openSidePanel,
     context,

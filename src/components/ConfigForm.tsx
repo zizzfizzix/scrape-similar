@@ -112,6 +112,9 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
   // Add ref for main selector input
   const mainSelectorInputRef = useRef<HTMLTextAreaElement>(null)
 
+  // Track if we're in the process of selecting from autosuggest to prevent blur from committing stale value
+  const isSelectingFromAutosuggestRef = useRef(false)
+
   // Keep latest config in a ref to avoid stale closures in delayed commits (e.g., blur timeout)
   const latestConfigRef = useRef(config)
   useEffect(() => {
@@ -331,8 +334,18 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
 
   // Handle autosuggest preset selection
   const handleAutosuggestSelect = (preset: Preset) => {
+    // Update the draft immediately to prevent blur handler from committing stale value
+    setMainSelectorDraft(preset.config.mainSelector)
     // Load the full preset (including columns) just like the Load button does
     onLoadPreset(preset)
+    setIsAutosuggestOpen(false)
+    mainSelectorInputRef.current?.focus()
+  }
+
+  // Handle recent selector selection
+  const handleRecentSelectorSelect = (selector: string) => {
+    setMainSelectorDraft(selector)
+    commitMainSelector(selector)
     setIsAutosuggestOpen(false)
     mainSelectorInputRef.current?.focus()
   }
@@ -345,6 +358,12 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
   // Handle main selector blur with delay to allow for clicks
   const handleMainSelectorBlur = () => {
     setTimeout(() => {
+      // Don't commit if we're selecting from autosuggest (mousedown was triggered)
+      if (isSelectingFromAutosuggestRef.current) {
+        isSelectingFromAutosuggestRef.current = false
+        return
+      }
+
       // If focus moved into the autosuggest dropdown, keep it open
       const active = document.activeElement as HTMLElement | null
       const movedIntoDropdown = !!(active && autosuggestRef.current?.contains(active))
@@ -487,10 +506,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
           const recentIndex = parseInt(selectedId.split('-')[1], 10)
           const selector = recentSuggestions[recentIndex]
           if (selector) {
-            setMainSelectorDraft(selector)
-            commitMainSelector(selector)
-            setIsAutosuggestOpen(false)
-            mainSelectorInputRef.current?.focus()
+            handleRecentSelectorSelect(selector)
           }
         } else {
           // It's a preset ID
@@ -777,11 +793,12 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                             <CommandItem
                               key={`recent-${index}-${selector}`}
                               value={`recent-${index}`}
+                              onMouseDown={() => {
+                                // Set flag on mousedown (before blur) to prevent blur handler from committing stale value
+                                isSelectingFromAutosuggestRef.current = true
+                              }}
                               onSelect={() => {
-                                setMainSelectorDraft(selector)
-                                commitMainSelector(selector)
-                                setIsAutosuggestOpen(false)
-                                mainSelectorInputRef.current?.focus()
+                                handleRecentSelectorSelect(selector)
                               }}
                               className="p-0"
                             >
@@ -828,6 +845,10 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                         <CommandItem
                           key={preset.id}
                           value={preset.id}
+                          onMouseDown={() => {
+                            // Set flag on mousedown (before blur) to prevent blur handler from committing stale value
+                            isSelectingFromAutosuggestRef.current = true
+                          }}
                           onSelect={() => handleAutosuggestSelect(preset)}
                           className="p-0"
                         >
