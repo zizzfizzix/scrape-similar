@@ -113,6 +113,9 @@ export const MESSAGE_TYPES = {
 
   // From any entrypoint to background
   OPEN_SIDEPANEL: 'open_sidepanel',
+
+  // Onboarding demo
+  TRIGGER_DEMO_SCRAPE: 'trigger_demo_scrape',
 } as const
 
 // Analytics message payload interface

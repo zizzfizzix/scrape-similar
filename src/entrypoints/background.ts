@@ -104,6 +104,46 @@ export default defineBackground(() => {
     }
   }
 
+  // Helper to handle demo scrape from onboarding
+  const handleDemoScrape = async (
+    sender: Browser.runtime.MessageSender,
+    sendResponse: (response?: MessageResponse) => void,
+  ): Promise<void> => {
+    log.debug('🎬 handleDemoScrape called from sender:', sender)
+    try {
+      const tabId = sender.tab?.id
+      if (!tabId) {
+        throw new Error('No tab ID available from sender')
+      }
+
+      log.debug('🎬 Setting up demo scrape for tab:', tabId)
+
+      // Store a flag that this tab should auto-scrape after navigation
+      const demoConfig: ScrapeConfig = {
+        mainSelector:
+          '//table[contains(@class, "wikitable")][1]//tr[position() > 1 and position() <= 11]',
+        columns: [
+          { name: 'Rank', selector: './td[1]' },
+          { name: 'Country/Territory', selector: './td[2]//a[1]' },
+          { name: 'Population', selector: './td[3]' },
+          { name: 'Percentage', selector: './td[4]' },
+          { name: 'Date', selector: './td[5]' },
+        ],
+      }
+
+      await storage.setItem(`local:demo_scrape_pending_${tabId}`, {
+        config: demoConfig,
+        timestamp: Date.now(),
+      })
+
+      log.debug('🎬 Demo scrape setup complete - stored config for tab', tabId)
+      sendResponse({ success: true })
+    } catch (error) {
+      log.error('🎬 Error setting up demo scrape:', error)
+      sendResponse({ success: false, error: (error as Error).message })
+    }
+  }
+
   // Inject content script into all eligible tabs
   const injectContentScriptToAllTabs = async () => {
     // Get all tabs
@@ -353,11 +393,75 @@ export default defineBackground(() => {
     const sessionKey = getSessionKey(tabId)
     try {
       await storage.removeItem(`session:${sessionKey}`)
+      await storage.removeItem(`local:demo_scrape_pending_${tabId}`)
       log.debug(`Removed session data for tab ${tabId}`)
     } catch (error) {
       log.error(`Error removing session data for tab ${tabId}:`, error)
     }
   })
+
+  // Listen for tab updates to trigger demo scrape after navigation
+  browser.tabs.onUpdated.addListener(
+    async (tabId: number, changeInfo: Browser.tabs.OnUpdatedInfo, tab: Browser.tabs.Tab) => {
+      if (changeInfo.status === 'complete') {
+        const demoData = await storage.getItem<{ config: ScrapeConfig; timestamp: number }>(
+          `local:demo_scrape_pending_${tabId}`,
+        )
+
+        if (demoData && tab.url?.includes('wikipedia.org/wiki/List_of_countries')) {
+          log.debug('🎬 Demo scrape pending detected for tab', tabId, '- triggering auto-scrape')
+
+          // Remove the flag first so we don't trigger again
+          await storage.removeItem(`local:demo_scrape_pending_${tabId}`)
+
+          const config = demoData.config
+
+          try {
+            // Save the config to session storage
+            await applySidePanelDataUpdates(tabId, {
+              currentScrapeConfig: config,
+            })
+
+            // Highlight the elements
+            const highlightResp = await browser.tabs.sendMessage(tabId, {
+              type: MESSAGE_TYPES.HIGHLIGHT_ELEMENTS,
+              payload: { selector: config.mainSelector },
+            })
+
+            await applySidePanelDataUpdates(tabId, {
+              highlightMatchCount: highlightResp.matchCount,
+              highlightError: highlightResp.error,
+            })
+
+            if (highlightResp?.success && highlightResp.matchCount > 0) {
+              // Trigger the scrape
+              const scrapeResp = await browser.tabs.sendMessage(tabId, {
+                type: MESSAGE_TYPES.START_SCRAPE,
+                payload: config,
+              })
+
+              if (scrapeResp?.success) {
+                log.debug('🎬 Demo scrape completed successfully')
+                trackEvent(ANALYTICS_EVENTS.ONBOARDING_DEMO_SCRAPE, { success: true })
+              } else {
+                log.warn('🎬 Demo scrape failed:', scrapeResp?.error)
+                trackEvent(ANALYTICS_EVENTS.ONBOARDING_DEMO_SCRAPE, {
+                  success: false,
+                  error: scrapeResp?.error,
+                })
+              }
+            }
+          } catch (error) {
+            log.error('🎬 Error in auto demo scrape:', error)
+            trackEvent(ANALYTICS_EVENTS.ONBOARDING_DEMO_SCRAPE, {
+              success: false,
+              error: (error as Error).message,
+            })
+          }
+        }
+      }
+    },
+  )
 
   // Handle messages from content scripts and UI
   browser.runtime.onMessage.addListener(
@@ -399,18 +503,23 @@ export default defineBackground(() => {
         return true // handled
       }
 
-      // Handle messages from content script (always have sender.tab) vs UI
-      if (sender.tab && sender.tab.id) {
+      // Determine if this is from an extension page or a content script
+      // Extension pages (onboarding, options, etc.) have sender.url starting with chrome-extension://
+      const isExtensionPage = sender.url?.startsWith(browser.runtime.getURL(''))
+
+      // Handle messages from content script (on web pages) vs UI (extension pages, sidepanel, popup)
+      if (sender.tab && sender.tab.id && !isExtensionPage) {
         log.debug('🔵 Routing to handleContentScriptMessage - sender has tab:', sender.tab.id)
         log.debug('🔵 Sender URL:', sender.url)
         log.debug('🔵 Message type:', message.type)
         handleContentScriptMessage(message, sender, sendResponse)
       }
-      // Handle messages from UI (side panel, popup - no sender.tab)
+      // Handle messages from UI (side panel, popup, extension pages like onboarding)
       else {
-        log.debug('🟡 Routing to handleUiMessage - no sender tab')
+        log.debug('🟡 Routing to handleUiMessage - extension page or no tab')
         log.debug('🟡 Sender URL:', sender.url)
         log.debug('🟡 Message type:', message.type)
+        log.debug('🟡 Is extension page:', isExtensionPage)
         handleUiMessage(message, sender, sendResponse)
       }
 
@@ -494,6 +603,11 @@ export default defineBackground(() => {
       case MESSAGE_TYPES.OPEN_SIDEPANEL: {
         log.debug('UI requested to open sidepanel')
         await handleOpenSidepanel(sender, sendResponse)
+        break
+      }
+      case MESSAGE_TYPES.TRIGGER_DEMO_SCRAPE: {
+        log.debug('🎬 UI requested demo scrape from onboarding')
+        await handleDemoScrape(sender, sendResponse)
         break
       }
       default:

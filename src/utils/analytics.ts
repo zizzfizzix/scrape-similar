@@ -90,6 +90,7 @@ export const ANALYTICS_EVENTS = {
   ONBOARDING_NEXT_BUTTON_PRESS: 'onboarding_next_button_press',
   ONBOARDING_PREVIOUS_BUTTON_PRESS: 'onboarding_previous_button_press',
   ONBOARDING_COMPLETE: 'onboarding_complete',
+  ONBOARDING_DEMO_SCRAPE: 'onboarding_demo_scrape',
 
   // Full Data View events
   FULL_DATA_VIEW_OPEN_BUTTON_PRESS: 'full_data_view_open_button_press',

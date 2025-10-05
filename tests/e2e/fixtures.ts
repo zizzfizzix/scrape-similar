@@ -255,7 +255,6 @@ export const test = base.extend<{
       await serviceWorker.evaluate(
         async (arg) => {
           const { tabUrl, MESSAGE_TYPES } = arg
-          console.log(JSON.stringify(arg))
           const [transitionTab] = await chrome.tabs.query({ url: tabUrl })
           if (!transitionTab?.id) throw new Error('No active tab found')
 
