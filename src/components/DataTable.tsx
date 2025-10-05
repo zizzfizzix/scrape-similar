@@ -21,7 +21,7 @@ import {
   useReactTable,
 } from '@tanstack/react-table'
 import { ChevronLeft, ChevronRight, Clipboard, Expand, Highlighter } from 'lucide-react'
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 
 interface DataTableProps {

@@ -2,6 +2,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
+import { Toaster } from '@/components/ui/sonner'
 import {
   Ban,
   Check,
@@ -19,6 +20,7 @@ import {
   Zap,
 } from 'lucide-react'
 import React, { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 
 interface OnboardingSlide {
   id: number
@@ -137,8 +139,9 @@ const OnboardingApp: React.FC = () => {
     setCurrentSlide(0)
   }
 
-  const handleOpenSidepanel = async () => {
+  const handleStartDemo = async () => {
     try {
+      // Open sidepanel FIRST while we have user gesture
       await browser.runtime.sendMessage({ type: MESSAGE_TYPES.OPEN_SIDEPANEL })
 
       // Track sidepanel opening from onboarding
@@ -146,9 +149,21 @@ const OnboardingApp: React.FC = () => {
         trigger: 'onboarding_completion_button_press',
       })
 
-      window.location.replace('https://en.wikipedia.org/wiki/Special:Random')
+      // Set up the demo config in background
+      const response = await browser.runtime.sendMessage({
+        type: MESSAGE_TYPES.TRIGGER_DEMO_SCRAPE,
+      })
+
+      if (response?.success) {
+        // Navigate this tab to the demo Wikipedia page
+        const demoUrl =
+          'https://en.wikipedia.org/wiki/List_of_countries_and_dependencies_by_population'
+        window.location.replace(demoUrl)
+      } else {
+        toast.error('Failed to start demo: ' + (response?.error || 'Unknown error'))
+      }
     } catch (error) {
-      console.error('Failed to open sidepanel:', error)
+      toast.error('Failed to start demo. Please try again.')
     }
   }
 
@@ -472,12 +487,22 @@ const OnboardingApp: React.FC = () => {
       icon: <Check className="h-8 w-8" />,
       content: (
         <div className="space-y-4">
+          <p className="text-muted-foreground">
+            Click "Start" to see Scrape Similar in action! We'll open a Wikipedia page and
+            automatically scrape a table to show you how it works.
+          </p>
           <div className="flex justify-center">
             <img
               src={browser.runtime.getURL('/img/screenshot-context-menu.png')}
               alt="Context menu screenshot showing Scrape Similar option"
               className="max-w-full h-auto rounded-lg border shadow-sm"
             />
+          </div>
+          <div className="bg-muted p-3 rounded-lg">
+            <p className="text-xs text-muted-foreground">
+              <strong>Tip:</strong> After the demo, try right-clicking on any element on a webpage
+              and selecting "Scrape similar elements" to scrape your own data!
+            </p>
           </div>
         </div>
       ),
@@ -493,6 +518,7 @@ const OnboardingApp: React.FC = () => {
   if (consentState === undefined) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
+        <Toaster />
         <div className="flex-1 p-4">
           <div className="w-full max-w-2xl mx-auto pt-8">
             <div className="text-center mb-8">
@@ -524,6 +550,7 @@ const OnboardingApp: React.FC = () => {
   // Show regular onboarding after consent decision
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <Toaster />
       <div className="flex-1 p-4">
         <div className="w-full max-w-2xl mx-auto pt-8">
           <div className="text-center mb-8">
@@ -555,7 +582,7 @@ const OnboardingApp: React.FC = () => {
                     </Button>
                   )}
                   {currentSlide === slides.length - 1 ? (
-                    <Button size="sm" onClick={handleOpenSidepanel}>
+                    <Button size="sm" onClick={handleStartDemo}>
                       Start
                       <Rocket className="h-4 w-4 ml-2" />
                     </Button>
