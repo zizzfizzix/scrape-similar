@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.5.0](https://github.com/zizzfizzix/scrape-similar/compare/v0.4.0...v0.5.0) (2025-10-05)
+
+
+### Features
+
+* trigger a demo scrape at the end of onboarding ([#89](https://github.com/zizzfizzix/scrape-similar/issues/89)) ([f8cba85](https://github.com/zizzfizzix/scrape-similar/commit/f8cba85d46d2263397ab32d6d9566350cf1a5e47))
+
+
+### Bug Fixes
+
+* main selector reverted after autosuggest load on click ([#87](https://github.com/zizzfizzix/scrape-similar/issues/87)) ([0db7818](https://github.com/zizzfizzix/scrape-similar/commit/0db78183f81847b96d5660011caff2a89083adaf))
+
 ## [0.4.0](https://github.com/zizzfizzix/scrape-similar/compare/v0.3.3...v0.4.0) (2025-10-04)
 
 
