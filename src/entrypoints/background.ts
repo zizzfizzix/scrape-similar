@@ -131,10 +131,7 @@ export default defineBackground(() => {
         ],
       }
 
-      await storage.setItem(`local:demo_scrape_pending_${tabId}`, {
-        config: demoConfig,
-        timestamp: Date.now(),
-      })
+      await storage.setItem(`local:demo_scrape_pending_${tabId}`, demoConfig)
 
       log.debug('🎬 Demo scrape setup complete - stored config for tab', tabId)
       sendResponse({ success: true })
@@ -404,9 +401,7 @@ export default defineBackground(() => {
   browser.tabs.onUpdated.addListener(
     async (tabId: number, changeInfo: Browser.tabs.OnUpdatedInfo, tab: Browser.tabs.Tab) => {
       if (changeInfo.status === 'complete') {
-        const demoData = await storage.getItem<{ config: ScrapeConfig; timestamp: number }>(
-          `local:demo_scrape_pending_${tabId}`,
-        )
+        const demoData = await storage.getItem<ScrapeConfig>(`local:demo_scrape_pending_${tabId}`)
 
         if (demoData && tab.url?.includes('wikipedia.org/wiki/List_of_countries')) {
           log.debug('🎬 Demo scrape pending detected for tab', tabId, '- triggering auto-scrape')
@@ -414,7 +409,7 @@ export default defineBackground(() => {
           // Remove the flag first so we don't trigger again
           await storage.removeItem(`local:demo_scrape_pending_${tabId}`)
 
-          const config = demoData.config
+          const config = demoData
 
           try {
             // Save the config to session storage
