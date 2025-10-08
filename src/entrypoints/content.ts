@@ -77,6 +77,357 @@ export default defineContentScript({
       rightClickListener(event as MouseEvent)
     })
 
+    // ========== PICKER MODE STATE AND FUNCTIONS ==========
+    let pickerModeActive = false
+    let pickerCursor: HTMLDivElement | null = null
+    let pickerHighlights: HTMLDivElement[] = []
+    let currentHoveredElement: HTMLElement | null = null
+    let currentXPath = ''
+    // Animation frame throttling for mouse move
+    let mouseUpdateScheduled = false
+    let lastMouseX = 0
+    let lastMouseY = 0
+
+    // Inject styles for picker overlays (only once)
+    const injectPickerStyles = () => {
+      if (document.getElementById('scrape-similar-picker-styles')) return
+
+      const style = document.createElement('style')
+      style.id = 'scrape-similar-picker-styles'
+      style.textContent = `
+        .scrape-similar-picker-highlight {
+          position: absolute;
+          pointer-events: none;
+          border: 2px solid #ff6b6b;
+          background: rgba(255, 107, 107, 0.1);
+          box-sizing: border-box;
+          z-index: 2147483646;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+        }
+        .scrape-similar-picker-label {
+          position: absolute;
+          top: -26px;
+          left: -2px;
+          background: #ff6b6b;
+          color: white;
+          padding: 2px 8px;
+          font-size: 11px;
+          font-family: monospace;
+          border-radius: 3px;
+          white-space: nowrap;
+          max-width: 400px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          pointer-events: none;
+          z-index: 2147483647;
+        }
+        .scrape-similar-picker-cursor {
+          position: fixed;
+          width: 20px;
+          height: 20px;
+          pointer-events: none;
+          z-index: 2147483647;
+        }
+        .scrape-similar-picker-cursor::before,
+        .scrape-similar-picker-cursor::after {
+          content: '';
+          position: absolute;
+          background: #ff6b6b;
+        }
+        .scrape-similar-picker-cursor::before {
+          width: 2px;
+          height: 20px;
+          left: 9px;
+          top: 0;
+        }
+        .scrape-similar-picker-cursor::after {
+          width: 20px;
+          height: 2px;
+          left: 0;
+          top: 9px;
+        }
+      `
+      document.head.appendChild(style)
+    }
+
+    const createPickerCursor = () => {
+      const cursor = document.createElement('div')
+      cursor.className = 'scrape-similar-picker-cursor'
+      document.body.appendChild(cursor)
+      return cursor
+    }
+
+    const removePickerHighlights = () => {
+      pickerHighlights.forEach((h) => h.remove())
+      pickerHighlights = []
+    }
+
+    const highlightElementsForPicker = (elements: HTMLElement[], xpath: string) => {
+      removePickerHighlights()
+
+      elements.forEach((el, index) => {
+        // Create highlight as sibling wrapper
+        const highlight = document.createElement('div')
+        highlight.className = 'scrape-similar-picker-highlight'
+
+        // Get element's position for absolute positioning
+        const rect = el.getBoundingClientRect()
+        const computedStyle = window.getComputedStyle(el)
+        const position = computedStyle.position
+
+        // Save original position if needed
+        const originalPosition = el.style.position
+        const originalZIndex = el.style.zIndex
+
+        // Make element positioned if it's not already
+        if (position === 'static') {
+          el.style.position = 'relative'
+        }
+
+        // Store original values for cleanup
+        highlight.setAttribute('data-original-position', originalPosition)
+        highlight.setAttribute('data-original-zindex', originalZIndex)
+
+        // Insert highlight as first child of element
+        el.appendChild(highlight)
+
+        // Add label to first element
+        if (index === 0) {
+          const label = document.createElement('div')
+          label.className = 'scrape-similar-picker-label'
+          label.textContent = `${elements.length} match${elements.length !== 1 ? 'es' : ''}: ${xpath}`
+          highlight.appendChild(label)
+        }
+
+        pickerHighlights.push(highlight)
+      })
+    }
+
+    const updateCursorPosition = (x: number, y: number) => {
+      if (!pickerCursor) return
+      pickerCursor.style.left = `${x - 10}px`
+      pickerCursor.style.top = `${y - 10}px`
+    }
+
+    const processMouseUpdate = () => {
+      mouseUpdateScheduled = false
+
+      if (!pickerModeActive) return
+
+      updateCursorPosition(lastMouseX, lastMouseY)
+
+      // Get element under cursor (ignore our overlay)
+      const el = document.elementFromPoint(lastMouseX, lastMouseY)
+      if (!el || !(el instanceof HTMLElement)) return
+
+      // Skip if we're already hovering this element
+      if (el === currentHoveredElement) return
+
+      currentHoveredElement = el
+
+      // Calculate minimized XPath
+      const xpath = minimizeXPath(el)
+      currentXPath = xpath
+
+      // Find all matching elements
+      const matchingElements = evaluateXPath(xpath)
+
+      // Highlight all matching elements
+      highlightElementsForPicker(matchingElements, xpath)
+    }
+
+    const handlePickerMouseMove = (event: MouseEvent) => {
+      if (!pickerModeActive) return
+
+      // Store mouse position
+      lastMouseX = event.clientX
+      lastMouseY = event.clientY
+
+      // Throttle updates using requestAnimationFrame
+      if (!mouseUpdateScheduled) {
+        mouseUpdateScheduled = true
+        requestAnimationFrame(processMouseUpdate)
+      }
+    }
+
+    const handlePickerClick = async (event: MouseEvent) => {
+      if (!pickerModeActive) return
+
+      event.preventDefault()
+      event.stopPropagation()
+
+      // Disable picker mode
+      disablePickerMode()
+
+      // Get the element that was clicked
+      const el = document.elementFromPoint(event.clientX, event.clientY)
+      if (!el || !(el instanceof HTMLElement)) return
+
+      log.debug('Picker mode: element selected', el)
+
+      // Calculate XPath and guess config (same as right-click scrape similar)
+      const xpath = minimizeXPath(el)
+      const guessedConfig = guessScrapeConfigForElement(el)
+
+      if (tabId === null) {
+        log.error('tabId not initialized in content script.')
+        return
+      }
+
+      // Save config to storage (same flow as right-click scrape similar)
+      try {
+        const elementDetails = {
+          xpath,
+          text: el.textContent || '',
+          html: el.outerHTML,
+        }
+
+        // Update storage with guessed config
+        await new Promise<void>((resolve, reject) => {
+          browser.runtime.sendMessage(
+            {
+              type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
+              payload: {
+                updates: { currentScrapeConfig: guessedConfig, elementDetails },
+              },
+            },
+            (response) => {
+              if (browser.runtime.lastError) {
+                log.error('Error saving picker config to background:', browser.runtime.lastError)
+                reject(browser.runtime.lastError)
+              } else if (response?.success) {
+                log.debug('Picker config saved successfully')
+                resolve()
+              } else {
+                log.error('Failed to save picker config:', response?.error)
+                reject(new Error(response?.error || 'Failed to save config'))
+              }
+            },
+          )
+        })
+
+        // Now highlight the elements
+        const elementsToHighlight = evaluateXPath(guessedConfig.mainSelector)
+        highlightMatchingElements(elementsToHighlight)
+
+        // Track element highlighting (from picker)
+        trackEvent(ANALYTICS_EVENTS.ELEMENTS_HIGHLIGHT, {
+          elements_count: elementsToHighlight.length,
+          is_row_highlight: false,
+        })
+
+        // Finally, trigger the scrape
+        const scrapedData = scrapePage(guessedConfig)
+        const columnOrder = guessedConfig.columns.map((col) => col.name)
+        const scrapeResult: ScrapeResult = {
+          data: scrapedData,
+          columnOrder,
+        }
+
+        log.debug('Picker mode scrape complete, data:', scrapeResult)
+
+        // Track scraping completion
+        trackEvent(ANALYTICS_EVENTS.SCRAPE_COMPLETION, {
+          items_scraped: scrapedData.length,
+          columns_count: guessedConfig.columns.length,
+        })
+
+        // Send scrape result to background script for storage
+        browser.runtime.sendMessage(
+          {
+            type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
+            payload: { updates: { scrapeResult } },
+          },
+          (response) => {
+            if (browser.runtime.lastError) {
+              log.error(
+                'Error sending picker scrape result to background:',
+                browser.runtime.lastError,
+              )
+            } else if (response?.success) {
+              log.debug('Picker scrape result saved successfully')
+            } else {
+              log.error('Failed to save picker scrape result:', response?.error)
+            }
+          },
+        )
+      } catch (err) {
+        log.error('Error in picker click handler:', err)
+      }
+    }
+
+    const handlePickerEscape = (event: KeyboardEvent) => {
+      if (!pickerModeActive) return
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        disablePickerMode()
+      }
+    }
+
+    const enablePickerMode = () => {
+      if (pickerModeActive) return
+
+      log.debug('Enabling picker mode')
+      pickerModeActive = true
+
+      // Inject styles
+      injectPickerStyles()
+
+      // Create cursor
+      pickerCursor = createPickerCursor()
+
+      // Change cursor and add event listeners
+      document.body.style.cursor = 'crosshair'
+      document.addEventListener('mousemove', handlePickerMouseMove, true)
+      document.addEventListener('click', handlePickerClick, true)
+      document.addEventListener('keydown', handlePickerEscape, true)
+    }
+
+    const disablePickerMode = () => {
+      if (!pickerModeActive) return
+
+      log.debug('Disabling picker mode')
+      pickerModeActive = false
+
+      // Remove cursor
+      if (pickerCursor) {
+        pickerCursor.remove()
+        pickerCursor = null
+      }
+
+      // Remove all highlights and restore original element styles
+      pickerHighlights.forEach((highlight) => {
+        const parent = highlight.parentElement
+        if (parent) {
+          const originalPosition = highlight.getAttribute('data-original-position')
+          const originalZIndex = highlight.getAttribute('data-original-zindex')
+
+          if (originalPosition !== null) {
+            parent.style.position = originalPosition
+          }
+          if (originalZIndex !== null) {
+            parent.style.zIndex = originalZIndex
+          }
+        }
+        highlight.remove()
+      })
+      pickerHighlights = []
+
+      // Restore cursor and remove event listeners
+      document.body.style.cursor = ''
+      document.removeEventListener('mousemove', handlePickerMouseMove, true)
+      document.removeEventListener('click', handlePickerClick, true)
+      document.removeEventListener('keydown', handlePickerEscape, true)
+
+      // Clean up state
+      currentHoveredElement = null
+      currentXPath = ''
+    }
+    // ========== END PICKER MODE ==========
+
     log.debug('CONTENT SCRIPT ADDING MESSAGE LISTENER')
     // Handle messages from background script
     browser.runtime.onMessage.addListener((message: Message, sender, sendResponse) => {
@@ -224,12 +575,17 @@ export default defineContentScript({
             break
           }
 
-          // Add a default case for unhandled messages
-          default: {
-            log.debug('Unhandled message type in content script:', message.type)
-            // Optionally send a response indicating not handled, or do nothing
-            // sendResponse({ received: false, error: `Unhandled message type: ${message.type}` });
-            // No return true here, as it's synchronous handling (or no handling)
+          case MESSAGE_TYPES.ENABLE_PICKER_MODE: {
+            log.debug('Enabling picker mode via message')
+            enablePickerMode()
+            sendResponse({ success: true, message: 'Picker mode enabled' })
+            break
+          }
+
+          case MESSAGE_TYPES.DISABLE_PICKER_MODE: {
+            log.debug('Disabling picker mode via message')
+            disablePickerMode()
+            sendResponse({ success: true, message: 'Picker mode disabled' })
             break
           }
 

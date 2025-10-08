@@ -604,6 +604,28 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
     )
   }
 
+  // Handle picker mode activation
+  const handlePickerMode = () => {
+    setContentScriptCommsError(null)
+    if (!targetTabId) return
+    browser.tabs.sendMessage(
+      targetTabId,
+      {
+        type: MESSAGE_TYPES.ENABLE_PICKER_MODE,
+        payload: {},
+      },
+      (response) => {
+        if (!response && browser.runtime.lastError) {
+          setContentScriptCommsError(
+            'Could not connect to the content script. Please reload the page or ensure the extension is enabled for this site.',
+          )
+        } else if (response && response.success) {
+          log.debug('Picker mode enabled successfully')
+        }
+      },
+    )
+  }
+
   const handleLoadPreset = (preset: Preset) => {
     handleConfigChange(preset.config)
 
@@ -752,6 +774,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
               onChange={handleConfigChange}
               onScrape={handleScrape}
               onHighlight={handleHighlight}
+              onPickerMode={handlePickerMode}
               isLoading={isScraping}
               initialOptions={initialOptions}
               presets={presets}

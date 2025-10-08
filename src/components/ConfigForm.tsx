@@ -28,6 +28,7 @@ import {
   Check,
   ChevronsUpDown,
   ClockFading,
+  Crosshair,
   HelpCircle,
   Info,
   OctagonAlert,
@@ -46,6 +47,7 @@ interface ConfigFormProps {
   onChange: (config: ScrapeConfig) => void
   onScrape: () => void
   onHighlight: (selector: string) => void
+  onPickerMode: () => void
   isLoading: boolean
   initialOptions: SelectionOptions | null
   presets: Preset[]
@@ -66,6 +68,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
   onChange,
   onScrape,
   onHighlight,
+  onPickerMode,
   isLoading,
   presets,
   onLoadPreset,
@@ -903,6 +906,24 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
             ) : (
               <div className="flex items-center justify-center min-w-[1.5rem] h-6" />
             )}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  type="button"
+                  tabIndex={-1}
+                  aria-label="Visual element picker"
+                  className="size-7 p-0.5 rounded focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-0"
+                  onClick={onPickerMode}
+                >
+                  <Crosshair className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top" align="end">
+                Pick element visually
+              </TooltipContent>
+            </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
