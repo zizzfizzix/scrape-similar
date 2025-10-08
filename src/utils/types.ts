@@ -99,6 +99,8 @@ export const MESSAGE_TYPES = {
   HIGHLIGHT_ELEMENTS: 'highlight-elements',
   HIGHLIGHT_ROW_ELEMENT: 'highlight-row-element',
   GUESS_CONFIG_FROM_SELECTOR: 'guess-config-from-selector',
+  ENABLE_PICKER_MODE: 'enable-picker-mode',
+  DISABLE_PICKER_MODE: 'disable-picker-mode',
 
   // From sidepanel to background
   EXPORT_TO_SHEETS: 'export-to-google-sheets',
