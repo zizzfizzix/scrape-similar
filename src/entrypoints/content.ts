@@ -181,7 +181,7 @@ export default defineContentScript({
 
         // Apply non-intrusive highlight directly to the element
         el.style.outline = '2px solid #ff6b6b'
-        el.style.outlineOffset = '-2px'
+        el.style.outlineOffset = '-1px'
         el.style.boxShadow = 'inset 0 0 0 9999px rgba(255, 107, 107, 0.1)'
       })
     }
