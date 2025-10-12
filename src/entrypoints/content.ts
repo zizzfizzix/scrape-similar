@@ -87,6 +87,8 @@ export default defineContentScript({
     let currentHoveredElement: HTMLElement | null = null
     let currentXPath = ''
     let currentGuessedConfig: ScrapeConfig | null = null
+    let selectorCandidates: string[] = []
+    let selectedCandidateIndex = 0
     // Animation frame throttling for mouse move
     let mouseUpdateScheduled = false
     let lastMouseX = 0
@@ -218,6 +220,27 @@ export default defineContentScript({
       pickerFloatingLabel.style.top = `${top}px`
     }
 
+    const generateSelectorCandidates = (start: HTMLElement, maxLevels: number = 10): string[] => {
+      const candidates: string[] = []
+      let node: HTMLElement | null = start
+      let levels = 0
+      while (node && node !== document.body && levels <= maxLevels) {
+        const xp = minimizeXPath(node)
+        if (!candidates.includes(xp)) candidates.push(xp)
+        node = node.parentElement as HTMLElement | null
+        levels += 1
+      }
+      return candidates
+    }
+
+    const chooseDefaultCandidateIndex = (cands: string[]): number => {
+      for (let i = 0; i < cands.length; i++) {
+        const count = evaluateXPath(cands[i]).length
+        if (count >= 2) return i
+      }
+      return 0
+    }
+
     const processMouseUpdate = () => {
       mouseUpdateScheduled = false
 
@@ -232,13 +255,16 @@ export default defineContentScript({
 
       currentHoveredElement = el
 
-      // Guess config from hovered element and use its main selector for highlighting
-      const guessed = guessScrapeConfigForElement(el)
-      currentGuessedConfig = guessed
-      const selector = guessed.mainSelector
+      // Build selector candidates from hovered element up its ancestors
+      selectorCandidates = generateSelectorCandidates(el)
+      selectedCandidateIndex = chooseDefaultCandidateIndex(selectorCandidates)
+      const selector = selectorCandidates[selectedCandidateIndex]
       currentXPath = selector
 
-      // Find all matching elements using guessed selector
+      // Cache guessed config (for columns); we'll override mainSelector on click
+      currentGuessedConfig = guessScrapeConfigForElement(el)
+
+      // Find all matching elements using selected candidate
       const matchingElements = evaluateXPath(selector)
 
       // Highlight all matching elements
@@ -279,9 +305,12 @@ export default defineContentScript({
 
       log.debug('Picker mode: element selected', el)
 
-      // Use the most recent guessed config from hover; fallback to fresh guess
+      // Use currently selected candidate selector for final scrape
       const xpath = minimizeXPath(el)
-      const guessedConfig = currentGuessedConfig || guessScrapeConfigForElement(el)
+      const selectedSelector = selectorCandidates[selectedCandidateIndex] || xpath
+      const guessedConfig = (currentGuessedConfig ||
+        guessScrapeConfigForElement(el)) as ScrapeConfig
+      const finalConfig: ScrapeConfig = { ...guessedConfig, mainSelector: selectedSelector }
 
       if (tabId === null) {
         log.error('tabId not initialized in content script.')
@@ -321,7 +350,7 @@ export default defineContentScript({
         })
 
         // Now highlight the elements
-        const elementsToHighlight = evaluateXPath(guessedConfig.mainSelector)
+        const elementsToHighlight = evaluateXPath(finalConfig.mainSelector)
         highlightMatchingElements(elementsToHighlight)
 
         // Track element highlighting (from picker)
@@ -331,8 +360,8 @@ export default defineContentScript({
         })
 
         // Finally, trigger the scrape
-        const scrapedData = scrapePage(guessedConfig)
-        const columnOrder = guessedConfig.columns.map((col) => col.name)
+        const scrapedData = scrapePage(finalConfig)
+        const columnOrder = finalConfig.columns.map((col) => col.name)
         const scrapeResult: ScrapeResult = {
           data: scrapedData,
           columnOrder,
@@ -372,11 +401,45 @@ export default defineContentScript({
       }
     }
 
-    const handlePickerEscape = (event: KeyboardEvent) => {
+    const handlePickerKeyDown = (event: KeyboardEvent) => {
       if (!pickerModeActive) return
-      if (event.key === 'Escape') {
+      const key = event.key
+      if (key === 'Escape') {
         event.preventDefault()
         disablePickerMode()
+        return
+      }
+      // '+' makes selector more specific (towards index 0), '-' less specific (towards ancestors)
+      if (key === '+' || key === '=') {
+        if (selectorCandidates.length > 0 && selectedCandidateIndex > 0) {
+          selectedCandidateIndex -= 1
+          const sel = selectorCandidates[selectedCandidateIndex]
+          currentXPath = sel
+          const matches = evaluateXPath(sel)
+          highlightElementsForPicker(matches as HTMLElement[], sel)
+          ensureFloatingLabel()
+          updateFloatingLabelContent(matches.length, sel)
+          updateFloatingLabelPosition(lastMouseX, lastMouseY)
+        }
+        event.preventDefault()
+        return
+      }
+      if (key === '-' || key === '_') {
+        if (
+          selectorCandidates.length > 0 &&
+          selectedCandidateIndex < selectorCandidates.length - 1
+        ) {
+          selectedCandidateIndex += 1
+          const sel = selectorCandidates[selectedCandidateIndex]
+          currentXPath = sel
+          const matches = evaluateXPath(sel)
+          highlightElementsForPicker(matches as HTMLElement[], sel)
+          ensureFloatingLabel()
+          updateFloatingLabelContent(matches.length, sel)
+          updateFloatingLabelPosition(lastMouseX, lastMouseY)
+        }
+        event.preventDefault()
+        return
       }
     }
 
@@ -394,7 +457,7 @@ export default defineContentScript({
       document.body.style.cursor = 'crosshair'
       document.addEventListener('mousemove', handlePickerMouseMove, true)
       document.addEventListener('click', handlePickerClick, true)
-      document.addEventListener('keydown', handlePickerEscape, true)
+      document.addEventListener('keydown', handlePickerKeyDown, true)
 
       // Create floating label
       ensureFloatingLabel()
@@ -414,7 +477,7 @@ export default defineContentScript({
       document.body.style.cursor = ''
       document.removeEventListener('mousemove', handlePickerMouseMove, true)
       document.removeEventListener('click', handlePickerClick, true)
-      document.removeEventListener('keydown', handlePickerEscape, true)
+      document.removeEventListener('keydown', handlePickerKeyDown, true)
 
       // Clean up state
       currentHoveredElement = null
