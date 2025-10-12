@@ -86,6 +86,7 @@ export default defineContentScript({
     let pickerFloatingLabel: HTMLDivElement | null = null
     let currentHoveredElement: HTMLElement | null = null
     let currentXPath = ''
+    let currentGuessedConfig: ScrapeConfig | null = null
     // Animation frame throttling for mouse move
     let mouseUpdateScheduled = false
     let lastMouseX = 0
@@ -231,19 +232,21 @@ export default defineContentScript({
 
       currentHoveredElement = el
 
-      // Calculate minimized XPath
-      const xpath = minimizeXPath(el)
-      currentXPath = xpath
+      // Guess config from hovered element and use its main selector for highlighting
+      const guessed = guessScrapeConfigForElement(el)
+      currentGuessedConfig = guessed
+      const selector = guessed.mainSelector
+      currentXPath = selector
 
-      // Find all matching elements
-      const matchingElements = evaluateXPath(xpath)
+      // Find all matching elements using guessed selector
+      const matchingElements = evaluateXPath(selector)
 
       // Highlight all matching elements
-      highlightElementsForPicker(matchingElements, xpath)
+      highlightElementsForPicker(matchingElements, selector)
 
       // Update floating label content and position
       ensureFloatingLabel()
-      updateFloatingLabelContent(matchingElements.length, xpath)
+      updateFloatingLabelContent(matchingElements.length, selector)
       updateFloatingLabelPosition(lastMouseX, lastMouseY)
     }
 
@@ -276,9 +279,9 @@ export default defineContentScript({
 
       log.debug('Picker mode: element selected', el)
 
-      // Calculate XPath and guess config (same as right-click scrape similar)
+      // Use the most recent guessed config from hover; fallback to fresh guess
       const xpath = minimizeXPath(el)
-      const guessedConfig = guessScrapeConfigForElement(el)
+      const guessedConfig = currentGuessedConfig || guessScrapeConfigForElement(el)
 
       if (tabId === null) {
         log.error('tabId not initialized in content script.')
