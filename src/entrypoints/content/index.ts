@@ -349,9 +349,9 @@ export default defineContentScript({
           )
         })
 
-        // Now highlight the elements
+        // Now highlight the elements (do not scroll during picker flow)
         const elementsToHighlight = evaluateXPath(finalConfig.mainSelector)
-        highlightMatchingElements(elementsToHighlight)
+        highlightMatchingElements(elementsToHighlight, { shouldScroll: false })
 
         // Track element highlighting (from picker)
         trackEvent(ANALYTICS_EVENTS.ELEMENTS_HIGHLIGHT, {
@@ -553,7 +553,10 @@ export default defineContentScript({
 
           case MESSAGE_TYPES.HIGHLIGHT_ELEMENTS: {
             log.debug('Highlighting elements:', message.payload)
-            const { selector } = message.payload as { selector: string }
+            const { selector, shouldScroll } = (message.payload || {}) as {
+              selector: string
+              shouldScroll?: boolean
+            }
             let elements: any[] = []
             try {
               elements = evaluateXPath(selector)
@@ -577,7 +580,7 @@ export default defineContentScript({
               })
               break
             }
-            highlightMatchingElements(elements)
+            highlightMatchingElements(elements, { shouldScroll })
 
             // Track element highlighting
             trackEvent(ANALYTICS_EVENTS.ELEMENTS_HIGHLIGHT, {
@@ -772,9 +775,13 @@ export default defineContentScript({
     }
 
     // Highlight matching elements in the page using Web Animations API
-    const highlightMatchingElements = (elements: Element[]) => {
-      // Scroll first element into view if available
-      if (elements.length > 0 && !isVisibleAndInViewport(elements[0])) {
+    const highlightMatchingElements = (
+      elements: Element[],
+      options?: { shouldScroll?: boolean },
+    ) => {
+      const shouldScroll = options?.shouldScroll !== false
+      // Scroll first element into view if available (unless disabled)
+      if (shouldScroll && elements.length > 0 && !isVisibleAndInViewport(elements[0])) {
         elements[0].scrollIntoView({ behavior: 'smooth', block: 'center' })
       }
 

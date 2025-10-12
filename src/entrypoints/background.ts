@@ -366,7 +366,7 @@ export default defineBackground(() => {
             // Highlight elements before scraping
             const highlightResp = await browser.tabs.sendMessage(targetTabId, {
               type: MESSAGE_TYPES.HIGHLIGHT_ELEMENTS,
-              payload: { selector: config.mainSelector },
+              payload: { selector: config.mainSelector, shouldScroll: false },
             })
             // Store highlight result in session storage immediately
             await applySidePanelDataUpdates(targetTabId, {
