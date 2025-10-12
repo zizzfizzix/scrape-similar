@@ -245,6 +245,26 @@ export default defineBackground(() => {
     log.debug('Service worker is running')
   })
 
+  // Global command listener for keyboard shortcuts (works across restarts)
+  browser.commands.onCommand.addListener(async (command) => {
+    if (command !== 'toggle_visual_picker') return
+    try {
+      const [activeTab] = await browser.tabs.query({ active: true, currentWindow: true })
+      if (!activeTab?.id || !isInjectableUrl(activeTab.url)) return
+
+      await browser.sidePanel.setOptions({
+        tabId: activeTab.id,
+        path: `sidepanel.html`,
+        enabled: true,
+      })
+
+      await browser.tabs.sendMessage(activeTab.id, { type: MESSAGE_TYPES.TOGGLE_PICKER_MODE })
+      log.debug('Visual picker toggled via global keyboard command')
+    } catch (error) {
+      log.error('Error handling toggle_visual_picker command (global):', error)
+    }
+  })
+
   // Handle action button clicks to toggle sidepanel
   browser.action.onClicked.addListener(async (tab: Browser.tabs.Tab) => {
     if (!tab?.id) return

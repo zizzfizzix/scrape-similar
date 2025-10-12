@@ -349,7 +349,7 @@ export default defineContentScript({
             type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
             payload: { updates: { scrapeResult } },
           },
-          (response) => {
+          async (response) => {
             if (browser.runtime.lastError) {
               log.error(
                 'Error sending picker scrape result to background:',
@@ -357,6 +357,8 @@ export default defineContentScript({
               )
             } else if (response?.success) {
               log.debug('Picker scrape result saved successfully')
+              // Ensure sidepanel is open so the user sees results even if it was closed
+              await browser.runtime.sendMessage({ type: MESSAGE_TYPES.OPEN_SIDEPANEL })
             } else {
               log.error('Failed to save picker scrape result:', response?.error)
             }
@@ -579,6 +581,18 @@ export default defineContentScript({
             log.debug('Disabling picker mode via message')
             disablePickerMode()
             sendResponse({ success: true, message: 'Picker mode disabled' })
+            break
+          }
+
+          case MESSAGE_TYPES.TOGGLE_PICKER_MODE: {
+            log.debug('Toggling picker mode via message')
+            if (pickerModeActive) {
+              disablePickerMode()
+              sendResponse({ success: true, message: 'Picker mode disabled' })
+            } else {
+              enablePickerMode()
+              sendResponse({ success: true, message: 'Picker mode enabled' })
+            }
             break
           }
 
