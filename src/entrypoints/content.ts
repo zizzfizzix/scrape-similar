@@ -100,7 +100,6 @@ export default defineContentScript({
           border: 2px solid #ff6b6b;
           background: rgba(255, 107, 107, 0.1);
           box-sizing: border-box;
-          z-index: 2147483646;
           top: 0;
           left: 0;
           width: 100%;
@@ -121,7 +120,6 @@ export default defineContentScript({
           overflow: hidden;
           text-overflow: ellipsis;
           pointer-events: none;
-          z-index: 2147483647;
         }
       `
       document.head.appendChild(style)
@@ -154,9 +152,10 @@ export default defineContentScript({
         highlight.className = 'scrape-similar-picker-highlight'
 
         // Get element's position for absolute positioning
-        const rect = el.getBoundingClientRect()
         const computedStyle = window.getComputedStyle(el)
         const position = computedStyle.position
+        const computedZIndex = computedStyle.zIndex
+        const baseZ = Number.isFinite(Number(computedZIndex)) ? Number(computedZIndex) : 0
 
         // Save original position if needed
         const originalPosition = el.style.position
@@ -171,6 +170,9 @@ export default defineContentScript({
         highlight.setAttribute('data-original-position', originalPosition)
         highlight.setAttribute('data-original-zindex', originalZIndex)
 
+        // Ensure overlay is just above the element's stacking level
+        highlight.style.zIndex = String(baseZ + 1)
+
         // Insert highlight as first child of element
         el.appendChild(highlight)
 
@@ -179,6 +181,7 @@ export default defineContentScript({
           const label = document.createElement('div')
           label.className = 'scrape-similar-picker-label'
           label.textContent = `${elements.length} match${elements.length !== 1 ? 'es' : ''}: ${xpath}`
+          label.style.zIndex = '1'
           highlight.appendChild(label)
         }
 
