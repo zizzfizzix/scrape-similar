@@ -79,7 +79,10 @@ export default defineContentScript({
 
     // ========== PICKER MODE STATE AND FUNCTIONS ==========
     let pickerModeActive = false
-    let pickerHighlights: HTMLDivElement[] = []
+    let highlightedElements = new Map<
+      HTMLElement,
+      { outline: string; outlineOffset: string; boxShadow: string }
+    >()
     let pickerFloatingLabel: HTMLDivElement | null = null
     let currentHoveredElement: HTMLElement | null = null
     let currentXPath = ''
@@ -98,7 +101,8 @@ export default defineContentScript({
         .scrape-similar-picker-highlight {
           position: absolute;
           pointer-events: none;
-          border: 2px solid #ff6b6b;
+          outline: 2px solid #ff6b6b;
+          outline-offset: 2px;
           background: rgba(255, 107, 107, 0.1);
           box-sizing: border-box;
           top: 0;
@@ -155,44 +159,30 @@ export default defineContentScript({
     }
 
     const removePickerHighlights = () => {
-      pickerHighlights.forEach((h) => h.remove())
-      pickerHighlights = []
+      highlightedElements.forEach((original, el) => {
+        el.style.outline = original.outline
+        el.style.outlineOffset = original.outlineOffset
+        el.style.boxShadow = original.boxShadow
+      })
+      highlightedElements.clear()
     }
 
     const highlightElementsForPicker = (elements: HTMLElement[], xpath: string) => {
       removePickerHighlights()
 
-      elements.forEach((el, index) => {
-        // Create highlight as sibling wrapper
-        const highlight = document.createElement('div')
-        highlight.className = 'scrape-similar-picker-highlight'
-
-        // Get element's position for absolute positioning
-        const computedStyle = window.getComputedStyle(el)
-        const position = computedStyle.position
-        const computedZIndex = computedStyle.zIndex
-        const baseZ = Number.isFinite(Number(computedZIndex)) ? Number(computedZIndex) : 0
-
-        // Save original position if needed
-        const originalPosition = el.style.position
-        const originalZIndex = el.style.zIndex
-
-        // Make element positioned if it's not already
-        if (position === 'static') {
-          el.style.position = 'relative'
+      elements.forEach((el) => {
+        // Save original inline styles we are about to modify
+        const original = {
+          outline: el.style.outline,
+          outlineOffset: el.style.outlineOffset,
+          boxShadow: el.style.boxShadow,
         }
+        highlightedElements.set(el, original)
 
-        // Store original values for cleanup
-        highlight.setAttribute('data-original-position', originalPosition)
-        highlight.setAttribute('data-original-zindex', originalZIndex)
-
-        // Ensure overlay is just above the element's stacking level
-        highlight.style.zIndex = String(baseZ + 1)
-
-        // Insert highlight as first child of element
-        el.appendChild(highlight)
-
-        pickerHighlights.push(highlight)
+        // Apply non-intrusive highlight directly to the element
+        el.style.outline = '2px solid #ff6b6b'
+        el.style.outlineOffset = '-2px'
+        el.style.boxShadow = 'inset 0 0 0 9999px rgba(255, 107, 107, 0.1)'
       })
     }
 
@@ -412,22 +402,7 @@ export default defineContentScript({
       pickerModeActive = false
 
       // Remove all highlights and restore original element styles
-      pickerHighlights.forEach((highlight) => {
-        const parent = highlight.parentElement
-        if (parent) {
-          const originalPosition = highlight.getAttribute('data-original-position')
-          const originalZIndex = highlight.getAttribute('data-original-zindex')
-
-          if (originalPosition !== null) {
-            parent.style.position = originalPosition
-          }
-          if (originalZIndex !== null) {
-            parent.style.zIndex = originalZIndex
-          }
-        }
-        highlight.remove()
-      })
-      pickerHighlights = []
+      removePickerHighlights()
 
       // Restore cursor and remove event listeners
       removeCrosshairCursor()
