@@ -79,7 +79,6 @@ export default defineContentScript({
 
     // ========== PICKER MODE STATE AND FUNCTIONS ==========
     let pickerModeActive = false
-    let pickerCursor: HTMLDivElement | null = null
     let pickerHighlights: HTMLDivElement[] = []
     let currentHoveredElement: HTMLElement | null = null
     let currentXPath = ''
@@ -124,40 +123,21 @@ export default defineContentScript({
           pointer-events: none;
           z-index: 2147483647;
         }
-        .scrape-similar-picker-cursor {
-          position: fixed;
-          width: 20px;
-          height: 20px;
-          pointer-events: none;
-          z-index: 2147483647;
-        }
-        .scrape-similar-picker-cursor::before,
-        .scrape-similar-picker-cursor::after {
-          content: '';
-          position: absolute;
-          background: #ff6b6b;
-        }
-        .scrape-similar-picker-cursor::before {
-          width: 2px;
-          height: 20px;
-          left: 9px;
-          top: 0;
-        }
-        .scrape-similar-picker-cursor::after {
-          width: 20px;
-          height: 2px;
-          left: 0;
-          top: 9px;
-        }
       `
       document.head.appendChild(style)
     }
 
-    const createPickerCursor = () => {
-      const cursor = document.createElement('div')
-      cursor.className = 'scrape-similar-picker-cursor'
-      document.body.appendChild(cursor)
-      return cursor
+    const applyCrosshairCursor = () => {
+      if (document.getElementById('scrape-similar-crosshair-style')) return
+      const style = document.createElement('style')
+      style.id = 'scrape-similar-crosshair-style'
+      style.textContent = `html, body, * { cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20' stroke='%23ff6b6b' stroke-width='2' shape-rendering='crispEdges'><line x1='10' y1='0' x2='10' y2='20'/><line x1='0' y1='10' x2='20' y2='10'/></svg>") 10 10, crosshair !important; }`
+      document.head.appendChild(style)
+    }
+
+    const removeCrosshairCursor = () => {
+      const style = document.getElementById('scrape-similar-crosshair-style')
+      if (style) style.remove()
     }
 
     const removePickerHighlights = () => {
@@ -206,18 +186,10 @@ export default defineContentScript({
       })
     }
 
-    const updateCursorPosition = (x: number, y: number) => {
-      if (!pickerCursor) return
-      pickerCursor.style.left = `${x - 10}px`
-      pickerCursor.style.top = `${y - 10}px`
-    }
-
     const processMouseUpdate = () => {
       mouseUpdateScheduled = false
 
       if (!pickerModeActive) return
-
-      updateCursorPosition(lastMouseX, lastMouseY)
 
       // Get element under cursor (ignore our overlay)
       const el = document.elementFromPoint(lastMouseX, lastMouseY)
@@ -376,10 +348,8 @@ export default defineContentScript({
       // Inject styles
       injectPickerStyles()
 
-      // Create cursor
-      pickerCursor = createPickerCursor()
-
       // Change cursor and add event listeners
+      applyCrosshairCursor()
       document.body.style.cursor = 'crosshair'
       document.addEventListener('mousemove', handlePickerMouseMove, true)
       document.addEventListener('click', handlePickerClick, true)
@@ -391,12 +361,6 @@ export default defineContentScript({
 
       log.debug('Disabling picker mode')
       pickerModeActive = false
-
-      // Remove cursor
-      if (pickerCursor) {
-        pickerCursor.remove()
-        pickerCursor = null
-      }
 
       // Remove all highlights and restore original element styles
       pickerHighlights.forEach((highlight) => {
@@ -417,6 +381,7 @@ export default defineContentScript({
       pickerHighlights = []
 
       // Restore cursor and remove event listeners
+      removeCrosshairCursor()
       document.body.style.cursor = ''
       document.removeEventListener('mousemove', handlePickerMouseMove, true)
       document.removeEventListener('click', handlePickerClick, true)
