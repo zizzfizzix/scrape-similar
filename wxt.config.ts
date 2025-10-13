@@ -41,6 +41,13 @@ export default defineConfig({
           },
           description: 'Toggle Scrape Similar',
         },
+        toggle_visual_picker: {
+          suggested_key: {
+            default: 'Ctrl+Shift+X',
+            mac: 'Command+Shift+X',
+          },
+          description: 'Toggle Visual Picker Mode',
+        },
       },
       content_security_policy: {
         extension_pages: `script-src 'self'; object-src 'self'; connect-src 'self' https://*.posthog.com ${googleDomains}${devCSP};`,
