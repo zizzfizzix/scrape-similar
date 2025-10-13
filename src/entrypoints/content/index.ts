@@ -325,13 +325,13 @@ export default defineContentScript({
           html: el.outerHTML,
         }
 
-        // Update storage with guessed config
+        // Update storage with the finalized config that uses the selected mainSelector
         await new Promise<void>((resolve, reject) => {
           browser.runtime.sendMessage(
             {
               type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
               payload: {
-                updates: { currentScrapeConfig: guessedConfig, elementDetails },
+                updates: { currentScrapeConfig: finalConfig, elementDetails },
               },
             },
             (response) => {
