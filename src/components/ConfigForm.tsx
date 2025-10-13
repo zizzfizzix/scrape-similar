@@ -141,6 +141,9 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
   // Add ref and state for dynamic end adornment width
   const [endAdornmentWidth, setEndAdornmentWidth] = useState(0)
   const endAdornmentRef = useRef<HTMLDivElement>(null)
+  // Add ref and state for dynamic begin adornment width (left side inside input)
+  const [beginAdornmentWidth, setBeginAdornmentWidth] = useState(0)
+  const beginAdornmentRef = useRef<HTMLDivElement>(null)
 
   // Derived flags
   const hasUncommittedChanges = mainSelectorDraft !== config.mainSelector
@@ -196,6 +199,12 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
       setEndAdornmentWidth(endAdornmentRef.current.offsetWidth)
     }
   }, [highlightError, highlightMatchCount])
+
+  useEffect(() => {
+    if (beginAdornmentRef.current) {
+      setBeginAdornmentWidth(beginAdornmentRef.current.offsetWidth)
+    }
+  }, [])
 
   // Commit the draft main selector to parent state and trigger highlight
   const commitMainSelector = (value: string) => {
@@ -765,7 +774,10 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
             placeholder="What do you want to scrape?"
             ref={mainSelectorInputRef}
             onKeyDown={handleAutosuggestKeyDown}
-            style={{ paddingRight: endAdornmentWidth ? endAdornmentWidth + 8 : undefined }}
+            style={{
+              paddingRight: endAdornmentWidth ? endAdornmentWidth + 2 : undefined,
+              paddingLeft: beginAdornmentWidth ? beginAdornmentWidth + 2 : undefined,
+            }}
           />
 
           {/* Autosuggest dropdown using Command component (manual filtering) */}
@@ -872,6 +884,28 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
               </Command>
             </div>
           )}
+          {/* Begin adornment: visual picker button inside the input on the left */}
+          <div ref={beginAdornmentRef} className="absolute inset-y-0 left-0 flex items-center pl-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  type="button"
+                  tabIndex={-1}
+                  aria-label="Visual element picker"
+                  className="size-7 p-0.5 rounded focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-0"
+                  onClick={onPickerMode}
+                >
+                  <Crosshair className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top" align="start">
+                Pick element visually
+              </TooltipContent>
+            </Tooltip>
+          </div>
+
           {/* End adornments: badges and info button */}
           <div
             ref={endAdornmentRef}
@@ -906,24 +940,6 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
             ) : (
               <div className="flex items-center justify-center min-w-[1.5rem] h-6" />
             )}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  type="button"
-                  tabIndex={-1}
-                  aria-label="Visual element picker"
-                  className="size-7 p-0.5 rounded focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-0"
-                  onClick={onPickerMode}
-                >
-                  <Crosshair className="size-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="top" align="end">
-                Pick element visually
-              </TooltipContent>
-            </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
