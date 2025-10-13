@@ -353,6 +353,17 @@ export default defineContentScript({
         const elementsToHighlight = evaluateXPath(finalConfig.mainSelector)
         highlightMatchingElements(elementsToHighlight, { shouldScroll: false })
 
+        // Persist validation state so the UI marks the selector as validated
+        browser.runtime.sendMessage({
+          type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
+          payload: {
+            updates: {
+              highlightMatchCount: elementsToHighlight.length,
+              highlightError: null,
+            },
+          },
+        })
+
         // Track element highlighting (from picker)
         trackEvent(ANALYTICS_EVENTS.ELEMENTS_HIGHLIGHT, {
           elements_count: elementsToHighlight.length,
