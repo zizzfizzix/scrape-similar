@@ -6,7 +6,8 @@ log.setDefaultLevel('error')
 export default defineContentScript({
   matches: ['http://*/*', 'https://*/*'],
   runAt: 'document_idle',
-  main() {
+  cssInjectionMode: 'ui',
+  main(ctx) {
     // Always log at trace level in development or test mode
     if (isDevOrTest) {
       log.setLevel('trace')
@@ -32,6 +33,9 @@ export default defineContentScript({
     }
 
     log.info('Scrape Similar content script is running')
+
+    // Keep a reference to the WXT content script context for UI mounting
+    const contentCtx = ctx
 
     // Store the tabId for this content script instance
     let tabId: number | null = null
@@ -93,6 +97,168 @@ export default defineContentScript({
     let mouseUpdateScheduled = false
     let lastMouseX = 0
     let lastMouseY = 0
+
+    // ========== PICKER BANNER (ShadowRoot UI) ==========
+    let pickerBannerUi: any | null = null
+    let bannerRootEl: HTMLDivElement | null = null
+    let bannerCountEl: HTMLSpanElement | null = null
+    let bannerXPathEl: HTMLInputElement | null = null
+    let bannerUpBtn: HTMLButtonElement | null = null
+    let bannerDownBtn: HTMLButtonElement | null = null
+    let bannerCloseBtn: HTMLButtonElement | null = null
+    let originalBodyMarginTopInline: string | null = null
+    let originalBodyMarginTopComputedPx: number | null = null
+
+    const updatePickerBannerContent = (matches: number, xpath: string) => {
+      if (bannerCountEl) bannerCountEl.textContent = String(matches)
+      if (bannerXPathEl) bannerXPathEl.value = xpath
+      updateBodyMarginForBanner()
+    }
+
+    const updateBodyMarginForBanner = () => {
+      if (!pickerModeActive || !bannerRootEl) return
+      const height = bannerRootEl.getBoundingClientRect().height || 0
+      if (originalBodyMarginTopInline === null) {
+        originalBodyMarginTopInline = document.body.style.marginTop
+      }
+      if (originalBodyMarginTopComputedPx === null) {
+        const computed = parseFloat(getComputedStyle(document.body).marginTop || '0') || 0
+        originalBodyMarginTopComputedPx = computed
+      }
+      const base = originalBodyMarginTopComputedPx || 0
+      document.body.style.setProperty('margin-top', `${base + height}px`, 'important')
+    }
+
+    const mountPickerBanner = async () => {
+      if (pickerBannerUi) return
+      try {
+        const ui = await createShadowRootUi(contentCtx, {
+          name: 'scrape-similar-picker-banner',
+          position: 'inline',
+          anchor: 'body',
+          onMount: (container: HTMLElement) => {
+            // Build banner DOM
+            const root = document.createElement('div')
+            root.setAttribute('data-ss-picker-banner', 'true')
+            root.innerHTML = `
+              <style>
+                :host, * { box-sizing: border-box; }
+                .ss-banner-outer { position: fixed; top: 0; left: 0; right: 0; z-index: 2147483646; height: auto; pointer-events: none; display: flex; justify-content: center; background: #111827e6; backdrop-filter: saturate(180%) blur(6px); border-bottom: 1px solid #374151; }
+                .ss-banner { position: relative; z-index: 2147483647; display: flex; align-items: center; gap: 8px; padding: 6px 10px; color: white; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica Neue, Arial; font-size: 12px; width: auto; max-width: 50vw; min-width: 25vw; pointer-events: auto; }
+                .ss-logo { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+                .ss-logo img { width: 14px; height: 14px; display: block; }
+                .ss-spacer { flex: 0 0 auto; width: 6px; }
+                .ss-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: #1f2937; border: 1px solid #374151; font-variant-numeric: tabular-nums; }
+                .ss-input { flex: 1 1 auto; min-width: 180px; border: 1px solid #374151; background: #111827; color: #e5e7eb; padding: 4px 8px; border-radius: 6px; outline: none; box-shadow: inset 0 0 0 1px #00000040; }
+                .ss-input:focus { border-color: #4b5563; }
+                .ss-btn { appearance: none; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 6px; background: #1f2937; color: #e5e7eb; border: 1px solid #374151; cursor: pointer; }
+                .ss-btn:hover { background: #2b3646; }
+                .ss-btn:active { background: #2b3646; transform: translateY(0.5px); }
+                .ss-btn svg { width: 14px; height: 14px; }
+                .ss-row { display: inline-flex; align-items: center; gap: 6px; }
+              </style>
+              <div class="ss-banner-outer" data-role="outer">
+                <div class="ss-banner">
+                  <div class="ss-logo">
+                    <img alt="Scrape Similar" />
+                  </div>
+                  <div class="ss-spacer"></div>
+                  <span class="ss-badge" data-role="count">0</span>
+                  <input class="ss-input" data-role="xpath" type="text" readonly />
+                  <div class="ss-row">
+                    <button class="ss-btn" data-role="up" title="More specific (Up)">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
+                    </button>
+                    <button class="ss-btn" data-role="down" title="Less specific (Down)">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </button>
+                    <button class="ss-btn" data-role="close" title="Close picker">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            `
+            container.appendChild(root)
+
+            // Hook up references
+            bannerRootEl = root.querySelector('.ss-banner') as HTMLDivElement
+            bannerCountEl = root.querySelector('[data-role="count"]') as HTMLSpanElement
+            bannerXPathEl = root.querySelector('[data-role="xpath"]') as HTMLInputElement
+            bannerUpBtn = root.querySelector('[data-role="up"]') as HTMLButtonElement
+            bannerDownBtn = root.querySelector('[data-role="down"]') as HTMLButtonElement
+            bannerCloseBtn = root.querySelector('[data-role="close"]') as HTMLButtonElement
+
+            // Set logo via runtime URL
+            const logoImg = root.querySelector('.ss-logo img') as HTMLImageElement | null
+            if (logoImg) logoImg.src = browser.runtime.getURL('/img/logo/logo-light-16.png')
+
+            // Wire button events
+            if (bannerUpBtn) {
+              bannerUpBtn.addEventListener('click', () => {
+                if (selectorCandidates.length > 0 && selectedCandidateIndex > 0) {
+                  selectedCandidateIndex -= 1
+                  const sel = selectorCandidates[selectedCandidateIndex]
+                  currentXPath = sel
+                  const matches = evaluateXPath(sel)
+                  highlightElementsForPicker(matches as HTMLElement[], sel)
+                  updateFloatingLabelContent(matches.length, sel)
+                  updatePickerBannerContent(matches.length, sel)
+                }
+              })
+            }
+            if (bannerDownBtn) {
+              bannerDownBtn.addEventListener('click', () => {
+                if (
+                  selectorCandidates.length > 0 &&
+                  selectedCandidateIndex < selectorCandidates.length - 1
+                ) {
+                  selectedCandidateIndex += 1
+                  const sel = selectorCandidates[selectedCandidateIndex]
+                  currentXPath = sel
+                  const matches = evaluateXPath(sel)
+                  highlightElementsForPicker(matches as HTMLElement[], sel)
+                  updateFloatingLabelContent(matches.length, sel)
+                  updatePickerBannerContent(matches.length, sel)
+                }
+              })
+            }
+            if (bannerCloseBtn) {
+              bannerCloseBtn.addEventListener('click', () => {
+                disablePickerMode()
+              })
+            }
+
+            return root
+          },
+          onRemove: () => {
+            bannerRootEl = null
+            bannerCountEl = null
+            bannerXPathEl = null
+            bannerUpBtn = null
+            bannerDownBtn = null
+            bannerCloseBtn = null
+          },
+        })
+        pickerBannerUi = ui
+        ui.mount()
+        // After mount, ensure page content is offset below banner
+        updateBodyMarginForBanner()
+      } catch (e) {
+        log.warn('Failed to mount picker banner UI', e)
+      }
+    }
+
+    const unmountPickerBanner = () => {
+      try {
+        if (pickerBannerUi) {
+          pickerBannerUi.remove?.()
+          pickerBannerUi = null
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
 
     // Inject styles for picker overlays (only once)
     const injectPickerStyles = () => {
@@ -246,8 +412,17 @@ export default defineContentScript({
 
       if (!pickerModeActive) return
 
-      // Get element under cursor (ignore our overlay)
-      const el = document.elementFromPoint(lastMouseX, lastMouseY)
+      // Get element under cursor (ignore our overlay/banner)
+      let el: Element | null = null
+      const prevPointerEvents = bannerRootEl?.style.pointerEvents
+      if (bannerRootEl) bannerRootEl.style.pointerEvents = 'none'
+      try {
+        el = document.elementFromPoint(lastMouseX, lastMouseY)
+      } finally {
+        if (bannerRootEl && prevPointerEvents !== undefined) {
+          bannerRootEl.style.pointerEvents = prevPointerEvents
+        }
+      }
       if (!el || !(el instanceof HTMLElement)) return
 
       // Skip if we're already hovering this element
@@ -274,6 +449,7 @@ export default defineContentScript({
       ensureFloatingLabel()
       updateFloatingLabelContent(matchingElements.length, selector)
       updateFloatingLabelPosition(lastMouseX, lastMouseY)
+      updatePickerBannerContent(matchingElements.length, selector)
     }
 
     const handlePickerMouseMove = (event: MouseEvent) => {
@@ -292,6 +468,12 @@ export default defineContentScript({
 
     const handlePickerClick = async (event: MouseEvent) => {
       if (!pickerModeActive) return
+
+      // If click originated from inside our banner UI, let it pass through
+      const composed = event.composedPath()
+      if (bannerRootEl && composed.includes(bannerRootEl)) {
+        return
+      }
 
       event.preventDefault()
       event.stopPropagation()
@@ -431,6 +613,7 @@ export default defineContentScript({
           ensureFloatingLabel()
           updateFloatingLabelContent(matches.length, sel)
           updateFloatingLabelPosition(lastMouseX, lastMouseY)
+          updatePickerBannerContent(matches.length, sel)
         }
         event.preventDefault()
         return
@@ -448,6 +631,7 @@ export default defineContentScript({
           ensureFloatingLabel()
           updateFloatingLabelContent(matches.length, sel)
           updateFloatingLabelPosition(lastMouseX, lastMouseY)
+          updatePickerBannerContent(matches.length, sel)
         }
         event.preventDefault()
         return
@@ -462,6 +646,8 @@ export default defineContentScript({
 
       // Inject styles
       injectPickerStyles()
+      // Mount shadow-root banner UI at top of page
+      mountPickerBanner()
 
       // Change cursor and add event listeners
       applyCrosshairCursor()
@@ -469,6 +655,7 @@ export default defineContentScript({
       document.addEventListener('mousemove', handlePickerMouseMove, true)
       document.addEventListener('click', handlePickerClick, true)
       document.addEventListener('keydown', handlePickerKeyDown, true)
+      window.addEventListener('resize', updateBodyMarginForBanner)
 
       // Create floating label
       ensureFloatingLabel()
@@ -482,6 +669,8 @@ export default defineContentScript({
 
       // Remove all highlights and restore original element styles
       removePickerHighlights()
+      // Remove banner UI
+      unmountPickerBanner()
 
       // Restore cursor and remove event listeners
       removeCrosshairCursor()
@@ -489,6 +678,7 @@ export default defineContentScript({
       document.removeEventListener('mousemove', handlePickerMouseMove, true)
       document.removeEventListener('click', handlePickerClick, true)
       document.removeEventListener('keydown', handlePickerKeyDown, true)
+      window.removeEventListener('resize', updateBodyMarginForBanner)
 
       // Clean up state
       currentHoveredElement = null
@@ -496,6 +686,16 @@ export default defineContentScript({
       if (pickerFloatingLabel) {
         pickerFloatingLabel.remove()
         pickerFloatingLabel = null
+      }
+      // Restore original body margin-top
+      if (originalBodyMarginTopInline !== null) {
+        if (originalBodyMarginTopInline && originalBodyMarginTopInline.trim().length > 0) {
+          document.body.style.setProperty('margin-top', originalBodyMarginTopInline, '')
+        } else {
+          document.body.style.removeProperty('margin-top')
+        }
+        originalBodyMarginTopInline = null
+        originalBodyMarginTopComputedPx = null
       }
     }
     // ========== END PICKER MODE ==========

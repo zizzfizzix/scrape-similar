@@ -52,6 +52,12 @@ export default defineConfig({
       content_security_policy: {
         extension_pages: `script-src 'self'; object-src 'self'; connect-src 'self' https://*.posthog.com ${googleDomains}${devCSP};`,
       },
+      web_accessible_resources: [
+        {
+          resources: ['img/logo/*'],
+          matches: ['http://*/*', 'https://*/*'],
+        },
+      ],
     }
   },
   modules: ['@wxt-dev/module-react', '@wxt-dev/auto-icons'],
