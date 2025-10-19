@@ -424,6 +424,147 @@ test.describe('Full Data View', () => {
     // Verify download filename
     const fileName = download.suggestedFilename()
     expect(fileName.toLowerCase()).toMatch(/\.csv$/)
+
+    // Validate headers and row count match UI
+    const filePath = await download.path()
+    if (filePath) {
+      const content = await (await import('fs/promises')).readFile(filePath, 'utf-8')
+      const lines = content.trim().split(/\r?\n/)
+      const headers = lines[0].split(',').map((header) => header.replace(/"/g, ''))
+
+      const uiHeaders = await fullDataViewPage.evaluate(() => {
+        const ths = Array.from(document.querySelectorAll('table thead th'))
+        // Exclude selection checkbox (empty), row index '#', and 'Actions'
+        return ths
+          .map((th) => th.textContent?.trim() || '')
+          .filter((txt) => txt && txt !== '#' && txt.toLowerCase() !== 'actions')
+      })
+      expect(headers).toEqual(uiHeaders)
+
+      const uiRowCount = await fullDataViewPage.locator('tbody tr').count()
+      expect(lines.length - 1).toBe(uiRowCount)
+    }
+  })
+
+  test('exports all rows to Excel (.xlsx) from full data view', async ({
+    openSidePanel,
+    serviceWorker,
+    context,
+  }) => {
+    const sidePanel = await openSidePanel()
+    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context)
+
+    // Open full data view
+    const fullDataViewPage = await TestHelpers.openFullDataView(sidePanel, context)
+
+    // Open export dropdown and click XLSX
+    await fullDataViewPage.getByRole('button', { name: /export/i }).click()
+    const [download] = await Promise.all([
+      fullDataViewPage.waitForEvent('download'),
+      fullDataViewPage.getByRole('menuitem', { name: /save.*excel.*\.xlsx/i }).click(),
+    ])
+
+    const fileName = download.suggestedFilename()
+    expect(fileName.toLowerCase()).toMatch(/\.xlsx$/)
+
+    const filePath = await download.path()
+    if (filePath) {
+      const XLSX = await import('xlsx')
+      const buf = await (await import('fs/promises')).readFile(filePath)
+      const wb = XLSX.read(buf, { type: 'buffer' })
+      const ws = wb.Sheets[wb.SheetNames[0]]
+      const aoa = XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[][]
+
+      const uiHeaders = await fullDataViewPage.evaluate(() => {
+        const ths = Array.from(document.querySelectorAll('table thead th'))
+        return ths
+          .map((th) => th.textContent?.trim() || '')
+          .filter((txt) => txt && txt !== '#' && txt.toLowerCase() !== 'actions')
+      })
+      expect(aoa[0]).toEqual(uiHeaders)
+
+      const uiRowCount = await fullDataViewPage.locator('tbody tr').count()
+      expect(aoa.length - 1).toBe(uiRowCount)
+    }
+  })
+
+  test('exports only selected rows to CSV from full data view', async ({
+    openSidePanel,
+    serviceWorker,
+    context,
+  }) => {
+    const sidePanel = await openSidePanel()
+    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context)
+
+    // Open full data view
+    const fullDataViewPage = await TestHelpers.openFullDataView(sidePanel, context)
+
+    // Select first row only
+    const firstRowCheckbox = fullDataViewPage
+      .getByRole('row', { name: 'Select row 1 Highlight this' })
+      .getByLabel('Select row')
+    await firstRowCheckbox.click()
+
+    // Export CSV for selected rows
+    await fullDataViewPage.getByRole('button', { name: /export/i }).click()
+    const [download] = await Promise.all([
+      fullDataViewPage.waitForEvent('download'),
+      fullDataViewPage.getByRole('menuitem', { name: /save 1 row as csv/i }).click(),
+    ])
+
+    const fileName = download.suggestedFilename()
+    expect(fileName.toLowerCase()).toMatch(/\.csv$/)
+
+    const filePath = await download.path()
+    if (filePath) {
+      const content = await (await import('fs/promises')).readFile(filePath, 'utf-8')
+      const lines = content.trim().split(/\r?\n/)
+      // 1 header + 1 data row
+      expect(lines.length).toBe(2)
+    }
+  })
+
+  test('exports only selected rows to Excel (.xlsx) from full data view', async ({
+    openSidePanel,
+    serviceWorker,
+    context,
+  }) => {
+    const sidePanel = await openSidePanel()
+    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context)
+
+    // Open full data view
+    const fullDataViewPage = await TestHelpers.openFullDataView(sidePanel, context)
+
+    // Select first two rows
+    const firstRow = fullDataViewPage
+      .getByRole('row', { name: 'Select row 1 Highlight this' })
+      .getByLabel('Select row')
+    const secondRow = fullDataViewPage
+      .getByRole('row', { name: 'Select row 2 Highlight this' })
+      .getByLabel('Select row')
+    await firstRow.click()
+    await secondRow.click()
+
+    // Export XLSX for selected rows
+    await fullDataViewPage.getByRole('button', { name: /export/i }).click()
+    const [download] = await Promise.all([
+      fullDataViewPage.waitForEvent('download'),
+      fullDataViewPage.getByRole('menuitem', { name: /save 2 rows.*excel.*\.xlsx/i }).click(),
+    ])
+
+    const fileName = download.suggestedFilename()
+    expect(fileName.toLowerCase()).toMatch(/\.xlsx$/)
+
+    const filePath = await download.path()
+    if (filePath) {
+      const XLSX = await import('xlsx')
+      const buf = await (await import('fs/promises')).readFile(filePath)
+      const wb = XLSX.read(buf, { type: 'buffer' })
+      const ws = wb.Sheets[wb.SheetNames[0]]
+      const aoa = XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[][]
+      // 1 header + 2 data rows
+      expect(aoa.length).toBe(3)
+    }
   })
 
   test('shows empty rows toggle when empty rows are present', async ({
