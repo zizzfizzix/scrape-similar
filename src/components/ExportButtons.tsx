@@ -11,7 +11,7 @@ import { rowsToTsv } from '@/utils/tsv'
 import type { ScrapeConfig, ScrapeResult, ScrapedRow } from '@/utils/types'
 import { MESSAGE_TYPES } from '@/utils/types'
 import log from 'loglevel'
-import { ChevronsUpDown, Clipboard, FileDown, Sheet } from 'lucide-react'
+import { ChevronsUpDown, Clipboard, FileDown, FileSpreadsheet, Sheet } from 'lucide-react'
 import React, { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -190,17 +190,19 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({
       return
     }
 
+    // Track trigger before attempting work so it's recorded even on failure
+    trackEvent(ANALYTICS_EVENTS.COPY_TO_CLIPBOARD_TRIGGER, {
+      rows_copied: dataToExport.length,
+      columns_count: columns.length,
+      export_type: 'data_table_full',
+    })
+
     const tsvContent = rowsToTsv(dataToExport, columnKeys, columns)
 
     try {
       await navigator.clipboard.writeText(tsvContent)
       toast.success('Copied to clipboard')
       setIsDropdownOpen(false)
-      trackEvent(ANALYTICS_EVENTS.COPY_TO_CLIPBOARD_TRIGGER, {
-        rows_copied: dataToExport.length,
-        columns_count: columns.length,
-        export_type: 'data_table_full',
-      })
     } catch {
       toast.error('Failed to copy')
       setIsDropdownOpen(false)
@@ -213,6 +215,12 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({
       toast.error('No data to export')
       return
     }
+
+    // Track trigger before attempting work so it's recorded even on failure
+    trackEvent(ANALYTICS_EVENTS.EXPORT_TO_CSV_TRIGGER, {
+      rows_exported: dataToExport.length,
+      columns_count: columns.length,
+    })
 
     const csvContent = [
       columns.map((header) => `"${header.replace(/"/g, '""')}"`).join(','),
@@ -240,14 +248,56 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({
       URL.revokeObjectURL(url)
       toast.success('CSV file saved')
       setIsDropdownOpen(false)
-      trackEvent(ANALYTICS_EVENTS.EXPORT_TO_CSV_TRIGGER, {
-        rows_exported: dataToExport.length,
-        columns_count: columns.length,
-      })
     } catch (e) {
       toast.error('Failed to save CSV')
       setIsDropdownOpen(false)
       trackEvent(ANALYTICS_EVENTS.EXPORT_TO_CSV_FAILURE, {
+        error: (e as Error).message,
+      })
+    }
+  }
+
+  const handleXlsxExport = async () => {
+    if (!dataToExport.length) {
+      toast.error('No data to export')
+      return
+    }
+
+    // Track trigger before attempting work so it's recorded even on failure
+    trackEvent(ANALYTICS_EVENTS.EXPORT_TO_XLSX_TRIGGER, {
+      rows_exported: dataToExport.length,
+      columns_count: columns.length,
+    })
+
+    try {
+      // Dynamic import for maximum tree-shaking; only bring writeFileXLSX and utils
+      const XLSX = await import('xlsx')
+
+      // Build a 2D array with header row followed by data rows
+      const aoa: any[][] = [columns]
+      for (const row of dataToExport) {
+        aoa.push(
+          columnKeys.map((key) => {
+            const value = row.data[key]
+            return value == null ? '' : value
+          }),
+        )
+      }
+
+      const ws = XLSX.utils.aoa_to_sheet(aoa)
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'Data')
+
+      const xlsxFilename = `${exportFilename}.xlsx`
+      // Use writeFileXLSX specifically to allow tree-shaking of the rest
+      XLSX.writeFileXLSX(wb, xlsxFilename, { compression: true })
+
+      toast.success('Excel file saved')
+      setIsDropdownOpen(false)
+    } catch (e) {
+      toast.error('Failed to save to Excel')
+      setIsDropdownOpen(false)
+      trackEvent(ANALYTICS_EVENTS.EXPORT_TO_XLSX_FAILURE, {
         error: (e as Error).message,
       })
     }
@@ -279,6 +329,10 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({
         >
           <Sheet className="h-4 w-4" />
           {isExporting ? 'Exporting…' : `Export ${exportText} to Google Sheets`}
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={handleXlsxExport}>
+          <FileSpreadsheet className="h-4 w-4" />
+          Save {exportText} to Excel (.xlsx)
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

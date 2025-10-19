@@ -78,6 +78,8 @@ export const ANALYTICS_EVENTS = {
   EXPORT_TO_SHEETS_FAILURE: 'export_to_sheets_failure',
   EXPORT_TO_CSV_TRIGGER: 'export_to_csv_trigger',
   EXPORT_TO_CSV_FAILURE: 'export_to_csv_failure',
+  EXPORT_TO_XLSX_TRIGGER: 'export_to_xlsx_trigger',
+  EXPORT_TO_XLSX_FAILURE: 'export_to_xlsx_failure',
   COPY_TO_CLIPBOARD_TRIGGER: 'copy_to_clipboard_trigger',
   COPY_TO_CLIPBOARD_FAILURE: 'copy_to_clipboard_failure',
 
