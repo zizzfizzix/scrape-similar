@@ -1,6 +1,6 @@
 # Scrape Similar
 
-A powerful browser extension for extracting structured data from websites and exporting to Google Sheets, CSV, TSV, or the clipboard. Built with **WXT**, Vite, React 19, TypeScript, and Manifest V3 WebExtension APIs.
+A powerful browser extension for extracting structured data from websites and exporting to Google Sheets, Excel (.xlsx), CSV, TSV, or the clipboard. Built with **WXT**, Vite, React 19, TypeScript, and Manifest V3 WebExtension APIs.
 
 ## 🚀 Installation
 
@@ -18,7 +18,7 @@ See the Development section below for step-by-step instructions.
 
 - **Web Scraping**: Extract structured data from any website using XPath selectors
 - **Google Sheets Export**: Direct export with OAuth2 authentication
-- **Multiple Export Formats**: CSV, TSV, and clipboard export options
+- **Multiple Export Formats**: Excel (.xlsx), CSV, TSV, and clipboard export options
 - **Preset Management**: Save and load scraping configurations
 - **System Presets**: Pre-built configurations for common use cases
 
