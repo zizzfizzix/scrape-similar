@@ -8,13 +8,9 @@ updates:
       prefix: 'chore'
       include: 'scope'
     groups:
-      react-stack:
+      react-dependencies:
         patterns:
           - 'react'
           - 'react-dom'
           - '@types/react'
           - '@types/react-dom'
-        update-types:
-          - 'version-update:semver-patch'
-          - 'version-update:semver-minor'
-          - 'version-update:semver-major'
