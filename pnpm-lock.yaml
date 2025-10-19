@@ -78,8 +78,8 @@ importers:
         specifier: ^3.3.1
         version: 3.3.1
       tailwindcss:
-        specifier: ^4.1.13
-        version: 4.1.13
+        specifier: ^4.1.14
+        version: 4.1.14
       uuid:
         specifier: ^13.0.0
         version: 13.0.0
@@ -95,7 +95,7 @@ importers:
         version: 1.56.0
       '@toolwind/anchors':
         specifier: ^1.0.10
-        version: 1.0.10(tailwindcss@4.1.13)
+        version: 1.0.10(tailwindcss@4.1.14)
       '@types/chrome':
         specifier: ^0.1.24
         version: 0.1.24
@@ -3207,9 +3207,6 @@ packages:
   tailwind-merge@3.3.1:
     resolution: {integrity: sha512-gBXpgUm/3rp1lMZZrM/w7D8GKqshif0zAymAhbCyIt8KMe+0v9DQ7cdYLR4FHH/cKpdTXb+A/tKKU3eolfsI+g==}
 
-  tailwindcss@4.1.13:
-    resolution: {integrity: sha512-i+zidfmTqtwquj4hMEwdjshYYgMbOrPzb9a0M3ZgNa0JMoZeFC6bxZvO8yr8ozS6ix2SDz0+mvryPeBs2TFE+w==}
-
   tailwindcss@4.1.14:
     resolution: {integrity: sha512-b7pCxjGO98LnxVkKjaZSDeNuljC4ueKUddjENJOADtubtdo8llTaJy7HwBMeLNSSo2N5QIAgklslK1+Ir8r6CA==}
 
@@ -4664,9 +4661,9 @@ snapshots:
 
   '@tanstack/table-core@8.21.3': {}
 
-  '@toolwind/anchors@1.0.10(tailwindcss@4.1.13)':
+  '@toolwind/anchors@1.0.10(tailwindcss@4.1.14)':
     dependencies:
-      tailwindcss: 4.1.13
+      tailwindcss: 4.1.14
 
   '@types/babel__core@7.20.5':
     dependencies:
@@ -6510,8 +6507,6 @@ snapshots:
   symbol-tree@3.2.4: {}
 
   tailwind-merge@3.3.1: {}
-
-  tailwindcss@4.1.13: {}
 
   tailwindcss@4.1.14: {}
 
