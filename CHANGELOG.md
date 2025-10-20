@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/zizzfizzix/scrape-similar/compare/v0.5.0...v0.6.0) (2025-10-20)
+
+
+### Features
+
+* add xlsx export option ([#101](https://github.com/zizzfizzix/scrape-similar/issues/101)) ([c2aed01](https://github.com/zizzfizzix/scrape-similar/commit/c2aed01dc61d634936b5d8aa9900b849de085eb9))
+
 ## [0.5.0](https://github.com/zizzfizzix/scrape-similar/compare/v0.4.0...v0.5.0) (2025-10-05)
 
 
