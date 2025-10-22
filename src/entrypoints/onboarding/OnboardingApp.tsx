@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { Toaster } from '@/components/ui/sonner'
+import { isTest } from '@/utils/modeTest'
 import {
   Ban,
   Check,
@@ -156,8 +157,10 @@ const OnboardingApp: React.FC = () => {
 
       if (response?.success) {
         // Navigate this tab to the demo Wikipedia page
-        const demoUrl =
-          'https://en.wikipedia.org/wiki/List_of_countries_and_dependencies_by_population'
+        // Use Special:Random by default, but keep deterministic URL for e2e tests.
+        const demoUrl = isTest
+          ? 'https://en.wikipedia.org/wiki/List_of_countries_and_dependencies_by_population'
+          : 'https://en.wikipedia.org/wiki/Special:Random'
         window.location.replace(demoUrl)
       } else {
         toast.error('Failed to start demo: ' + (response?.error || 'Unknown error'))
