@@ -52,7 +52,7 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "@playwright/test": "^1.56.1",
+    "@playwright/test": "^1.57.0",
     "@toolwind/anchors": "^1.0.10",
     "@types/chrome": "^0.1.32",
     "@types/react": "^19.2.7",
