@@ -40,7 +40,7 @@
     "loglevel": "^1.9.2",
     "lucide-react": "^0.555.0",
     "next-themes": "^0.4.6",
-    "posthog-js": "^1.276.0",
+    "posthog-js": "^1.301.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "slugify": "^1.6.6",
