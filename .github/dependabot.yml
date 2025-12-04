@@ -14,3 +14,8 @@ updates:
           - 'react-dom'
           - '@types/react'
           - '@types/react-dom'
+      tailwind-dependencies:
+        patterns:
+          - 'tailwindcss'
+          - '@tailwindcss/vite'
+          - 'tailwind-merge'
