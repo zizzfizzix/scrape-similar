@@ -237,10 +237,60 @@ export const minimizeXPath = (node: Element): string => {
  * Handles tables, links, images, lists, and default cases.
  */
 export const guessScrapeConfigForElement = (element: HTMLElement): ScrapeConfig => {
-  let ancestor: HTMLElement =
-    (element.closest(
-      'tr, a, img, dt, li, button, input, textarea, select, h1, h2, h3, h4, h5, h6, article, section, main, aside, figure',
-    ) as HTMLElement) || element
+  // Prefer repeated row-ish ancestors (tr/li/dt/dd) if present
+  const repeatedRowAncestor = (() => {
+    const tr = element.closest('tr') as HTMLElement | null
+    if (tr && tr.parentElement && tr.parentElement.querySelectorAll(':scope > tr').length > 1) {
+      return tr
+    }
+    const li = element.closest('li') as HTMLElement | null
+    if (li && li.parentElement && li.parentElement.querySelectorAll(':scope > li').length > 1) {
+      return li
+    }
+    const dt = element.closest('dt') as HTMLElement | null
+    if (dt && dt.parentElement && dt.parentElement.querySelectorAll(':scope > dt').length > 1) {
+      return dt
+    }
+    const dd = element.closest('dd') as HTMLElement | null
+    if (dd && dd.parentElement && dd.parentElement.querySelectorAll(':scope > dd').length > 1) {
+      return dd
+    }
+    return null
+  })()
+
+  // Helper: find the nearest ancestor (including self) that has same-tag siblings
+  const findNearestRepeatingNode = (start: HTMLElement): HTMLElement => {
+    const maxLevels = 6
+    const disallowTags = new Set(['html', 'body'])
+    let node: HTMLElement | null = start
+    let levels = 0
+    while (node && levels <= maxLevels) {
+      const tag = node.tagName.toLowerCase()
+      if (!disallowTags.has(tag) && node.parentElement) {
+        const sameTagSiblings = Array.from(node.parentElement.children).filter(
+          (s) => (s as Element).tagName.toLowerCase() === tag,
+        )
+        // Require at least 2 siblings of the same tag to consider it a repeating unit
+        if (sameTagSiblings.length > 1) {
+          // Avoid jumping to very broad layout containers unless there are many siblings
+          if (
+            ['section', 'article', 'main', 'aside', 'figure'].includes(tag) &&
+            sameTagSiblings.length < 3
+          ) {
+            // keep climbing to find a better repeating parent
+          } else {
+            return node
+          }
+        }
+      }
+      node = node.parentElement
+      levels += 1
+    }
+    return start
+  }
+
+  // Choose best ancestor candidate with a bias for specificity
+  const ancestor: HTMLElement = repeatedRowAncestor || findNearestRepeatingNode(element)
   let tagName = ancestor.tagName.toLowerCase()
   let mainSelector = minimizeXPath(ancestor)
   let columns: ColumnDefinition[] = []
