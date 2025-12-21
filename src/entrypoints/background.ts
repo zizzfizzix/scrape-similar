@@ -1,5 +1,5 @@
-import { isDevOrTest } from '@/utils/modeTest'
 import { isInjectableUrl } from '@/utils/isInjectableUrl'
+import { isDevOrTest } from '@/utils/modeTest'
 import log from 'loglevel'
 import { PostHog } from 'posthog-js/dist/module.no-external'
 
@@ -431,7 +431,8 @@ export default defineBackground(() => {
           return
         }
 
-        try {// Toggle picker mode (same as keyboard shortcut)
+        try {
+          // Toggle picker mode (same as keyboard shortcut)
           await browser.tabs.sendMessage(targetTabId, { type: MESSAGE_TYPES.TOGGLE_PICKER_MODE })
           log.debug('Visual picker toggled via context menu')
         } catch (error) {

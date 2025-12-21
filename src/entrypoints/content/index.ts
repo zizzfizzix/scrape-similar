@@ -87,6 +87,9 @@ export default defineContentScript({
     document.addEventListener('contextmenu', (event) => {
       log.debug('Context menu event captured', event.target)
       rightClickListener(event as MouseEvent)
+      // Also track position for visual picker (in case it's triggered via context menu)
+      lastMouseX = event.clientX
+      lastMouseY = event.clientY
     })
 
     // ========== PICKER MODE STATE AND FUNCTIONS ==========
@@ -102,6 +105,7 @@ export default defineContentScript({
     let selectedCandidateIndex = 0
     // Animation frame throttling for mouse move
     let mouseUpdateScheduled = false
+    // Track last known mouse position (updated by contextmenu and mousemove in picker mode)
     let lastMouseX = 0
     let lastMouseY = 0
 
@@ -783,6 +787,18 @@ export default defineContentScript({
       document.addEventListener('contextmenu', handlePickerContextMenu, true)
       document.addEventListener('mousedown', handlePickerContextMenuClickOutside, true)
       window.addEventListener('resize', updateBodyMarginForBanner)
+
+      // Immediately evaluate what's under the cursor when picker mode is enabled
+      // Use requestAnimationFrame to ensure the banner is mounted first
+      requestAnimationFrame(() => {
+        // If mouse position is at origin (0,0), use viewport center as fallback
+        if (lastMouseX === 0 && lastMouseY === 0) {
+          lastMouseX = window.innerWidth / 2
+          lastMouseY = window.innerHeight / 2
+        }
+        // Process the initial mouse position
+        processMouseUpdate()
+      })
     }
 
     const disablePickerMode = () => {
