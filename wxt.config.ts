@@ -54,7 +54,7 @@ export default defineConfig({
       },
       web_accessible_resources: [
         {
-          resources: ['img/logo/*'],
+          resources: ['img/logo/*', 'icons/*'],
           matches: ['http://*/*', 'https://*/*'],
         },
       ],

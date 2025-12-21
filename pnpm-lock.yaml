@@ -90,6 +90,9 @@ importers:
       '@playwright/test':
         specifier: ^1.55.1
         version: 1.55.1
+      '@thedutchcoder/postcss-rem-to-px':
+        specifier: ^0.0.2
+        version: 0.0.2(postcss@8.5.6)
       '@toolwind/anchors':
         specifier: ^1.0.10
         version: 1.0.10(tailwindcss@4.1.13)
@@ -117,6 +120,9 @@ importers:
       jsdom:
         specifier: ^27.0.0
         version: 27.0.0(postcss@8.5.6)
+      postcss:
+        specifier: ^8.5.6
+        version: 8.5.6
       prettier:
         specifier: ^3.6.2
         version: 3.6.2
@@ -1411,6 +1417,12 @@ packages:
   '@tanstack/table-core@8.21.3':
     resolution: {integrity: sha512-ldZXEhOBb8Is7xLs01fR3YEc3DERiz5silj8tnGkFZytt1abEvl/GhUmCE0PMLaMPTa3Jk4HbKmRlHmu+gCftg==}
     engines: {node: '>=12'}
+
+  '@thedutchcoder/postcss-rem-to-px@0.0.2':
+    resolution: {integrity: sha512-M2T3bJSTgLtZF8+KDYDtSDAFGuTlaxYfitpjkmNswnfJ8AjbQ/g7NC+bqgAAViYWFV9I3tdrQuQ3Bu8j7GrjwA==}
+    engines: {node: '>=12.0.0'}
+    peerDependencies:
+      postcss: ^8.3.0
 
   '@toolwind/anchors@1.0.10':
     resolution: {integrity: sha512-F3J/lxGGPUy+GIpT49NmYMF1X7l0d7UzdDASni29il2ro5sT4cYfPBFHBAfOM0lpgKOr/HnqINlomngt8BcvnA==}
@@ -4621,6 +4633,10 @@ snapshots:
       react-dom: 19.1.1(react@19.1.1)
 
   '@tanstack/table-core@8.21.3': {}
+
+  '@thedutchcoder/postcss-rem-to-px@0.0.2(postcss@8.5.6)':
+    dependencies:
+      postcss: 8.5.6
 
   '@toolwind/anchors@1.0.10(tailwindcss@4.1.13)':
     dependencies:
