@@ -1,4 +1,5 @@
 import { isDevOrTest } from '@/utils/modeTest'
+import { isInjectableUrl } from '@/utils/isInjectableUrl'
 import log from 'loglevel'
 import { PostHog } from 'posthog-js/dist/module.no-external'
 
@@ -197,11 +198,11 @@ export default defineBackground(() => {
       }
     }
 
-    // Create context menu item
+    // Create context menu items
     browser.contextMenus.create(
       {
         id: 'scrape-similar',
-        title: 'Scrape similar elements',
+        title: 'Quick scrape',
         contexts: ['selection', 'page', 'link', 'image'],
         documentUrlPatterns: [
           'http://*/*',
@@ -215,6 +216,27 @@ export default defineBackground(() => {
           log.error('Error creating context menu:', browser.runtime.lastError)
         } else {
           log.debug('Context menu created successfully')
+        }
+      },
+    )
+
+    browser.contextMenus.create(
+      {
+        id: 'scrape-visual-picker',
+        title: 'Visual picker',
+        contexts: ['selection', 'page', 'link', 'image'],
+        documentUrlPatterns: [
+          'http://*/*',
+          'https://*/*',
+          `chrome-extension://${browser.runtime.id}/onboarding.html`,
+        ],
+      },
+      () => {
+        // Check for any errors when creating context menu
+        if (browser.runtime.lastError) {
+          log.error('Error creating visual picker context menu:', browser.runtime.lastError)
+        } else {
+          log.debug('Visual picker context menu created successfully')
         }
       },
     )
@@ -399,6 +421,21 @@ export default defineBackground(() => {
           }
         } catch (error) {
           log.error('Error in right-click scrape flow:', error)
+        }
+      } else if (info.menuItemId === 'scrape-visual-picker') {
+        log.debug('Scrape visual picker selected, toggling picker mode...')
+
+        // Check if URL is injectable (same check as keyboard shortcut)
+        if (!isInjectableUrl(tab.url)) {
+          log.warn('Cannot enable visual picker on non-injectable URL:', tab.url)
+          return
+        }
+
+        try {// Toggle picker mode (same as keyboard shortcut)
+          await browser.tabs.sendMessage(targetTabId, { type: MESSAGE_TYPES.TOGGLE_PICKER_MODE })
+          log.debug('Visual picker toggled via context menu')
+        } catch (error) {
+          log.error('Error handling scrape-visual-picker context menu:', error)
         }
       }
     },
