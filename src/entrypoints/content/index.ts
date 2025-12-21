@@ -111,12 +111,21 @@ export default defineContentScript({
     let bannerRootEl: HTMLDivElement | null = null
     let bannerCountEl: HTMLSpanElement | null = null
     let bannerXPathEl: HTMLInputElement | null = null
-    let bannerUpBtn: HTMLButtonElement | null = null
-    let bannerDownBtn: HTMLButtonElement | null = null
     let bannerCloseBtn: HTMLButtonElement | null = null
     let originalBodyMarginTopInline: string | null = null
     let originalBodyMarginTopComputedPx: number | null = null
     let bannerSetData: ((count: number, xpath: string) => void) | null = null
+    let pickerContextMenuHost: HTMLDivElement | null = null
+    let pickerContextMenuUi: Awaited<ReturnType<typeof createShadowRootUi>> | null = null
+    let pickerContextMenuOpen = false
+    let pickerContextMenuApi: {
+      unmount: () => void
+      updateLevel: (level: number) => void
+      updateLevels: (levels: number, currentLevel: number) => void
+      updatePosition: (x: number, y: number) => void
+    } | null = null
+    // Store original top values of fixed elements we've adjusted
+    const originalFixedElementTops = new Map<HTMLElement, string>()
 
     const updatePickerBannerContent = (matches: number, xpath: string) => {
       if (bannerCountEl) bannerCountEl.textContent = String(matches)
@@ -140,18 +149,69 @@ export default defineContentScript({
       updatePickerBannerContent(matches.length, sel)
     }
 
+    const getPickerBannerHeight = (): number => {
+      if (!bannerRootEl) return 53
+      const shadowRoot = bannerRootEl.shadowRoot || bannerRootEl.getRootNode()
+      const bannerEl = (shadowRoot as ShadowRoot)?.querySelector?.('.fixed') as HTMLElement | null
+      return bannerEl?.getBoundingClientRect().height || 53
+    }
+
+    const adjustFixedElementsForBanner = (bannerHeight: number) => {
+      // Find all fixed/sticky elements at the top of the page
+      const allElements = document.querySelectorAll('*')
+      allElements.forEach((el) => {
+        if (!(el instanceof HTMLElement)) return
+        // Skip our own elements
+        if (el.closest('[data-wxt-shadow-root]')) return
+
+        const style = getComputedStyle(el)
+        const position = style.position
+        const top = style.top
+
+        // Check if element is fixed or sticky with top: 0 (or close to 0)
+        if ((position === 'fixed' || position === 'sticky') && top !== 'auto') {
+          const topValue = parseFloat(top) || 0
+          if (topValue >= 0 && topValue < bannerHeight) {
+            // Store original inline top value if not already stored
+            if (!originalFixedElementTops.has(el)) {
+              originalFixedElementTops.set(el, el.style.top)
+            }
+            // Adjust top to be below the banner
+            el.style.setProperty('top', `${topValue + bannerHeight}px`, 'important')
+          }
+        }
+      })
+    }
+
+    const restoreFixedElements = () => {
+      originalFixedElementTops.forEach((originalTop, el) => {
+        if (originalTop) {
+          el.style.top = originalTop
+        } else {
+          el.style.removeProperty('top')
+        }
+      })
+      originalFixedElementTops.clear()
+    }
+
     const updateBodyMarginForBanner = () => {
       if (!pickerModeActive || !bannerRootEl) return
-      const height = bannerRootEl.getBoundingClientRect().height || 0
+
+      const height = getPickerBannerHeight()
+
       if (originalBodyMarginTopInline === null) {
-        originalBodyMarginTopInline = document.body.style.marginTop
+        originalBodyMarginTopInline = document.documentElement.style.marginTop
       }
       if (originalBodyMarginTopComputedPx === null) {
-        const computed = parseFloat(getComputedStyle(document.body).marginTop || '0') || 0
+        const computed =
+          parseFloat(getComputedStyle(document.documentElement).marginTop || '0') || 0
         originalBodyMarginTopComputedPx = computed
       }
       const base = originalBodyMarginTopComputedPx || 0
-      document.body.style.setProperty('margin-top', `${base + height}px`, 'important')
+      document.documentElement.style.setProperty('margin-top', `${base + height}px`, 'important')
+
+      // Adjust fixed/sticky elements at the top
+      adjustFixedElementsForBanner(height)
     }
 
     const mountPickerBanner = async () => {
@@ -173,8 +233,6 @@ export default defineContentScript({
                   count: 0,
                   xpath: currentXPath,
                 }),
-                onUp: () => selectCandidateByDelta(-1),
-                onDown: () => selectCandidateByDelta(1),
                 onClose: () => disablePickerMode(),
               })
               bannerSetData = api.setData
@@ -191,8 +249,6 @@ export default defineContentScript({
             bannerRootEl = null
             bannerCountEl = null
             bannerXPathEl = null
-            bannerUpBtn = null
-            bannerDownBtn = null
             bannerCloseBtn = null
             bannerSetData = null
           },
@@ -416,6 +472,9 @@ export default defineContentScript({
     const handlePickerMouseMove = (event: MouseEvent) => {
       if (!pickerModeActive) return
 
+      // Skip highlighting when context menu is open
+      if (pickerContextMenuOpen) return
+
       // Store mouse position
       lastMouseX = event.clientX
       lastMouseY = event.clientY
@@ -433,6 +492,11 @@ export default defineContentScript({
       // If click originated from inside our banner UI, let it pass through
       const composed = event.composedPath()
       if (bannerRootEl && composed.includes(bannerRootEl)) {
+        return
+      }
+
+      // If click originated from inside our context menu, let it pass through
+      if (pickerContextMenuHost && event.composedPath().includes(pickerContextMenuHost)) {
         return
       }
 
@@ -599,6 +663,170 @@ export default defineContentScript({
       }
     }
 
+    // ========== PICKER CONTEXT MENU ==========
+
+    const handleLevelChange = (level: number) => {
+      const maxIndex = selectorCandidates.length - 1
+      if (level !== selectedCandidateIndex && level >= 0 && level <= maxIndex) {
+        selectedCandidateIndex = level
+        const sel = selectorCandidates[selectedCandidateIndex]
+        currentXPath = sel
+        const matches = evaluateXPath(sel)
+        highlightElementsForPicker(matches as HTMLElement[])
+        ensureFloatingLabel()
+        updateFloatingLabelContent(matches.length, sel)
+        updateFloatingLabelPosition(lastMouseX, lastMouseY)
+        updatePickerBannerContent(matches.length, sel)
+      }
+    }
+
+    // Store current context menu position for updates
+    let contextMenuX = 0
+    let contextMenuY = 0
+
+    const showPickerContextMenu = async (x: number, y: number) => {
+      contextMenuX = x
+      contextMenuY = y
+
+      // If already open, just update state
+      if (pickerContextMenuUi && pickerContextMenuApi) {
+        pickerContextMenuApi.updateLevels(selectorCandidates.length, selectedCandidateIndex)
+        pickerContextMenuApi.updatePosition(x, y)
+        pickerContextMenuOpen = true
+        removeCrosshairCursor()
+        document.addEventListener('wheel', handlePickerContextMenuWheel, { passive: false })
+        pickerScrollAccumulator = 0
+        return
+      }
+
+      // Create shadow root UI using WXT's helper (handles CSS injection)
+      try {
+        const ui = await createShadowRootUi(contentCtx, {
+          name: 'scrape-similar-context-menu',
+          position: 'inline',
+          anchor: 'body',
+          onMount: (container: HTMLElement) => {
+            const appRoot = document.createElement('div')
+            container.appendChild(appRoot)
+            pickerContextMenuHost = container as HTMLDivElement
+
+            // Dynamically import and mount the React component
+            import('@/entrypoints/content/ui/PickerContextMenu').then((mod) => {
+              const { mountPickerContextMenuReact } = mod as any
+              const api = mountPickerContextMenuReact(
+                appRoot,
+                {
+                  x: contextMenuX,
+                  y: contextMenuY,
+                  levels: selectorCandidates.length,
+                  currentLevel: selectedCandidateIndex,
+                  onChange: handleLevelChange,
+                  onClose: removePickerContextMenu,
+                },
+                container,
+              )
+              pickerContextMenuApi = api
+              ;(appRoot as any).__unmount = api.unmount
+            })
+            return appRoot
+          },
+          onRemove: (appRoot?: HTMLElement) => {
+            try {
+              const unmount = (appRoot as any)?.__unmount
+              if (typeof unmount === 'function') unmount()
+            } catch {}
+            pickerContextMenuHost = null
+            pickerContextMenuApi = null
+          },
+        })
+        pickerContextMenuUi = ui
+        ui.mount()
+      } catch (e) {
+        log.warn('Failed to mount picker context menu', e)
+        removePickerContextMenu()
+        return
+      }
+
+      pickerContextMenuOpen = true
+      removeCrosshairCursor()
+      document.addEventListener('wheel', handlePickerContextMenuWheel, { passive: false })
+      pickerScrollAccumulator = 0
+    }
+
+    // Scroll accumulator for sensitivity control
+    let pickerScrollAccumulator = 0
+    const SCROLL_THRESHOLD = 38 // pixels of scroll needed to change one level
+
+    const handlePickerContextMenuWheel = (event: WheelEvent) => {
+      // Prevent page scroll
+      event.preventDefault()
+      event.stopPropagation()
+
+      if (!pickerContextMenuApi) return
+
+      const maxIndex = selectorCandidates.length - 1
+      if (maxIndex <= 0) return
+
+      // Accumulate scroll delta (respects system scroll direction)
+      pickerScrollAccumulator += event.deltaY
+
+      // Only change level when accumulated scroll exceeds threshold
+      if (Math.abs(pickerScrollAccumulator) < SCROLL_THRESHOLD) return
+
+      // Calculate how many levels to move
+      const levels = Math.trunc(pickerScrollAccumulator / SCROLL_THRESHOLD)
+      pickerScrollAccumulator = pickerScrollAccumulator % SCROLL_THRESHOLD
+
+      // Scroll down (positive deltaY) = more specific (decrease index)
+      // Scroll up (negative deltaY) = more broad (increase index)
+      // This matches the visual direction: scroll gesture moves the indicator in the same direction
+      const newIndex = Math.max(0, Math.min(maxIndex, selectedCandidateIndex - levels))
+      if (newIndex !== selectedCandidateIndex) {
+        handleLevelChange(newIndex)
+        pickerContextMenuApi.updateLevel(newIndex)
+      }
+    }
+
+    const removePickerContextMenu = () => {
+      // Remove scroll lock
+      document.removeEventListener('wheel', handlePickerContextMenuWheel)
+
+      // Remove the shadow root UI
+      if (pickerContextMenuUi) {
+        try {
+          pickerContextMenuUi.remove()
+        } catch {}
+        pickerContextMenuUi = null
+      }
+
+      pickerContextMenuHost = null
+      pickerContextMenuApi = null
+      pickerContextMenuOpen = false
+
+      // Restore crosshair cursor if picker mode is still active
+      if (pickerModeActive) {
+        applyCrosshairCursor()
+      }
+    }
+
+    const handlePickerContextMenu = (event: MouseEvent) => {
+      if (!pickerModeActive) return
+
+      event.preventDefault()
+      event.stopPropagation()
+      showPickerContextMenu(event.clientX, event.clientY)
+    }
+
+    const handlePickerContextMenuClickOutside = (event: MouseEvent) => {
+      if (
+        pickerContextMenuHost &&
+        pickerContextMenuOpen &&
+        !event.composedPath().includes(pickerContextMenuHost)
+      ) {
+        removePickerContextMenu()
+      }
+    }
+
     const enablePickerMode = () => {
       if (pickerModeActive) return
 
@@ -612,10 +840,11 @@ export default defineContentScript({
 
       // Change cursor and add event listeners
       applyCrosshairCursor()
-      document.body.style.cursor = 'crosshair'
       document.addEventListener('mousemove', handlePickerMouseMove, true)
       document.addEventListener('click', handlePickerClick, true)
       document.addEventListener('keydown', handlePickerKeyDown, true)
+      document.addEventListener('contextmenu', handlePickerContextMenu, true)
+      document.addEventListener('mousedown', handlePickerContextMenuClickOutside, true)
       window.addEventListener('resize', updateBodyMarginForBanner)
 
       // Create floating label
@@ -635,11 +864,15 @@ export default defineContentScript({
 
       // Restore cursor and remove event listeners
       removeCrosshairCursor()
-      document.body.style.cursor = ''
       document.removeEventListener('mousemove', handlePickerMouseMove, true)
       document.removeEventListener('click', handlePickerClick, true)
       document.removeEventListener('keydown', handlePickerKeyDown, true)
+      document.removeEventListener('contextmenu', handlePickerContextMenu, true)
+      document.removeEventListener('mousedown', handlePickerContextMenuClickOutside, true)
       window.removeEventListener('resize', updateBodyMarginForBanner)
+
+      // Clean up context menu
+      removePickerContextMenu()
 
       // Clean up state
       currentHoveredElement = null
@@ -648,16 +881,19 @@ export default defineContentScript({
         pickerFloatingLabel.remove()
         pickerFloatingLabel = null
       }
-      // Restore original body margin-top
+      // Restore original html margin-top
       if (originalBodyMarginTopInline !== null) {
         if (originalBodyMarginTopInline && originalBodyMarginTopInline.trim().length > 0) {
-          document.body.style.setProperty('margin-top', originalBodyMarginTopInline, '')
+          document.documentElement.style.setProperty('margin-top', originalBodyMarginTopInline, '')
         } else {
-          document.body.style.removeProperty('margin-top')
+          document.documentElement.style.removeProperty('margin-top')
         }
         originalBodyMarginTopInline = null
         originalBodyMarginTopComputedPx = null
       }
+
+      // Restore fixed/sticky elements to their original positions
+      restoreFixedElements()
     }
     // ========== END PICKER MODE ==========
 

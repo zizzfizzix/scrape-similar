@@ -4,32 +4,24 @@ import { ThemeProvider } from '@/components/theme-provider'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { ChevronDown, ChevronUp, XIcon } from 'lucide-react'
+import { XIcon } from 'lucide-react'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 
 interface PickerBannerProps {
   count: number
   xpath: string
-  onUp: () => void
-  onDown: () => void
   onClose: () => void
 }
 
-export const PickerBanner: React.FC<PickerBannerProps> = ({
-  count,
-  xpath,
-  onUp,
-  onDown,
-  onClose,
-}) => {
+export const PickerBanner: React.FC<PickerBannerProps> = ({ count, xpath, onClose }) => {
   return (
     <div className="fixed inset-x-0 top-0 z-[2147483646] pointer-events-none bg-background border-b">
       <div className="pointer-events-auto mx-auto my-0 flex items-center gap-3 px-4 py-2 text-foreground text-sm font-sans min-w-[25vw] max-w-[50vw]">
         <div className="inline-flex items-center gap-2 font-semibold">
           <Logo />
         </div>
-        <Badge variant="secondary" className="min-w-6 h-6 px-2 flex items-center justify-center">
+        <Badge variant="secondary" className="min-w-10 h-6 px-2 flex items-center justify-center">
           {count}
         </Badge>
         <Input
@@ -38,24 +30,6 @@ export const PickerBanner: React.FC<PickerBannerProps> = ({
           readOnly
         />
         <div className="inline-flex items-center gap-1.5">
-          <Button
-            variant="outline"
-            size="icon"
-            title="More specific (Up)"
-            aria-label="More specific"
-            onClick={onUp}
-          >
-            <ChevronUp className="w-4 h-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            title="Less specific (Down)"
-            aria-label="Less specific"
-            onClick={onDown}
-          >
-            <ChevronDown className="w-4 h-4" />
-          </Button>
           <Button
             variant="outline"
             size="icon"
@@ -75,8 +49,6 @@ export function mountPickerBannerReact(
   container: HTMLElement,
   handlers: {
     getState: () => { count: number; xpath: string }
-    onUp: () => void
-    onDown: () => void
     onClose: () => void
   },
   themeRoot?: Element,
@@ -94,13 +66,7 @@ export function mountPickerBannerReact(
 
     return (
       <ThemeProvider rootElement={themeRoot || container}>
-        <PickerBanner
-          count={count}
-          xpath={xpath}
-          onUp={handlers.onUp}
-          onDown={handlers.onDown}
-          onClose={handlers.onClose}
-        />
+        <PickerBanner count={count} xpath={xpath} onClose={handlers.onClose} />
       </ThemeProvider>
     )
   }
