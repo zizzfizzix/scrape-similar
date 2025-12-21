@@ -95,7 +95,6 @@ export default defineContentScript({
       HTMLElement,
       { outline: string; outlineOffset: string; boxShadow: string }
     >()
-    let pickerFloatingLabel: HTMLDivElement | null = null
     let currentHoveredElement: HTMLElement | null = null
     let currentXPath = ''
     let currentGuessedConfig: ScrapeConfig | null = null
@@ -143,9 +142,6 @@ export default defineContentScript({
       currentXPath = sel
       const matches = evaluateXPath(sel)
       highlightElementsForPicker(matches as HTMLElement[])
-      ensureFloatingLabel()
-      updateFloatingLabelContent(matches.length, sel)
-      updateFloatingLabelPosition(lastMouseX, lastMouseY)
       updatePickerBannerContent(matches.length, sel)
     }
 
@@ -308,21 +304,6 @@ export default defineContentScript({
           text-overflow: ellipsis;
           pointer-events: none;
         }
-        .scrape-similar-picker-floating-label {
-          position: fixed;
-          background: #ff6b6b;
-          color: white;
-          padding: 2px 8px;
-          font-size: 11px;
-          font-family: monospace;
-          border-radius: 3px;
-          white-space: nowrap;
-          max-width: 400px;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          pointer-events: none;
-          z-index: 2147483647;
-        }
       `
       document.head.appendChild(style)
     }
@@ -370,37 +351,6 @@ export default defineContentScript({
         el.style.outlineOffset = '-1px'
         el.style.boxShadow = 'inset 0 0 0 9999px rgba(255, 107, 107, 0.16)'
       })
-    }
-
-    const ensureFloatingLabel = () => {
-      if (!pickerFloatingLabel) {
-        pickerFloatingLabel = document.createElement('div')
-        pickerFloatingLabel.className = 'scrape-similar-picker-floating-label'
-        document.body.appendChild(pickerFloatingLabel)
-      }
-    }
-
-    const updateFloatingLabelContent = (matches: number, xpath: string) => {
-      if (!pickerFloatingLabel) return
-      pickerFloatingLabel.textContent = `${matches} match${matches !== 1 ? 'es' : ''}: ${xpath}`
-    }
-
-    const updateFloatingLabelPosition = (x: number, y: number) => {
-      if (!pickerFloatingLabel) return
-      const offset = 12
-      const margin = 4
-      let left = x + offset
-      let top = y + offset
-      const labelWidth = pickerFloatingLabel.offsetWidth
-      const labelHeight = pickerFloatingLabel.offsetHeight
-      const maxLeft = window.innerWidth - labelWidth - margin
-      const maxTop = window.innerHeight - labelHeight - margin
-      if (left > maxLeft) left = maxLeft
-      if (top > maxTop) top = maxTop
-      if (left < margin) left = margin
-      if (top < margin) top = margin
-      pickerFloatingLabel.style.left = `${left}px`
-      pickerFloatingLabel.style.top = `${top}px`
     }
 
     const generateSelectorCandidates = (start: HTMLElement, maxLevels: number = 10): string[] => {
@@ -462,10 +412,6 @@ export default defineContentScript({
       // Highlight all matching elements
       highlightElementsForPicker(matchingElements)
 
-      // Update floating label content and position
-      ensureFloatingLabel()
-      updateFloatingLabelContent(matchingElements.length, selector)
-      updateFloatingLabelPosition(lastMouseX, lastMouseY)
       updatePickerBannerContent(matchingElements.length, selector)
     }
 
@@ -635,9 +581,6 @@ export default defineContentScript({
           currentXPath = sel
           const matches = evaluateXPath(sel)
           highlightElementsForPicker(matches as HTMLElement[])
-          ensureFloatingLabel()
-          updateFloatingLabelContent(matches.length, sel)
-          updateFloatingLabelPosition(lastMouseX, lastMouseY)
           updatePickerBannerContent(matches.length, sel)
         }
         event.preventDefault()
@@ -653,9 +596,6 @@ export default defineContentScript({
           currentXPath = sel
           const matches = evaluateXPath(sel)
           highlightElementsForPicker(matches as HTMLElement[])
-          ensureFloatingLabel()
-          updateFloatingLabelContent(matches.length, sel)
-          updateFloatingLabelPosition(lastMouseX, lastMouseY)
           updatePickerBannerContent(matches.length, sel)
         }
         event.preventDefault()
@@ -673,9 +613,6 @@ export default defineContentScript({
         currentXPath = sel
         const matches = evaluateXPath(sel)
         highlightElementsForPicker(matches as HTMLElement[])
-        ensureFloatingLabel()
-        updateFloatingLabelContent(matches.length, sel)
-        updateFloatingLabelPosition(lastMouseX, lastMouseY)
         updatePickerBannerContent(matches.length, sel)
       }
     }
@@ -846,9 +783,6 @@ export default defineContentScript({
       document.addEventListener('contextmenu', handlePickerContextMenu, true)
       document.addEventListener('mousedown', handlePickerContextMenuClickOutside, true)
       window.addEventListener('resize', updateBodyMarginForBanner)
-
-      // Create floating label
-      ensureFloatingLabel()
     }
 
     const disablePickerMode = () => {
@@ -877,10 +811,6 @@ export default defineContentScript({
       // Clean up state
       currentHoveredElement = null
       currentXPath = ''
-      if (pickerFloatingLabel) {
-        pickerFloatingLabel.remove()
-        pickerFloatingLabel = null
-      }
       // Restore original html margin-top
       if (originalBodyMarginTopInline !== null) {
         if (originalBodyMarginTopInline && originalBodyMarginTopInline.trim().length > 0) {
