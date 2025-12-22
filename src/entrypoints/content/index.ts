@@ -214,9 +214,15 @@ export default defineContentScript({
       adjustFixedElementsForBanner(height)
     }
 
-    const mountPickerBanner = async () => {
+    const mountPickerBanner = async (): Promise<void> => {
       if (pickerBannerUi) return
       try {
+        // Import the React banner module first (before creating the shadow root)
+        const { mountPickerBannerReact } = await import('@/entrypoints/content/ui/PickerBanner')
+
+        // Track the ready promise from React mount
+        let reactReadyPromise: Promise<void> | undefined
+
         const ui = await createShadowRootUi(contentCtx, {
           name: 'scrape-similar-picker-banner',
           position: 'inline',
@@ -224,20 +230,16 @@ export default defineContentScript({
           onMount: (container: HTMLElement) => {
             const appRoot = document.createElement('div')
             container.appendChild(appRoot)
-            // React mount point; we rely on global React build in this project
-            // Dynamically import the React banner to avoid heavy deps at load
-            import('@/entrypoints/content/ui/PickerBanner').then((mod) => {
-              const { mountPickerBannerReact } = mod as any
-              const api = mountPickerBannerReact(appRoot, {
-                getState: () => ({
-                  count: 0,
-                  xpath: currentXPath,
-                }),
-                onClose: () => disablePickerMode(),
-              })
-              bannerSetData = api.setData
-              ;(appRoot as any).__unmount = api.unmount
+            const api = mountPickerBannerReact(appRoot, {
+              getState: () => ({
+                count: 0,
+                xpath: currentXPath,
+              }),
+              onClose: () => disablePickerMode(),
             })
+            bannerSetData = api.setData
+            reactReadyPromise = api.ready
+            ;(appRoot as any).__unmount = api.unmount
             bannerRootEl = container as HTMLDivElement
             return appRoot
           },
@@ -255,6 +257,12 @@ export default defineContentScript({
         })
         pickerBannerUi = ui
         ui.mount()
+
+        // Wait for React to complete its first render
+        if (reactReadyPromise) {
+          await reactReadyPromise
+        }
+
         // After mount, ensure page content is offset below banner
         updateBodyMarginForBanner()
       } catch (e) {
@@ -768,7 +776,7 @@ export default defineContentScript({
       }
     }
 
-    const enablePickerMode = () => {
+    const enablePickerMode = async () => {
       if (pickerModeActive) return
 
       log.debug('Enabling picker mode')
@@ -776,8 +784,6 @@ export default defineContentScript({
 
       // Inject styles
       injectPickerStyles()
-      // Mount shadow-root banner UI at top of page
-      mountPickerBanner()
 
       // Change cursor and add event listeners
       applyCrosshairCursor()
@@ -788,17 +794,17 @@ export default defineContentScript({
       document.addEventListener('mousedown', handlePickerContextMenuClickOutside, true)
       window.addEventListener('resize', updateBodyMarginForBanner)
 
+      // Mount shadow-root banner UI at top of page (wait for React to be ready)
+      await mountPickerBanner()
+
       // Immediately evaluate what's under the cursor when picker mode is enabled
-      // Use requestAnimationFrame to ensure the banner is mounted first
-      requestAnimationFrame(() => {
-        // If mouse position is at origin (0,0), use viewport center as fallback
-        if (lastMouseX === 0 && lastMouseY === 0) {
-          lastMouseX = window.innerWidth / 2
-          lastMouseY = window.innerHeight / 2
-        }
-        // Process the initial mouse position
-        processMouseUpdate()
-      })
+      // If mouse position is at origin (0,0), use viewport center as fallback
+      if (lastMouseX === 0 && lastMouseY === 0) {
+        lastMouseX = window.innerWidth / 2
+        lastMouseY = window.innerHeight / 2
+      }
+      // Process the initial mouse position
+      processMouseUpdate()
     }
 
     const disablePickerMode = () => {

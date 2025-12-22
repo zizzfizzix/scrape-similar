@@ -52,17 +52,29 @@ export function mountPickerBannerReact(
     onClose: () => void
   },
   themeRoot?: Element,
-): { unmount: () => void; setData: (count: number, xpath: string) => void } {
+): { unmount: () => void; setData: (count: number, xpath: string) => void; ready: Promise<void> } {
   const root = ReactDOM.createRoot(container)
+
+  // Promise that resolves when the React component has mounted
+  let resolveReady: () => void
+  const readyPromise = new Promise<void>((resolve) => {
+    resolveReady = resolve
+  })
 
   function BannerWrapper() {
     const [count, setCount] = React.useState<number>(handlers.getState().count)
     const [xpath, setXpath] = React.useState<string>(handlers.getState().xpath)
 
+    // Set the data setter on the container so it can be called externally
     ;(container as any).__setData = (c: number, x: string) => {
       setCount(c)
       setXpath(x)
     }
+
+    // Signal that the component is ready after the first render
+    React.useEffect(() => {
+      resolveReady()
+    }, [])
 
     return (
       <ThemeProvider rootElement={themeRoot || container}>
@@ -79,5 +91,6 @@ export function mountPickerBannerReact(
       const setter = (container as any).__setData
       if (typeof setter === 'function') setter(c, x)
     },
+    ready: readyPromise,
   }
 }
