@@ -42,22 +42,26 @@ export const applyCrosshairCursor = (): void => {
     const style = document.createElement('style')
     style.id = 'scrape-similar-picker-cursor'
     style.textContent = `
-      body.scrape-similar-picker-active,
-      body.scrape-similar-picker-active * {
+      html.scrape-similar-picker-active,
+      html.scrape-similar-picker-active * {
         cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20' stroke='%23ff6b6b' stroke-width='2' shape-rendering='crispEdges'><line x1='10' y1='0' x2='10' y2='20'/><line x1='0' y1='10' x2='20' y2='10'/></svg>") 10 10, crosshair !important;
+      }
+      html.scrape-similar-picker-active [data-wxt-shadow-root],
+      html.scrape-similar-picker-active [data-wxt-shadow-root] * {
+        cursor: default !important;
       }
     `
     document.head.appendChild(style)
   }
 
-  document.body.classList.add('scrape-similar-picker-active')
+  document.documentElement.classList.add('scrape-similar-picker-active')
 }
 
 /**
  * Remove crosshair cursor style
  */
 export const removeCrosshairCursor = (): void => {
-  document.body.classList.remove('scrape-similar-picker-active')
+  document.documentElement.classList.remove('scrape-similar-picker-active')
   const style = document.getElementById('scrape-similar-picker-cursor')
   if (style) style.remove()
 }
@@ -82,6 +86,17 @@ const processMouseUpdate = (state: ContentScriptState): void => {
     }
   }
   if (!el || !(el instanceof HTMLElement)) return
+
+  // Skip if element is our banner root or any extension UI element
+  if (state.bannerRootEl && (el === state.bannerRootEl || el.closest('[data-wxt-shadow-root]'))) {
+    // Clear current hover state when over our UI
+    if (state.currentHoveredElement !== null) {
+      state.currentHoveredElement = null
+      removePickerHighlights(state.highlightedElements)
+      updatePickerBannerContent(0, '', state)
+    }
+    return
+  }
 
   // Skip if we're already hovering this element
   if (el === state.currentHoveredElement) return

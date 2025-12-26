@@ -197,6 +197,24 @@ export const handlePickerContextMenu = (
 ): void => {
   if (!state.pickerModeActive) return
 
+  // Check if the right-click is on extension UI elements
+  const composedPath = event.composedPath()
+
+  // Don't show context menu if right-clicking on the banner
+  if (state.bannerRootEl && composedPath.includes(state.bannerRootEl)) {
+    return
+  }
+
+  // Don't show context menu if right-clicking on the context menu itself
+  if (state.pickerContextMenuHost && composedPath.includes(state.pickerContextMenuHost)) {
+    return
+  }
+
+  // Don't show context menu if right-clicking on any extension UI (shadow roots)
+  if (composedPath.some((el) => el instanceof Element && el.hasAttribute('data-wxt-shadow-root'))) {
+    return
+  }
+
   event.preventDefault()
   event.stopPropagation()
   showContextMenu(event.clientX, event.clientY)

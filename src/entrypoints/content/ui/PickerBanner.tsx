@@ -16,30 +16,30 @@ interface PickerBannerProps {
 
 export const PickerBanner: React.FC<PickerBannerProps> = ({ count, xpath, onClose }) => {
   return (
-    <div className="fixed inset-x-0 top-0 z-[2147483646] pointer-events-none bg-background border-b">
-      <div className="pointer-events-auto mx-auto my-0 flex items-center gap-3 px-4 py-2 text-foreground text-sm font-sans min-w-[25vw] max-w-[50vw]">
-        <div className="inline-flex items-center gap-2 font-semibold">
-          <Logo />
-        </div>
-        <Badge variant="secondary" className="min-w-10 h-6 px-2 flex items-center justify-center">
-          {count}
-        </Badge>
-        <Input
-          className="flex-1 min-w-44 focus-visible:ring-0 focus-visible:ring-offset-0"
-          value={xpath}
-          readOnly
-        />
-        <div className="inline-flex items-center gap-1.5">
-          <Button
-            variant="outline"
-            size="icon"
-            title="Close picker"
-            aria-label="Close picker"
-            onClick={onClose}
-          >
-            <XIcon className="w-4 h-4" />
-          </Button>
-        </div>
+    <div className="fixed inset-x-0 top-0 z-[2147483646] pointer-events-auto bg-background border-b flex items-center justify-center gap-3 px-4 py-2 text-foreground text-sm font-sans">
+      <div className="inline-flex items-center gap-2 font-semibold">
+        <Logo />
+      </div>
+      <Badge variant="secondary" className="min-w-10 h-6 px-2 flex items-center justify-center">
+        {count}
+      </Badge>
+      <Input
+        className="flex-1 min-w-44 max-w-[40vw] focus-visible:ring-0 focus-visible:ring-offset-0 cursor-default"
+        value={xpath}
+        readOnly
+        disabled
+        tabIndex={-1}
+      />
+      <div className="inline-flex items-center gap-1.5">
+        <Button
+          variant="outline"
+          size="icon"
+          title="Close picker"
+          aria-label="Close picker"
+          onClick={onClose}
+        >
+          <XIcon className="w-4 h-4" />
+        </Button>
       </div>
     </div>
   )
