@@ -255,24 +255,68 @@ test.describe('Sidepanel Core Functionality', () => {
     const fileName = download.suggestedFilename()
     expect(fileName.toLowerCase()).toMatch(/\.csv$/)
 
-    // Check the file headers correspond to the table headers
+    // Check the file headers correspond to the table headers and row counts match
     const fileData = await download.path()
     if (fileData) {
       const fileContent = await fs.readFile(fileData, 'utf-8')
-      const headers = fileContent
-        .split('\n')[0]
-        .split(',')
-        .map((header) => header.replace(/"/g, ''))
+
+      const lines = fileContent.trim().split(/\r?\n/)
+      const headers = lines[0].split(',').map((header) => header.replace(/"/g, ''))
 
       const uiHeaders = await sidePanel.evaluate(() => {
         const ths = Array.from(document.querySelectorAll('table thead th'))
-        // The first two headers are "#" and "Actions", which aren't included in the CSV
+        // Exclude selection checkbox (empty), row index '#', and 'Actions'
         return ths
-          .slice(2)
           .map((th) => th.textContent?.trim() || '')
-          .filter(Boolean)
+          .filter((txt) => txt && txt !== '#' && txt.toLowerCase() !== 'actions')
       })
       expect(headers).toEqual(uiHeaders)
+
+      const uiRowCount = await sidePanel.locator('tbody tr').count()
+      expect(lines.length - 1).toBe(uiRowCount)
+    }
+  })
+
+  test('exports scraped data as Excel (.xlsx) download', async ({
+    context,
+    serviceWorker,
+    openSidePanel,
+  }) => {
+    const sidePanel = await openSidePanel()
+
+    // Prepare data using shared helper
+    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context)
+
+    // Open Export dropdown
+    await sidePanel.getByRole('button', { name: /export/i }).click()
+
+    // Initiate XLSX download and wait for it
+    const [download] = await Promise.all([
+      sidePanel.waitForEvent('download'),
+      sidePanel.getByRole('menuitem', { name: /save.*excel.*\.xlsx/i }).click(),
+    ])
+
+    const fileName = download.suggestedFilename()
+    expect(fileName.toLowerCase()).toMatch(/\.xlsx$/)
+
+    const filePath = await download.path()
+    if (filePath) {
+      const XLSX = await import('xlsx')
+      const buf = await fs.readFile(filePath)
+      const wb = XLSX.read(buf, { type: 'buffer' })
+      const ws = wb.Sheets[wb.SheetNames[0]]
+      const aoa = XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[][]
+
+      const uiHeaders = await sidePanel.evaluate(() => {
+        const ths = Array.from(document.querySelectorAll('table thead th'))
+        return ths
+          .map((th) => th.textContent?.trim() || '')
+          .filter((txt) => txt && txt !== '#' && txt.toLowerCase() !== 'actions')
+      })
+      expect(aoa[0]).toEqual(uiHeaders)
+
+      const uiRowCount = await sidePanel.locator('tbody tr').count()
+      expect(aoa.length - 1).toBe(uiRowCount)
     }
   })
 

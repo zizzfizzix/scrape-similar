@@ -1,9 +1,22 @@
 version: 2
 updates:
   - package-ecosystem: 'npm'
+    open-pull-requests-limit: 10
     directory: '/'
     schedule:
       interval: 'weekly'
     commit-message:
       prefix: 'chore'
       include: 'scope'
+    groups:
+      react-dependencies:
+        patterns:
+          - 'react'
+          - 'react-dom'
+          - '@types/react'
+          - '@types/react-dom'
+      tailwind-dependencies:
+        patterns:
+          - 'tailwindcss'
+          - '@tailwindcss/vite'
+          - 'tailwind-merge'
