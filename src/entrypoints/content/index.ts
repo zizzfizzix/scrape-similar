@@ -782,6 +782,16 @@ export default defineContentScript({
       log.debug('Enabling picker mode')
       pickerModeActive = true
 
+      // Save picker mode state to storage
+      if (tabId !== null) {
+        browser.runtime.sendMessage({
+          type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
+          payload: {
+            updates: { pickerModeActive: true },
+          },
+        })
+      }
+
       // Inject styles
       injectPickerStyles()
 
@@ -812,6 +822,16 @@ export default defineContentScript({
 
       log.debug('Disabling picker mode')
       pickerModeActive = false
+
+      // Save picker mode state to storage
+      if (tabId !== null) {
+        browser.runtime.sendMessage({
+          type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
+          payload: {
+            updates: { pickerModeActive: false },
+          },
+        })
+      }
 
       // Remove all highlights and restore original element styles
       removePickerHighlights()

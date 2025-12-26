@@ -157,6 +157,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
   const [highlightMatchCount, setHighlightMatchCount] = useState<number | undefined>(undefined)
   const [highlightError, setHighlightError] = useState<string | undefined>(undefined)
   const [showEmptyRows, setShowEmptyRows] = useState(false)
+  const [pickerModeActive, setPickerModeActive] = useState(false)
 
   // Memoized export filename (regenerates if tabUrl changes)
   const exportFilename = React.useMemo(() => {
@@ -281,6 +282,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
       resultProducingConfig,
       highlightMatchCount,
       highlightError,
+      pickerModeActive,
     } = payload.config || {} // Default to empty object
 
     // --- Reset state before applying new data ---
@@ -347,6 +349,9 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
     // Restore highlight state if present
     setHighlightMatchCount(highlightMatchCount ?? undefined)
     setHighlightError(highlightError ?? undefined)
+
+    // Restore picker mode state if present
+    setPickerModeActive(pickerModeActive ?? false)
   }, [])
 
   // Initialize: load presets, listen for messages, AND listen for tab activation
@@ -604,14 +609,14 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
     )
   }
 
-  // Handle picker mode activation
+  // Handle picker mode toggle
   const handlePickerMode = () => {
     setContentScriptCommsError(null)
     if (!targetTabId) return
     browser.tabs.sendMessage(
       targetTabId,
       {
-        type: MESSAGE_TYPES.ENABLE_PICKER_MODE,
+        type: MESSAGE_TYPES.TOGGLE_PICKER_MODE,
         payload: {},
       },
       (response) => {
@@ -620,7 +625,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
             'Could not connect to the content script. Please reload the page or ensure the extension is enabled for this site.',
           )
         } else if (response && response.success) {
-          log.debug('Picker mode enabled successfully')
+          log.debug('Picker mode toggled successfully')
         }
       },
     )
@@ -787,6 +792,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
               onClearLastScrapeRowCount={() => setLastScrapeRowCount(null)}
               highlightMatchCount={highlightMatchCount}
               highlightError={highlightError}
+              pickerModeActive={pickerModeActive}
               // Show rescrape hint when there is data and config differs from the config that produced it
               rescrapeAdvised={
                 !!(scrapeResult && scrapeResult.data && scrapeResult.data.length > 0) &&

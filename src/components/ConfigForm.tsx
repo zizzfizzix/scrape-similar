@@ -31,6 +31,7 @@ import {
   Crosshair,
   HelpCircle,
   Info,
+  LocateOff,
   OctagonAlert,
   Play,
   Plus,
@@ -61,6 +62,7 @@ interface ConfigFormProps {
   highlightMatchCount?: number
   highlightError?: string
   rescrapeAdvised?: boolean
+  pickerModeActive?: boolean
 }
 
 const ConfigForm: React.FC<ConfigFormProps> = ({
@@ -79,6 +81,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
   highlightMatchCount,
   highlightError,
   rescrapeAdvised = false,
+  pickerModeActive = false,
 }) => {
   // Local state for adding a new column
   const [newColumnName, setNewColumnName] = useState('')
@@ -893,15 +896,19 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                   size="icon"
                   type="button"
                   tabIndex={-1}
-                  aria-label="Visual element picker"
+                  aria-label={pickerModeActive ? 'Close visual picker' : 'Open visual picker'}
                   className="size-7 p-0.5 rounded focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-0"
                   onClick={onPickerMode}
                 >
-                  <Crosshair className="size-4" />
+                  {pickerModeActive ? (
+                    <LocateOff className="size-4" />
+                  ) : (
+                    <Crosshair className="size-4" />
+                  )}
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="top" align="start">
-                Pick element visually
+                {pickerModeActive ? 'Close visual picker' : 'Pick element visually'}
               </TooltipContent>
             </Tooltip>
           </div>

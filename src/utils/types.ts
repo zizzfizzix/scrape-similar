@@ -51,6 +51,7 @@ export interface SidePanelConfig {
   resultProducingConfig?: ScrapeConfig // Config that produced the current scrapeResult
   highlightMatchCount?: number | null
   highlightError?: string | null
+  pickerModeActive?: boolean
 }
 
 export type ElementDetailsPayload = {
