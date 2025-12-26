@@ -314,6 +314,10 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
         mainSelector: elementDetails.xpath,
       }
       setConfig(newConfig)
+    } else {
+      // No saved config and no element details - use default config (important for new tabs)
+      log.debug('No saved config or element details, using default config')
+      setConfig(defaultConfig)
     }
 
     // Update initial options used by the ConfigForm
