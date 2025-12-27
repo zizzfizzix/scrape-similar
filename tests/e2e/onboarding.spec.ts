@@ -238,7 +238,7 @@ test.describe('Onboarding Demo Scrape', () => {
         ) => {
           if (areaName === 'local' && changes[storageKey]?.newValue) {
             chrome.storage.onChanged.removeListener(listener)
-            resolve(changes[storageKey].newValue)
+            resolve(changes[storageKey].newValue as ScrapeConfig)
           }
         }
 

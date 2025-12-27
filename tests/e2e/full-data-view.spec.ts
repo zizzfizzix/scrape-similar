@@ -179,7 +179,7 @@ test.describe('Full Data View', () => {
     // Find a data column header (not index or actions)
     const dataColumnHeader = fullDataViewPage
       .locator('th')
-      .filter({ hasText: /heading/i })
+      .filter({ hasText: /anchor text|url/i })
       .first()
     await expect(dataColumnHeader).toBeVisible()
 
@@ -655,7 +655,12 @@ test.describe('Full Data View', () => {
       if (storedConfig?.scrapeResult?.data) {
         // Add a new row to simulate updated scrape results
         const newRow = {
-          data: { Heading: 'New Test Heading Added' },
+          data: {
+            'Anchor text': 'New Test Link Added',
+            URL: 'https://example.com/test',
+            Rel: '',
+            Target: '',
+          },
           metadata: {
             isEmpty: false,
             originalIndex: storedConfig.scrapeResult.data.length,
@@ -678,7 +683,7 @@ test.describe('Full Data View', () => {
     }).toPass()
 
     // Verify the new row appears in the table
-    await expect(fullDataViewPage.getByText('New Test Heading Added')).toBeVisible()
+    await expect(fullDataViewPage.getByText('New Test Link Added')).toBeVisible()
 
     // Test data removal as well
     await serviceWorker.evaluate(async (tabId) => {
@@ -704,7 +709,7 @@ test.describe('Full Data View', () => {
     }).toPass()
 
     // Verify the added row is no longer visible
-    await expect(fullDataViewPage.getByText('New Test Heading Added')).toBeHidden()
+    await expect(fullDataViewPage.getByText('New Test Link Added')).toBeHidden()
   })
 
   test('handles error states gracefully', async ({ context, extensionId }) => {
