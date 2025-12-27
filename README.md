@@ -16,6 +16,7 @@ See the Development section below for step-by-step instructions.
 
 ### Core Functionality
 
+- **Visual Element Picker**: Point and click to select elements visually - the easiest way to scrape data
 - **Web Scraping**: Extract structured data from any website using XPath selectors
 - **Google Sheets Export**: Direct export with OAuth2 authentication
 - **Multiple Export Formats**: Excel (.xlsx), CSV, TSV, and clipboard export options
@@ -24,9 +25,12 @@ See the Development section below for step-by-step instructions.
 
 ### User Experience
 
+- **Visual Element Picker**: Hover over elements to see matches highlighted in real-time, adjust selector specificity, and click to scrape
 - **Side Panel Interface**: Work alongside your browsing without interruption
-- **Context Menu Integration**: Right-click any element to start scraping
-- **Keyboard Shortcuts**: Quick access with ⌘+Shift+S (macOS) or Ctrl+Shift+S (Windows/Linux)
+- **Quick Scrape**: Right-click any element to start scraping instantly
+- **Keyboard Shortcuts**:
+  - ⌘+Shift+X (macOS) or Ctrl+Shift+X (Windows/Linux) - Toggle Visual Picker Mode
+  - ⌘+Shift+S (macOS) or Ctrl+Shift+S (Windows/Linux) - Toggle Side Panel
 - **Theme Support**: Light and dark mode
 - **Interactive Onboarding**: Comprehensive guide for new users
 
@@ -154,7 +158,8 @@ src/
 - Test on various website types (e-commerce, blogs, portfolios)
 - Verify all export formats work correctly
 - Test Google Sheets integration with different data sizes
-- Verify keyboard shortcuts and context menu functionality
+- Verify visual picker functionality and keyboard shortcuts
+- Test context menu quick scrape functionality
 
 ### Debugging
 
