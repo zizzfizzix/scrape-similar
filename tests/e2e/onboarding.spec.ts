@@ -70,7 +70,7 @@ test.describe('Onboarding Flow', () => {
     // Go to third slide
     await nextButton.click()
     await expect(
-      onboardingPage.locator('[data-slot="card-title"]', { hasText: 'Keyboard Shortcut' }),
+      onboardingPage.locator('[data-slot="card-title"]', { hasText: 'Visual Element Picker' }),
     ).toBeVisible()
 
     // Now go back to second slide
