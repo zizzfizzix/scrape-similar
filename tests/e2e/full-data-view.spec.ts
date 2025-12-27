@@ -1,3 +1,4 @@
+import type { SidePanelConfig } from '@/utils/types'
 import { expect, test, TestHelpers } from './fixtures'
 
 /**
@@ -15,6 +16,9 @@ test.describe('Full Data View', () => {
     const sidePanel = await openSidePanel()
     await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context)
 
+    // Set up listener for sidepanel close BEFORE clicking the button to avoid race condition
+    const sidePanelClosePromise = sidePanel.waitForEvent('close')
+
     // Wait for new page to open when expand button is clicked
     const fullDataViewPage = await TestHelpers.openFullDataView(sidePanel, context)
 
@@ -29,8 +33,9 @@ test.describe('Full Data View', () => {
     const rowCount = await rows.count()
     expect(rowCount).toBeGreaterThanOrEqual(1)
 
-    // Verify sidepanel closes after opening full view (check if sidePanel page is closed)
-    await expect(sidePanel.isClosed()).toBe(true)
+    // Verify sidepanel closes after opening full view
+    await sidePanelClosePromise
+    expect(sidePanel.isClosed()).toBe(true)
   })
 
   test('shows no data state when no scraped data is available', async ({
@@ -111,23 +116,39 @@ test.describe('Full Data View', () => {
     const sidePanel = await openSidePanel()
     const testPage = await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context)
 
+    // Set up listener for the first sidepanel to close BEFORE opening full data view
+    const sidePanelClosePromise = sidePanel.waitForEvent('close')
+
     // Open full data view
     const fullDataViewPage = await TestHelpers.openFullDataView(sidePanel, context)
+
+    // Wait for the first sidepanel to close
+    await sidePanelClosePromise
+    expect(sidePanel.isClosed()).toBe(true)
 
     // Click back to tab button
     const backButton = fullDataViewPage.getByRole('button', { name: /back to tab/i })
     await expect(backButton).toBeVisible()
 
-    const reopenedSidePanel = context.waitForEvent('page', {
+    // Set up event listeners BEFORE clicking to avoid race conditions
+    // Now we know the old sidepanel is closed, so this will catch the NEW one
+    const reopenedSidePanelPromise = context.waitForEvent('page', {
       predicate: (p) => p.url().startsWith(`chrome-extension://${extensionId}/sidepanel.html`),
     })
+    const fullDataViewClosePromise = fullDataViewPage.waitForEvent('close')
 
-    // Click back button and wait for the full data view page to close
-    await Promise.all([fullDataViewPage.waitForEvent('close'), backButton.click()])
+    // Click back button
+    await backButton.click()
+
+    // Wait for both the full data view to close and sidepanel to reopen
+    const [reopenedSidePanel] = await Promise.all([
+      reopenedSidePanelPromise,
+      fullDataViewClosePromise,
+    ])
 
     // Verify original test page becomes active and sidepanel reopens
     expect(await testPage.evaluate(() => document.hasFocus())).toBe(true)
-    expect((await reopenedSidePanel).isClosed()).toBe(false)
+    expect(reopenedSidePanel.isClosed()).toBe(false)
   })
 
   test('performs global search across all columns', async ({
@@ -650,7 +671,7 @@ test.describe('Full Data View', () => {
 
       // Get current stored data
       const currentData = await chrome.storage.session.get(sessionKey)
-      const storedConfig = currentData[sessionKey]
+      const storedConfig = currentData[sessionKey] as SidePanelConfig
 
       if (storedConfig?.scrapeResult?.data) {
         // Add a new row to simulate updated scrape results
@@ -691,7 +712,7 @@ test.describe('Full Data View', () => {
 
       // Get current stored data and remove the last row
       const currentData = await chrome.storage.session.get(sessionKey)
-      const storedConfig = currentData[sessionKey]
+      const storedConfig = currentData[sessionKey] as SidePanelConfig
 
       if (storedConfig?.scrapeResult?.data && storedConfig.scrapeResult.data.length > 1) {
         // Remove the row we just added

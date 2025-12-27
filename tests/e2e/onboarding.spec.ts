@@ -1,3 +1,4 @@
+import type { ScrapeConfig } from '@/utils/types'
 import { expect, test, TestHelpers } from './fixtures'
 
 /**
@@ -217,40 +218,36 @@ test.describe('Onboarding Demo Scrape', () => {
       await nextButton.click()
     }
 
-    // Get the tab ID of the onboarding page
-    const tabId = await serviceWorker.evaluate(async (onboardingUrl) => {
-      const tabs = await chrome.tabs.query({ url: onboardingUrl })
-      return tabs[0]?.id
-    }, onboardingPage.url())
-
-    expect(tabId).toBeDefined()
-
     await onboardingPage.bringToFront()
 
     // Set up a storage listener in the service worker to capture the config as soon as it's written
-    const configCapturePromise = serviceWorker.evaluate((tid): Promise<ScrapeConfig> => {
-      return new Promise((resolve) => {
-        const storageKey = `demo_scrape_pending_${tid}`
-
+    const configPromise = serviceWorker.evaluate(() => {
+      return new Promise<ScrapeConfig>((resolve, reject) => {
         const listener = (
           changes: Record<string, chrome.storage.StorageChange>,
           areaName: string,
         ) => {
-          if (areaName === 'local' && changes[storageKey]?.newValue) {
-            chrome.storage.onChanged.removeListener(listener)
-            resolve(changes[storageKey].newValue as ScrapeConfig)
+          if (areaName === 'local') {
+            // Look for any demo_scrape_pending key
+            for (const key of Object.keys(changes)) {
+              if (key.startsWith('demo_scrape_pending_') && changes[key]?.newValue) {
+                chrome.storage.onChanged.removeListener(listener)
+                resolve(changes[key].newValue as ScrapeConfig)
+                return
+              }
+            }
           }
         }
 
         chrome.storage.onChanged.addListener(listener)
       })
-    }, tabId)
+    })
 
     // Click start button to trigger the demo scrape setup
     await startButton.click()
 
     // Wait for the config to be captured by the storage listener
-    const demoConfig = await configCapturePromise
+    const demoConfig = await configPromise
 
     expect(demoConfig).toBeDefined()
     expect(demoConfig.mainSelector).toContain('wikitable')

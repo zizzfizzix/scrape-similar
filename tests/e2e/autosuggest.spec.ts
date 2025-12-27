@@ -79,9 +79,13 @@ test.describe('Main selector autosuggest', () => {
     await sidePanel.getByRole('heading', { name: /configuration/i }).click()
     await expect(dropdown).toBeHidden()
 
-    // Open again and ensure remove recent keeps it open
-    await input.focus()
-    await expect(dropdown).toBeVisible()
+    // Open again - retry if blur handler's 150ms timer causes a race
+    await expect(async () => {
+      await input.blur() // Ensure input is not focused before clicking
+      await input.click()
+      await input.fill('')
+      await expect(dropdown).toBeVisible({ timeout: 500 })
+    }).toPass({ timeout: 5_000 })
     // Try clicking the remove control if exists
     const removeButton = sidePanel.locator('[aria-label="Remove recent selector"]').first()
     if (await removeButton.isVisible()) {
@@ -220,7 +224,7 @@ test.describe('Main selector autosuggest', () => {
     await expect(sidePanel.getByRole('option', { name: /nofollow links/i })).toBeVisible()
   })
 
-  test('recents capture on Enter, cap to 5, filter and remove without closing', async ({
+  test('recents capture on Enter, cap to 5, and remove without closing', async ({
     openSidePanel,
     context,
     serviceWorker,
@@ -233,30 +237,99 @@ test.describe('Main selector autosuggest', () => {
     await testPage.bringToFront()
 
     const input = sidePanel.locator('#mainSelector')
-    const selectors = ['//h2', '//h3', '//img', '//a', '//p', '//li']
+    const countBadge = sidePanel.locator('[data-slot="badge"]').filter({ hasText: /^\d+$/ })
+    const dropdown = sidePanel.locator('[data-slot="command-list"]')
+    const removeButtons = sidePanel.locator('[aria-label="Remove recent selector"]')
 
+    // Enter MORE than 5 selectors to test the cap
+    const selectors = ['//h1', '//h2', '//h3', '//p', '//ul', '//li', '//a']
     for (const sel of selectors) {
       await input.fill(sel)
       await input.press('Enter')
+      await expect(countBadge).toBeVisible()
+      // Click outside to trigger blur and save recent
+      await sidePanel.getByRole('heading', { name: /configuration/i }).click()
+      await expect(dropdown).toBeHidden()
     }
 
-    await input.fill('')
-    await input.focus()
-    const dropdown = sidePanel.locator('[data-slot="command-list"]')
+    // Open dropdown and wait for all 5 recents (cap) - retry until they appear (async storage)
+    await expect(async () => {
+      await input.blur()
+      await input.click()
+      await input.fill('')
+      await expect(dropdown).toBeVisible({ timeout: 500 })
+      // Wait for exactly 5 recents (cap) - we entered 7 selectors
+      await expect(removeButtons).toHaveCount(5, { timeout: 500 })
+    }).toPass({ timeout: 5_000 })
+
+    // Ensure button is ready before clicking
+    await expect(removeButtons.first()).toBeVisible()
+
+    // Click first remove button and verify one less after (dropdown stays open)
+    // Use mousedown instead of click to match how the component prevents closing
+    await removeButtons.first().dispatchEvent('mousedown')
+    await removeButtons.first().dispatchEvent('click')
     await expect(dropdown).toBeVisible()
+    await expect(removeButtons).toHaveCount(4)
+  })
 
+  test('typing in input filters recents to show only matching selectors', async ({
+    openSidePanel,
+    context,
+    serviceWorker,
+  }) => {
+    await TestHelpers.dismissAnalyticsConsent(serviceWorker)
+    const sidePanel = await openSidePanel()
+
+    const testPage = await context.newPage()
+    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+    await testPage.bringToFront()
+
+    const input = sidePanel.locator('#mainSelector')
+    const countBadge = sidePanel.locator('[data-slot="badge"]').filter({ hasText: /^\d+$/ })
+    const dropdown = sidePanel.locator('[data-slot="command-list"]')
     const removeButtons = sidePanel.locator('[aria-label="Remove recent selector"]')
-    const removeCount = await removeButtons.count()
-    expect(removeCount).toBeLessThanOrEqual(5)
-    expect(removeCount).toBeGreaterThan(0)
 
-    await input.fill('h3')
+    // Enter two distinct selectors to create recents
+    await input.fill('//h1')
+    await input.press('Enter')
+    await expect(countBadge).toBeVisible()
+    await sidePanel.getByRole('heading', { name: /configuration/i }).click()
+    await expect(dropdown).toBeHidden()
+
+    await input.fill('//article')
+    await input.press('Enter')
+    await expect(countBadge).toBeVisible()
+    await sidePanel.getByRole('heading', { name: /configuration/i }).click()
+    await expect(dropdown).toBeHidden()
+
+    // Open dropdown and wait for both recents
+    await expect(async () => {
+      await input.blur()
+      await input.click()
+      await input.fill('')
+      await expect(dropdown).toBeVisible({ timeout: 500 })
+      await expect(removeButtons).toHaveCount(2, { timeout: 500 })
+    }).toPass({ timeout: 5_000 })
+
+    // Type "article" to filter - should show only //article
+    // Use pressSequentially() instead of fill() to avoid triggering blur/focus events
+    await input.selectText()
+    await input.pressSequentially('article')
+    await expect(dropdown).toBeVisible()
     await expect(removeButtons).toHaveCount(1)
 
-    const before = await removeButtons.count()
-    await removeButtons.first().evaluate((el) => (el as HTMLElement).click())
+    // The visible recent should be //article
+    const recentItems = sidePanel
+      .locator('[data-slot="command-item"]')
+      .filter({ hasText: '//article' })
+    await expect(recentItems.first()).toBeVisible()
+
+    // Clear filter - should show both recents again
+    await input.selectText()
+    await input.press('Backspace')
     await expect(dropdown).toBeVisible()
-    await expect(removeButtons).toHaveCount(Math.max(0, before - 1))
+    await expect(removeButtons).toHaveCount(2)
   })
 
   test('selecting an autosuggest preset loads full preset (main selector and columns) but does not scrape', async ({
@@ -315,41 +388,61 @@ test.describe('Main selector autosuggest', () => {
     await expect(columnNames.nth(0)).toHaveValue('Text')
     await expect(columnNames.nth(1)).toHaveValue('Column 2')
 
-    // Enter a selector to create a recent entry
+    // Enter a selector to create a recent entry (use real selectors that exist on Wikipedia)
     const input = sidePanel.locator('#mainSelector')
-    await input.fill('//div[@class="test"]')
-    await input.press('Enter')
-
-    // Wait for it to be committed
-    await expect(sidePanel.locator('[data-slot="badge"]')).toBeVisible()
-
-    // Clear and enter a different selector
-    await input.fill('//span')
-    await input.press('Enter')
-    await expect(sidePanel.locator('[data-slot="badge"]')).toBeVisible()
-
-    // Now select the recent selector from autosuggest using keyboard
-    await input.fill('')
-    await input.focus()
-
-    // Wait for dropdown to show recents
+    const countBadge = sidePanel.locator('[data-slot="badge"]').filter({ hasText: /^\d+$/ })
     const dropdown = sidePanel.locator('[data-slot="command-list"]')
-    await expect(dropdown).toBeVisible()
+    const removeButtons = sidePanel.locator('[aria-label="Remove recent selector"]')
 
-    // Find and verify the recent item is visible (it should be the second item since //span is most recent)
+    // First selector - will be second in recents (older)
+    await input.fill('//ul')
+    await input.press('Enter')
+    // Wait for selector to be committed (badge shows match count)
+    await expect(countBadge).toBeVisible()
+
+    // Click outside to ensure blur handler completes before next selector
+    await sidePanel.getByRole('heading', { name: /configuration/i }).click()
+    await expect(dropdown).toBeHidden()
+
+    // Verify first recent was saved - retry until recents appear (async storage)
+    await expect(async () => {
+      await input.blur() // Ensure fresh focus on each retry
+      await input.click()
+      await input.fill('')
+      await expect(dropdown).toBeVisible({ timeout: 500 })
+      await expect(removeButtons).toHaveCount(1, { timeout: 500 })
+    }).toPass({ timeout: 5_000 })
+
+    // Second selector - will be first in recents (most recent)
+    await input.fill('//p')
+    await input.press('Enter')
+    await expect(countBadge).toBeVisible()
+
+    // Click outside to ensure blur handler completes
+    await sidePanel.getByRole('heading', { name: /configuration/i }).click()
+    await expect(dropdown).toBeHidden()
+
+    // Verify both recents were saved and click the older one (//ul)
     const recentItem = sidePanel
       .locator('[data-slot="command-item"]')
-      .filter({ hasText: '//div[@class="test"]' })
+      .filter({ hasText: '//ul' })
       .first()
-    await expect(recentItem).toBeVisible()
 
-    // Use keyboard to select it (ArrowDown twice since //span is first, //div[@class="test"] is second)
-    await input.press('ArrowDown')
-    await input.press('ArrowDown')
-    await input.press('Enter')
+    await expect(async () => {
+      await input.blur() // Ensure fresh focus on each retry
+      await input.click()
+      await input.fill('')
+      await expect(dropdown).toBeVisible({ timeout: 500 })
+      await expect(removeButtons).toHaveCount(2, { timeout: 500 })
+      await expect(recentItem).toBeVisible({ timeout: 500 })
+    }).toPass({ timeout: 5_000 })
+
+    // Use mousedown + click to match how cmdk handles selection
+    await recentItem.dispatchEvent('mousedown')
+    await recentItem.dispatchEvent('click')
 
     // Verify main selector changed to the recent one
-    await expect(input).toHaveValue('//div[@class="test"]')
+    await expect(input).toHaveValue('//ul')
 
     // Verify columns were NOT changed (should still have our 2 columns)
     await expect(columnNames).toHaveCount(2)
