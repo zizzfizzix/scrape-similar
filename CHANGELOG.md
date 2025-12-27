@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/zizzfizzix/scrape-similar/compare/v0.6.0...v0.7.0) (2025-12-27)
+
+
+### Features
+
+* [#61](https://github.com/zizzfizzix/scrape-similar/issues/61) visual selector picker ([#96](https://github.com/zizzfizzix/scrape-similar/issues/96)) ([36ff367](https://github.com/zizzfizzix/scrape-similar/commit/36ff367dd9ac27e07bd8f99f40b175e53e65eaeb))
+
 ## [0.6.0](https://github.com/zizzfizzix/scrape-similar/compare/v0.5.0...v0.6.0) (2025-10-20)
 
 
