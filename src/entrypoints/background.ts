@@ -1,5 +1,5 @@
 import { isInjectableUrl } from '@/utils/isInjectableUrl'
-import { isDevOrTest } from '@/utils/modeTest'
+import { isDevOrTest, isTest } from '@/utils/modeTest'
 import log from 'loglevel'
 import { PostHog } from 'posthog-js/dist/module.no-external'
 
@@ -120,17 +120,29 @@ export default defineBackground(() => {
       log.debug('🎬 Setting up demo scrape for tab:', tabId)
 
       // Store a flag that this tab should auto-scrape after navigation
-      const demoConfig: ScrapeConfig = {
-        mainSelector:
-          '//table[contains(@class, "wikitable")][1]//tr[position() > 1 and position() <= 11]',
-        columns: [
-          { name: 'Rank', selector: './td[1]' },
-          { name: 'Country/Territory', selector: './td[2]//a[1]' },
-          { name: 'Population', selector: './td[3]' },
-          { name: 'Percentage', selector: './td[4]' },
-          { name: 'Date', selector: './td[5]' },
-        ],
-      }
+      // In test mode, use a specific table selector with predefined columns
+      // In non-test mode, use a generic link selector with link-specific columns
+      const demoConfig: ScrapeConfig = isTest
+        ? {
+            mainSelector:
+              '//table[contains(@class, "wikitable")][1]//tr[position() > 1 and position() <= 11]',
+            columns: [
+              { name: 'Rank', selector: './td[1]' },
+              { name: 'Country/Territory', selector: './td[2]//a[1]' },
+              { name: 'Population', selector: './td[3]' },
+              { name: 'Percentage', selector: './td[4]' },
+              { name: 'Date', selector: './td[5]' },
+            ],
+          }
+        : {
+            mainSelector: '//a',
+            columns: [
+              { name: 'Anchor text', selector: '.' },
+              { name: 'URL', selector: '@href' },
+              { name: 'Rel', selector: '@rel' },
+              { name: 'Target', selector: '@target' },
+            ],
+          }
 
       await storage.setItem(`local:demo_scrape_pending_${tabId}`, demoConfig)
 
@@ -461,7 +473,7 @@ export default defineBackground(() => {
       if (changeInfo.status === 'complete') {
         const demoData = await storage.getItem<ScrapeConfig>(`local:demo_scrape_pending_${tabId}`)
 
-        if (demoData && tab.url?.includes('wikipedia.org/wiki/List_of_countries')) {
+        if (demoData && tab.url?.includes('wikipedia.org/wiki/')) {
           log.debug('🎬 Demo scrape pending detected for tab', tabId, '- triggering auto-scrape')
 
           // Remove the flag first so we don't trigger again
@@ -496,6 +508,17 @@ export default defineBackground(() => {
               if (scrapeResp?.success) {
                 log.debug('🎬 Demo scrape completed successfully')
                 trackEvent(ANALYTICS_EVENTS.ONBOARDING_DEMO_SCRAPE, { success: true })
+
+                // Enable visual picker mode so user can try it immediately
+                try {
+                  await browser.tabs.sendMessage(tabId, {
+                    type: MESSAGE_TYPES.ENABLE_PICKER_MODE,
+                  })
+                  log.debug('🎬 Visual picker mode enabled after demo scrape')
+                } catch (pickerError) {
+                  log.warn('🎬 Failed to enable picker mode after demo:', pickerError)
+                  // Non-fatal error, continue
+                }
               } else {
                 log.warn('🎬 Demo scrape failed:', scrapeResp?.error)
                 trackEvent(ANALYTICS_EVENTS.ONBOARDING_DEMO_SCRAPE, {
