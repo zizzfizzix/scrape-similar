@@ -1,3 +1,4 @@
+import { Logo } from '@/components/Logo'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -31,35 +32,6 @@ interface OnboardingSlide {
   icon: React.ReactNode
   content: React.ReactNode
   image?: string
-}
-
-// Logo component that adapts to theme
-const Logo: React.FC<{ className?: string }> = ({ className = 'h-12 w-12' }) => {
-  const { theme } = useTheme()
-  const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light')
-
-  useEffect(() => {
-    if (theme === 'system') {
-      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-      setResolvedTheme(mediaQuery.matches ? 'dark' : 'light')
-
-      const handleChange = (e: MediaQueryListEvent) => {
-        setResolvedTheme(e.matches ? 'dark' : 'light')
-      }
-
-      mediaQuery.addEventListener('change', handleChange)
-      return () => mediaQuery.removeEventListener('change', handleChange)
-    } else {
-      setResolvedTheme(theme)
-    }
-  }, [theme])
-
-  const logoSrc =
-    resolvedTheme === 'dark'
-      ? browser.runtime.getURL('/icons/logo-dark.svg')
-      : browser.runtime.getURL('/icons/logo-light.svg')
-
-  return <img src={logoSrc} alt="Scrape Similar Logo" className={className} />
 }
 
 const OnboardingApp: React.FC = () => {
