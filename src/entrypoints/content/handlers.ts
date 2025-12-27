@@ -6,8 +6,8 @@ import { MESSAGE_TYPES, type Message, type ScrapeConfig, type ScrapeResult } fro
 import log from 'loglevel'
 
 interface HandlerDependencies {
-  enablePickerMode: () => Promise<void>
-  disablePickerMode: () => void
+  enablePickerMode: (source?: string) => Promise<void>
+  disablePickerMode: (source?: string) => void
 }
 
 /**
@@ -37,25 +37,28 @@ export const createMessageHandler = (state: ContentScriptState, deps: HandlerDep
 
         case MESSAGE_TYPES.ENABLE_PICKER_MODE: {
           log.debug('Enabling picker mode via message')
-          deps.enablePickerMode()
+          const { source } = (message.payload || {}) as { source?: string }
+          deps.enablePickerMode(source)
           sendResponse({ success: true, message: 'Picker mode enabled' })
           break
         }
 
         case MESSAGE_TYPES.DISABLE_PICKER_MODE: {
           log.debug('Disabling picker mode via message')
-          deps.disablePickerMode()
+          const { source } = (message.payload || {}) as { source?: string }
+          deps.disablePickerMode(source)
           sendResponse({ success: true, message: 'Picker mode disabled' })
           break
         }
 
         case MESSAGE_TYPES.TOGGLE_PICKER_MODE: {
           log.debug('Toggling picker mode via message')
+          const { source } = (message.payload || {}) as { source?: string }
           if (state.pickerModeActive) {
-            deps.disablePickerMode()
+            deps.disablePickerMode(source || 'button')
             sendResponse({ success: true, message: 'Picker mode disabled' })
           } else {
-            deps.enablePickerMode()
+            deps.enablePickerMode(source || 'button')
             sendResponse({ success: true, message: 'Picker mode enabled' })
           }
           break

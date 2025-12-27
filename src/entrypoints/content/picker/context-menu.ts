@@ -1,5 +1,6 @@
 import { highlightElementsForPicker } from '@/entrypoints/content/highlight'
 import type { ContentScriptState } from '@/entrypoints/content/state'
+import { ANALYTICS_EVENTS, trackEvent } from '@/utils/analytics'
 import { evaluateXPath } from '@/utils/scraper'
 import log from 'loglevel'
 import type { ContentScriptContext } from 'wxt/utils/content-script-context'
@@ -13,15 +14,24 @@ export const handleLevelChange = (
   level: number,
   state: ContentScriptState,
   onUpdate: (matches: number, xpath: string) => void,
+  method?: 'slider' | 'keyboard' | 'scroll',
 ): void => {
   const maxIndex = state.selectorCandidates.length - 1
   if (level !== state.selectedCandidateIndex && level >= 0 && level <= maxIndex) {
+    const fromLevel = state.selectedCandidateIndex
     state.selectedCandidateIndex = level
     const sel = state.selectorCandidates[state.selectedCandidateIndex]
     state.currentXPath = sel
     const matches = evaluateXPath(sel)
     highlightElementsForPicker(matches as HTMLElement[], state.highlightedElements)
     onUpdate(matches.length, sel)
+
+    // Track level change
+    trackEvent(ANALYTICS_EVENTS.PICKER_LEVEL_CHANGE, {
+      from_level: fromLevel,
+      to_level: level,
+      method: method || 'unknown',
+    })
   }
 }
 
@@ -33,7 +43,7 @@ export const showPickerContextMenu = async (
   y: number,
   ctx: ContentScriptContext,
   state: ContentScriptState,
-  onLevelChange: (level: number) => void,
+  onLevelChange: (level: number, method?: 'slider' | 'keyboard' | 'scroll') => void,
   onClose: () => void,
   removeCrosshairCursor: () => void,
 ): Promise<void> => {
@@ -46,7 +56,7 @@ export const showPickerContextMenu = async (
       handlePickerContextMenuWheel(e, state, onLevelChange)
   }
 
-  // If already open, just update state
+  // If already open, just update state (don't track again)
   if (state.pickerContextMenuUi && state.pickerContextMenuApi) {
     state.pickerContextMenuApi.updateLevels(
       state.selectorCandidates.length,
@@ -61,6 +71,11 @@ export const showPickerContextMenu = async (
     state.pickerScrollAccumulator = 0
     return
   }
+
+  // Track context menu open (only when newly opening, not updating position)
+  trackEvent(ANALYTICS_EVENTS.PICKER_CONTEXT_MENU_OPEN, {
+    levels_available: state.selectorCandidates.length,
+  })
 
   // Create shadow root UI using WXT's helper (handles CSS injection)
   try {
@@ -83,7 +98,7 @@ export const showPickerContextMenu = async (
               y: state.contextMenuY,
               levels: state.selectorCandidates.length,
               currentLevel: state.selectedCandidateIndex,
-              onChange: onLevelChange,
+              onChange: (level: number) => onLevelChange(level, 'slider'),
               onClose,
             },
             container,
@@ -125,7 +140,7 @@ export const showPickerContextMenu = async (
 export const handlePickerContextMenuWheel = (
   event: WheelEvent,
   state: ContentScriptState,
-  onLevelChange: (level: number) => void,
+  onLevelChange: (level: number, method?: 'slider' | 'keyboard' | 'scroll') => void,
 ): void => {
   // Prevent page scroll
   event.preventDefault()
@@ -151,7 +166,7 @@ export const handlePickerContextMenuWheel = (
   // This matches the visual direction: scroll gesture moves the indicator in the same direction
   const newIndex = Math.max(0, Math.min(maxIndex, state.selectedCandidateIndex - levels))
   if (newIndex !== state.selectedCandidateIndex) {
-    onLevelChange(newIndex)
+    onLevelChange(newIndex, 'scroll')
     state.pickerContextMenuApi.updateLevel(newIndex)
   }
 }

@@ -167,7 +167,7 @@ export const handlePickerMouseMove = (event: MouseEvent, state: ContentScriptSta
 export const handlePickerClick = async (
   event: MouseEvent,
   state: ContentScriptState,
-  disablePickerMode: () => void,
+  disablePickerMode: (source?: string) => void,
 ): Promise<void> => {
   if (!state.pickerModeActive) return
 
@@ -186,13 +186,22 @@ export const handlePickerClick = async (
   event.stopPropagation()
 
   // Disable picker mode
-  disablePickerMode()
+  disablePickerMode('element_selected')
 
   // Get the element that was clicked
   const el = document.elementFromPoint(event.clientX, event.clientY)
   if (!el || !(el instanceof HTMLElement)) return
 
   log.debug('Picker mode: element selected', el)
+
+  // Track element selection with details about the selector
+  trackEvent(ANALYTICS_EVENTS.PICKER_ELEMENT_SELECT, {
+    elements_matched: evaluateXPath(
+      state.selectorCandidates[state.selectedCandidateIndex] || minimizeXPath(el),
+    ).length,
+    selector_level: state.selectedCandidateIndex,
+    total_levels: state.selectorCandidates.length,
+  })
 
   // Use currently selected candidate selector for final scrape
   const xpath = minimizeXPath(el)
@@ -309,12 +318,13 @@ const navigateSelectorCandidates = (delta: number, state: ContentScriptState): v
   const newIndex = state.selectedCandidateIndex + delta
   if (newIndex < 0 || newIndex >= state.selectorCandidates.length) return
 
-  state.selectedCandidateIndex = newIndex
-  const sel = state.selectorCandidates[state.selectedCandidateIndex]
-  state.currentXPath = sel
-  const matches = evaluateXPath(sel)
-  highlightElementsForPicker(matches as HTMLElement[], state.highlightedElements)
-  updatePickerBannerContent(matches.length, sel, state)
+  // Reuse handleLevelChange for DRY - it handles state updates, highlighting, and tracking
+  handleLevelChangeInternal(
+    newIndex,
+    state,
+    (matches, xpath) => updatePickerBannerContent(matches, xpath, state),
+    'keyboard',
+  )
 }
 
 /**
@@ -323,13 +333,13 @@ const navigateSelectorCandidates = (delta: number, state: ContentScriptState): v
 export const handlePickerKeyDown = (
   event: KeyboardEvent,
   state: ContentScriptState,
-  disablePickerMode: () => void,
+  disablePickerMode: (source?: string) => void,
 ): void => {
   if (!state.pickerModeActive) return
   const key = event.key
   if (key === 'Escape') {
     event.preventDefault()
-    disablePickerMode()
+    disablePickerMode('escape')
     return
   }
   // '+' makes selector more specific (towards index 0), '-' less specific (towards ancestors)
@@ -351,12 +361,18 @@ export const handlePickerKeyDown = (
 export const enablePickerMode = async (
   ctx: ContentScriptContext,
   state: ContentScriptState,
-  disablePickerMode: () => void,
+  disablePickerMode: (source?: string) => void,
+  source?: string,
 ): Promise<void> => {
   if (state.pickerModeActive) return
 
   log.debug('Enabling picker mode')
   state.pickerModeActive = true
+
+  // Track picker mode enable with source
+  trackEvent(ANALYTICS_EVENTS.PICKER_MODE_ENABLE, {
+    source: source || 'unknown',
+  })
 
   // Save picker mode state to storage
   if (state.tabId !== null) {
@@ -403,12 +419,18 @@ export const enablePickerMode = async (
 const createPickerEventHandlers = (
   ctx: ContentScriptContext,
   state: ContentScriptState,
-  disablePickerMode: () => void,
+  disablePickerMode: (source?: string) => void,
 ) => {
   // Level change handler with banner update
-  const handleLevelChangeWithUpdate = (level: number) => {
-    handleLevelChangeInternal(level, state, (matches, xpath) =>
-      updatePickerBannerContent(matches, xpath, state),
+  const handleLevelChangeWithUpdate = (
+    level: number,
+    method?: 'slider' | 'keyboard' | 'scroll',
+  ) => {
+    handleLevelChangeInternal(
+      level,
+      state,
+      (matches, xpath) => updatePickerBannerContent(matches, xpath, state),
+      method,
     )
   }
 
@@ -444,11 +466,16 @@ const createPickerEventHandlers = (
 /**
  * Disable picker mode
  */
-export const disablePickerMode = (state: ContentScriptState): void => {
+export const disablePickerMode = (state: ContentScriptState, source?: string): void => {
   if (!state.pickerModeActive) return
 
   log.debug('Disabling picker mode')
   state.pickerModeActive = false
+
+  // Track picker mode disable with source
+  trackEvent(ANALYTICS_EVENTS.PICKER_MODE_DISABLE, {
+    source: source || 'unknown',
+  })
 
   // Save picker mode state to storage
   if (state.tabId !== null) {

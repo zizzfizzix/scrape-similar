@@ -86,8 +86,8 @@ export default defineContentScript({
     })
 
     // Create picker mode functions with state binding
-    const enablePicker = () => enablePickerMode(ctx, state, disablePicker)
-    const disablePicker = () => disablePickerMode(state)
+    const enablePicker = (source?: string) => enablePickerMode(ctx, state, disablePicker, source)
+    const disablePicker = (source?: string) => disablePickerMode(state, source)
 
     // Create message handler
     const messageHandler = createMessageHandler(state, {

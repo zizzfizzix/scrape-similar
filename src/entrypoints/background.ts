@@ -292,7 +292,10 @@ export default defineBackground(() => {
         enabled: true,
       })
 
-      await browser.tabs.sendMessage(activeTab.id, { type: MESSAGE_TYPES.TOGGLE_PICKER_MODE })
+      await browser.tabs.sendMessage(activeTab.id, {
+        type: MESSAGE_TYPES.TOGGLE_PICKER_MODE,
+        payload: { source: 'keyboard_shortcut' },
+      })
       log.debug('Visual picker toggled via global keyboard command')
     } catch (error) {
       log.error('Error handling toggle_visual_picker command (global):', error)
@@ -369,6 +372,11 @@ export default defineBackground(() => {
           'Scrape similar selected, opening side panel and triggering element details save...',
         )
 
+        // Track context menu quick scrape usage
+        trackEvent(ANALYTICS_EVENTS.CONTEXT_MENU_QUICK_SCRAPE, {
+          has_selection: !!info.selectionText,
+        })
+
         // Always open the side panel (safe even if already open)
         try {
           await browser.sidePanel.open({ tabId: targetTabId })
@@ -437,6 +445,9 @@ export default defineBackground(() => {
       } else if (info.menuItemId === 'scrape-visual-picker') {
         log.debug('Scrape visual picker selected, toggling picker mode...')
 
+        // Track context menu visual picker usage
+        trackEvent(ANALYTICS_EVENTS.CONTEXT_MENU_VISUAL_PICKER)
+
         // Check if URL is injectable (same check as keyboard shortcut)
         if (!isInjectableUrl(tab.url)) {
           log.warn('Cannot enable visual picker on non-injectable URL:', tab.url)
@@ -445,7 +456,10 @@ export default defineBackground(() => {
 
         try {
           // Toggle picker mode (same as keyboard shortcut)
-          await browser.tabs.sendMessage(targetTabId, { type: MESSAGE_TYPES.TOGGLE_PICKER_MODE })
+          await browser.tabs.sendMessage(targetTabId, {
+            type: MESSAGE_TYPES.TOGGLE_PICKER_MODE,
+            payload: { source: 'context_menu' },
+          })
           log.debug('Visual picker toggled via context menu')
         } catch (error) {
           log.error('Error handling scrape-visual-picker context menu:', error)
@@ -513,6 +527,7 @@ export default defineBackground(() => {
                 try {
                   await browser.tabs.sendMessage(tabId, {
                     type: MESSAGE_TYPES.ENABLE_PICKER_MODE,
+                    payload: { source: 'demo_scrape' },
                   })
                   log.debug('🎬 Visual picker mode enabled after demo scrape')
                 } catch (pickerError) {

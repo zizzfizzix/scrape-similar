@@ -621,7 +621,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
       targetTabId,
       {
         type: MESSAGE_TYPES.TOGGLE_PICKER_MODE,
-        payload: {},
+        payload: { source: 'button' },
       },
       (response) => {
         if (!response && browser.runtime.lastError) {
