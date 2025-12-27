@@ -6,16 +6,20 @@ type ThemeProviderProps = {
   children: React.ReactNode
   defaultTheme?: Theme
   themeStorageKey?: string
+  /** Optional element to apply the theme classes to instead of document.documentElement */
+  rootElement?: Element | null
 }
 
 type ThemeProviderState = {
   theme: Theme
   setTheme: (theme: Theme) => void
+  rootElement?: Element | null
 }
 
 const initialState: ThemeProviderState = {
   theme: 'system',
   setTheme: () => null,
+  rootElement: null,
 }
 
 const ThemeProviderContext = createContext<ThemeProviderState>(initialState)
@@ -24,6 +28,7 @@ export function ThemeProvider({
   children,
   defaultTheme = 'system',
   themeStorageKey = 'theme',
+  rootElement,
   ...props
 }: ThemeProviderProps) {
   const [theme, setTheme] = useState<Theme>(defaultTheme)
@@ -56,7 +61,7 @@ export function ThemeProvider({
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
     const handleChange = () => {
       const systemTheme = mediaQuery.matches ? 'dark' : 'light'
-      const root = window.document.documentElement
+      const root = (rootElement as Element) || window.document.documentElement
       root.classList.remove('light', 'dark')
       root.classList.add(systemTheme)
     }
@@ -68,15 +73,15 @@ export function ThemeProvider({
     return () => {
       mediaQuery.removeEventListener('change', handleChange)
     }
-  }, [theme])
+  }, [theme, rootElement])
 
   // Apply theme when theme changes (except for "system", which is handled above)
   useEffect(() => {
     if (theme === 'system') return
-    const root = window.document.documentElement
+    const root = (rootElement as Element) || window.document.documentElement
     root.classList.remove('light', 'dark')
     root.classList.add(theme)
-  }, [theme])
+  }, [theme, rootElement])
 
   const value = {
     theme,
@@ -84,6 +89,7 @@ export function ThemeProvider({
       storage.setItem(`local:${themeStorageKey}`, theme)
       setTheme(theme)
     },
+    rootElement,
   }
 
   return (

@@ -101,6 +101,17 @@ export const ANALYTICS_EVENTS = {
   FULL_DATA_VIEW_PAGE_SIZE_CHANGE: 'full_data_view_page_size_change',
   FULL_DATA_VIEW_SEARCH: 'full_data_view_search',
   FULL_DATA_VIEW_ROW_SELECTION: 'full_data_view_row_selection',
+
+  // Context menu entry points
+  CONTEXT_MENU_QUICK_SCRAPE: 'context_menu_quick_scrape',
+  CONTEXT_MENU_VISUAL_PICKER: 'context_menu_visual_picker',
+
+  // Visual Picker events
+  PICKER_MODE_ENABLE: 'picker_mode_enable',
+  PICKER_MODE_DISABLE: 'picker_mode_disable',
+  PICKER_ELEMENT_SELECT: 'picker_element_select',
+  PICKER_CONTEXT_MENU_OPEN: 'picker_context_menu_open',
+  PICKER_LEVEL_CHANGE: 'picker_level_change',
 } as const
 
 /**

@@ -1,3 +1,4 @@
+import type { ScrapeConfig } from '@/utils/types'
 import { expect, test, TestHelpers } from './fixtures'
 
 /**
@@ -70,7 +71,7 @@ test.describe('Onboarding Flow', () => {
     // Go to third slide
     await nextButton.click()
     await expect(
-      onboardingPage.locator('[data-slot="card-title"]', { hasText: 'Keyboard Shortcut' }),
+      onboardingPage.locator('[data-slot="card-title"]', { hasText: 'Visual Element Picker' }),
     ).toBeVisible()
 
     // Now go back to second slide
@@ -155,6 +156,49 @@ test.describe('Onboarding Demo Scrape', () => {
     expect(firstRowData[0]).toBeTruthy() // Rank should have a value
   })
 
+  test('enables visual picker mode after demo scrape completes', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    // Dismiss analytics consent
+    await TestHelpers.dismissAnalyticsConsent(serviceWorker)
+
+    // Open onboarding page
+    const onboardingPage = await TestHelpers.openOnboardingPage(context, extensionId)
+
+    // Navigate to the last slide and start demo
+    const nextButton = onboardingPage.getByRole('button', { name: 'Next' })
+    const startButton = onboardingPage.getByRole('button', { name: /start/i })
+
+    while (!(await startButton.isVisible())) {
+      await nextButton.click()
+    }
+
+    await onboardingPage.bringToFront()
+
+    const navigationPromise = onboardingPage.waitForURL(
+      'https://en.wikipedia.org/wiki/List_of_countries_and_dependencies_by_population',
+    )
+    const sidepanelPromise = context.waitForEvent('page', {
+      predicate: (p) => p.url().startsWith(`chrome-extension://${extensionId}/sidepanel.html`),
+    })
+
+    await startButton.click()
+    const [sidepanelPage] = await Promise.all([sidepanelPromise, navigationPromise])
+
+    // Wait for data table to appear (demo scrape completed)
+    await expect(sidepanelPage.getByRole('heading', { name: /extracted data/i })).toBeVisible()
+
+    // Look for picker banner, it is in a shadow root, so we use evaluate to check for it
+    const pickerActive = await onboardingPage.evaluate(() => {
+      // Check for the crosshair cursor class on html element
+      return document.documentElement.classList.contains('scrape-similar-picker-active')
+    })
+
+    expect(pickerActive).toBe(true)
+  })
+
   test('stores demo scrape config correctly before navigation', async ({
     context,
     extensionId,
@@ -174,40 +218,36 @@ test.describe('Onboarding Demo Scrape', () => {
       await nextButton.click()
     }
 
-    // Get the tab ID of the onboarding page
-    const tabId = await serviceWorker.evaluate(async (onboardingUrl) => {
-      const tabs = await chrome.tabs.query({ url: onboardingUrl })
-      return tabs[0]?.id
-    }, onboardingPage.url())
-
-    expect(tabId).toBeDefined()
-
     await onboardingPage.bringToFront()
 
     // Set up a storage listener in the service worker to capture the config as soon as it's written
-    const configCapturePromise = serviceWorker.evaluate((tid): Promise<ScrapeConfig> => {
-      return new Promise((resolve) => {
-        const storageKey = `demo_scrape_pending_${tid}`
-
+    const configPromise = serviceWorker.evaluate(() => {
+      return new Promise<ScrapeConfig>((resolve, reject) => {
         const listener = (
           changes: Record<string, chrome.storage.StorageChange>,
           areaName: string,
         ) => {
-          if (areaName === 'local' && changes[storageKey]?.newValue) {
-            chrome.storage.onChanged.removeListener(listener)
-            resolve(changes[storageKey].newValue)
+          if (areaName === 'local') {
+            // Look for any demo_scrape_pending key
+            for (const key of Object.keys(changes)) {
+              if (key.startsWith('demo_scrape_pending_') && changes[key]?.newValue) {
+                chrome.storage.onChanged.removeListener(listener)
+                resolve(changes[key].newValue as ScrapeConfig)
+                return
+              }
+            }
           }
         }
 
         chrome.storage.onChanged.addListener(listener)
       })
-    }, tabId)
+    })
 
     // Click start button to trigger the demo scrape setup
     await startButton.click()
 
     // Wait for the config to be captured by the storage listener
-    const demoConfig = await configCapturePromise
+    const demoConfig = await configPromise
 
     expect(demoConfig).toBeDefined()
     expect(demoConfig.mainSelector).toContain('wikitable')

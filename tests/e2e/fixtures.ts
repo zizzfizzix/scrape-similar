@@ -111,7 +111,7 @@ export const TestHelpers = {
   ): Promise<Page> {
     const {
       testPageUrl = 'https://en.wikipedia.org/wiki/Playwright_(software)',
-      selector = '//h2',
+      selector = '(//a)[position() <= 10]',
       dismissConsent = true,
     } = options
 

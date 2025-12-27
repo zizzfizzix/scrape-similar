@@ -470,3 +470,86 @@ test.describe('Sidepanel Core Functionality', () => {
     expect(text!.split('\n').length).toBeGreaterThan(1) // header + at least one data line
   })
 })
+
+test.describe('Visual Picker Integration', () => {
+  test('crosshair button is visible next to main selector input', async ({
+    openSidePanel,
+    context,
+    serviceWorker,
+  }) => {
+    await TestHelpers.dismissAnalyticsConsent(serviceWorker)
+    const sidePanel = await openSidePanel()
+
+    const testPage = await context.newPage()
+    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+    await testPage.bringToFront()
+
+    // Check for crosshair button
+    const crosshairButton = sidePanel.getByLabel(/visual picker/i)
+    await expect(crosshairButton).toBeVisible()
+  })
+
+  test('clicking crosshair button toggles picker mode', async ({
+    openSidePanel,
+    context,
+    serviceWorker,
+  }) => {
+    await TestHelpers.dismissAnalyticsConsent(serviceWorker)
+    const sidePanel = await openSidePanel()
+
+    const testPage = await context.newPage()
+    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+    await testPage.bringToFront()
+
+    // Click crosshair button to enable picker
+    let crosshairButton = sidePanel.getByLabel(/open visual picker/i)
+    await crosshairButton.click()
+
+    // Verify picker is active on the page
+    const pickerActive = await testPage.evaluate(() => {
+      return document.documentElement.classList.contains('scrape-similar-picker-active')
+    })
+    expect(pickerActive).toBe(true)
+
+    // Click again to disable picker
+    crosshairButton = sidePanel.getByLabel(/close visual picker/i)
+    await crosshairButton.click()
+
+    // Verify picker is no longer active
+    const pickerStillActive = await testPage.evaluate(() => {
+      return document.documentElement.classList.contains('scrape-similar-picker-active')
+    })
+    expect(pickerStillActive).toBe(false)
+  })
+
+  test('crosshair button changes to close when picker active', async ({
+    openSidePanel,
+    context,
+    serviceWorker,
+  }) => {
+    await TestHelpers.dismissAnalyticsConsent(serviceWorker)
+    const sidePanel = await openSidePanel()
+
+    const testPage = await context.newPage()
+    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+    await testPage.bringToFront()
+
+    // Initially should show "open" label
+    let openButton = sidePanel.getByLabel(/open visual picker/i)
+    await expect(openButton).toBeVisible()
+
+    // Enable picker
+    await openButton.click()
+
+    // Should now show "close" label
+    let closeButton = sidePanel.getByLabel(/close visual picker/i)
+    await expect(closeButton).toBeVisible()
+
+    // Disable picker
+    await closeButton.click()
+
+    // Should be back to "open" label
+    openButton = sidePanel.getByLabel(/open visual picker/i)
+    await expect(openButton).toBeVisible()
+  })
+})
