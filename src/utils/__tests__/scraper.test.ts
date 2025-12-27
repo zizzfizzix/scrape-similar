@@ -330,6 +330,136 @@ describe('guessScrapeConfigForElement', () => {
     expect(matchedRows[0]).toBe(row)
     expect(matchedRows[1]).not.toBe(row)
   })
+
+  it('prefers repeated row ancestors (tr with sibling trs)', () => {
+    document.body.innerHTML = `
+      <div id="container">
+        <table>
+          <tbody>
+            <tr id="row1"><td><span id="target">Cell 1</span></td></tr>
+            <tr id="row2"><td><span>Cell 2</span></td></tr>
+            <tr id="row3"><td><span>Cell 3</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    `
+    const target = document.getElementById('target') as HTMLElement
+    const config = guessScrapeConfigForElement(target)
+
+    // Should select the tr ancestor, not the span
+    const matchedElements = evaluateXPath(config.mainSelector)
+    expect(matchedElements.length).toBeGreaterThanOrEqual(3)
+    expect(matchedElements[0].tagName.toLowerCase()).toBe('tr')
+  })
+
+  it('prefers li elements with sibling lis', () => {
+    document.body.innerHTML = `
+      <ul id="list">
+        <li id="item1"><span id="target">Item 1</span></li>
+        <li id="item2"><span>Item 2</span></li>
+        <li id="item3"><span>Item 3</span></li>
+      </ul>
+    `
+    const target = document.getElementById('target') as HTMLElement
+    const config = guessScrapeConfigForElement(target)
+
+    // Should select the li ancestor, not the span
+    const matchedElements = evaluateXPath(config.mainSelector)
+    expect(matchedElements.length).toBeGreaterThanOrEqual(3)
+    expect(matchedElements[0].tagName.toLowerCase()).toBe('li')
+  })
+
+  it('prefers dt/dd elements with siblings', () => {
+    document.body.innerHTML = `
+      <dl>
+        <dt id="term1"><span id="target">Term 1</span></dt>
+        <dd>Description 1</dd>
+        <dt id="term2"><span>Term 2</span></dt>
+        <dd>Description 2</dd>
+      </dl>
+    `
+    const target = document.getElementById('target') as HTMLElement
+    const config = guessScrapeConfigForElement(target)
+
+    // Should select the dt ancestor, not the span
+    const matchedElements = evaluateXPath(config.mainSelector)
+    expect(matchedElements.length).toBeGreaterThanOrEqual(2)
+    expect(matchedElements[0].tagName.toLowerCase()).toBe('dt')
+  })
+
+  it('finds nearest repeating node by walking up DOM tree', () => {
+    document.body.innerHTML = `
+      <div id="wrapper">
+        <div class="item" id="item1">
+          <div class="inner">
+            <span id="target">Text 1</span>
+          </div>
+        </div>
+        <div class="item" id="item2">
+          <div class="inner">
+            <span>Text 2</span>
+          </div>
+        </div>
+        <div class="item" id="item3">
+          <div class="inner">
+            <span>Text 3</span>
+          </div>
+        </div>
+      </div>
+    `
+    const target = document.getElementById('target') as HTMLElement
+    const config = guessScrapeConfigForElement(target)
+
+    // Should select the repeating div.item ancestors
+    const matchedElements = evaluateXPath(config.mainSelector)
+    expect(matchedElements.length).toBeGreaterThanOrEqual(3)
+    expect(matchedElements[0]).toHaveProperty('className', 'item')
+  })
+
+  it('avoids jumping to broad layout containers with few siblings', () => {
+    document.body.innerHTML = `
+      <main>
+        <section id="section1">
+          <div class="card" id="card1">
+            <span id="target">Card 1</span>
+          </div>
+          <div class="card" id="card2">
+            <span>Card 2</span>
+          </div>
+          <div class="card" id="card3">
+            <span>Card 3</span>
+          </div>
+        </section>
+        <section id="section2">
+          <p>Another section</p>
+        </section>
+      </main>
+    `
+    const target = document.getElementById('target') as HTMLElement
+    const config = guessScrapeConfigForElement(target)
+
+    // Should select the repeating div.card elements, not the section
+    const matchedElements = evaluateXPath(config.mainSelector)
+    expect(matchedElements.length).toBeGreaterThanOrEqual(3)
+    // Verify it's selecting the cards, not sections
+    const firstMatch = matchedElements[0] as HTMLElement
+    expect(firstMatch.className).toBe('card')
+  })
+
+  it('falls back to element itself when no repeating ancestors found', () => {
+    document.body.innerHTML = `
+      <div>
+        <span id="target">Unique element</span>
+      </div>
+    `
+    const target = document.getElementById('target') as HTMLElement
+    const config = guessScrapeConfigForElement(target)
+
+    // Should work even without repeating structure
+    expect(config.mainSelector).toBeTruthy()
+    expect(config.columns).toBeTruthy()
+    expect(config.columns.length).toBeGreaterThan(0)
+  })
 })
 
 describe('scraper error handling', () => {
