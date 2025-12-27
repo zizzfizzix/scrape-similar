@@ -16,7 +16,7 @@ interface PickerBannerProps {
 
 export const PickerBanner: React.FC<PickerBannerProps> = ({ count, xpath, onClose }) => {
   return (
-    <div className="fixed inset-x-0 top-0 z-[2147483646] pointer-events-auto bg-background border-b flex items-center justify-center gap-3 px-4 py-2 text-foreground text-sm font-sans">
+    <div className="fixed inset-x-0 top-0 z-2147483646 pointer-events-auto bg-background border-b flex items-center justify-center gap-3 px-4 py-2 text-foreground text-sm font-sans">
       <div className="inline-flex items-center gap-2 font-semibold">
         <Logo />
       </div>
@@ -25,6 +25,7 @@ export const PickerBanner: React.FC<PickerBannerProps> = ({ count, xpath, onClos
       </Badge>
       <Input
         className="flex-1 min-w-44 max-w-[40vw] focus-visible:ring-0 focus-visible:ring-offset-0 cursor-default"
+        placeholder="Hover over the page to select elements"
         value={xpath}
         readOnly
         disabled

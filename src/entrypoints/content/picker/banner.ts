@@ -3,12 +3,19 @@ import log from 'loglevel'
 import type { ContentScriptContext } from 'wxt/utils/content-script-context'
 
 /**
+ * Get the actual visible banner element inside the shadow root
+ */
+export const getPickerBannerElement = (state: ContentScriptState): HTMLElement | null => {
+  if (!state.bannerRootEl) return null
+  const shadowRoot = state.bannerRootEl.shadowRoot || state.bannerRootEl.getRootNode()
+  return (shadowRoot as ShadowRoot)?.querySelector?.('.fixed') as HTMLElement | null
+}
+
+/**
  * Get the height of the picker banner
  */
 export const getPickerBannerHeight = (state: ContentScriptState): number => {
-  if (!state.bannerRootEl) return 53
-  const shadowRoot = state.bannerRootEl.shadowRoot || state.bannerRootEl.getRootNode()
-  const bannerEl = (shadowRoot as ShadowRoot)?.querySelector?.('.fixed') as HTMLElement | null
+  const bannerEl = getPickerBannerElement(state)
   return bannerEl?.getBoundingClientRect().height || 53
 }
 

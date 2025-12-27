@@ -4,6 +4,7 @@ import {
   removePickerHighlights,
 } from '@/entrypoints/content/highlight'
 import {
+  getPickerBannerElement,
   mountPickerBanner,
   restoreFixedElements,
   unmountPickerBanner,
@@ -74,6 +75,27 @@ const processMouseUpdate = (state: ContentScriptState): void => {
 
   if (!state.pickerModeActive) return
 
+  // Check if mouse is over the banner BEFORE disabling pointer events
+  // This is needed because we temporarily disable pointer events to get the element behind the banner
+  // We need to get the actual visible banner element inside the shadow root, not just the container
+  const bannerEl = getPickerBannerElement(state)
+  if (bannerEl) {
+    const bannerRect = bannerEl.getBoundingClientRect()
+    if (
+      state.lastMouseX >= bannerRect.left &&
+      state.lastMouseX <= bannerRect.right &&
+      state.lastMouseY >= bannerRect.top &&
+      state.lastMouseY <= bannerRect.bottom
+    ) {
+      // Mouse is over the banner - clear the display
+      state.currentHoveredElement = null
+      state.currentXPath = ''
+      removePickerHighlights(state.highlightedElements)
+      updatePickerBannerContent(0, '', state)
+      return
+    }
+  }
+
   // Get element under cursor (ignore our overlay/banner)
   let el: Element | null = null
   const prevPointerEvents = state.bannerRootEl?.style.pointerEvents
@@ -87,14 +109,12 @@ const processMouseUpdate = (state: ContentScriptState): void => {
   }
   if (!el || !(el instanceof HTMLElement)) return
 
-  // Skip if element is our banner root or any extension UI element
-  if (state.bannerRootEl && (el === state.bannerRootEl || el.closest('[data-wxt-shadow-root]'))) {
-    // Clear current hover state when over our UI
-    if (state.currentHoveredElement !== null) {
-      state.currentHoveredElement = null
-      removePickerHighlights(state.highlightedElements)
-      updatePickerBannerContent(0, '', state)
-    }
+  // Skip if element is inside any extension UI element (context menu, etc.)
+  if (el.closest('[data-wxt-shadow-root]')) {
+    state.currentHoveredElement = null
+    state.currentXPath = ''
+    removePickerHighlights(state.highlightedElements)
+    updatePickerBannerContent(0, '', state)
     return
   }
 
