@@ -40,7 +40,7 @@
     "loglevel": "^1.9.2",
     "lucide-react": "^0.562.0",
     "next-themes": "^0.4.6",
-    "posthog-js": "^1.309.1",
+    "posthog-js": "^1.310.1",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "slugify": "^1.6.6",
@@ -52,7 +52,7 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "@playwright/test": "^1.56.1",
+    "@playwright/test": "^1.57.0",
     "@thedutchcoder/postcss-rem-to-px": "^0.0.2",
     "@toolwind/anchors": "^1.0.10",
     "@types/chrome": "^0.1.32",
@@ -62,7 +62,7 @@
     "@wxt-dev/auto-icons": "^1.1.0",
     "@wxt-dev/module-react": "^1.1.5",
     "husky": "^9.1.7",
-    "jsdom": "^27.3.0",
+    "jsdom": "^27.4.0",
     "postcss": "^8.5.6",
     "prettier": "^3.7.4",
     "prettier-plugin-organize-imports": "^4.3.0",
@@ -72,5 +72,5 @@
     "vitest": "^3.2.4",
     "wxt": "^0.20.13"
   },
-  "packageManager": "pnpm@10.13.1+sha512.37ebf1a5c7a30d5fabe0c5df44ee8da4c965ca0c5af3dbab28c3a1681b70a256218d05c81c9c0dcf767ef6b8551eb5b960042b9ed4300c59242336377e01cfad"
+  "packageManager": "pnpm@10.26.2+sha512.0e308ff2005fc7410366f154f625f6631ab2b16b1d2e70238444dd6ae9d630a8482d92a451144debc492416896ed16f7b114a86ec68b8404b2443869e68ffda6"
 }
