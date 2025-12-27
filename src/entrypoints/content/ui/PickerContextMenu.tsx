@@ -36,7 +36,7 @@ export function PickerContextMenu({
 
   return (
     <div
-      className="fixed z-[2147483647] rounded-lg border bg-popover p-3 text-popover-foreground shadow-md"
+      className="fixed z-2147483647 rounded-lg border bg-popover p-3 text-popover-foreground shadow-md"
       style={{ left, top }}
       onContextMenu={(e) => e.preventDefault()}
     >
@@ -49,12 +49,12 @@ export function PickerContextMenu({
         >
           {/* Tapered track background */}
           <div
-            className="pointer-events-none absolute left-1/2 top-0 size-full -translate-x-1/2 bg-muted [mask-size:100%_100%] [mask:var(--mask)] [-webkit-mask-size:100%_100%] [-webkit-mask:var(--mask)]"
+            className="pointer-events-none absolute left-1/2 top-0 size-full -translate-x-1/2 bg-muted mask-size-[100%_100%] [mask:var(--mask)] [-webkit-mask-size:100%_100%] [-webkit-mask:var(--mask)]"
             style={{ '--mask': TRACK_MASK } as React.CSSProperties}
           />
 
           {/* Indicator - CSS calc() driven by --percent */}
-          <div className="pointer-events-none absolute left-1/2 h-1.5 -translate-x-1/2 rounded-sm bg-primary shadow-md transition-all duration-100 ease-out [bottom:calc(var(--percent)_*_7.625rem)] [width:calc(1.5rem_+_var(--percent)_*_1rem)]" />
+          <div className="pointer-events-none absolute left-1/2 h-1.5 -translate-x-1/2 rounded-sm bg-primary shadow-md transition-all duration-100 ease-out bottom-[calc(var(--percent)*7.625rem)] width-[calc(1.5rem+var(--percent)*1rem)]" />
 
           {/* Range input (invisible, handles interaction) */}
           <input

@@ -10,6 +10,7 @@ import {
   ChevronLeft,
   ChevronRight,
   CloudOff,
+  Crosshair,
   Download,
   Keyboard,
   MousePointer,
@@ -182,20 +183,20 @@ const OnboardingApp: React.FC = () => {
             <Card>
               <CardContent className="pt-6">
                 <div className="text-center space-y-2">
-                  <MousePointer className="h-6 w-6 mx-auto" />
-                  <p className="text-sm font-medium">Right-click to scrape</p>
-                  <p className="text-xs text-muted-foreground">Select elements and extract data</p>
+                  <Crosshair className="h-6 w-6 mx-auto" />
+                  <p className="text-sm font-medium">Visual element picker</p>
+                  <p className="text-xs text-muted-foreground">
+                    Point and click to select elements
+                  </p>
                 </div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-6">
                 <div className="text-center space-y-2">
-                  <Keyboard className="h-6 w-6 mx-auto" />
-                  <p className="text-sm font-medium">Keyboard shortcut</p>
-                  <p className="text-xs text-muted-foreground">
-                    {platform === 'mac' ? '⌘+Shift+S' : 'Ctrl+Shift+S'}
-                  </p>
+                  <MousePointer className="h-6 w-6 mx-auto" />
+                  <p className="text-sm font-medium">Quick scrape</p>
+                  <p className="text-xs text-muted-foreground">Right-click for instant scraping</p>
                 </div>
               </CardContent>
             </Card>
@@ -252,10 +253,10 @@ const OnboardingApp: React.FC = () => {
           </div>
 
           {/* Toolbar pin visual indicator */}
-          <div className="pointer-events-none fixed top-4 right-[70px] z-[60] flex flex-col items-center gap-1.5">
+          <div className="pointer-events-none fixed top-4 right-[70px] z-60 flex flex-col items-center gap-1.5">
             <div className="relative">
               <svg
-                className="absolute left-1/2 top-1/2 h-5 w-5 dark:text-white text-black opacity-80 blur-[6px] [animation:triangle-ping_1.1s_cubic-bezier(0.22,1,0.36,1)_infinite] will-change-transform"
+                className="absolute left-1/2 top-1/2 h-5 w-5 dark:text-white text-black opacity-80 blur-[6px] animate-[triangle-ping_1.1s_cubic-bezier(0.22,1,0.36,1)_infinite] will-change-transform"
                 viewBox="0 0 12 10"
                 fill="none"
                 aria-hidden="true"
@@ -283,58 +284,102 @@ const OnboardingApp: React.FC = () => {
     },
     {
       id: 3,
-      title: 'Keyboard Shortcut',
-      description: 'Toggle the side panel instantly',
-      icon: <Keyboard className="h-8 w-8" />,
+      title: 'Visual Element Picker',
+      description: 'The easiest way to scrape data',
+      icon: <Crosshair className="h-8 w-8" />,
       content: (
         <div className="space-y-4">
           <p className="text-muted-foreground">
-            Use the keyboard shortcut to quickly open and close the Scrape Similar side panel.
+            The visual element picker lets you select elements by hovering and clicking. Hover over
+            elements to see matching elements highlighted in real-time.
           </p>
-          <div className="p-4">
-            <div className="flex items-center justify-center space-x-2">
-              {platform === 'mac' ? (
-                <>
-                  <Badge variant="secondary">⌘</Badge>
-                  <span className="text-sm">+</span>
-                  <Badge variant="secondary">Shift</Badge>
-                  <span className="text-sm">+</span>
-                  <Badge variant="secondary">S</Badge>
-                </>
-              ) : (
-                <>
-                  <Badge variant="secondary">Ctrl</Badge>
-                  <span className="text-sm">+</span>
-                  <Badge variant="secondary">Shift</Badge>
-                  <span className="text-sm">+</span>
-                  <Badge variant="secondary">S</Badge>
-                </>
-              )}
+          <div className="space-y-3">
+            <div>
+              <p className="text-sm font-medium mb-2">Three ways to start:</p>
+              <div className="space-y-2">
+                <div className="flex items-start space-x-3">
+                  <Crosshair className="h-4 w-4 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium">Crosshair button</p>
+                    <p className="text-xs text-muted-foreground">
+                      Click the crosshair icon next to the main selector input in the side panel
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start space-x-3">
+                  <MousePointer className="h-4 w-4 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium">Right-click context menu</p>
+                    <p className="text-xs text-muted-foreground">
+                      Right-click anywhere and select "Visual picker" under "Scrape Similar"
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start space-x-3">
+                  <Keyboard className="h-4 w-4 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium">Keyboard shortcut</p>
+                    <p className="text-xs text-muted-foreground">
+                      Press {platform === 'mac' ? '⌘+Shift+X' : 'Ctrl+Shift+X'} on any webpage
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <Separator />
+            <div>
+              <p className="text-sm font-medium mb-2">How to use:</p>
+              <div className="space-y-2">
+                <div className="flex items-start space-x-3">
+                  <div className="w-5 h-5 bg-primary rounded-full mt-1 shrink-0 flex items-center justify-center">
+                    <span className="text-xs font-medium text-primary-foreground">1</span>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Hover to see matches</p>
+                    <p className="text-xs text-muted-foreground">
+                      Move your mouse over elements - matching elements are highlighted
+                      automatically
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start space-x-3">
+                  <div className="w-5 h-5 bg-primary rounded-full mt-1 shrink-0 flex items-center justify-center">
+                    <span className="text-xs font-medium text-primary-foreground">2</span>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Adjust and click to scrape</p>
+                    <p className="text-xs text-muted-foreground">
+                      Use <strong>+/-</strong> keys or right-click to adjust selector specificity,
+                      then click to scrape
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-          <div className="text-sm text-muted-foreground">
-            <ul className="list-disc list-inside">
-              <li>Works on any webpage</li>
-              <li>Toggles the side panel on/off</li>
-              <li>Can be customized in extension settings</li>
-            </ul>
+          <div className="bg-muted p-3 rounded-lg">
+            <p className="text-xs text-muted-foreground">
+              <strong>Tip:</strong> Press <strong>Escape</strong> to exit picker mode, or use{' '}
+              {platform === 'mac' ? '⌘+Shift+X' : 'Ctrl+Shift+X'} to toggle it quickly
+            </p>
           </div>
         </div>
       ),
     },
     {
       id: 4,
-      title: 'Right-Click to Scrape',
-      description: 'Extract data from any element',
+      title: 'Quick Scrape',
+      description: 'Right-click for instant scraping',
       icon: <MousePointer className="h-8 w-8" />,
       content: (
         <div className="space-y-4">
           <p className="text-muted-foreground">
-            Right-click on any element on a webpage to scrape similar elements.
+            For quick scraping without opening the side panel, right-click on any element and select
+            "Quick scrape" under "Scrape Similar" in the context menu.
           </p>
           <div className="space-y-3">
             <div className="flex items-start space-x-3">
-              <div className="w-5 h-5 bg-primary rounded-full mt-1 flex-shrink-0 flex items-center justify-center">
+              <div className="w-5 h-5 bg-primary rounded-full mt-1 shrink-0 flex items-center justify-center">
                 <span className="text-xs font-medium text-primary-foreground">1</span>
               </div>
               <div>
@@ -345,7 +390,7 @@ const OnboardingApp: React.FC = () => {
               </div>
             </div>
             <div className="flex items-start space-x-3">
-              <div className="w-5 h-5 bg-primary rounded-full mt-1 flex-shrink-0 flex items-center justify-center">
+              <div className="w-5 h-5 bg-primary rounded-full mt-1 shrink-0 flex items-center justify-center">
                 <span className="text-xs font-medium text-primary-foreground">2</span>
               </div>
               <div>
@@ -354,7 +399,7 @@ const OnboardingApp: React.FC = () => {
               </div>
             </div>
             <div className="flex items-start space-x-3">
-              <div className="w-5 h-5 bg-primary rounded-full mt-1 flex-shrink-0 flex items-center justify-center">
+              <div className="w-5 h-5 bg-primary rounded-full mt-1 shrink-0 flex items-center justify-center">
                 <span className="text-xs font-medium text-primary-foreground">3</span>
               </div>
               <div>
@@ -368,8 +413,9 @@ const OnboardingApp: React.FC = () => {
           </div>
           <div className="bg-muted p-3 rounded-lg">
             <p className="text-xs text-muted-foreground">
-              <strong>Tip:</strong> Works with tables, lists, text, links, images, and all other
-              HTML elements
+              <strong>Tip:</strong> For more control over element selection, use the Visual Element
+              Picker instead. Works with tables, lists, text, links, images, and all other HTML
+              elements
             </p>
           </div>
         </div>
@@ -388,7 +434,7 @@ const OnboardingApp: React.FC = () => {
           </p>
           <div className="space-y-3">
             <div className="flex items-start space-x-3">
-              <div className="w-5 h-5 bg-primary rounded-full mt-1 flex-shrink-0 flex items-center justify-center">
+              <div className="w-5 h-5 bg-primary rounded-full mt-1 shrink-0 flex items-center justify-center">
                 <span className="text-xs font-medium text-primary-foreground">1</span>
               </div>
               <div>
@@ -399,7 +445,7 @@ const OnboardingApp: React.FC = () => {
               </div>
             </div>
             <div className="flex items-start space-x-3">
-              <div className="w-5 h-5 bg-primary rounded-full mt-1 flex-shrink-0 flex items-center justify-center">
+              <div className="w-5 h-5 bg-primary rounded-full mt-1 shrink-0 flex items-center justify-center">
                 <span className="text-xs font-medium text-primary-foreground">2</span>
               </div>
               <div>
@@ -410,7 +456,7 @@ const OnboardingApp: React.FC = () => {
               </div>
             </div>
             <div className="flex items-start space-x-3">
-              <div className="w-5 h-5 bg-primary rounded-full mt-1 flex-shrink-0 flex items-center justify-center">
+              <div className="w-5 h-5 bg-primary rounded-full mt-1 shrink-0 flex items-center justify-center">
                 <span className="text-xs font-medium text-primary-foreground">3</span>
               </div>
               <div>
@@ -432,6 +478,78 @@ const OnboardingApp: React.FC = () => {
     },
     {
       id: 6,
+      title: 'Keyboard Shortcuts',
+      description: 'Quick access to key features',
+      icon: <Keyboard className="h-8 w-8" />,
+      content: (
+        <div className="space-y-4">
+          <p className="text-muted-foreground">
+            Use keyboard shortcuts to quickly access Scrape Similar features.
+          </p>
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm font-medium mb-2">Visual Element Picker</p>
+              <div className="p-3 bg-muted rounded-lg">
+                <div className="flex items-center justify-center space-x-2">
+                  {platform === 'mac' ? (
+                    <>
+                      <Badge variant="secondary">⌘</Badge>
+                      <span className="text-sm">+</span>
+                      <Badge variant="secondary">Shift</Badge>
+                      <span className="text-sm">+</span>
+                      <Badge variant="secondary">X</Badge>
+                    </>
+                  ) : (
+                    <>
+                      <Badge variant="secondary">Ctrl</Badge>
+                      <span className="text-sm">+</span>
+                      <Badge variant="secondary">Shift</Badge>
+                      <span className="text-sm">+</span>
+                      <Badge variant="secondary">X</Badge>
+                    </>
+                  )}
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Toggle visual picker mode on any webpage
+              </p>
+            </div>
+            <div>
+              <p className="text-sm font-medium mb-2">Side Panel</p>
+              <div className="p-3 bg-muted rounded-lg">
+                <div className="flex items-center justify-center space-x-2">
+                  {platform === 'mac' ? (
+                    <>
+                      <Badge variant="secondary">⌘</Badge>
+                      <span className="text-sm">+</span>
+                      <Badge variant="secondary">Shift</Badge>
+                      <span className="text-sm">+</span>
+                      <Badge variant="secondary">S</Badge>
+                    </>
+                  ) : (
+                    <>
+                      <Badge variant="secondary">Ctrl</Badge>
+                      <span className="text-sm">+</span>
+                      <Badge variant="secondary">Shift</Badge>
+                      <span className="text-sm">+</span>
+                      <Badge variant="secondary">S</Badge>
+                    </>
+                  )}
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Open or close the side panel</p>
+            </div>
+          </div>
+          <div className="bg-muted p-3 rounded-lg">
+            <p className="text-xs text-muted-foreground">
+              <strong>Note:</strong> Shortcuts can be customized in extension settings
+            </p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: 7,
       title: 'Privacy & Security',
       description: 'Your data stays safe on your computer',
       icon: <Shield className="h-8 w-8" />,
@@ -442,7 +560,7 @@ const OnboardingApp: React.FC = () => {
           </p>
           <div className="space-y-3">
             <div className="flex items-start space-x-3">
-              <CloudOff className="h-5 w-5 mt-0.5 flex-shrink-0" />
+              <CloudOff className="h-5 w-5 mt-0.5 shrink-0" />
               <div>
                 <p className="text-sm font-medium">Local Processing</p>
                 <p className="text-xs text-muted-foreground">
@@ -451,7 +569,7 @@ const OnboardingApp: React.FC = () => {
               </div>
             </div>
             <div className="flex items-start space-x-3">
-              <Ban className="h-5 w-5 mt-0.5 flex-shrink-0" />
+              <Ban className="h-5 w-5 mt-0.5 shrink-0" />
               <div>
                 <p className="text-sm font-medium">No Scraped Data Collection</p>
                 <p className="text-xs text-muted-foreground">
@@ -460,7 +578,7 @@ const OnboardingApp: React.FC = () => {
               </div>
             </div>
             <div className="flex items-start space-x-3">
-              <Download className="h-5 w-5 mt-0.5 flex-shrink-0" />
+              <Download className="h-5 w-5 mt-0.5 shrink-0" />
               <div>
                 <p className="text-sm font-medium">Direct Export</p>
                 <p className="text-xs text-muted-foreground">
@@ -484,15 +602,15 @@ const OnboardingApp: React.FC = () => {
       ),
     },
     {
-      id: 7,
+      id: 8,
       title: "You're all set!",
       description: 'Ready to start scraping',
       icon: <Check className="h-8 w-8" />,
       content: (
         <div className="space-y-4">
           <p className="text-muted-foreground">
-            Click "Start" to see Scrape Similar in action! We'll open a Wikipedia page and
-            automatically scrape a table to show you how it works.
+            Click "Start" to see Scrape Similar in action! We'll open a Wikipedia page,
+            automatically scrape a table, and enable the visual picker so you can try it yourself.
           </p>
           <div className="flex justify-center">
             <img
@@ -503,8 +621,10 @@ const OnboardingApp: React.FC = () => {
           </div>
           <div className="bg-muted p-3 rounded-lg">
             <p className="text-xs text-muted-foreground">
-              <strong>Tip:</strong> After the demo, try right-clicking on any element on a webpage
-              and selecting "Scrape similar elements" to scrape your own data!
+              <strong>Tip:</strong> After the demo, the visual picker will be enabled. Hover over
+              elements to see matches highlighted, then click to scrape! You can also use{' '}
+              {platform === 'mac' ? '⌘+Shift+X' : 'Ctrl+Shift+X'} to toggle the visual picker
+              anytime.
             </p>
           </div>
         </div>
