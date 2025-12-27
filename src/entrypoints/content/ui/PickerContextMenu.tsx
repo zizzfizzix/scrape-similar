@@ -54,7 +54,7 @@ export function PickerContextMenu({
           />
 
           {/* Indicator - CSS calc() driven by --percent */}
-          <div className="pointer-events-none absolute left-1/2 h-1.5 -translate-x-1/2 rounded-sm bg-primary shadow-md transition-all duration-100 ease-out bottom-[calc(var(--percent)*7.625rem)] width-[calc(1.5rem+var(--percent)*1rem)]" />
+          <div className="pointer-events-none absolute left-1/2 h-1.5 -translate-x-1/2 rounded-sm bg-primary shadow-md transition-all duration-100 ease-out bottom-[calc(var(--percent)*7.625rem)] w-[calc(1.5rem+var(--percent)*1rem)]" />
 
           {/* Range input (invisible, handles interaction) */}
           <input
