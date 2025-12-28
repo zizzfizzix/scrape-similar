@@ -183,11 +183,28 @@ const BatchScrapeApp: React.FC = () => {
         {/* Header */}
         <header className="border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
           <div className="container mx-auto px-4 py-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-4">
               <Button variant="ghost" size="sm" onClick={handleBackToHistory}>
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to History
               </Button>
+
+              {/* Batch name - editable in center */}
+              {batch && (
+                <div className="flex items-center gap-2 flex-1 justify-center max-w-2xl">
+                  <Input
+                    placeholder="Batch name"
+                    value={batchName}
+                    onChange={(e) => setBatchName(e.target.value)}
+                    className="text-center font-semibold"
+                  />
+                  {batchName !== batch.name && (
+                    <Button variant="outline" size="sm" onClick={handleNameUpdate}>
+                      <Save className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              )}
 
               {/* Storage indicator */}
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -204,32 +221,28 @@ const BatchScrapeApp: React.FC = () => {
 
         {/* Main content */}
         <main className="flex-1 container mx-auto px-4 py-6 space-y-6">
-          {/* Batch name */}
-          <div className="flex items-center gap-2">
-            <Input
-              placeholder="Batch name (optional)"
-              value={batchName}
-              onChange={(e) => setBatchName(e.target.value)}
-              disabled={!!batch}
-              className="text-lg font-semibold"
-            />
-            {batch && batchName !== batch.name && (
-              <Button variant="outline" size="sm" onClick={handleNameUpdate}>
-                <Save className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
-
           {/* Show form if no batch yet */}
           {!batch && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="space-y-6">
-                <BatchUrlInput urls={urlsInput} onChange={setUrlsInput} disabled={isCreating} />
+            <>
+              {/* Batch name input - only show when creating */}
+              <div className="flex items-center gap-2">
+                <Input
+                  placeholder="Batch name (optional)"
+                  value={batchName}
+                  onChange={(e) => setBatchName(e.target.value)}
+                  className="text-lg font-semibold"
+                />
               </div>
-              <div className="space-y-6">
-                <BatchConfig config={config} onChange={setConfig} disabled={isCreating} />
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="space-y-6">
+                  <BatchUrlInput urls={urlsInput} onChange={setUrlsInput} disabled={isCreating} />
+                </div>
+                <div className="space-y-6">
+                  <BatchConfig config={config} onChange={setConfig} disabled={isCreating} />
+                </div>
               </div>
-            </div>
+            </>
           )}
 
           {/* Settings */}
