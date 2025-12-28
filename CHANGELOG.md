@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.1](https://github.com/zizzfizzix/scrape-similar/compare/v0.7.0...v0.7.1) (2025-12-28)
+
+
+### Bug Fixes
+
+* mask input fields explicitly ([#148](https://github.com/zizzfizzix/scrape-similar/issues/148)) ([8f3cba9](https://github.com/zizzfizzix/scrape-similar/commit/8f3cba93ecd93541f8a5f6bf7511c3dfdf8a857d))
+
 ## [0.7.0](https://github.com/zizzfizzix/scrape-similar/compare/v0.6.0...v0.7.0) (2025-12-27)
 
 
