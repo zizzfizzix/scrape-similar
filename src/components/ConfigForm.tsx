@@ -617,6 +617,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                   value={search}
                   onValueChange={setSearch}
                   autoFocus
+                  className="ph_hidden"
                 />
                 <CommandList>
                   <CommandEmpty>No presets found</CommandEmpty>
@@ -713,6 +714,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                   value={presetName}
                   onChange={(e) => setPresetName(e.target.value)}
                   autoFocus
+                  className="ph_hidden"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && presetName.trim()) {
                       handleSavePreset()
@@ -768,7 +770,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
         <div className="relative w-full">
           <Textarea
             id="mainSelector"
-            className="field-sizing-content resize-none overflow-hidden min-h-9"
+            className="field-sizing-content resize-none overflow-hidden min-h-9 ph_hidden"
             rows={1}
             value={mainSelectorDraft}
             onChange={(e) => handleMainSelectorChange(e.target.value)}
@@ -1009,14 +1011,14 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                     value={column.name}
                     onChange={(e) => handleColumnNameChange(index, e.target.value)}
                     placeholder="Column name"
-                    className="p-2 border rounded text-sm"
+                    className="p-2 border rounded text-sm ph_hidden"
                   />
                   <Input
                     type="text"
                     value={column.selector}
                     onChange={(e) => handleColumnSelectorChange(index, e.target.value)}
                     placeholder="Selector"
-                    className="p-2 border rounded text-sm"
+                    className="p-2 border rounded text-sm ph_hidden"
                   />
                   <div className="flex gap-1 justify-around">
                     <Tooltip>

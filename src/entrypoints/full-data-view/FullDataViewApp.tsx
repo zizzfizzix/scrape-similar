@@ -842,6 +842,7 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
                         value={tabSearch}
                         onValueChange={setTabSearch}
                         autoFocus
+                        className="ph_hidden"
                       />
                       <CommandList>
                         <CommandEmpty>No tabs found</CommandEmpty>
@@ -918,7 +919,7 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
                         placeholder="Search all columns..."
                         value={globalFilter}
                         onChange={(e) => setGlobalFilter(e.target.value)}
-                        className="pl-8 w-64"
+                        className="pl-8 w-64 ph_hidden"
                       />
                     </div>
                   </div>
