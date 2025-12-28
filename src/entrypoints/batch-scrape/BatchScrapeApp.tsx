@@ -1,7 +1,7 @@
 import { ConsentWrapper } from '@/components/ConsentWrapper'
-import DataTable from '@/components/DataTable'
 import ExportButtons from '@/components/ExportButtons'
 import { Footer } from '@/components/footer'
+import ResultsTable from '@/components/ResultsTable'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Toaster } from '@/components/ui/sonner'
@@ -38,6 +38,7 @@ const BatchScrapeApp: React.FC = () => {
   const [batchName, setBatchName] = useState('')
   const [storageUsage, setStorageUsage] = useState({ used: 0, quota: 0, percentUsed: 0 })
   const [isCreating, setIsCreating] = useState(false)
+  const [selectedRows, setSelectedRows] = useState<ScrapedRow[]>([])
 
   // Use batch scrape hook
   const {
@@ -291,18 +292,19 @@ const BatchScrapeApp: React.FC = () => {
                   }}
                   config={config}
                   showEmptyRows={false}
+                  selectedRows={selectedRows}
                   filename={`${batch.name} - ${new Date().toISOString().split('T')[0]}`}
                   variant="outline"
                 />
               </div>
-              <DataTable
+
+              <ResultsTable
                 data={combinedResults}
-                onRowHighlight={() => {}}
                 config={{ ...config, columns: [{ name: 'url', selector: '.' }, ...config.columns] }}
                 columnOrder={['url', ...config.columns.map((c) => c.name)]}
-                showEmptyRows={false}
-                onShowEmptyRowsChange={() => {}}
-                tabId={null}
+                showEmptyRowsToggle={false}
+                eventPrefix="BATCH_SCRAPE"
+                onSelectedRowsChange={setSelectedRows}
               />
             </div>
           )}
