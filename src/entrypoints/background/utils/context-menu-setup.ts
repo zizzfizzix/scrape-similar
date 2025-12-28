@@ -41,13 +41,21 @@ const createContextMenuItem = (item: ContextMenuItem): void => {
  * Initialize all context menu items
  */
 export const initializeContextMenus = (): void => {
-  createContextMenuItem({
-    id: 'scrape-similar',
-    title: 'Quick scrape',
-  })
+  // Remove all existing context menus first to avoid duplicate errors
+  browser.contextMenus.removeAll(() => {
+    createContextMenuItem({
+      id: 'scrape-similar',
+      title: 'Quick scrape',
+    })
 
-  createContextMenuItem({
-    id: 'scrape-visual-picker',
-    title: 'Visual picker',
+    createContextMenuItem({
+      id: 'scrape-visual-picker',
+      title: 'Visual picker',
+    })
+
+    createContextMenuItem({
+      id: 'batch-scrape',
+      title: 'Batch scrape',
+    })
   })
 }

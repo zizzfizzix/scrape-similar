@@ -120,6 +120,16 @@ export const MESSAGE_TYPES = {
 
   // Onboarding demo
   TRIGGER_DEMO_SCRAPE: 'trigger_demo_scrape',
+
+  // Batch scrape operations
+  BATCH_SCRAPE_START: 'batch-scrape-start',
+  BATCH_SCRAPE_PAUSE: 'batch-scrape-pause',
+  BATCH_SCRAPE_RESUME: 'batch-scrape-resume',
+  BATCH_SCRAPE_CANCEL: 'batch-scrape-cancel',
+  BATCH_SCRAPE_RETRY_URL: 'batch-scrape-retry-url',
+  BATCH_SCRAPE_PREVIEW: 'batch-scrape-preview',
+  OPEN_BATCH_SCRAPE: 'open-batch-scrape',
+  OPEN_BATCH_SCRAPE_HISTORY: 'open-batch-scrape-history',
 } as const
 
 // Analytics message payload interface
@@ -133,3 +143,23 @@ export interface SystemPresetStatusMap {
 }
 
 export const SYSTEM_PRESET_STATUS_KEY = 'system_preset_status' as const
+
+// Batch scrape related interfaces
+export interface BatchScrapeStartPayload {
+  batchId: string
+}
+
+export interface BatchScrapeRetryPayload {
+  batchId: string
+  urlResultId: string
+}
+
+export interface BatchScrapePreviewPayload {
+  config: ScrapeConfig
+  url: string
+}
+
+export interface OpenBatchScrapePayload {
+  config?: ScrapeConfig
+  batchId?: string // For resuming existing batch
+}

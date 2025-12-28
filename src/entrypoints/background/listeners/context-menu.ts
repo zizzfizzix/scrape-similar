@@ -21,6 +21,8 @@ export const setupContextMenuListener = (): void => {
         await handleQuickScrape(targetTabId, info)
       } else if (info.menuItemId === 'scrape-visual-picker') {
         await handleVisualPicker(targetTabId, tab, info)
+      } else if (info.menuItemId === 'batch-scrape') {
+        await handleBatchScrape(targetTabId, tab, info)
       }
     },
   )
@@ -128,5 +130,28 @@ const handleVisualPicker = async (
     log.debug('Visual picker toggled via context menu')
   } catch (error) {
     log.error('Error handling scrape-visual-picker context menu:', error)
+  }
+}
+
+/**
+ * Handle 'Batch scrape' context menu action
+ */
+const handleBatchScrape = async (
+  targetTabId: number,
+  tab: Browser.tabs.Tab,
+  info: Browser.contextMenus.OnClickData,
+): Promise<void> => {
+  log.debug('Batch scrape selected from context menu')
+
+  // Track context menu batch scrape usage
+  trackEvent(ANALYTICS_EVENTS.CONTEXT_MENU_BATCH_SCRAPE)
+
+  try {
+    // Open batch scrape page directly (we're already in the background script)
+    const url = new URL(browser.runtime.getURL('/batch-scrape.html'))
+    await browser.tabs.create({ url: url.toString() })
+    log.debug('Batch scrape page opened via context menu')
+  } catch (error) {
+    log.error('Error handling batch-scrape context menu:', error)
   }
 }

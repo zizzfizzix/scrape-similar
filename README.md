@@ -17,6 +17,7 @@ See the Development section below for step-by-step instructions.
 ### Core Functionality
 
 - **Visual Element Picker**: Point and click to select elements visually - the easiest way to scrape data
+- **Batch Scrape**: Scrape multiple URLs with the same configuration using hidden tabs with progress tracking
 - **Web Scraping**: Extract structured data from any website using XPath selectors
 - **Google Sheets Export**: Direct export with OAuth2 authentication
 - **Multiple Export Formats**: Excel (.xlsx), CSV, TSV, and clipboard export options
@@ -28,6 +29,13 @@ See the Development section below for step-by-step instructions.
 - **Visual Element Picker**: Hover over elements to see matches highlighted in real-time, adjust selector specificity, and click to scrape
 - **Side Panel Interface**: Work alongside your browsing without interruption
 - **Quick Scrape**: Right-click any element to start scraping instantly
+- **Batch Scrape**: Enter multiple URLs, configure concurrency and rate limiting, and scrape them all at once
+  - Configurable concurrent scraping (1-10 tabs)
+  - Rate limiting with delays between requests
+  - Automatic retry with exponential backoff
+  - Pause/resume functionality
+  - Combined export with URL column
+  - Progress tracking with real-time statistics
 - **Keyboard Shortcuts**:
   - ⌘+Shift+X (macOS) or Ctrl+Shift+X (Windows/Linux) - Toggle Visual Picker Mode
   - ⌘+Shift+S (macOS) or Ctrl+Shift+S (Windows/Linux) - Toggle Side Panel

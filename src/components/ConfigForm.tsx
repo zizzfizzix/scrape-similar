@@ -31,6 +31,7 @@ import {
   Crosshair,
   HelpCircle,
   Info,
+  Layers,
   LocateOff,
   OctagonAlert,
   Play,
@@ -1085,9 +1086,9 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
           </div>
         </div>
         {/* Centered Scrape Button, visually closer to columns */}
-        <div className="flex w-full justify-center mt-4 -mb-2">
+        <div className="flex w-full justify-center mt-4 -mb-2 gap-2">
           <Button
-            className="w-full max-w-2xl"
+            className="grow max-w-2xl"
             onClick={() => {
               trackEvent(ANALYTICS_EVENTS.SCRAPE_BUTTON_PRESS)
               onScrape()
@@ -1118,6 +1119,24 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
               </>
             )}
           </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                className="shrink-0"
+                onClick={() => {
+                  browser.runtime.sendMessage({
+                    type: MESSAGE_TYPES.OPEN_BATCH_SCRAPE,
+                    payload: { config },
+                  })
+                }}
+                disabled={isLoading || config.columns.length === 0}
+              >
+                <Layers className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Batch Scrape (multiple URLs)</TooltipContent>
+          </Tooltip>
         </div>
       </div>
     </div>

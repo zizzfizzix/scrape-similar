@@ -789,7 +789,7 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
         <Toaster />
         <ConsentWrapper>
           {/* Header */}
-          <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
             <div className="container mx-auto px-4 py-4">
               <div className="grid grid-cols-[1fr_auto_1fr]">
                 <div className="flex items-center">
