@@ -12,11 +12,7 @@ import { BatchSettingsComponent } from '@/entrypoints/batch-scrape/components/Ba
 import { BatchUrlInput } from '@/entrypoints/batch-scrape/components/BatchUrlInput'
 import { useBatchScrape } from '@/entrypoints/batch-scrape/hooks/useBatchScrape'
 import { navigateToBatchHistory } from '@/utils/batch-operations'
-import {
-  DEFAULT_BATCH_SETTINGS,
-  getStorageUsage,
-  type BatchSettings,
-} from '@/utils/batch-scrape-db'
+import { DEFAULT_BATCH_SETTINGS, getBatchJob, type BatchSettings } from '@/utils/batch-scrape-db'
 import { validateAndDeduplicateUrls } from '@/utils/batch-url-utils'
 import { ArrowLeft, Save } from 'lucide-react'
 import React, { useCallback, useEffect, useState } from 'react'
@@ -26,51 +22,45 @@ const BatchScrapeApp: React.FC = () => {
   // URL params
   const urlParams = new URLSearchParams(window.location.search)
   const batchIdFromUrl = urlParams.get('batchId') || undefined
-  const configFromUrl = urlParams.get('config') ? JSON.parse(urlParams.get('config')!) : undefined
-  const urlsFromUrl = urlParams.get('urls') ? JSON.parse(urlParams.get('urls')!) : undefined
-  const settingsFromUrl = urlParams.get('settings')
-    ? JSON.parse(urlParams.get('settings')!)
-    : undefined
+  const duplicateFromId = urlParams.get('duplicateFrom') || undefined
 
   // State
-  const [urlsInput, setUrlsInput] = useState(
-    urlsFromUrl ? (Array.isArray(urlsFromUrl) ? urlsFromUrl.join('\n') : '') : '',
-  )
-  const [config, setConfig] = useState<ScrapeConfig>(
-    configFromUrl || {
-      mainSelector: '',
-      columns: [{ name: 'Text', selector: '.' }],
-    },
-  )
-  const [settings, setSettings] = useState<BatchSettings>(settingsFromUrl || DEFAULT_BATCH_SETTINGS)
+  const [urlsInput, setUrlsInput] = useState('')
+  const [config, setConfig] = useState<ScrapeConfig>({
+    mainSelector: '',
+    columns: [{ name: 'Text', selector: '.' }],
+  })
+  const [settings, setSettings] = useState<BatchSettings>(DEFAULT_BATCH_SETTINGS)
   const [batchName, setBatchName] = useState('')
-  const [storageUsage, setStorageUsage] = useState({ used: 0, quota: 0, percentUsed: 0 })
   const [isCreating, setIsCreating] = useState(false)
   const [selectedRows, setSelectedRows] = useState<ScrapedRow[]>([])
 
   // Use batch scrape hook
   const {
     batch,
-    urlResults,
     statistics,
     combinedResults,
-    loading,
-    error,
     createBatch,
     startBatch,
     pauseBatch,
     resumeBatch,
     updateBatchName,
-  } = useBatchScrape(batchIdFromUrl, configFromUrl)
+  } = useBatchScrape(batchIdFromUrl)
 
-  // Load storage usage
+  // Load duplication data from Dexie if duplicateFromId is present
   useEffect(() => {
-    getStorageUsage().then(setStorageUsage)
-    const interval = setInterval(() => {
-      getStorageUsage().then(setStorageUsage)
-    }, 5000)
-    return () => clearInterval(interval)
-  }, [])
+    if (duplicateFromId) {
+      getBatchJob(duplicateFromId).then((sourceBatch) => {
+        if (sourceBatch) {
+          setConfig(sourceBatch.config)
+          setUrlsInput(sourceBatch.urls.join('\n'))
+          setSettings(sourceBatch.settings)
+        } else {
+          toast.error('Failed to load batch data for duplication')
+        }
+      })
+    }
+  }, [duplicateFromId])
 
   // Handle create batch
   const handleCreateBatch = useCallback(async () => {
@@ -95,8 +85,7 @@ const BatchScrapeApp: React.FC = () => {
       // Update URL to include batch ID
       const newUrl = new URL(window.location.href)
       newUrl.searchParams.set('batchId', newBatch.id)
-      newUrl.searchParams.delete('config')
-      newUrl.searchParams.delete('settings')
+      newUrl.searchParams.delete('duplicateFrom')
       window.history.replaceState({}, '', newUrl.toString())
     } catch (err) {
       toast.error('Failed to create batch')
@@ -146,18 +135,12 @@ const BatchScrapeApp: React.FC = () => {
     }
   }, [batch, batchName, updateBatchName])
 
-  // Set initial batch name and config from batch
+  // Set initial batch name from existing batch
   useEffect(() => {
-    if (batch) {
-      if (!batchName) {
-        setBatchName(batch.name)
-      }
-      // Load the config from the batch if we don't have it from URL
-      if (!configFromUrl) {
-        setConfig(batch.config)
-      }
+    if (batch && !batchName) {
+      setBatchName(batch.name)
     }
-  }, [batch, batchName, configFromUrl])
+  }, [batch, batchName])
 
   // Update document title based on batch name
   useEffect(() => {

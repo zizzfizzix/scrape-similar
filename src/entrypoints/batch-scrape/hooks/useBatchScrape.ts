@@ -16,7 +16,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import log from 'loglevel'
 import { useCallback, useState } from 'react'
 
-export const useBatchScrape = (initialBatchId?: string, initialConfig?: ScrapeConfig) => {
+export const useBatchScrape = (initialBatchId?: string) => {
   const [batchId, setBatchId] = useState<string | undefined>(initialBatchId)
   const [error, setError] = useState<string | null>(null)
 
