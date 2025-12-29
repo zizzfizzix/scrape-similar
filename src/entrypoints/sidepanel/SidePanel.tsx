@@ -54,15 +54,19 @@ const SplashScreen: React.FC<{ tabUrl: string }> = ({ tabUrl }) => (
   </div>
 )
 
-// Special view for when the side panel is viewing a full data view tab
-const FullDataViewControls: React.FC<{
-  currentTabUrl: string
-  currentTabId: number | null
-}> = ({ currentTabUrl, currentTabId }) => {
-  // Handle going back to the original tab and close the full-data-view tab
+// Generic special view for when the side panel is viewing extension pages
+const ExtensionPageControls: React.FC<{
+  title: string
+  currentTabUrl?: string
+  currentTabId?: number | null
+  showBackButton?: boolean
+}> = ({ title, currentTabUrl, currentTabId, showBackButton = false }) => {
+  // Handle going back to the original tab and close the current extension tab
   const handleBackToTab = async () => {
+    if (!currentTabUrl || !showBackButton) return
+
     try {
-      // Parse the full data view URL to get the original tabId
+      // Parse the URL to get the original tabId
       const url = new URL(currentTabUrl)
       const originalTabId = url.searchParams.get('tabId')
 
@@ -78,10 +82,10 @@ const FullDataViewControls: React.FC<{
           await browser.tabs.update(tabId, { active: true })
           log.debug(`Switched back to tab ${tabId}`)
 
-          // Close the current full-data-view tab (currentTabId is the full-data-view tab)
+          // Close the current extension tab
           if (currentTabId) {
             await browser.tabs.remove(currentTabId)
-            log.debug(`Closed full-data-view tab ${currentTabId}`)
+            log.debug(`Closed extension tab ${currentTabId}`)
           }
         } catch (tabError) {
           toast.error('Target tab does not exist')
@@ -111,15 +115,17 @@ const FullDataViewControls: React.FC<{
   return (
     <div className="flex flex-1 items-center justify-center w-full min-w-0">
       <div className="flex flex-col items-center justify-center text-center w-full max-w-md mx-auto gap-6">
-        <h2 className="text-2xl mb-4">Full Screen View Active</h2>
+        <h2 className="text-2xl mb-4">{title}</h2>
 
         <div className="flex flex-col gap-4">
-          <Button onClick={handleBackToTab}>
-            <Minimize2 className="h-4 w-4" />
-            Compact View
-          </Button>
+          {showBackButton && (
+            <Button onClick={handleBackToTab}>
+              <Minimize2 className="h-4 w-4" />
+              Compact View
+            </Button>
+          )}
 
-          <Button onClick={handleCloseSidePanel} variant="outline">
+          <Button onClick={handleCloseSidePanel} variant="outline" className="w-full">
             <X className="h-4 w-4" />
             Hide Sidepanel
           </Button>
@@ -746,7 +752,29 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
         <Toaster />
         <ConsentWrapper>
           <main className="flex-1 flex min-w-0 w-full">
-            <FullDataViewControls currentTabUrl={tabUrl} currentTabId={targetTabId} />
+            <ExtensionPageControls
+              title="Full Screen View Active"
+              currentTabUrl={tabUrl}
+              currentTabId={targetTabId}
+              showBackButton={true}
+            />
+          </main>
+        </ConsentWrapper>
+      </div>
+    )
+  }
+
+  // Check if the current tab is showing batch scrape pages
+  if (
+    tabUrl?.startsWith(`chrome-extension://${chromeExtensionId}/batch-scrape.html`) ||
+    tabUrl?.startsWith(`chrome-extension://${chromeExtensionId}/batch-scrape-history.html`)
+  ) {
+    return (
+      <div className="flex flex-col h-screen font-sans min-w-0 max-w-full w-full box-border">
+        <Toaster />
+        <ConsentWrapper>
+          <main className="flex-1 flex min-w-0 w-full">
+            <ExtensionPageControls title="Batch Scrape Mode Active" />
           </main>
         </ConsentWrapper>
       </div>
