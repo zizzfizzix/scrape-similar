@@ -20,7 +20,7 @@ import {
   type BatchSettings,
 } from '@/utils/batch-scrape-db'
 import { validateAndDeduplicateUrls } from '@/utils/batch-url-utils'
-import { ArrowLeft, Pause, Play, Save, X } from 'lucide-react'
+import { ArrowLeft, Pause, Play, Save } from 'lucide-react'
 import React, { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -59,7 +59,6 @@ const BatchScrapeApp: React.FC = () => {
     startBatch,
     pauseBatch,
     resumeBatch,
-    cancelBatch,
     updateBatchName,
   } = useBatchScrape(batchIdFromUrl, configFromUrl)
 
@@ -134,18 +133,6 @@ const BatchScrapeApp: React.FC = () => {
     }
   }, [resumeBatch])
 
-  // Handle cancel
-  const handleCancel = useCallback(async () => {
-    if (!confirm('Are you sure you want to cancel this batch?')) return
-
-    try {
-      await cancelBatch()
-      toast.success('Batch scrape cancelled')
-    } catch (err) {
-      toast.error('Failed to cancel batch')
-    }
-  }, [cancelBatch])
-
   // Handle name update
   const handleNameUpdate = useCallback(async () => {
     if (!batch) return
@@ -185,7 +172,6 @@ const BatchScrapeApp: React.FC = () => {
   const canStart = batch && batch.status === 'pending'
   const canPause = isRunning
   const canResume = isPaused
-  const canCancel = isRunning || isPaused
 
   // Calculate progress for header
   const progressPercentage =
@@ -259,6 +245,27 @@ const BatchScrapeApp: React.FC = () => {
                       />
                     </>
                   )}
+
+                  {/* Action buttons in header */}
+                  <div className="h-6 w-px bg-border" />
+                  {canStart && (
+                    <Button onClick={handleStart} size="sm">
+                      <Play className="h-4 w-4 mr-2" />
+                      Start
+                    </Button>
+                  )}
+                  {canPause && (
+                    <Button onClick={handlePause} variant="outline" size="sm">
+                      <Pause className="h-4 w-4 mr-2" />
+                      Pause
+                    </Button>
+                  )}
+                  {canResume && (
+                    <Button onClick={handleResume} size="sm">
+                      <Play className="h-4 w-4 mr-2" />
+                      Resume
+                    </Button>
+                  )}
                 </>
               ) : (
                 <StorageIndicator storageUsage={storageUsage} />
@@ -313,38 +320,11 @@ const BatchScrapeApp: React.FC = () => {
             )}
 
             {/* Action buttons */}
-            {!batch ? (
+            {!batch && (
               <div className="flex justify-end">
                 <Button onClick={handleCreateBatch} disabled={isCreating} size="lg">
                   Create Batch
                 </Button>
-              </div>
-            ) : (
-              <div className="flex gap-2 justify-end">
-                {canStart && (
-                  <Button onClick={handleStart} size="lg">
-                    <Play className="h-4 w-4 mr-2" />
-                    Start
-                  </Button>
-                )}
-                {canPause && (
-                  <Button onClick={handlePause} variant="outline" size="lg">
-                    <Pause className="h-4 w-4 mr-2" />
-                    Pause
-                  </Button>
-                )}
-                {canResume && (
-                  <Button onClick={handleResume} size="lg">
-                    <Play className="h-4 w-4 mr-2" />
-                    Resume
-                  </Button>
-                )}
-                {canCancel && (
-                  <Button onClick={handleCancel} variant="destructive" size="lg">
-                    <X className="h-4 w-4 mr-2" />
-                    Cancel
-                  </Button>
-                )}
               </div>
             )}
 

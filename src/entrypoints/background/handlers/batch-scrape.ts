@@ -290,45 +290,6 @@ export const resumeBatchScrape = async (batchId: string): Promise<void> => {
 }
 
 /**
- * Cancel a batch scrape
- */
-export const cancelBatchScrape = async (batchId: string): Promise<void> => {
-  try {
-    const activeState = activeBatches.get(batchId)
-    if (activeState) {
-      activeState.status = 'cancelled'
-      activeState.controller.abort()
-
-      // Close all running tabs
-      for (const tabId of activeState.runningTabs) {
-        await closeHiddenTab(tabId)
-      }
-      activeState.runningTabs.clear()
-
-      activeBatches.delete(batchId)
-    }
-
-    await updateBatchJob(batchId, { status: 'cancelled' })
-
-    // Update pending/running URL results to cancelled
-    const results = await batchScrapeDb.urlResults
-      .where('batchId')
-      .equals(batchId)
-      .filter((r) => r.status === 'pending' || r.status === 'running')
-      .toArray()
-
-    for (const result of results) {
-      await updateUrlResult(result.id, { status: 'cancelled' })
-    }
-
-    log.debug(`Cancelled batch scrape: ${batchId}`)
-  } catch (error) {
-    log.error('Error cancelling batch scrape:', error)
-    throw error
-  }
-}
-
-/**
  * Retry failed URLs in a batch
  */
 export const retryFailedUrls = async (batchId: string): Promise<void> => {

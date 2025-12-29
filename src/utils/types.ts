@@ -125,7 +125,6 @@ export const MESSAGE_TYPES = {
   BATCH_SCRAPE_START: 'batch-scrape-start',
   BATCH_SCRAPE_PAUSE: 'batch-scrape-pause',
   BATCH_SCRAPE_RESUME: 'batch-scrape-resume',
-  BATCH_SCRAPE_CANCEL: 'batch-scrape-cancel',
   BATCH_SCRAPE_RETRY_URL: 'batch-scrape-retry-url',
   BATCH_SCRAPE_PREVIEW: 'batch-scrape-preview',
   OPEN_BATCH_SCRAPE: 'open-batch-scrape',

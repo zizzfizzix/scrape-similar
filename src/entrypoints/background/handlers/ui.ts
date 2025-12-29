@@ -1,5 +1,4 @@
 import {
-  cancelBatchScrape,
   pauseBatchScrape,
   resumeBatchScrape,
   retryUrl,
@@ -136,21 +135,6 @@ const handleBatchScrapeResume: MessageHandler = async (message, sender, sendResp
 }
 
 /**
- * Handle BATCH_SCRAPE_CANCEL message from UI
- */
-const handleBatchScrapeCancel: MessageHandler = async (message, sender, sendResponse) => {
-  log.debug('UI requested to cancel batch scrape')
-  try {
-    const payload = message.payload as BatchScrapeStartPayload
-    await cancelBatchScrape(payload.batchId)
-    sendResponse({ success: true })
-  } catch (error) {
-    log.error('Error cancelling batch scrape:', error)
-    sendResponse({ success: false, error: (error as Error).message })
-  }
-}
-
-/**
  * Handle BATCH_SCRAPE_RETRY_URL message from UI
  */
 const handleBatchScrapeRetryUrl: MessageHandler = async (message, sender, sendResponse) => {
@@ -177,7 +161,6 @@ const uiHandlers: Record<string, MessageHandler> = {
   [MESSAGE_TYPES.BATCH_SCRAPE_START]: handleBatchScrapeStart,
   [MESSAGE_TYPES.BATCH_SCRAPE_PAUSE]: handleBatchScrapePause,
   [MESSAGE_TYPES.BATCH_SCRAPE_RESUME]: handleBatchScrapeResume,
-  [MESSAGE_TYPES.BATCH_SCRAPE_CANCEL]: handleBatchScrapeCancel,
   [MESSAGE_TYPES.BATCH_SCRAPE_RETRY_URL]: handleBatchScrapeRetryUrl,
 }
 

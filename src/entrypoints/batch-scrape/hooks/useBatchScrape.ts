@@ -152,22 +152,6 @@ export const useBatchScrape = (initialBatchId?: string, initialConfig?: ScrapeCo
     }
   }, [batch])
 
-  // Cancel batch
-  const cancelBatch = useCallback(async () => {
-    if (!batch) return
-
-    try {
-      setError(null)
-      await browser.runtime.sendMessage({
-        type: MESSAGE_TYPES.BATCH_SCRAPE_CANCEL,
-        payload: { batchId: batch.id },
-      })
-    } catch (err) {
-      log.error('Error cancelling batch:', err)
-      setError(err instanceof Error ? err.message : 'Failed to cancel batch')
-    }
-  }, [batch])
-
   // Retry URL
   const retryUrl = useCallback(
     async (urlResultId: string) => {
@@ -287,7 +271,6 @@ export const useBatchScrape = (initialBatchId?: string, initialConfig?: ScrapeCo
     startBatch,
     pauseBatch,
     resumeBatch,
-    cancelBatch,
     retryUrl,
     updateBatchName,
     loadBatch,

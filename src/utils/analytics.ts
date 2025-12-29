@@ -120,7 +120,6 @@ export const ANALYTICS_EVENTS = {
   BATCH_SCRAPE_COMPLETE: 'batch_scrape_complete',
   BATCH_SCRAPE_PAUSE: 'batch_scrape_pause',
   BATCH_SCRAPE_RESUME: 'batch_scrape_resume',
-  BATCH_SCRAPE_CANCEL: 'batch_scrape_cancel',
   BATCH_SCRAPE_URL_SUCCESS: 'batch_scrape_url_success',
   BATCH_SCRAPE_URL_FAILURE: 'batch_scrape_url_failure',
   BATCH_SCRAPE_PREVIEW: 'batch_scrape_preview',
