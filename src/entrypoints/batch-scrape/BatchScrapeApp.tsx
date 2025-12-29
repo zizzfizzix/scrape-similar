@@ -167,6 +167,15 @@ const BatchScrapeApp: React.FC = () => {
     }
   }, [batch, batchName, configFromUrl])
 
+  // Update document title based on batch name
+  useEffect(() => {
+    if (batch?.name) {
+      document.title = `${batch.name} - Batch Scrape - Scrape Similar`
+    } else {
+      document.title = 'Batch Scrape - Scrape Similar'
+    }
+  }, [batch?.name])
+
   const isRunning = batch?.status === 'running'
   const isPaused = batch?.status === 'paused'
   const isCompleted = batch?.status === 'completed'
