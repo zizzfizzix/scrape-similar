@@ -9,6 +9,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Toaster } from '@/components/ui/sonner'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { BatchConfig } from '@/entrypoints/batch-scrape/components/BatchConfig'
+import { BatchSettingsComponent } from '@/entrypoints/batch-scrape/components/BatchSettings'
+import { BatchUrlInput } from '@/entrypoints/batch-scrape/components/BatchUrlInput'
+import { useBatchScrape } from '@/entrypoints/batch-scrape/hooks/useBatchScrape'
 import { navigateToBatchHistory } from '@/utils/batch-operations'
 import {
   DEFAULT_BATCH_SETTINGS,
@@ -19,10 +23,6 @@ import { validateAndDeduplicateUrls } from '@/utils/batch-url-utils'
 import { ArrowLeft, Pause, Play, Save, X } from 'lucide-react'
 import React, { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { BatchConfig } from './components/BatchConfig'
-import { BatchSettingsComponent } from './components/BatchSettings'
-import { BatchUrlInput } from './components/BatchUrlInput'
-import { useBatchScrape } from './hooks/useBatchScrape'
 
 const BatchScrapeApp: React.FC = () => {
   // URL params

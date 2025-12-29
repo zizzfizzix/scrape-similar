@@ -1,7 +1,7 @@
+import { handleContentScriptMessage } from '@/entrypoints/background/handlers/content-script'
+import { handleUiMessage } from '@/entrypoints/background/handlers/ui'
+import { applySidePanelDataUpdates } from '@/entrypoints/background/services/session-storage'
 import log from 'loglevel'
-import { applySidePanelDataUpdates } from '../services/session-storage'
-import { handleContentScriptMessage } from './content-script'
-import { handleUiMessage } from './ui'
 
 /**
  * Main message router - determines message source and dispatches to appropriate handler

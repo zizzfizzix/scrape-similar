@@ -1,5 +1,5 @@
+import { isInjectableUrl } from '@/utils/isInjectableUrl'
 import log from 'loglevel'
-import { isInjectableUrl } from './isInjectableUrl'
 
 export interface ValidatedUrls {
   valid: string[]

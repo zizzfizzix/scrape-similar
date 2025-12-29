@@ -1,10 +1,10 @@
 import { createMessageHandler } from '@/entrypoints/content/handlers'
 import { disablePickerMode, enablePickerMode } from '@/entrypoints/content/picker'
+import { createState } from '@/entrypoints/content/state'
 import { isDevOrTest } from '@/utils/modeTest'
 import { minimizeXPath } from '@/utils/scraper'
 import { MESSAGE_TYPES, type Message, type MessageResponse } from '@/utils/types'
 import log from 'loglevel'
-import { createState } from './state'
 
 log.setDefaultLevel('error')
 

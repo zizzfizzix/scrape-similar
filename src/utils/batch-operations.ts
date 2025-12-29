@@ -1,6 +1,6 @@
+import { deleteBatchJob, type BatchScrapeJob } from '@/utils/batch-scrape-db'
+import type { StorageUsage } from '@/utils/types'
 import { toast } from 'sonner'
-import { deleteBatchJob, type BatchScrapeJob } from './batch-scrape-db'
-import type { StorageUsage } from './types'
 
 /**
  * Delete a batch job with toast notifications and optional callback

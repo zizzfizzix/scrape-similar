@@ -1,14 +1,14 @@
-import log from 'loglevel'
-import { handleDemoScrape } from '../services/demo-scrape'
-import type { MessageHandler } from '../types'
 import {
   cancelBatchScrape,
   pauseBatchScrape,
   resumeBatchScrape,
   retryUrl,
   startBatchScrape,
-} from './batch-scrape'
-import { handleExportToSheets } from './sheets-export'
+} from '@/entrypoints/background/handlers/batch-scrape'
+import { handleExportToSheets } from '@/entrypoints/background/handlers/sheets-export'
+import { handleDemoScrape } from '@/entrypoints/background/services/demo-scrape'
+import type { MessageHandler } from '@/entrypoints/background/types'
+import log from 'loglevel'
 
 /**
  * Handle OPEN_SIDEPANEL message from UI
