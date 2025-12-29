@@ -28,6 +28,9 @@ const BatchScrapeApp: React.FC = () => {
   const batchIdFromUrl = urlParams.get('batchId') || undefined
   const configFromUrl = urlParams.get('config') ? JSON.parse(urlParams.get('config')!) : undefined
   const urlsFromUrl = urlParams.get('urls') ? JSON.parse(urlParams.get('urls')!) : undefined
+  const settingsFromUrl = urlParams.get('settings')
+    ? JSON.parse(urlParams.get('settings')!)
+    : undefined
 
   // State
   const [urlsInput, setUrlsInput] = useState(
@@ -39,7 +42,7 @@ const BatchScrapeApp: React.FC = () => {
       columns: [{ name: 'Text', selector: '.' }],
     },
   )
-  const [settings, setSettings] = useState<BatchSettings>(DEFAULT_BATCH_SETTINGS)
+  const [settings, setSettings] = useState<BatchSettings>(settingsFromUrl || DEFAULT_BATCH_SETTINGS)
   const [batchName, setBatchName] = useState('')
   const [storageUsage, setStorageUsage] = useState({ used: 0, quota: 0, percentUsed: 0 })
   const [isCreating, setIsCreating] = useState(false)
@@ -93,6 +96,7 @@ const BatchScrapeApp: React.FC = () => {
       const newUrl = new URL(window.location.href)
       newUrl.searchParams.set('batchId', newBatch.id)
       newUrl.searchParams.delete('config')
+      newUrl.searchParams.delete('settings')
       window.history.replaceState({}, '', newUrl.toString())
     } catch (err) {
       toast.error('Failed to create batch')
