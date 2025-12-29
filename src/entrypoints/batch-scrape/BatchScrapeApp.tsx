@@ -236,11 +236,30 @@ const BatchScrapeApp: React.FC = () => {
             }
             right={
               batch ? (
-                <BatchHeaderActions
-                  batch={batch}
-                  statistics={statistics}
-                  onDelete={navigateToBatchHistory}
-                />
+                <>
+                  <BatchHeaderActions
+                    batch={batch}
+                    statistics={statistics}
+                    onDelete={navigateToBatchHistory}
+                  />
+                  {combinedResults.length > 0 && (
+                    <>
+                      <div className="h-6 w-px bg-border" />
+                      <ExportButtons
+                        scrapeResult={{
+                          data: combinedResults,
+                          columnOrder: ['url', ...config.columns.map((c) => c.name)],
+                        }}
+                        config={config}
+                        showEmptyRows={false}
+                        selectedRows={selectedRows}
+                        filename={`${batch.name} - ${new Date().toISOString().split('T')[0]}`}
+                        variant="outline"
+                        size="sm"
+                      />
+                    </>
+                  )}
+                </>
               ) : (
                 <StorageIndicator storageUsage={storageUsage} />
               )
@@ -331,34 +350,17 @@ const BatchScrapeApp: React.FC = () => {
 
             {/* Results */}
             {batch && combinedResults.length > 0 && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-2xl font-bold">Results</h2>
-                  <ExportButtons
-                    scrapeResult={{
-                      data: combinedResults,
-                      columnOrder: ['url', ...config.columns.map((c) => c.name)],
-                    }}
-                    config={config}
-                    showEmptyRows={false}
-                    selectedRows={selectedRows}
-                    filename={`${batch.name} - ${new Date().toISOString().split('T')[0]}`}
-                    variant="outline"
-                  />
-                </div>
-
-                <ResultsTable
-                  data={combinedResults}
-                  config={{
-                    ...config,
-                    columns: [{ name: 'url', selector: '.' }, ...config.columns],
-                  }}
-                  columnOrder={['url', ...config.columns.map((c) => c.name)]}
-                  showEmptyRowsToggle={false}
-                  eventPrefix="BATCH_SCRAPE"
-                  onSelectedRowsChange={setSelectedRows}
-                />
-              </div>
+              <ResultsTable
+                data={combinedResults}
+                config={{
+                  ...config,
+                  columns: [{ name: 'url', selector: '.' }, ...config.columns],
+                }}
+                columnOrder={['url', ...config.columns.map((c) => c.name)]}
+                showEmptyRowsToggle={false}
+                eventPrefix="BATCH_SCRAPE"
+                onSelectedRowsChange={setSelectedRows}
+              />
             )}
           </main>
 
