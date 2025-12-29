@@ -19,6 +19,8 @@ const activeBatches = new Map<
     status: 'running' | 'paused' | 'cancelled'
     runningTabs: Set<number>
     controller: AbortController
+    // Promise that resolves when pause is triggered - allows immediate response
+    pauseSignal: { promise: Promise<void>; resolve: () => void }
   }
 >()
 
@@ -40,10 +42,18 @@ export const startBatchScrape = async (batchId: string): Promise<void> => {
 
     // Initialize active batch tracking
     const controller = new AbortController()
+
+    // Create a pause signal promise that can be resolved externally
+    let pauseResolve: () => void
+    const pausePromise = new Promise<void>((resolve) => {
+      pauseResolve = resolve
+    })
+
     activeBatches.set(batchId, {
       status: 'running',
       runningTabs: new Set(),
       controller,
+      pauseSignal: { promise: pausePromise, resolve: pauseResolve! },
     })
 
     // Update batch status
@@ -54,6 +64,10 @@ export const startBatchScrape = async (batchId: string): Promise<void> => {
     // Execute the batch scrape
     await executeBatchScrape(batch, controller.signal)
 
+    // Check if batch was paused before cleaning up
+    const finalActiveState = activeBatches.get(batchId)
+    const wasPaused = finalActiveState?.status === 'paused'
+
     // Clean up
     activeBatches.delete(batchId)
 
@@ -62,12 +76,16 @@ export const startBatchScrape = async (batchId: string): Promise<void> => {
     if (updatedBatch) {
       const stats = updatedBatch.statistics
       const allCompleted = stats.pending === 0 && stats.running === 0
-      if (allCompleted) {
+
+      // Only mark as completed if:
+      // 1. All work is done AND
+      // 2. Batch wasn't paused (check both memory and DB status)
+      if (allCompleted && !wasPaused && updatedBatch.status !== 'paused') {
         await updateBatchJob(batchId, { status: 'completed' })
       }
     }
 
-    log.debug(`Batch scrape completed: ${batchId}`)
+    log.debug(`Batch scrape finished: ${batchId}${wasPaused ? ' (was paused)' : ''}`)
   } catch (error) {
     log.error('Error starting batch scrape:', error)
     activeBatches.delete(batchId)
@@ -110,6 +128,11 @@ const executeBatchScrape = async (batch: BatchScrapeJob, signal: AbortSignal): P
 
     // Start new scrapes up to max concurrency
     while (queue.length > 0 && running.length < maxConcurrency) {
+      // Check pause/cancel before starting new request
+      if (signal.aborted || activeBatches.get(batchId)?.status === 'paused') {
+        break
+      }
+
       const urlResult = queue.shift()!
       const promise = scrapeUrl(batchId, urlResult, config, maxRetries, disableJsRendering)
         .then(() => {
@@ -131,14 +154,24 @@ const executeBatchScrape = async (batch: BatchScrapeJob, signal: AbortSignal): P
       }
     }
 
-    // Wait for at least one to complete
+    // Wait for at least one to complete OR pause to be triggered
     if (running.length > 0) {
-      await Promise.race(running)
+      const activeState = activeBatches.get(batchId)
+
+      // Race between: any request completing OR pause signal triggered
+      await Promise.race([
+        Promise.race(running),
+        activeState?.pauseSignal.promise ?? Promise.resolve(),
+      ])
     }
   }
 
-  // Wait for all remaining to complete
-  await Promise.all(running)
+  // Always wait for running requests to complete, even if paused
+  // This allows in-flight requests to finish naturally
+  if (running.length > 0) {
+    log.debug(`Waiting for ${running.length} running requests to complete...`)
+    await Promise.all(running)
+  }
 }
 
 /**
@@ -241,26 +274,26 @@ export const pauseBatchScrape = async (batchId: string): Promise<void> => {
     const activeState = activeBatches.get(batchId)
     if (!activeState) {
       log.warn(`Batch ${batchId} is not running`)
+      // Even if not in active batches, ensure DB status is paused
+      await updateBatchJob(batchId, { status: 'paused' })
       return
     }
 
+    // Update in-memory status first to stop new requests immediately
     activeState.status = 'paused'
+
+    // Resolve the pause signal to immediately unblock any waiting Promise.race
+    activeState.pauseSignal.resolve()
+
+    // Then update database status
     await updateBatchJob(batchId, { status: 'paused' })
 
-    // Close all running tabs
-    for (const tabId of activeState.runningTabs) {
-      await closeHiddenTab(tabId)
-    }
-    activeState.runningTabs.clear()
+    // Note: We don't close running tabs anymore - let them finish naturally
+    // The running URLs will complete and their status will be updated
 
-    // Update running URL results to pending
-    const results = await batchScrapeDb.urlResults.where({ batchId, status: 'running' }).toArray()
-
-    for (const result of results) {
-      await updateUrlResult(result.id, { status: 'pending' })
-    }
-
-    log.debug(`Paused batch scrape: ${batchId}`)
+    log.debug(
+      `Paused batch scrape: ${batchId} (${activeState.runningTabs.size} requests still running)`,
+    )
   } catch (error) {
     log.error('Error pausing batch scrape:', error)
     throw error
@@ -282,7 +315,12 @@ export const resumeBatchScrape = async (batchId: string): Promise<void> => {
     }
 
     log.debug(`Resuming batch scrape: ${batchId}`)
-    await startBatchScrape(batchId)
+
+    // Start the batch scrape but don't wait for it to complete
+    // This allows the UI to get an immediate response
+    startBatchScrape(batchId).catch((error) => {
+      log.error('Error in background batch scrape execution:', error)
+    })
   } catch (error) {
     log.error('Error resuming batch scrape:', error)
     throw error
@@ -312,8 +350,10 @@ export const retryFailedUrls = async (batchId: string): Promise<void> => {
 
     log.debug(`Reset ${failedResults.length} failed URLs to pending`)
 
-    // Resume the batch
-    await resumeBatchScrape(batchId)
+    // Resume the batch (fire and forget)
+    resumeBatchScrape(batchId).catch((error) => {
+      log.error('Error resuming batch after retry:', error)
+    })
   } catch (error) {
     log.error('Error retrying failed URLs:', error)
     throw error
@@ -342,9 +382,11 @@ export const retryUrl = async (batchId: string, urlResultId: string): Promise<vo
       error: undefined,
     })
 
-    // If batch is not running, start it
+    // If batch is not running, start it (fire and forget)
     if (!activeBatches.has(batchId)) {
-      await startBatchScrape(batchId)
+      startBatchScrape(batchId).catch((error) => {
+        log.error('Error starting batch after URL retry:', error)
+      })
     }
   } catch (error) {
     log.error('Error retrying URL:', error)

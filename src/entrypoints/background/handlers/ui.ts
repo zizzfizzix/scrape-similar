@@ -96,7 +96,11 @@ const handleBatchScrapeStart: MessageHandler = async (message, sender, sendRespo
   log.debug('UI requested to start batch scrape')
   try {
     const payload = message.payload as BatchScrapeStartPayload
-    await startBatchScrape(payload.batchId)
+    // Start the batch but don't wait for it to complete
+    // This allows the UI to get immediate feedback
+    startBatchScrape(payload.batchId).catch((error) => {
+      log.error('Error in background batch scrape execution:', error)
+    })
     sendResponse({ success: true })
   } catch (error) {
     log.error('Error starting batch scrape:', error)
