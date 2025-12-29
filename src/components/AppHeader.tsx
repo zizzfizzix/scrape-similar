@@ -23,8 +23,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ left, center, right, progr
         </div>
       </div>
 
-      {/* Optional progress bar at bottom */}
-      {progressBar}
+      {/* Optional progress bar inset at bottom */}
+      {progressBar && <div className="absolute bottom-0 left-0 right-0">{progressBar}</div>}
     </header>
   )
 }
