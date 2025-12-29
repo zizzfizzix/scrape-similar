@@ -207,17 +207,17 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
       },
     ]
 
-    // Add actions column only if onRowHighlight is provided
-    if (onRowHighlight && tabId) {
-      baseColumns.push({
-        id: 'actions',
-        header: 'Actions',
-        cell: ({ row }: CellContext<ScrapedRow, unknown>) => {
-          const isEmpty = row.original.metadata.isEmpty
-          const originalIndex = row.original.metadata.originalIndex
-          const columnKeys = getColumnKeys(columnsOrderToUse, config.columns)
+    // Add actions column with copy button (and highlight button if onRowHighlight is provided)
+    baseColumns.push({
+      id: 'actions',
+      header: 'Actions',
+      cell: ({ row }: CellContext<ScrapedRow, unknown>) => {
+        const isEmpty = row.original.metadata.isEmpty
+        const originalIndex = row.original.metadata.originalIndex
+        const columnKeys = getColumnKeys(columnsOrderToUse, config.columns)
 
-          const highlightButton = (
+        const highlightButton =
+          onRowHighlight && tabId ? (
             <Button
               variant="ghost"
               size="icon"
@@ -235,69 +235,70 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({
             >
               <Highlighter className="size-4" />
             </Button>
-          )
+          ) : null
 
-          const copyButton = (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-6"
-              aria-label={isEmpty ? undefined : 'Copy this row'}
-              disabled={isEmpty}
-              onClick={
-                isEmpty
-                  ? undefined
-                  : async () => {
-                      const tsvContent = rowToTsv(row.original, columnKeys)
-                      try {
-                        await navigator.clipboard.writeText(tsvContent)
-                        toast.success('Copied row to clipboard')
-                        trackEvent(ANALYTICS_EVENTS.COPY_TO_CLIPBOARD_TRIGGER, {
-                          rows_copied: 1,
-                          columns_count: columnKeys.length,
-                          export_type: `${eventPrefix.toLowerCase()}_row`,
-                        })
-                      } catch {
-                        toast.error('Failed to copy')
-                        trackEvent(ANALYTICS_EVENTS.COPY_TO_CLIPBOARD_FAILURE)
-                      }
+        const copyButton = (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-6"
+            aria-label={isEmpty ? undefined : 'Copy this row'}
+            disabled={isEmpty}
+            onClick={
+              isEmpty
+                ? undefined
+                : async () => {
+                    const tsvContent = rowToTsv(row.original, columnKeys)
+                    try {
+                      await navigator.clipboard.writeText(tsvContent)
+                      toast.success('Copied row to clipboard')
+                      trackEvent(ANALYTICS_EVENTS.COPY_TO_CLIPBOARD_TRIGGER, {
+                        rows_copied: 1,
+                        columns_count: columnKeys.length,
+                        export_type: `${eventPrefix.toLowerCase()}_row`,
+                      })
+                    } catch {
+                      toast.error('Failed to copy')
+                      trackEvent(ANALYTICS_EVENTS.COPY_TO_CLIPBOARD_FAILURE)
                     }
-              }
-            >
-              <Clipboard className="size-4" />
-            </Button>
-          )
+                  }
+            }
+          >
+            <Clipboard className="size-4" />
+          </Button>
+        )
 
-          if (isEmpty) {
-            return (
-              <div className="flex gap-1">
-                {highlightButton}
-                {copyButton}
-              </div>
-            )
-          }
-
+        if (isEmpty) {
           return (
             <div className="flex gap-1">
+              {highlightButton}
+              {copyButton}
+            </div>
+          )
+        }
+
+        return (
+          <div className="flex gap-1">
+            {highlightButton && (
               <Tooltip>
                 <TooltipTrigger asChild>{highlightButton}</TooltipTrigger>
                 <TooltipContent>Highlight this element</TooltipContent>
               </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>{copyButton}</TooltipTrigger>
-                <TooltipContent>Copy this row</TooltipContent>
-              </Tooltip>
-            </div>
-          )
-        },
-        size: 75,
-        minSize: 75,
-        maxSize: 100,
-        enableSorting: false,
-        enableGlobalFilter: false,
-        enableResizing: false,
-      })
-    }
+            )}
+            <Tooltip>
+              <TooltipTrigger asChild>{copyButton}</TooltipTrigger>
+              <TooltipContent>Copy this row</TooltipContent>
+            </Tooltip>
+          </div>
+        )
+      },
+      size: 75,
+      minSize: 75,
+      maxSize: 100,
+      enableSorting: false,
+      enableGlobalFilter: false,
+      enableResizing: false,
+    })
 
     // Add data columns
     baseColumns.push(
