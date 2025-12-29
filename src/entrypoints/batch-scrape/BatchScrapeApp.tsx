@@ -1,10 +1,8 @@
 import { AppHeader } from '@/components/AppHeader'
-import { BatchHeaderActions } from '@/components/BatchHeaderActions'
+import { BatchActionButtons } from '@/components/BatchActionButtons'
 import { ConsentWrapper } from '@/components/ConsentWrapper'
-import ExportButtons from '@/components/ExportButtons'
 import { Footer } from '@/components/footer'
 import ResultsTable from '@/components/ResultsTable'
-import { StorageIndicator } from '@/components/StorageIndicator'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Toaster } from '@/components/ui/sonner'
@@ -20,7 +18,7 @@ import {
   type BatchSettings,
 } from '@/utils/batch-scrape-db'
 import { validateAndDeduplicateUrls } from '@/utils/batch-url-utils'
-import { ArrowLeft, Pause, Play, Save } from 'lucide-react'
+import { ArrowLeft, Save } from 'lucide-react'
 import React, { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -169,7 +167,7 @@ const BatchScrapeApp: React.FC = () => {
   const isRunning = batch?.status === 'running'
   const isPaused = batch?.status === 'paused'
   const isCompleted = batch?.status === 'completed'
-  const canStart = batch && batch.status === 'pending'
+  const canStart = !!(batch && batch.status === 'pending')
   const canPause = isRunning
   const canResume = isPaused
 
@@ -221,55 +219,22 @@ const BatchScrapeApp: React.FC = () => {
               )
             }
             right={
-              batch ? (
-                <>
-                  <BatchHeaderActions
-                    batch={batch}
-                    statistics={statistics}
-                    onDelete={navigateToBatchHistory}
-                  />
-                  {combinedResults.length > 0 && (
-                    <>
-                      <div className="h-6 w-px bg-border" />
-                      <ExportButtons
-                        scrapeResult={{
-                          data: combinedResults,
-                          columnOrder: ['url', ...config.columns.map((c) => c.name)],
-                        }}
-                        config={config}
-                        showEmptyRows={false}
-                        selectedRows={selectedRows}
-                        filename={`${batch.name} - ${new Date().toISOString().split('T')[0]}`}
-                        variant="outline"
-                        size="sm"
-                      />
-                    </>
-                  )}
-
-                  {/* Action buttons in header */}
-                  <div className="h-6 w-px bg-border" />
-                  {canStart && (
-                    <Button onClick={handleStart} size="sm">
-                      <Play className="h-4 w-4 mr-2" />
-                      Start
-                    </Button>
-                  )}
-                  {canPause && (
-                    <Button onClick={handlePause} variant="outline" size="sm">
-                      <Pause className="h-4 w-4 mr-2" />
-                      Pause
-                    </Button>
-                  )}
-                  {canResume && (
-                    <Button onClick={handleResume} size="sm">
-                      <Play className="h-4 w-4 mr-2" />
-                      Resume
-                    </Button>
-                  )}
-                </>
-              ) : (
-                <StorageIndicator storageUsage={storageUsage} />
-              )
+              <BatchActionButtons
+                batch={batch}
+                statistics={statistics}
+                combinedResults={combinedResults}
+                config={config}
+                selectedRows={selectedRows}
+                isCreating={isCreating}
+                onCreateBatch={handleCreateBatch}
+                canStart={canStart}
+                canPause={canPause}
+                canResume={canResume}
+                onStart={handleStart}
+                onPause={handlePause}
+                onResume={handleResume}
+                onDelete={navigateToBatchHistory}
+              />
             }
             progressBar={
               batch &&
@@ -317,15 +282,6 @@ const BatchScrapeApp: React.FC = () => {
                 onChange={setSettings}
                 disabled={isCreating}
               />
-            )}
-
-            {/* Action buttons */}
-            {!batch && (
-              <div className="flex justify-end">
-                <Button onClick={handleCreateBatch} disabled={isCreating} size="lg">
-                  Create Batch
-                </Button>
-              </div>
             )}
 
             {/* Results */}
