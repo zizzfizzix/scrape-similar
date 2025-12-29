@@ -1,5 +1,6 @@
 import { deleteBatchJob, type BatchScrapeJob } from '@/utils/batch-scrape-db'
-import type { StorageUsage } from '@/utils/types'
+import { MESSAGE_TYPES, type StorageUsage } from '@/utils/types'
+import log from 'loglevel'
 import { toast } from 'sonner'
 
 /**
@@ -34,6 +35,51 @@ export const navigateToDuplicate = (batch: BatchScrapeJob): void => {
  */
 export const navigateToBatchHistory = (): void => {
   window.location.href = browser.runtime.getURL('/batch-scrape-history.html')
+}
+
+/**
+ * Start a batch scrape job
+ */
+export const startBatchJob = async (batchId: string): Promise<void> => {
+  try {
+    await browser.runtime.sendMessage({
+      type: MESSAGE_TYPES.BATCH_SCRAPE_START,
+      payload: { batchId },
+    })
+  } catch (error) {
+    log.error('Error starting batch:', error)
+    throw error
+  }
+}
+
+/**
+ * Pause a batch scrape job
+ */
+export const pauseBatchJob = async (batchId: string): Promise<void> => {
+  try {
+    await browser.runtime.sendMessage({
+      type: MESSAGE_TYPES.BATCH_SCRAPE_PAUSE,
+      payload: { batchId },
+    })
+  } catch (error) {
+    log.error('Error pausing batch:', error)
+    throw error
+  }
+}
+
+/**
+ * Resume a batch scrape job
+ */
+export const resumeBatchJob = async (batchId: string): Promise<void> => {
+  try {
+    await browser.runtime.sendMessage({
+      type: MESSAGE_TYPES.BATCH_SCRAPE_RESUME,
+      payload: { batchId },
+    })
+  } catch (error) {
+    log.error('Error resuming batch:', error)
+    throw error
+  }
 }
 
 /**

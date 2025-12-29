@@ -29,6 +29,9 @@ interface BatchActionButtonsProps {
   onPause?: () => void
   onResume?: () => void
   onDelete?: () => void
+
+  // New props for variant support
+  variant?: 'header' | 'card' // Default: 'header'
 }
 
 /**
@@ -39,6 +42,7 @@ const Divider: React.FC = () => <div className="h-6 w-px bg-border" />
 /**
  * Unified component for all batch action buttons in the header.
  * Handles both pre-batch (Create) and post-batch (actions) states with smart divider logic.
+ * Supports two variants: 'header' mode for detail pages and 'card' mode for list items.
  */
 export const BatchActionButtons: React.FC<BatchActionButtonsProps> = ({
   batch,
@@ -55,15 +59,24 @@ export const BatchActionButtons: React.FC<BatchActionButtonsProps> = ({
   onPause,
   onResume,
   onDelete,
+  variant = 'header',
 }) => {
-  // Pre-batch state: Show Create Batch button
-  if (!batch) {
+  // Pre-batch state: Show Create Batch button (only in header mode)
+  if (!batch && variant === 'header') {
     return (
       <Button onClick={onCreateBatch} disabled={isCreating} size="default">
         {isCreating ? 'Creating...' : 'Create Batch'}
       </Button>
     )
   }
+
+  // If no batch in card mode, don't render anything
+  if (!batch) {
+    return null
+  }
+
+  // Determine gap spacing based on variant
+  const gapClass = variant === 'card' ? 'gap-2' : 'gap-3'
 
   // Post-batch state: Build sections and filter visible ones
   const sections = [
@@ -131,10 +144,10 @@ export const BatchActionButtons: React.FC<BatchActionButtonsProps> = ({
 
   // Render sections with dividers between them
   return (
-    <>
+    <div className={`flex items-center ${gapClass}`}>
       {visibleSections.flatMap((section, index) =>
         index > 0 ? [<Divider key={`divider-${index}`} />, section.content] : [section.content],
       )}
-    </>
+    </div>
   )
 }

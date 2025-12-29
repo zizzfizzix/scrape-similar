@@ -1,8 +1,6 @@
 import { AppHeader } from '@/components/AppHeader'
-import { BatchStatusIndicator } from '@/components/BatchStatus'
+import { BatchActionButtons } from '@/components/BatchActionButtons'
 import { ConsentWrapper } from '@/components/ConsentWrapper'
-import { DeleteBatchDialog } from '@/components/DeleteBatchDialog'
-import { DuplicateBatchButton } from '@/components/DuplicateBatchButton'
 import { Footer } from '@/components/footer'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -16,10 +14,16 @@ import {
 } from '@/components/ui/select'
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import { formatStorageUsage } from '@/utils/batch-operations'
+import {
+  formatStorageUsage,
+  pauseBatchJob,
+  resumeBatchJob,
+  startBatchJob,
+} from '@/utils/batch-operations'
 import {
   getAllBatchJobs,
   getBatchStatistics,
+  getCombinedResults,
   getStorageUsage,
   type BatchScrapeJob,
 } from '@/utils/batch-scrape-db'
@@ -36,6 +40,7 @@ const BatchScrapeHistoryApp: React.FC = () => {
   const [storageUsage, setStorageUsage] = useState({ used: 0, quota: 0, percentUsed: 0 })
   const [loading, setLoading] = useState(true)
   const [batchStats, setBatchStats] = useState<Record<string, any>>({})
+  const [combinedResultsCache, setCombinedResultsCache] = useState<Record<string, any[]>>({})
 
   // Load batches
   const loadBatches = useCallback(async () => {
@@ -44,12 +49,19 @@ const BatchScrapeHistoryApp: React.FC = () => {
       const allBatches = await getAllBatchJobs()
       setBatches(allBatches)
 
-      // Load statistics for each batch
+      // Load statistics and combined results for each batch
       const stats: Record<string, any> = {}
+      const results: Record<string, any[]> = {}
       for (const batch of allBatches) {
         stats[batch.id] = await getBatchStatistics(batch.id)
+
+        // Load combined results for completed batches to enable export
+        if (batch.status === 'completed' && stats[batch.id].completed > 0) {
+          results[batch.id] = await getCombinedResults(batch.id)
+        }
       }
       setBatchStats(stats)
+      setCombinedResultsCache(results)
 
       setLoading(false)
     } catch (error) {
@@ -57,6 +69,46 @@ const BatchScrapeHistoryApp: React.FC = () => {
       setLoading(false)
     }
   }, [])
+
+  // Batch control handlers
+  const handleStartBatch = useCallback(
+    async (batchId: string) => {
+      try {
+        await startBatchJob(batchId)
+        toast.success('Batch started')
+        loadBatches()
+      } catch (error) {
+        toast.error('Failed to start batch')
+      }
+    },
+    [loadBatches],
+  )
+
+  const handlePauseBatch = useCallback(
+    async (batchId: string) => {
+      try {
+        await pauseBatchJob(batchId)
+        toast.success('Batch paused')
+        loadBatches()
+      } catch (error) {
+        toast.error('Failed to pause batch')
+      }
+    },
+    [loadBatches],
+  )
+
+  const handleResumeBatch = useCallback(
+    async (batchId: string) => {
+      try {
+        await resumeBatchJob(batchId)
+        toast.success('Batch resumed')
+        loadBatches()
+      } catch (error) {
+        toast.error('Failed to resume batch')
+      }
+    },
+    [loadBatches],
+  )
 
   // Load storage usage
   const loadStorage = useCallback(async () => {
@@ -242,30 +294,33 @@ const BatchScrapeHistoryApp: React.FC = () => {
                 {filteredBatches.map((batch) => {
                   const stats = batchStats[batch.id] || {}
                   return (
-                    <Card
-                      key={batch.id}
-                      className="cursor-pointer hover:bg-muted/50 transition-colors"
-                      onClick={() => handleOpenBatch(batch.id)}
-                    >
+                    <Card key={batch.id} className="hover:bg-muted/50 transition-colors">
                       <CardHeader>
                         <div className="flex items-start justify-between gap-4">
-                          <div className="space-y-2 flex-1">
+                          <div
+                            className="space-y-2 flex-1 cursor-pointer"
+                            onClick={() => handleOpenBatch(batch.id)}
+                          >
                             <CardTitle className="text-lg ph_hidden">{batch.name}</CardTitle>
                             <CardDescription className="ph_hidden">
                               Created{' '}
                               {formatDistanceToNow(new Date(batch.createdAt), { addSuffix: true })}
                             </CardDescription>
-                            {/* Status indicator with statistics */}
-                            <div className="flex items-center gap-3 flex-wrap">
-                              <BatchStatusIndicator statistics={stats} />
-                            </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <DuplicateBatchButton batch={batch} stopPropagation />
-                            <DeleteBatchDialog
+                          <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
+                            <BatchActionButtons
+                              variant="card"
                               batch={batch}
-                              onSuccess={loadBatches}
-                              stopPropagation
+                              statistics={stats}
+                              combinedResults={combinedResultsCache[batch.id] || []}
+                              config={batch.config}
+                              canStart={batch.status === 'pending'}
+                              canPause={batch.status === 'running'}
+                              canResume={batch.status === 'paused'}
+                              onStart={() => handleStartBatch(batch.id)}
+                              onPause={() => handlePauseBatch(batch.id)}
+                              onResume={() => handleResumeBatch(batch.id)}
+                              onDelete={loadBatches}
                             />
                           </div>
                         </div>

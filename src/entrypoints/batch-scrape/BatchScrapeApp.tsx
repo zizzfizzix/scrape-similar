@@ -220,6 +220,7 @@ const BatchScrapeApp: React.FC = () => {
             }
             right={
               <BatchActionButtons
+                variant="header"
                 batch={batch}
                 statistics={statistics}
                 combinedResults={combinedResults}

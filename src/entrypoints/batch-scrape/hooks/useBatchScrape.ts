@@ -1,3 +1,4 @@
+import { pauseBatchJob, resumeBatchJob, startBatchJob } from '@/utils/batch-operations'
 import {
   createBatchJob,
   createUrlResults,
@@ -10,6 +11,7 @@ import {
   type BatchScrapeUrlResult,
   type BatchSettings,
 } from '@/utils/batch-scrape-db'
+import { MESSAGE_TYPES } from '@/utils/types'
 import log from 'loglevel'
 import { useCallback, useEffect, useState } from 'react'
 
@@ -110,10 +112,7 @@ export const useBatchScrape = (initialBatchId?: string, initialConfig?: ScrapeCo
 
     try {
       setError(null)
-      await browser.runtime.sendMessage({
-        type: MESSAGE_TYPES.BATCH_SCRAPE_START,
-        payload: { batchId: batch.id },
-      })
+      await startBatchJob(batch.id)
     } catch (err) {
       log.error('Error starting batch:', err)
       setError(err instanceof Error ? err.message : 'Failed to start batch')
@@ -126,10 +125,7 @@ export const useBatchScrape = (initialBatchId?: string, initialConfig?: ScrapeCo
 
     try {
       setError(null)
-      await browser.runtime.sendMessage({
-        type: MESSAGE_TYPES.BATCH_SCRAPE_PAUSE,
-        payload: { batchId: batch.id },
-      })
+      await pauseBatchJob(batch.id)
     } catch (err) {
       log.error('Error pausing batch:', err)
       setError(err instanceof Error ? err.message : 'Failed to pause batch')
@@ -142,10 +138,7 @@ export const useBatchScrape = (initialBatchId?: string, initialConfig?: ScrapeCo
 
     try {
       setError(null)
-      await browser.runtime.sendMessage({
-        type: MESSAGE_TYPES.BATCH_SCRAPE_RESUME,
-        payload: { batchId: batch.id },
-      })
+      await resumeBatchJob(batch.id)
     } catch (err) {
       log.error('Error resuming batch:', err)
       setError(err instanceof Error ? err.message : 'Failed to resume batch')
