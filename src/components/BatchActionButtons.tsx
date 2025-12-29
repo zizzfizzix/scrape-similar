@@ -1,10 +1,10 @@
+import { BatchSettingsDialog } from '@/components/BatchSettingsDialog'
 import { BatchStatusIndicator } from '@/components/BatchStatus'
 import { DeleteBatchDialog } from '@/components/DeleteBatchDialog'
 import { DuplicateBatchButton } from '@/components/DuplicateBatchButton'
 import ExportButtons from '@/components/ExportButtons'
 import { Button } from '@/components/ui/button'
-import type { BatchStatistics } from '@/entrypoints/batch-scrape/hooks/useBatchScrape'
-import type { BatchScrapeJob } from '@/utils/batch-scrape-db'
+import type { BatchScrapeJob, BatchStatistics } from '@/utils/batch-scrape-db'
 import type { ScrapeConfig, ScrapedRow } from '@/utils/types'
 import { Pause, Play } from 'lucide-react'
 import React from 'react'
@@ -78,15 +78,22 @@ export const BatchActionButtons: React.FC<BatchActionButtonsProps> = ({
   // Determine gap spacing based on variant
   const gapClass = variant === 'card' ? 'gap-2' : 'gap-3'
 
+  // Determine if settings button should be shown
+  // Card variant: hide if running or completed
+  // Header variant: always show (read-only mode in dialog)
+  const showSettingsButton =
+    variant === 'header' || (batch.status !== 'running' && batch.status !== 'completed')
+
   // Post-batch state: Build sections and filter visible ones
   const sections = [
-    // Section 1: Status indicator + Duplicate + Delete
+    // Section 1: Status indicator + Settings + Duplicate + Delete
     {
       visible: !!statistics,
       content: (
         <React.Fragment key="status-actions">
           <BatchStatusIndicator statistics={statistics!} />
           <Divider />
+          {showSettingsButton && <BatchSettingsDialog batch={batch} size="sm" />}
           <DuplicateBatchButton batch={batch} size="sm" />
           <DeleteBatchDialog batch={batch} onSuccess={onDelete} size="sm" />
         </React.Fragment>
