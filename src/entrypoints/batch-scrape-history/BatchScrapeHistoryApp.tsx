@@ -1,10 +1,9 @@
 import { AppHeader } from '@/components/AppHeader'
-import { BatchStatusIcon, getStatusBadgeVariant } from '@/components/BatchStatus'
+import { BatchStatusIndicator } from '@/components/BatchStatus'
 import { ConsentWrapper } from '@/components/ConsentWrapper'
 import { DeleteBatchDialog } from '@/components/DeleteBatchDialog'
 import { DuplicateBatchButton } from '@/components/DuplicateBatchButton'
 import { Footer } from '@/components/footer'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -249,21 +248,19 @@ const BatchScrapeHistoryApp: React.FC = () => {
                       onClick={() => handleOpenBatch(batch.id)}
                     >
                       <CardHeader>
-                        <div className="flex items-start justify-between">
-                          <div className="space-y-1 flex-1">
-                            <div className="flex items-center gap-2">
-                              <BatchStatusIcon status={batch.status} />
-                              <CardTitle className="text-lg ph_hidden">{batch.name}</CardTitle>
-                            </div>
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="space-y-2 flex-1">
+                            <CardTitle className="text-lg ph_hidden">{batch.name}</CardTitle>
                             <CardDescription className="ph_hidden">
                               Created{' '}
                               {formatDistanceToNow(new Date(batch.createdAt), { addSuffix: true })}
                             </CardDescription>
+                            {/* Status indicator with statistics */}
+                            <div className="flex items-center gap-3 flex-wrap">
+                              <BatchStatusIndicator statistics={stats} />
+                            </div>
                           </div>
                           <div className="flex items-center gap-2">
-                            <Badge variant={getStatusBadgeVariant(batch.status)}>
-                              {batch.status}
-                            </Badge>
                             <DuplicateBatchButton batch={batch} stopPropagation />
                             <DeleteBatchDialog
                               batch={batch}
@@ -274,29 +271,11 @@ const BatchScrapeHistoryApp: React.FC = () => {
                         </div>
                       </CardHeader>
                       <CardContent>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                          <div>
-                            <span className="text-muted-foreground">Total URLs:</span>
-                            <div className="font-medium">{stats.total || 0}</div>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">Completed:</span>
-                            <div className="font-medium text-green-600 dark:text-green-400">
-                              {stats.completed || 0}
-                            </div>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">Failed:</span>
-                            <div className="font-medium text-red-600 dark:text-red-400">
-                              {stats.failed || 0}
-                            </div>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">Total Rows:</span>
-                            <div className="font-medium">
-                              {(stats.totalRows || 0).toLocaleString()}
-                            </div>
-                          </div>
+                        <div className="text-sm">
+                          <span className="text-muted-foreground">Total Rows Scraped: </span>
+                          <span className="font-medium">
+                            {(stats.totalRows || 0).toLocaleString()}
+                          </span>
                         </div>
                       </CardContent>
                     </Card>

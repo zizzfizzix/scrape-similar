@@ -1,3 +1,4 @@
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import type { BatchStatistics } from '@/entrypoints/batch-scrape/hooks/useBatchScrape'
 import type { BatchScrapeJob } from '@/utils/batch-scrape-db'
 import { CheckCircle2, Clock, Loader2, Pause, XCircle } from 'lucide-react'
@@ -22,22 +23,6 @@ const STATUS_CONFIG = {
   pending: { icon: Clock, className: 'text-gray-500', animate: false },
 } as const
 
-interface StatusIconProps {
-  status: BatchStatus
-  className?: string
-}
-
-/**
- * Returns the appropriate status icon component for a batch status
- */
-export const BatchStatusIcon: React.FC<StatusIconProps> = ({ status, className = 'h-4 w-4' }) => {
-  const config = STATUS_CONFIG[status] || STATUS_CONFIG.pending
-  const Icon = config.icon
-  return (
-    <Icon className={`${className} ${config.className} ${config.animate ? 'animate-spin' : ''}`} />
-  )
-}
-
 /**
  * Get badge variant for batch status
  */
@@ -60,16 +45,35 @@ interface StatItemProps {
   statusKey: keyof typeof STAT_TO_STATUS_MAP
 }
 
+const STATUS_LABELS = {
+  completed: 'Completed',
+  failed: 'Failed',
+  running: 'Running',
+  pending: 'Pending',
+} as const
+
 const StatItem: React.FC<StatItemProps> = ({ count, statusKey }) => {
   if (count <= 0) return null
 
   const status = STAT_TO_STATUS_MAP[statusKey]
   const config = STATUS_CONFIG[status]
   const Icon = config.icon
+  const label = STATUS_LABELS[statusKey]
 
   return (
     <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-      <Icon className={`h-3.5 w-3.5 ${config.className} ${config.animate ? 'animate-spin' : ''}`} />
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Icon
+              className={`h-3.5 w-3.5 ${config.className} ${config.animate ? 'animate-spin' : ''}`}
+            />
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{label}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
       <span>{count}</span>
     </div>
   )
@@ -80,15 +84,21 @@ interface BatchStatusIndicatorProps {
 }
 
 /**
- * Displays batch statistics as compact icons with counts
+ * Displays batch statistics as compact icons with counts and tooltips
  */
 export const BatchStatusIndicator: React.FC<BatchStatusIndicatorProps> = ({ statistics }) => {
   return (
     <>
+      {/* Item-level statistics */}
       <StatItem count={statistics.completed} statusKey="completed" />
       <StatItem count={statistics.failed} statusKey="failed" />
       <StatItem count={statistics.running} statusKey="running" />
       <StatItem count={statistics.pending} statusKey="pending" />
+
+      {/* if any statitems are greater than 0 then show a span with "URLs" */}
+      {Object.values(statistics).some((count) => count > 0) && (
+        <span className="text-sm text-muted-foreground -ml-1.5">URLs</span>
+      )}
     </>
   )
 }

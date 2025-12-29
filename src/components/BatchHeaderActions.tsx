@@ -1,4 +1,4 @@
-import { BatchStatusIcon, BatchStatusIndicator } from '@/components/BatchStatus'
+import { BatchStatusIndicator } from '@/components/BatchStatus'
 import { DeleteBatchDialog } from '@/components/DeleteBatchDialog'
 import { DuplicateBatchButton } from '@/components/DuplicateBatchButton'
 import type { BatchStatistics } from '@/entrypoints/batch-scrape/hooks/useBatchScrape'
@@ -21,13 +21,7 @@ export const BatchHeaderActions: React.FC<BatchHeaderActionsProps> = ({
 }) => {
   return (
     <>
-      {/* Status badge with icon */}
-      <div className="flex items-center gap-1.5 text-sm">
-        <BatchStatusIcon status={batch.status} className="h-3.5 w-3.5" />
-        <span className="capitalize font-medium">{batch.status}</span>
-      </div>
-
-      {/* Status counts */}
+      {/* Status indicator with item statistics */}
       {statistics && <BatchStatusIndicator statistics={statistics} />}
 
       {/* Divider */}
