@@ -55,9 +55,12 @@ const handleOpenBatchScrape: MessageHandler = async (message, sender, sendRespon
     const payload = message.payload as OpenBatchScrapePayload | undefined
     const url = new URL(browser.runtime.getURL('/batch-scrape.html'))
 
-    // Add config or batchId to URL params
+    // Add config, urls, or batchId to URL params
     if (payload?.config) {
       url.searchParams.set('config', JSON.stringify(payload.config))
+    }
+    if (payload?.urls) {
+      url.searchParams.set('urls', JSON.stringify(payload.urls))
     }
     if (payload?.batchId) {
       url.searchParams.set('batchId', payload.batchId)

@@ -64,6 +64,7 @@ interface ConfigFormProps {
   highlightError?: string
   rescrapeAdvised?: boolean
   pickerModeActive?: boolean
+  tabUrl?: string | null // Current tab URL for batch scrape
 }
 
 const ConfigForm: React.FC<ConfigFormProps> = ({
@@ -83,6 +84,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
   highlightError,
   rescrapeAdvised = false,
   pickerModeActive = false,
+  tabUrl,
 }) => {
   // Local state for adding a new column
   const [newColumnName, setNewColumnName] = useState('')
@@ -680,7 +682,6 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                   variant="destructive"
                   onClick={handleConfirmDeletePreset}
                   disabled={isSaving}
-                  loading={isSaving}
                 >
                   {presetToDelete && isSystemPreset(presetToDelete) ? 'Hide' : 'Delete'}
                 </Button>
@@ -732,7 +733,6 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                     config.columns.length === 0 ||
                     !isMainSelectorValid
                   }
-                  loading={isSaving}
                 >
                   Save
                 </Button>
@@ -1047,7 +1047,6 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
               <TooltipTrigger asChild>
                 <Button
                   onClick={handleGuessConfig}
-                  loading={guessButtonState === 'generating'}
                   disabled={guessButtonState === 'generating' || !isMainSelectorValid}
                   aria-label="Auto-generate configuration from selector"
                 >
@@ -1093,7 +1092,6 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
               trackEvent(ANALYTICS_EVENTS.SCRAPE_BUTTON_PRESS)
               onScrape()
             }}
-            loading={isLoading}
             disabled={
               isLoading ||
               config.columns.length === 0 ||
@@ -1125,9 +1123,14 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                 variant="outline"
                 className="shrink-0"
                 onClick={() => {
+                  const payload: OpenBatchScrapePayload = { config }
+                  // Add current tab URL if available
+                  if (tabUrl) {
+                    payload.urls = [tabUrl]
+                  }
                   browser.runtime.sendMessage({
                     type: MESSAGE_TYPES.OPEN_BATCH_SCRAPE,
-                    payload: { config },
+                    payload,
                   })
                 }}
                 disabled={isLoading || config.columns.length === 0}

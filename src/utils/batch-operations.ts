@@ -20,11 +20,12 @@ export const handleDeleteBatch = async (
 }
 
 /**
- * Navigate to duplicate a batch with the same config
+ * Navigate to duplicate a batch with the same config and URLs
  */
 export const navigateToDuplicate = (batch: BatchScrapeJob): void => {
   const url = new URL(browser.runtime.getURL('/batch-scrape.html'))
   url.searchParams.set('config', JSON.stringify(batch.config))
+  url.searchParams.set('urls', JSON.stringify(batch.urls))
   window.location.href = url.toString()
 }
 

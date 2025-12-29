@@ -29,9 +29,12 @@ const BatchScrapeApp: React.FC = () => {
   const urlParams = new URLSearchParams(window.location.search)
   const batchIdFromUrl = urlParams.get('batchId') || undefined
   const configFromUrl = urlParams.get('config') ? JSON.parse(urlParams.get('config')!) : undefined
+  const urlsFromUrl = urlParams.get('urls') ? JSON.parse(urlParams.get('urls')!) : undefined
 
   // State
-  const [urlsInput, setUrlsInput] = useState('')
+  const [urlsInput, setUrlsInput] = useState(
+    urlsFromUrl ? (Array.isArray(urlsFromUrl) ? urlsFromUrl.join('\n') : '') : '',
+  )
   const [config, setConfig] = useState<ScrapeConfig>(
     configFromUrl || {
       mainSelector: '',

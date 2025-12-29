@@ -797,6 +797,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
               highlightMatchCount={highlightMatchCount}
               highlightError={highlightError}
               pickerModeActive={pickerModeActive}
+              tabUrl={tabUrl}
               // Show rescrape hint when there is data and config differs from the config that produced it
               rescrapeAdvised={
                 !!(scrapeResult && scrapeResult.data && scrapeResult.data.length > 0) &&

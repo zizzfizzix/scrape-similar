@@ -162,6 +162,7 @@ export interface BatchScrapePreviewPayload {
 export interface OpenBatchScrapePayload {
   config?: ScrapeConfig
   batchId?: string // For resuming existing batch
+  urls?: string[] // URLs to pre-populate in the batch scrape form
 }
 
 // Shared UI types
