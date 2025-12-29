@@ -1,3 +1,4 @@
+import { AppHeader } from '@/components/AppHeader'
 import ExportButtons from '@/components/ExportButtons'
 import ResultsTable from '@/components/ResultsTable'
 import { Button } from '@/components/ui/button'
@@ -443,110 +444,103 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
       <div className="h-screen bg-background flex flex-col">
         <Toaster />
         <ConsentWrapper>
-          {/* Header */}
-          <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
-            <div className="container mx-auto px-4 py-4">
-              <div className="grid grid-cols-[1fr_auto_1fr]">
-                <div className="flex items-center">
-                  <Button variant="outline" size="sm" onClick={handleBackToTab}>
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Back to Tab
-                  </Button>
-                </div>
-
-                {/* Tab/Website selector combobox */}
-                <Popover open={isTabSelectorOpen} onOpenChange={setIsTabSelectorOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      className="h-auto text-left justify-start w-[33.6rem] max-w-[33.6rem]"
-                    >
-                      <div className="flex items-center justify-between w-full">
-                        <div className="flex flex-col items-start min-w-0 flex-1">
-                          <div className="font-semibold truncate max-w-md ph_hidden">
-                            {currentTabData?.tabTitle || 'Select Tab'}
-                          </div>
-                          <div className="text-xs text-muted-foreground truncate max-w-md ph_hidden">
-                            {currentTabData?.tabUrl || ''}
-                          </div>
+          <AppHeader
+            left={
+              <Button variant="outline" size="sm" onClick={handleBackToTab}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Tab
+              </Button>
+            }
+            center={
+              /* Tab/Website selector combobox */
+              <Popover open={isTabSelectorOpen} onOpenChange={setIsTabSelectorOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="h-auto text-left justify-start w-[33.6rem] max-w-[33.6rem]"
+                  >
+                    <div className="flex items-center justify-between w-full">
+                      <div className="flex flex-col items-start min-w-0 flex-1">
+                        <div className="font-semibold truncate max-w-md ph_hidden">
+                          {currentTabData?.tabTitle || 'Select Tab'}
                         </div>
-                        {currentTabData && (
-                          <div className="text-xs text-muted-foreground ml-2 shrink-0">
-                            {currentTabData.scrapeResult.data.length} rows
-                          </div>
-                        )}
+                        <div className="text-xs text-muted-foreground truncate max-w-md ph_hidden">
+                          {currentTabData?.tabUrl || ''}
+                        </div>
                       </div>
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="p-0 w-[33.6rem]" align="center">
-                    <Command
-                      filter={(value, search) => {
-                        const tabData = allTabsData.find((tab) => tab.tabId.toString() === value)
-                        if (!tabData) return 0
-                        const searchTerm = search.toLowerCase()
-                        const titleMatch = (tabData.tabTitle || '')
-                          .toLowerCase()
-                          .includes(searchTerm)
-                        const urlMatch = (tabData.tabUrl || '').toLowerCase().includes(searchTerm)
-                        return titleMatch || urlMatch ? 1 : 0
-                      }}
-                    >
-                      <CommandInput
-                        placeholder="Search tabs..."
-                        value={tabSearch}
-                        onValueChange={setTabSearch}
-                        autoFocus
-                        className="ph_hidden"
-                      />
-                      <CommandList>
-                        <CommandEmpty>No tabs found</CommandEmpty>
-                        {allTabsData.map((tabData) => (
-                          <CommandItem
-                            key={tabData.tabId}
-                            value={tabData.tabId.toString()}
-                            onSelect={() => {
-                              handleTabSwitch(tabData.tabId)
-                              setIsTabSelectorOpen(false)
-                              setTabSearch('')
-                            }}
-                            className="flex items-center justify-between py-3"
-                          >
-                            <div className="flex flex-col items-start min-w-0 flex-1">
-                              <div className="font-medium truncate w-full ph_hidden">
-                                {tabData.tabTitle || 'Unknown Title'}
-                              </div>
-                              <div className="text-xs text-muted-foreground truncate w-full ph_hidden">
-                                {tabData.tabUrl}
-                              </div>
-                            </div>
-                            <div className="text-xs text-muted-foreground ml-2 shrink-0">
-                              {tabData.scrapeResult.data.length} rows
-                            </div>
-                          </CommandItem>
-                        ))}
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-
-                <div className="flex items-center justify-end">
-                  {/* Export buttons */}
-                  {currentTabData && (
-                    <ExportButtons
-                      scrapeResult={currentTabData.scrapeResult}
-                      config={currentTabData.config}
-                      showEmptyRows={false}
-                      selectedRows={selectedRows}
-                      filename={`${currentTabData.tabTitle || 'Data Export'} - ${new Date().toISOString().split('T')[0]}`}
-                      size="sm"
-                      variant="outline"
+                      {currentTabData && (
+                        <div className="text-xs text-muted-foreground ml-2 shrink-0">
+                          {currentTabData.scrapeResult.data.length} rows
+                        </div>
+                      )}
+                    </div>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="p-0 w-[33.6rem]" align="center">
+                  <Command
+                    filter={(value, search) => {
+                      const tabData = allTabsData.find((tab) => tab.tabId.toString() === value)
+                      if (!tabData) return 0
+                      const searchTerm = search.toLowerCase()
+                      const titleMatch = (tabData.tabTitle || '').toLowerCase().includes(searchTerm)
+                      const urlMatch = (tabData.tabUrl || '').toLowerCase().includes(searchTerm)
+                      return titleMatch || urlMatch ? 1 : 0
+                    }}
+                  >
+                    <CommandInput
+                      placeholder="Search tabs..."
+                      value={tabSearch}
+                      onValueChange={setTabSearch}
+                      autoFocus
+                      className="ph_hidden"
                     />
-                  )}
-                </div>
-              </div>
-            </div>
-          </header>
+                    <CommandList>
+                      <CommandEmpty>No tabs found</CommandEmpty>
+                      {allTabsData.map((tabData) => (
+                        <CommandItem
+                          key={tabData.tabId}
+                          value={tabData.tabId.toString()}
+                          onSelect={() => {
+                            handleTabSwitch(tabData.tabId)
+                            setIsTabSelectorOpen(false)
+                            setTabSearch('')
+                          }}
+                          className="flex items-center justify-between py-3"
+                        >
+                          <div className="flex flex-col items-start min-w-0 flex-1">
+                            <div className="font-medium truncate w-full ph_hidden">
+                              {tabData.tabTitle || 'Unknown Title'}
+                            </div>
+                            <div className="text-xs text-muted-foreground truncate w-full ph_hidden">
+                              {tabData.tabUrl}
+                            </div>
+                          </div>
+                          <div className="text-xs text-muted-foreground ml-2 shrink-0">
+                            {tabData.scrapeResult.data.length} rows
+                          </div>
+                        </CommandItem>
+                      ))}
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            }
+            right={
+              /* Export buttons */
+              currentTabData && (
+                <ExportButtons
+                  scrapeResult={currentTabData.scrapeResult}
+                  config={currentTabData.config}
+                  showEmptyRows={false}
+                  selectedRows={selectedRows}
+                  filename={`${currentTabData.tabTitle || 'Data Export'} - ${new Date().toISOString().split('T')[0]}`}
+                  size="sm"
+                  variant="outline"
+                />
+              )
+            }
+          />
 
           {/* Main content */}
           <main className="flex-1 overflow-y-auto container mx-auto px-4 py-6">

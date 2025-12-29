@@ -1,4 +1,8 @@
+import { AppHeader } from '@/components/AppHeader'
+import { BatchStatusIcon, getStatusBadgeVariant } from '@/components/BatchStatus'
 import { ConsentWrapper } from '@/components/ConsentWrapper'
+import { DeleteBatchDialog } from '@/components/DeleteBatchDialog'
+import { DuplicateBatchButton } from '@/components/DuplicateBatchButton'
 import { Footer } from '@/components/footer'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -12,25 +16,16 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Toaster } from '@/components/ui/sonner'
+import { TooltipProvider } from '@/components/ui/tooltip'
+import { formatStorageUsage } from '@/utils/batch-operations'
 import {
-  deleteBatchJob,
   getAllBatchJobs,
   getBatchStatistics,
   getStorageUsage,
   type BatchScrapeJob,
 } from '@/utils/batch-scrape-db'
 import { formatDistanceToNow } from 'date-fns'
-import {
-  CheckCircle2,
-  Clock,
-  HardDrive,
-  Loader2,
-  Pause,
-  Plus,
-  Search,
-  Trash2,
-  XCircle,
-} from 'lucide-react'
+import { HardDrive, Loader2, Plus, Search } from 'lucide-react'
 import React, { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -165,202 +160,154 @@ const BatchScrapeHistoryApp: React.FC = () => {
     window.location.href = url.toString()
   }
 
-  // Handle delete batch
-  const handleDeleteBatch = async (batch: BatchScrapeJob) => {
-    if (!confirm(`Are you sure you want to delete "${batch.name}"?`)) return
-
-    try {
-      await deleteBatchJob(batch.id)
-      toast.success('Batch deleted')
-      loadBatches()
-    } catch (error) {
-      toast.error('Failed to delete batch')
-    }
-  }
-
-  const getStatusIcon = (status: BatchScrapeJob['status']) => {
-    switch (status) {
-      case 'running':
-        return <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
-      case 'completed':
-        return <CheckCircle2 className="h-4 w-4 text-green-500" />
-      case 'paused':
-        return <Pause className="h-4 w-4 text-yellow-500" />
-      case 'cancelled':
-        return <XCircle className="h-4 w-4 text-red-500" />
-      default:
-        return <Clock className="h-4 w-4 text-gray-500" />
-    }
-  }
-
-  const getStatusBadgeVariant = (status: BatchScrapeJob['status']) => {
-    switch (status) {
-      case 'running':
-        return 'default'
-      case 'completed':
-        return 'default'
-      case 'paused':
-        return 'secondary'
-      case 'cancelled':
-        return 'destructive'
-      default:
-        return 'secondary'
-    }
-  }
-
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Toaster />
       <ConsentWrapper>
-        {/* Header */}
-        <header className="border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
-          <div className="container mx-auto px-4 py-4">
-            <div className="flex items-center justify-between">
+        <TooltipProvider>
+          <AppHeader
+            left={
               <div>
                 <h1 className="text-2xl font-bold">Batch Scrape History</h1>
                 <p className="text-sm text-muted-foreground">Manage your batch scrape jobs</p>
               </div>
+            }
+            right={
               <Button onClick={handleNewBatch}>
                 <Plus className="h-4 w-4 mr-2" />
                 New Batch
               </Button>
-            </div>
-          </div>
-        </header>
+            }
+          />
 
-        {/* Main content */}
-        <main className="flex-1 container mx-auto px-4 py-6 space-y-6">
-          {/* Filters and search */}
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search batches..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full md:w-48">
-                <SelectValue placeholder="Filter by status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="running">Running</SelectItem>
-                <SelectItem value="paused">Paused</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
-                <SelectItem value="cancelled">Cancelled</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Storage usage */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <HardDrive className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Storage Used:</span>
-                </div>
-                <div className="text-sm font-medium">
-                  {(storageUsage.used / 1024 / 1024).toFixed(1)} MB /{' '}
-                  {(storageUsage.quota / 1024 / 1024).toFixed(0)} MB (
-                  {storageUsage.percentUsed.toFixed(1)}%)
-                </div>
+          {/* Main content */}
+          <main className="flex-1 container mx-auto px-4 py-6 space-y-6">
+            {/* Filters and search */}
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search batches..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Batch list */}
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full md:w-48">
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="running">Running</SelectItem>
+                  <SelectItem value="paused">Paused</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-          ) : filteredBatches.length === 0 ? (
+
+            {/* Storage usage */}
             <Card>
-              <CardContent className="py-12 text-center">
-                <p className="text-muted-foreground">
-                  {searchQuery || statusFilter !== 'all'
-                    ? 'No batches match your filters'
-                    : 'No batch scrapes yet. Create one to get started!'}
-                </p>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <HardDrive className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">Storage Used:</span>
+                  </div>
+                  <div className="text-sm font-medium">
+                    {formatStorageUsage(storageUsage, true)}
+                  </div>
+                </div>
               </CardContent>
             </Card>
-          ) : (
-            <div className="space-y-4">
-              {filteredBatches.map((batch) => {
-                const stats = batchStats[batch.id] || {}
-                return (
-                  <Card
-                    key={batch.id}
-                    className="cursor-pointer hover:bg-muted/50 transition-colors"
-                    onClick={() => handleOpenBatch(batch.id)}
-                  >
-                    <CardHeader>
-                      <div className="flex items-start justify-between">
-                        <div className="space-y-1 flex-1">
-                          <div className="flex items-center gap-2">
-                            {getStatusIcon(batch.status)}
-                            <CardTitle className="text-lg ph_hidden">{batch.name}</CardTitle>
-                          </div>
-                          <CardDescription className="ph_hidden">
-                            Created{' '}
-                            {formatDistanceToNow(new Date(batch.createdAt), { addSuffix: true })}
-                          </CardDescription>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant={getStatusBadgeVariant(batch.status)}>
-                            {batch.status}
-                          </Badge>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleDeleteBatch(batch)
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                        <div>
-                          <span className="text-muted-foreground">Total URLs:</span>
-                          <div className="font-medium">{stats.total || 0}</div>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Completed:</span>
-                          <div className="font-medium text-green-600 dark:text-green-400">
-                            {stats.completed || 0}
-                          </div>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Failed:</span>
-                          <div className="font-medium text-red-600 dark:text-red-400">
-                            {stats.failed || 0}
-                          </div>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Total Rows:</span>
-                          <div className="font-medium">
-                            {(stats.totalRows || 0).toLocaleString()}
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )
-              })}
-            </div>
-          )}
-        </main>
 
-        <Footer />
+            {/* Batch list */}
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : filteredBatches.length === 0 ? (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <p className="text-muted-foreground">
+                    {searchQuery || statusFilter !== 'all'
+                      ? 'No batches match your filters'
+                      : 'No batch scrapes yet. Create one to get started!'}
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                {filteredBatches.map((batch) => {
+                  const stats = batchStats[batch.id] || {}
+                  return (
+                    <Card
+                      key={batch.id}
+                      className="cursor-pointer hover:bg-muted/50 transition-colors"
+                      onClick={() => handleOpenBatch(batch.id)}
+                    >
+                      <CardHeader>
+                        <div className="flex items-start justify-between">
+                          <div className="space-y-1 flex-1">
+                            <div className="flex items-center gap-2">
+                              <BatchStatusIcon status={batch.status} />
+                              <CardTitle className="text-lg ph_hidden">{batch.name}</CardTitle>
+                            </div>
+                            <CardDescription className="ph_hidden">
+                              Created{' '}
+                              {formatDistanceToNow(new Date(batch.createdAt), { addSuffix: true })}
+                            </CardDescription>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant={getStatusBadgeVariant(batch.status)}>
+                              {batch.status}
+                            </Badge>
+                            <DuplicateBatchButton batch={batch} stopPropagation />
+                            <DeleteBatchDialog
+                              batch={batch}
+                              onSuccess={loadBatches}
+                              stopPropagation
+                            />
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                          <div>
+                            <span className="text-muted-foreground">Total URLs:</span>
+                            <div className="font-medium">{stats.total || 0}</div>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Completed:</span>
+                            <div className="font-medium text-green-600 dark:text-green-400">
+                              {stats.completed || 0}
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Failed:</span>
+                            <div className="font-medium text-red-600 dark:text-red-400">
+                              {stats.failed || 0}
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Total Rows:</span>
+                            <div className="font-medium">
+                              {(stats.totalRows || 0).toLocaleString()}
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )
+                })}
+              </div>
+            )}
+          </main>
+
+          <Footer />
+        </TooltipProvider>
       </ConsentWrapper>
     </div>
   )

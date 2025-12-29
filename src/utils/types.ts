@@ -163,3 +163,16 @@ export interface OpenBatchScrapePayload {
   config?: ScrapeConfig
   batchId?: string // For resuming existing batch
 }
+
+// Shared UI types
+export interface StorageUsage {
+  used: number
+  quota: number
+  percentUsed: number
+}
+
+// Re-export ButtonSize from button variants for reuse across components
+// This avoids importing class-variance-authority in every component that needs button sizes
+import type { buttonVariants } from '@/components/ui/button'
+import type { VariantProps } from 'class-variance-authority'
+export type ButtonSize = VariantProps<typeof buttonVariants>['size']
