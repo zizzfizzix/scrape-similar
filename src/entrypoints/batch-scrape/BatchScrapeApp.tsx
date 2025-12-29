@@ -190,33 +190,31 @@ const BatchScrapeApp: React.FC = () => {
               </Button>
             }
             center={
-              batch && (
-                <div className="relative w-96">
-                  <Input
-                    placeholder="Batch name"
-                    value={batchName}
-                    onChange={(e) => setBatchName(e.target.value)}
-                    className="text-center font-semibold pr-10"
-                  />
-                  {batchName !== batch.name && (
-                    <div className="absolute inset-y-0 right-0 flex items-center pr-1">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={handleNameUpdate}
-                            className="h-8 w-8"
-                          >
-                            <Save className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Save batch name</TooltipContent>
-                      </Tooltip>
-                    </div>
-                  )}
-                </div>
-              )
+              <div className="relative w-96">
+                <Input
+                  placeholder="Batch name (optional)"
+                  value={batchName}
+                  onChange={(e) => setBatchName(e.target.value)}
+                  className="text-center font-semibold pr-10"
+                />
+                {batch && batchName !== batch.name && (
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-1">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={handleNameUpdate}
+                          className="h-8 w-8"
+                        >
+                          <Save className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Save batch name</TooltipContent>
+                    </Tooltip>
+                  </div>
+                )}
+              </div>
             }
             right={
               <BatchActionButtons
@@ -255,34 +253,21 @@ const BatchScrapeApp: React.FC = () => {
             {/* Show form if no batch yet */}
             {!batch && (
               <>
-                {/* Batch name input - only show when creating */}
-                <div className="flex items-center gap-2">
-                  <Input
-                    placeholder="Batch name (optional)"
-                    value={batchName}
-                    onChange={(e) => setBatchName(e.target.value)}
-                    className="text-lg font-semibold"
-                  />
-                </div>
-
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div className="space-y-6">
-                    <BatchUrlInput urls={urlsInput} onChange={setUrlsInput} disabled={isCreating} />
-                  </div>
                   <div className="space-y-6">
                     <BatchConfig config={config} onChange={setConfig} disabled={isCreating} />
                   </div>
+                  <div className="space-y-6">
+                    <BatchSettingsComponent
+                      settings={settings}
+                      onChange={setSettings}
+                      disabled={isCreating}
+                    />
+                  </div>
                 </div>
-              </>
-            )}
 
-            {/* Settings */}
-            {!batch && (
-              <BatchSettingsComponent
-                settings={settings}
-                onChange={setSettings}
-                disabled={isCreating}
-              />
+                <BatchUrlInput urls={urlsInput} onChange={setUrlsInput} disabled={isCreating} />
+              </>
             )}
 
             {/* Results */}
