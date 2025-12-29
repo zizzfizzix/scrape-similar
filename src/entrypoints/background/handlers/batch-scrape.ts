@@ -1,7 +1,6 @@
 import {
   batchScrapeDb,
   getBatchJob,
-  getBatchUrlResults,
   getFailedUrlResults,
   getPendingUrlResults,
   updateBatchJob,
@@ -58,13 +57,14 @@ export const startBatchScrape = async (batchId: string): Promise<void> => {
     // Clean up
     activeBatches.delete(batchId)
 
-    // Update final status
-    const results = await getBatchUrlResults(batchId)
-    const allCompleted = results.every(
-      (r) => r.status === 'completed' || r.status === 'failed' || r.status === 'cancelled',
-    )
-    if (allCompleted) {
-      await updateBatchJob(batchId, { status: 'completed' })
+    // Update final status - check if all URLs are done using materialized statistics
+    const updatedBatch = await getBatchJob(batchId)
+    if (updatedBatch) {
+      const stats = updatedBatch.statistics
+      const allCompleted = stats.pending === 0 && stats.running === 0
+      if (allCompleted) {
+        await updateBatchJob(batchId, { status: 'completed' })
+      }
     }
 
     log.debug(`Batch scrape completed: ${batchId}`)

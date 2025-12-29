@@ -10,6 +10,16 @@ export interface BatchSettings {
   disableJsRendering: boolean // Default: false
 }
 
+export interface BatchStatistics {
+  total: number
+  pending: number
+  running: number
+  completed: number
+  failed: number
+  cancelled: number
+  totalRows: number
+}
+
 export interface BatchScrapeJob {
   id: string // UUID
   name: string // User-provided or auto-generated
@@ -19,6 +29,7 @@ export interface BatchScrapeJob {
   createdAt: number
   updatedAt: number
   settings: BatchSettings // concurrency, delays, retries, etc.
+  statistics: BatchStatistics // Pre-computed statistics (materialized view)
 }
 
 export interface BatchScrapeUrlResult {
@@ -42,11 +53,40 @@ class BatchScrapeDatabase extends Dexie {
   constructor() {
     super('BatchScrapeDB')
 
-    // Define schema
+    // Version 1: Initial schema
     this.version(1).stores({
       jobs: 'id, status, createdAt, updatedAt',
       urlResults: 'id, batchId, url, status, startedAt, completedAt',
     })
+
+    // Version 2: Add statistics field to jobs (materialized view pattern)
+    this.version(2)
+      .stores({
+        jobs: 'id, status, createdAt, updatedAt',
+        urlResults: 'id, batchId, url, status, startedAt, completedAt',
+      })
+      .upgrade(async (tx) => {
+        // Populate statistics for existing batches
+        const jobs = await tx.table('jobs').toArray()
+        for (const job of jobs) {
+          const urlResults = await tx.table('urlResults').where('batchId').equals(job.id).toArray()
+
+          const statistics: BatchStatistics = {
+            total: urlResults.length,
+            pending: urlResults.filter((r: any) => r.status === 'pending').length,
+            running: urlResults.filter((r: any) => r.status === 'running').length,
+            completed: urlResults.filter((r: any) => r.status === 'completed').length,
+            failed: urlResults.filter((r: any) => r.status === 'failed').length,
+            cancelled: urlResults.filter((r: any) => r.status === 'cancelled').length,
+            totalRows: urlResults
+              .filter((r: any) => r.result?.data)
+              .reduce((sum: number, r: any) => sum + (r.result?.data.length || 0), 0),
+          }
+
+          await tx.table('jobs').update(job.id, { statistics })
+        }
+        log.info('Database upgraded to v2: Added statistics to batch jobs')
+      })
   }
 }
 
@@ -98,6 +138,15 @@ export const createBatchJob = async (
       createdAt: Date.now(),
       updatedAt: Date.now(),
       settings: { ...DEFAULT_BATCH_SETTINGS, ...settings },
+      statistics: {
+        total: urls.length,
+        pending: urls.length,
+        running: 0,
+        completed: 0,
+        failed: 0,
+        cancelled: 0,
+        totalRows: 0,
+      },
     }
 
     await db.jobs.add(job)
@@ -218,18 +267,56 @@ export const getUrlResult = async (id: string): Promise<BatchScrapeUrlResult | u
 }
 
 /**
- * Update a URL result
+ * Update a URL result and recompute batch statistics
  */
 export const updateUrlResult = async (
   id: string,
   updates: Partial<Omit<BatchScrapeUrlResult, 'id' | 'batchId'>>,
 ): Promise<void> => {
   try {
+    // Get the URL result to find its batch ID
+    const urlResult = await db.urlResults.get(id)
+    if (!urlResult) {
+      throw new Error('URL result not found')
+    }
+
+    // Update the URL result
     await db.urlResults.update(id, updates)
     log.debug('Updated URL result:', id)
+
+    // Recompute and update batch statistics
+    await updateBatchStatistics(urlResult.batchId)
   } catch (error) {
     log.error('Error updating URL result:', error)
     throw error
+  }
+}
+
+/**
+ * Recompute and update batch statistics
+ * This is called automatically after any URL result change
+ */
+export const updateBatchStatistics = async (batchId: string): Promise<void> => {
+  try {
+    const urlResults = await db.urlResults.where('batchId').equals(batchId).toArray()
+
+    const statistics: BatchStatistics = {
+      total: urlResults.length,
+      pending: urlResults.filter((r) => r.status === 'pending').length,
+      running: urlResults.filter((r) => r.status === 'running').length,
+      completed: urlResults.filter((r) => r.status === 'completed').length,
+      failed: urlResults.filter((r) => r.status === 'failed').length,
+      cancelled: urlResults.filter((r) => r.status === 'cancelled').length,
+      totalRows: urlResults
+        .filter((r) => r.result?.data)
+        .reduce((sum, r) => sum + (r.result?.data.length || 0), 0),
+    }
+
+    await db.jobs.update(batchId, { statistics, updatedAt: Date.now() })
+    log.debug('Updated batch statistics:', batchId, statistics)
+  } catch (error) {
+    log.error('Error updating batch statistics:', error)
+    // Don't throw - statistics update failure shouldn't break the main flow
   }
 }
 
@@ -254,37 +341,6 @@ export const getFailedUrlResults = async (batchId: string): Promise<BatchScrapeU
   } catch (error) {
     log.error('Error getting failed URL results:', error)
     return []
-  }
-}
-
-/**
- * Get statistics for a batch
- */
-export const getBatchStatistics = async (batchId: string) => {
-  try {
-    const results = await getBatchUrlResults(batchId)
-    return {
-      total: results.length,
-      pending: results.filter((r) => r.status === 'pending').length,
-      running: results.filter((r) => r.status === 'running').length,
-      completed: results.filter((r) => r.status === 'completed').length,
-      failed: results.filter((r) => r.status === 'failed').length,
-      cancelled: results.filter((r) => r.status === 'cancelled').length,
-      totalRows: results
-        .filter((r) => r.result?.data)
-        .reduce((sum, r) => sum + (r.result?.data.length || 0), 0),
-    }
-  } catch (error) {
-    log.error('Error getting batch statistics:', error)
-    return {
-      total: 0,
-      pending: 0,
-      running: 0,
-      completed: 0,
-      failed: 0,
-      cancelled: 0,
-      totalRows: 0,
-    }
   }
 }
 
@@ -381,6 +437,64 @@ export const getStorageUsage = async () => {
       percentUsed: 0,
     }
   }
+}
+
+// ============================================================================
+// Live Query Functions (for use with useLiveQuery from dexie-react-hooks)
+// ============================================================================
+// These functions return promises that useLiveQuery can observe for changes
+
+/**
+ * Live query: Get a batch job by ID
+ * For use with useLiveQuery - automatically updates when batch changes
+ */
+export const liveGetBatchJob = (id: string) => {
+  return db.jobs.get(id)
+}
+
+/**
+ * Live query: Get all batch jobs
+ * For use with useLiveQuery - automatically updates when any batch changes
+ */
+export const liveGetAllBatchJobs = () => {
+  return db.jobs.reverse().sortBy('createdAt')
+}
+
+/**
+ * Live query: Get all URL results for a batch
+ * For use with useLiveQuery - automatically updates when URL results change
+ */
+export const liveGetBatchUrlResults = (batchId: string) => {
+  return db.urlResults.where('batchId').equals(batchId).toArray()
+}
+
+/**
+ * Live query: Get combined results for a batch
+ * For use with useLiveQuery - automatically updates when completed results change
+ */
+export const liveGetCombinedResults = async (batchId: string) => {
+  const results = await db.urlResults
+    .where({ batchId, status: 'completed' })
+    .filter((r) => r.result !== undefined && r.result.data.length > 0)
+    .toArray()
+
+  const combinedRows: ScrapedRow[] = []
+
+  for (const urlResult of results) {
+    if (!urlResult.result) continue
+
+    for (const row of urlResult.result.data) {
+      combinedRows.push({
+        data: {
+          url: urlResult.url,
+          ...row.data,
+        },
+        metadata: row.metadata,
+      })
+    }
+  }
+
+  return combinedRows
 }
 
 // Export the database instance for advanced operations

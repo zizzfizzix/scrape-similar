@@ -20,166 +20,71 @@ import {
   resumeBatchJob,
   startBatchJob,
 } from '@/utils/batch-operations'
-import {
-  getAllBatchJobs,
-  getBatchStatistics,
-  getCombinedResults,
-  getStorageUsage,
-  type BatchScrapeJob,
-} from '@/utils/batch-scrape-db'
+import { getStorageUsage, liveGetAllBatchJobs, type BatchScrapeJob } from '@/utils/batch-scrape-db'
 import { formatDistanceToNow } from 'date-fns'
+import { useLiveQuery } from 'dexie-react-hooks'
 import { HardDrive, Loader2, Plus, Search } from 'lucide-react'
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 
 const BatchScrapeHistoryApp: React.FC = () => {
-  const [batches, setBatches] = useState<BatchScrapeJob[]>([])
-  const [filteredBatches, setFilteredBatches] = useState<BatchScrapeJob[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [storageUsage, setStorageUsage] = useState({ used: 0, quota: 0, percentUsed: 0 })
-  const [loading, setLoading] = useState(true)
-  const [batchStats, setBatchStats] = useState<Record<string, any>>({})
-  const [combinedResultsCache, setCombinedResultsCache] = useState<Record<string, any[]>>({})
 
-  // Load batches
-  const loadBatches = useCallback(async () => {
+  // Live query for batches - automatically updates when IndexedDB changes
+  // Statistics are embedded in each batch, so no need to watch URL results!
+  const batches = useLiveQuery(() => liveGetAllBatchJobs(), [], undefined) as
+    | BatchScrapeJob[]
+    | undefined
+
+  const loading = batches === undefined
+
+  // Batch control handlers - no need to manually refresh, useLiveQuery handles it
+  const handleStartBatch = useCallback(async (batchId: string) => {
     try {
-      setLoading(true)
-      const allBatches = await getAllBatchJobs()
-      setBatches(allBatches)
-
-      // Load statistics and combined results for each batch
-      const stats: Record<string, any> = {}
-      const results: Record<string, any[]> = {}
-      for (const batch of allBatches) {
-        stats[batch.id] = await getBatchStatistics(batch.id)
-
-        // Load combined results for completed batches to enable export
-        if (batch.status === 'completed' && stats[batch.id].completed > 0) {
-          results[batch.id] = await getCombinedResults(batch.id)
-        }
-      }
-      setBatchStats(stats)
-      setCombinedResultsCache(results)
-
-      setLoading(false)
+      await startBatchJob(batchId)
+      toast.success('Batch started')
     } catch (error) {
-      toast.error('Failed to load batches')
-      setLoading(false)
+      toast.error('Failed to start batch')
     }
   }, [])
 
-  // Batch control handlers
-  const handleStartBatch = useCallback(
-    async (batchId: string) => {
-      try {
-        await startBatchJob(batchId)
-        toast.success('Batch started')
-        loadBatches()
-      } catch (error) {
-        toast.error('Failed to start batch')
-      }
-    },
-    [loadBatches],
-  )
-
-  const handlePauseBatch = useCallback(
-    async (batchId: string) => {
-      try {
-        await pauseBatchJob(batchId)
-        toast.success('Batch paused')
-        loadBatches()
-      } catch (error) {
-        toast.error('Failed to pause batch')
-      }
-    },
-    [loadBatches],
-  )
-
-  const handleResumeBatch = useCallback(
-    async (batchId: string) => {
-      try {
-        await resumeBatchJob(batchId)
-        toast.success('Batch resumed')
-        loadBatches()
-      } catch (error) {
-        toast.error('Failed to resume batch')
-      }
-    },
-    [loadBatches],
-  )
-
-  // Load storage usage
-  const loadStorage = useCallback(async () => {
-    const usage = await getStorageUsage()
-    setStorageUsage(usage)
+  const handlePauseBatch = useCallback(async (batchId: string) => {
+    try {
+      await pauseBatchJob(batchId)
+      toast.success('Batch paused')
+    } catch (error) {
+      toast.error('Failed to pause batch')
+    }
   }, [])
 
-  // Initial load
+  const handleResumeBatch = useCallback(async (batchId: string) => {
+    try {
+      await resumeBatchJob(batchId)
+      toast.success('Batch resumed')
+    } catch (error) {
+      toast.error('Failed to resume batch')
+    }
+  }, [])
+
+  // Load storage usage periodically
   useEffect(() => {
-    loadBatches()
+    const loadStorage = async () => {
+      const usage = await getStorageUsage()
+      setStorageUsage(usage)
+    }
+
     loadStorage()
-
-    const interval = setInterval(async () => {
-      try {
-        // Only update if data actually changed
-        const allBatches = await getAllBatchJobs()
-
-        // Check if batch list changed (length or any status/updatedAt changed)
-        setBatches((prev) => {
-          if (prev.length !== allBatches.length) return allBatches
-
-          const hasChanges = allBatches.some((newBatch, i) => {
-            const oldBatch = prev.find((b) => b.id === newBatch.id)
-            return (
-              !oldBatch ||
-              oldBatch.status !== newBatch.status ||
-              oldBatch.name !== newBatch.name ||
-              oldBatch.updatedAt !== newBatch.updatedAt
-            )
-          })
-
-          return hasChanges ? allBatches : prev
-        })
-
-        // Update statistics only for batches with active status
-        const activeBatches = allBatches.filter(
-          (b) => b.status === 'running' || b.status === 'paused',
-        )
-        if (activeBatches.length > 0) {
-          const stats: Record<string, any> = { ...batchStats }
-          for (const batch of activeBatches) {
-            stats[batch.id] = await getBatchStatistics(batch.id)
-          }
-          setBatchStats((prev) => {
-            // Only update if stats changed for active batches
-            const hasStatsChanges = activeBatches.some((b) => {
-              const oldStats = prev[b.id]
-              const newStats = stats[b.id]
-              return (
-                !oldStats ||
-                oldStats.completed !== newStats.completed ||
-                oldStats.failed !== newStats.failed ||
-                oldStats.totalRows !== newStats.totalRows
-              )
-            })
-            return hasStatsChanges ? stats : prev
-          })
-        }
-
-        // Update storage less frequently
-        loadStorage()
-      } catch (error) {
-        // Silent fail for polling updates
-      }
-    }, 3000) // Poll every 3 seconds (reduced from 5s but smarter)
+    const interval = setInterval(loadStorage, 60000) // Update every 60 seconds
 
     return () => clearInterval(interval)
-  }, [loadBatches, loadStorage])
+  }, [])
 
-  // Filter batches
-  useEffect(() => {
+  // Filter batches based on search and status
+  const filteredBatches = useMemo(() => {
+    if (!batches) return []
+
     let filtered = batches
 
     // Apply search filter
@@ -196,7 +101,7 @@ const BatchScrapeHistoryApp: React.FC = () => {
       filtered = filtered.filter((batch) => batch.status === statusFilter)
     }
 
-    setFilteredBatches(filtered)
+    return filtered
   }, [batches, searchQuery, statusFilter])
 
   // Handle new batch
@@ -292,7 +197,8 @@ const BatchScrapeHistoryApp: React.FC = () => {
             ) : (
               <div className="space-y-4">
                 {filteredBatches.map((batch) => {
-                  const stats = batchStats[batch.id] || {}
+                  // Statistics are embedded in the batch object!
+                  const stats = batch.statistics
                   return (
                     <Card key={batch.id} className="hover:bg-muted/50 transition-colors">
                       <CardHeader>
@@ -312,7 +218,7 @@ const BatchScrapeHistoryApp: React.FC = () => {
                               variant="card"
                               batch={batch}
                               statistics={stats}
-                              combinedResults={combinedResultsCache[batch.id] || []}
+                              combinedResults={[]}
                               config={batch.config}
                               canStart={batch.status === 'pending'}
                               canPause={batch.status === 'running'}
@@ -320,7 +226,9 @@ const BatchScrapeHistoryApp: React.FC = () => {
                               onStart={() => handleStartBatch(batch.id)}
                               onPause={() => handlePauseBatch(batch.id)}
                               onResume={() => handleResumeBatch(batch.id)}
-                              onDelete={loadBatches}
+                              onDelete={() => {
+                                // No manual refresh needed - useLiveQuery will auto-update
+                              }}
                             />
                           </div>
                         </div>
