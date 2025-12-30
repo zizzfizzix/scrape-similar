@@ -324,6 +324,23 @@ export const updateBatchStatistics = async (batchId: string): Promise<void> => {
         .reduce((sum, r) => sum + (r.result?.data.length || 0), 0),
     }
 
+    // Check if all work is done (no pending or running URLs)
+    const allWorkDone = statistics.pending === 0 && statistics.running === 0 && statistics.total > 0
+
+    if (allWorkDone) {
+      // Get current batch status
+      const batch = await db.jobs.get(batchId)
+
+      // If batch is running or paused, mark it as completed
+      // This handles both normal completion and the edge case where batch was paused
+      // while last URLs were finishing
+      if (batch && (batch.status === 'running' || batch.status === 'paused')) {
+        log.debug('All URLs completed, marking batch as completed:', batchId)
+        await db.jobs.update(batchId, { statistics, status: 'completed', updatedAt: Date.now() })
+        return
+      }
+    }
+
     await db.jobs.update(batchId, { statistics, updatedAt: Date.now() })
     log.debug('Updated batch statistics:', batchId, statistics)
   } catch (error) {

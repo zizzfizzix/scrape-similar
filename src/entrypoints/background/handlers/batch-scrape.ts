@@ -71,20 +71,6 @@ export const startBatchScrape = async (batchId: string): Promise<void> => {
     // Clean up
     activeBatches.delete(batchId)
 
-    // Update final status - check if all URLs are done using materialized statistics
-    const updatedBatch = await getBatchJob(batchId)
-    if (updatedBatch) {
-      const stats = updatedBatch.statistics
-      const allCompleted = stats.pending === 0 && stats.running === 0
-
-      // Only mark as completed if:
-      // 1. All work is done AND
-      // 2. Batch wasn't paused (check both memory and DB status)
-      if (allCompleted && !wasPaused && updatedBatch.status !== 'paused') {
-        await updateBatchJob(batchId, { status: 'completed' })
-      }
-    }
-
     log.debug(`Batch scrape finished: ${batchId}${wasPaused ? ' (was paused)' : ''}`)
   } catch (error) {
     log.error('Error starting batch scrape:', error)
