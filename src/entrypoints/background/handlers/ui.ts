@@ -7,6 +7,7 @@ import {
 import { handleExportToSheets } from '@/entrypoints/background/handlers/sheets-export'
 import { handleDemoScrape } from '@/entrypoints/background/services/demo-scrape'
 import type { MessageHandler } from '@/entrypoints/background/types'
+import { FEATURE_FLAGS, isFeatureEnabled } from '@/utils/feature-flags'
 import log from 'loglevel'
 
 /**
@@ -50,6 +51,15 @@ const handleDemoScrapeMessage: MessageHandler = async (message, sender, sendResp
  */
 const handleOpenBatchScrape: MessageHandler = async (message, sender, sendResponse) => {
   log.debug('UI requested to open batch scrape page')
+
+  // Check feature flag first
+  const enabled = await isFeatureEnabled(FEATURE_FLAGS.BATCH_SCRAPE_ENABLED)
+  if (!enabled) {
+    log.warn('Batch scrape feature is not enabled')
+    sendResponse({ success: false, error: 'Batch scrape feature is not enabled' })
+    return
+  }
+
   try {
     const payload = message.payload as OpenBatchScrapePayload | undefined
     const url = new URL(browser.runtime.getURL('/batch-scrape.html'))
@@ -79,6 +89,15 @@ const handleOpenBatchScrape: MessageHandler = async (message, sender, sendRespon
  */
 const handleOpenBatchScrapeHistory: MessageHandler = async (message, sender, sendResponse) => {
   log.debug('UI requested to open batch scrape history page')
+
+  // Check feature flag first
+  const enabled = await isFeatureEnabled(FEATURE_FLAGS.BATCH_SCRAPE_ENABLED)
+  if (!enabled) {
+    log.warn('Batch scrape feature is not enabled')
+    sendResponse({ success: false, error: 'Batch scrape feature is not enabled' })
+    return
+  }
+
   try {
     const url = browser.runtime.getURL('/batch-scrape-history.html')
     await browser.tabs.create({ url })

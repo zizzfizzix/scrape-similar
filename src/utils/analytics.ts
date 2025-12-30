@@ -58,6 +58,7 @@ export const ANALYTICS_EVENTS = {
   DEBUG_MODE_TOGGLE: 'debug_mode_toggle',
   HIDDEN_SETTINGS_UNLOCK: 'hidden_settings_unlock',
   KEYBOARD_SHORTCUT_COPY: 'keyboard_shortcut_copy',
+  FEATURE_FLAG_OVERRIDE: 'feature_flag_override',
 
   // Scraping operations
   SCRAPE_INITIATION_FROM_CONTEXT_MENU: 'scrape_initiation_from_context_menu',

@@ -1,3 +1,4 @@
+import { BOOTSTRAPPED_FLAGS, syncFeatureFlagsFromPostHog } from '@/utils/feature-flags'
 import log from 'loglevel'
 // Posthog needs to be imported this way, otherwise the extension doesn't pass the Chrome Web Store review
 // https://github.com/PostHog/posthog-js/issues/1464#issuecomment-2792093981
@@ -86,6 +87,7 @@ async function initializePostHog(): Promise<void> {
         // Supply our own distinct_id to ensure consistent distinct_id across extension contexts
         bootstrap: {
           distinctID: distinctId.toString(),
+          featureFlags: BOOTSTRAPPED_FLAGS,
         },
         api_host: apiHost,
         persistence: 'localStorage',
@@ -114,6 +116,11 @@ async function initializePostHog(): Promise<void> {
           // Using a custom property name to avoid conflicts with website's PostHog
           ;(window as any).__scrape_similar_posthog = posthogInstance
           log.debug('PostHog instance exposed to window.__scrape_similar_posthog')
+
+          // Sync feature flags from PostHog when they're loaded from server
+          posthogInstance.onFeatureFlags(() => {
+            syncFeatureFlagsFromPostHog(posthogInstance)
+          })
         },
       })
 

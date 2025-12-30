@@ -1,6 +1,6 @@
+import type { ExportResult } from '@/entrypoints/background/types'
+import { removeCachedAuthToken, requestAuthToken } from '@/entrypoints/background/utils/auth'
 import log from 'loglevel'
-import type { ExportResult } from '../types'
-import { removeCachedAuthToken, requestAuthToken } from '../utils/auth'
 
 /**
  * Validate EXPORT_TO_SHEETS payload structure

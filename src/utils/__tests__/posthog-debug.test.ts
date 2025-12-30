@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
+import { fakeBrowser } from 'wxt/testing'
+import { storage } from 'wxt/utils/storage'
 
 type Env = 'development' | 'test' | 'production'
 
@@ -9,13 +11,18 @@ type Scenario = {
 
 async function runScenario({ env, debugMode }: Scenario): Promise<boolean[]> {
   vi.resetModules()
+  fakeBrowser.reset()
 
   const isDev = env === 'development'
   const isTest = env === 'test'
   const modeMock = { isDev, isTest, isDevOrTest: isDev || isTest }
   vi.doMock('@/utils/modeTest', () => modeMock)
 
-  if (debugMode !== null) storage.setItem('local:debugMode', debugMode)
+  // Set up storage before importing posthog-background
+  if (debugMode !== null) await storage.setItem('local:debugMode', debugMode)
+
+  // Mock storage module to return the wxt storage we set up
+  vi.doMock('@/utils/storage', () => ({ storage }))
 
   vi.doMock('@/utils/consent', () => ({ getConsentState: () => Promise.resolve(true) }))
   vi.doMock('@/utils/distinct-id', () => ({ getOrCreateDistinctId: () => Promise.resolve('id') }))
@@ -28,6 +35,9 @@ async function runScenario({ env, debugMode }: Scenario): Promise<boolean[]> {
       }
       set_config(cfg: any) {
         if ('debug' in cfg) debugHistory.push(!!cfg.debug)
+      }
+      onFeatureFlags(_callback: () => void) {
+        // Stub for feature flags listener
       }
     }
     return { PostHog }

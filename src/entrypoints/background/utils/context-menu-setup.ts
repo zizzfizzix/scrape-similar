@@ -14,6 +14,7 @@ interface ContextMenuItem {
   title: string
   contexts?: ['selection' | 'page' | 'link' | 'image', ...Browser.contextMenus.ContextType[]]
   documentUrlPatterns?: string[]
+  visible?: boolean
 }
 
 /**
@@ -26,6 +27,7 @@ const createContextMenuItem = (item: ContextMenuItem): void => {
       title: item.title,
       contexts: item.contexts || ['selection', 'page', 'link', 'image'],
       documentUrlPatterns: item.documentUrlPatterns || CONTEXT_MENU_URL_PATTERNS,
+      visible: item.visible,
     },
     () => {
       if (browser.runtime.lastError) {
@@ -57,5 +59,19 @@ export const initializeContextMenus = (): void => {
       id: 'batch-scrape',
       title: 'Batch scrape',
     })
+  })
+}
+
+/**
+ * Update the batch scrape context menu item visibility
+ * This allows dynamically showing/hiding based on feature flag
+ */
+export const updateBatchScrapeMenuVisible = (visible: boolean): void => {
+  browser.contextMenus.update('batch-scrape', { visible }, () => {
+    if (browser.runtime.lastError) {
+      log.error('Error updating batch-scrape menu:', browser.runtime.lastError)
+    } else {
+      log.debug(`Batch scrape menu ${visible ? 'visible' : 'hidden'}`)
+    }
   })
 }

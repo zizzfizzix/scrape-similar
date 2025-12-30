@@ -1,7 +1,10 @@
+import {
+  applySidePanelDataUpdates,
+  getSessionState,
+} from '@/entrypoints/background/services/session-storage'
 import { ANALYTICS_EVENTS, trackEvent } from '@/utils/analytics'
 import { isInjectableUrl } from '@/utils/isInjectableUrl'
 import log from 'loglevel'
-import { applySidePanelDataUpdates, getSessionState } from '../services/session-storage'
 
 /**
  * Handle context menu item clicks

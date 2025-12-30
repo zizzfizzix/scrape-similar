@@ -65,6 +65,7 @@ interface ConfigFormProps {
   rescrapeAdvised?: boolean
   pickerModeActive?: boolean
   tabUrl?: string | null // Current tab URL for batch scrape
+  batchScrapeEnabled?: boolean // Feature flag for batch scrape
 }
 
 const ConfigForm: React.FC<ConfigFormProps> = ({
@@ -85,6 +86,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
   rescrapeAdvised = false,
   pickerModeActive = false,
   tabUrl,
+  batchScrapeEnabled = false,
 }) => {
   // Local state for adding a new column
   const [newColumnName, setNewColumnName] = useState('')
@@ -1117,29 +1119,31 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
               </>
             )}
           </Button>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                className="shrink-0"
-                onClick={() => {
-                  const payload: OpenBatchScrapePayload = { config }
-                  // Add current tab URL if available
-                  if (tabUrl) {
-                    payload.urls = [tabUrl]
-                  }
-                  browser.runtime.sendMessage({
-                    type: MESSAGE_TYPES.OPEN_BATCH_SCRAPE,
-                    payload,
-                  })
-                }}
-                disabled={isLoading || config.columns.length === 0}
-              >
-                <Layers className="w-4 h-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Batch Scrape (multiple URLs)</TooltipContent>
-          </Tooltip>
+          {batchScrapeEnabled && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="shrink-0"
+                  onClick={() => {
+                    const payload: OpenBatchScrapePayload = { config }
+                    // Add current tab URL if available
+                    if (tabUrl) {
+                      payload.urls = [tabUrl]
+                    }
+                    browser.runtime.sendMessage({
+                      type: MESSAGE_TYPES.OPEN_BATCH_SCRAPE,
+                      payload,
+                    })
+                  }}
+                  disabled={isLoading || config.columns.length === 0}
+                >
+                  <Layers className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Batch Scrape (multiple URLs)</TooltipContent>
+            </Tooltip>
+          )}
         </div>
       </div>
     </div>

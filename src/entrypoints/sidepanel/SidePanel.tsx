@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Toaster } from '@/components/ui/sonner'
+import { FEATURE_FLAGS, isFeatureEnabled } from '@/utils/feature-flags'
 import { chromeExtensionId } from '@@/package.json' with { type: 'json' }
 import log from 'loglevel'
 import { Minimize2, X } from 'lucide-react'
@@ -164,6 +165,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
   const [highlightError, setHighlightError] = useState<string | undefined>(undefined)
   const [showEmptyRows, setShowEmptyRows] = useState(false)
   const [pickerModeActive, setPickerModeActive] = useState(false)
+  const [batchScrapeEnabled, setBatchScrapeEnabled] = useState(false)
 
   // Memoized export filename (regenerates if tabUrl changes)
   const exportFilename = React.useMemo(() => {
@@ -485,6 +487,27 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
     return () => {
       unwatchUserPresets()
       unwatchSystemPresetStatus()
+    }
+  }, [])
+
+  // ---------------------------------------------------------------------------
+  // Load batch scrape feature flag and watch for changes
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    isFeatureEnabled(FEATURE_FLAGS.BATCH_SCRAPE_ENABLED).then(setBatchScrapeEnabled)
+
+    const unwatchFeatureFlags = storage.watch('local:featureFlags', async () => {
+      const enabled = await isFeatureEnabled(FEATURE_FLAGS.BATCH_SCRAPE_ENABLED)
+      setBatchScrapeEnabled(enabled)
+    })
+    const unwatchOverrides = storage.watch('local:featureFlagOverrides', async () => {
+      const enabled = await isFeatureEnabled(FEATURE_FLAGS.BATCH_SCRAPE_ENABLED)
+      setBatchScrapeEnabled(enabled)
+    })
+
+    return () => {
+      unwatchFeatureFlags()
+      unwatchOverrides()
     }
   }, [])
 
@@ -826,6 +849,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
               highlightError={highlightError}
               pickerModeActive={pickerModeActive}
               tabUrl={tabUrl}
+              batchScrapeEnabled={batchScrapeEnabled}
               // Show rescrape hint when there is data and config differs from the config that produced it
               rescrapeAdvised={
                 !!(scrapeResult && scrapeResult.data && scrapeResult.data.length > 0) &&

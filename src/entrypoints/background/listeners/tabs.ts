@@ -1,6 +1,9 @@
+import {
+  clearDemoScrapeFlag,
+  executeDemoScrape,
+} from '@/entrypoints/background/services/demo-scrape'
+import { clearSessionState } from '@/entrypoints/background/services/session-storage'
 import log from 'loglevel'
-import { clearDemoScrapeFlag, executeDemoScrape } from '../services/demo-scrape'
-import { clearSessionState } from '../services/session-storage'
 
 /**
  * Handle tab removal - clean up session and demo scrape data

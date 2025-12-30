@@ -1,3 +1,4 @@
+import { closeHiddenTab, createHiddenTab } from '@/entrypoints/background/services/hidden-tabs'
 import {
   batchScrapeDb,
   getBatchJob,
@@ -10,7 +11,6 @@ import {
 } from '@/utils/batch-scrape-db'
 import { calculateRetryDelay } from '@/utils/batch-url-utils'
 import log from 'loglevel'
-import { closeHiddenTab, createHiddenTab } from '../services/hidden-tabs'
 
 // Track active batch scrape sessions
 const activeBatches = new Map<

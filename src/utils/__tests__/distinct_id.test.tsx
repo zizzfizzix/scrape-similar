@@ -21,6 +21,10 @@ vi.mock('posthog-js/dist/module.no-external', () => {
     }
 
     capture() {}
+
+    onFeatureFlags(_callback: () => void) {
+      // Stub for feature flags listener
+    }
   }
 
   return { PostHog: MockPostHog }
