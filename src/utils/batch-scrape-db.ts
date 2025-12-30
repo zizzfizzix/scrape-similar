@@ -20,6 +20,18 @@ export interface BatchStatistics {
   totalRows: number
 }
 
+// Canonical URL status type - single source of truth
+export type UrlStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
+
+// All possible URL statuses as array
+export const URL_STATUSES: readonly UrlStatus[] = [
+  'pending',
+  'running',
+  'completed',
+  'failed',
+  'cancelled',
+] as const
+
 export interface BatchScrapeJob {
   id: string // UUID
   name: string // User-provided or auto-generated
@@ -36,7 +48,7 @@ export interface BatchScrapeUrlResult {
   id: string // UUID
   batchId: string // Foreign key to BatchScrapeJob
   url: string
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
+  status: UrlStatus
   result?: ScrapeResult // The scraped data
   error?: string
   retryCount: number

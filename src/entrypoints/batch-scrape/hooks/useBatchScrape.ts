@@ -78,18 +78,28 @@ export const useBatchScrape = (initialBatchId?: string) => {
     [],
   )
 
-  // Start batch
-  const startBatch = useCallback(async () => {
-    if (!batch) return
+  /**
+   * Start a batch job.
+   * @param id - Optional batch ID to start. If not provided, uses the batch from hook state.
+   *             The optional ID is needed for the createAndStartBatch flow, where we need to
+   *             start a batch immediately after creation, before the React state has updated
+   *             with the new batch object.
+   */
+  const startBatch = useCallback(
+    async (id?: string) => {
+      const batchIdToStart = id ?? batch?.id
+      if (!batchIdToStart) return
 
-    try {
-      setError(null)
-      await startBatchJob(batch.id)
-    } catch (err) {
-      log.error('Error starting batch:', err)
-      setError(err instanceof Error ? err.message : 'Failed to start batch')
-    }
-  }, [batch])
+      try {
+        setError(null)
+        await startBatchJob(batchIdToStart)
+      } catch (err) {
+        log.error('Error starting batch:', err)
+        setError(err instanceof Error ? err.message : 'Failed to start batch')
+      }
+    },
+    [batch],
+  )
 
   // Pause batch
   const pauseBatch = useCallback(async () => {
@@ -153,6 +163,36 @@ export const useBatchScrape = (initialBatchId?: string) => {
     [batchId],
   )
 
+  /**
+   * Create and start a batch in one atomic operation.
+   * This is a convenience function that combines createBatch + startBatch.
+   * We pass the new batch ID directly to startBatch because the React state
+   * hasn't updated yet with the new batch object when we call startBatch.
+   */
+  const createAndStartBatch = useCallback(
+    async (
+      config: ScrapeConfig,
+      urls: string[],
+      name?: string,
+      settings?: Partial<BatchSettings>,
+    ) => {
+      try {
+        // Create the batch using the existing function
+        const newBatch = await createBatch(config, urls, name, settings)
+
+        // Start it immediately using the ID (batch state hasn't updated yet)
+        await startBatch(newBatch.id)
+
+        return newBatch
+      } catch (err) {
+        log.error('Error creating and starting batch:', err)
+        setError(err instanceof Error ? err.message : 'Failed to create and start batch')
+        throw err
+      }
+    },
+    [createBatch, startBatch],
+  )
+
   return {
     batch: batch ?? null,
     urlResults: urlResults ?? [],
@@ -160,11 +200,10 @@ export const useBatchScrape = (initialBatchId?: string) => {
     combinedResults: combinedResults ?? [],
     loading,
     error,
-    createBatch,
-    startBatch,
     pauseBatch,
     resumeBatch,
     retryUrl,
     updateBatchName,
+    createAndStartBatch,
   }
 }

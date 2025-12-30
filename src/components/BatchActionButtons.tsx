@@ -4,10 +4,16 @@ import { DeleteBatchDialog } from '@/components/DeleteBatchDialog'
 import { DuplicateBatchButton } from '@/components/DuplicateBatchButton'
 import ExportButtons from '@/components/ExportButtons'
 import { Button } from '@/components/ui/button'
-import type { BatchScrapeJob, BatchStatistics } from '@/utils/batch-scrape-db'
+import {
+  updateBatchJob,
+  type BatchScrapeJob,
+  type BatchSettings,
+  type BatchStatistics,
+} from '@/utils/batch-scrape-db'
 import type { ScrapeConfig, ScrapedRow } from '@/utils/types'
 import { Pause, Play } from 'lucide-react'
 import React from 'react'
+import { toast } from 'sonner'
 
 interface BatchActionButtonsProps {
   // Batch state
@@ -17,9 +23,10 @@ interface BatchActionButtonsProps {
   config: ScrapeConfig
   selectedRows?: ScrapedRow[]
 
-  // Pre-batch state
-  isCreating?: boolean
-  onCreateBatch?: () => void
+  // Pre-batch state (when batch is null)
+  settings?: BatchSettings
+  onSettingsChange?: (settings: BatchSettings) => void
+  isStarting?: boolean
 
   // Post-batch controls
   canStart?: boolean
@@ -41,7 +48,7 @@ const Divider: React.FC = () => <div className="h-6 w-px bg-border" />
 
 /**
  * Unified component for all batch action buttons in the header.
- * Handles both pre-batch (Create) and post-batch (actions) states with smart divider logic.
+ * Handles both pre-batch (Settings + Start) and post-batch (actions) states with smart divider logic.
  * Supports two variants: 'header' mode for detail pages and 'card' mode for list items.
  */
 export const BatchActionButtons: React.FC<BatchActionButtonsProps> = ({
@@ -50,8 +57,9 @@ export const BatchActionButtons: React.FC<BatchActionButtonsProps> = ({
   combinedResults,
   config,
   selectedRows,
-  isCreating,
-  onCreateBatch,
+  settings,
+  onSettingsChange,
+  isStarting,
   canStart,
   canPause,
   canResume,
@@ -61,12 +69,23 @@ export const BatchActionButtons: React.FC<BatchActionButtonsProps> = ({
   onDelete,
   variant = 'header',
 }) => {
-  // Pre-batch state: Show Create Batch button (only in header mode)
+  // Pre-batch state: Show Settings + Start button (only in header mode)
   if (!batch && variant === 'header') {
     return (
-      <Button onClick={onCreateBatch} disabled={isCreating} size="default">
-        {isCreating ? 'Creating...' : 'Create Batch'}
-      </Button>
+      <div className="flex items-center gap-3">
+        {settings && onSettingsChange && (
+          <BatchSettingsDialog
+            settings={settings}
+            onSave={onSettingsChange}
+            triggerButton={{ size: 'sm' }}
+            form={{ showResetButton: true }}
+          />
+        )}
+        <Button onClick={onStart} disabled={isStarting} size="sm">
+          <Play className="h-4 w-4 mr-2" />
+          {isStarting ? 'Starting...' : 'Start'}
+        </Button>
+      </div>
     )
   }
 
@@ -74,6 +93,15 @@ export const BatchActionButtons: React.FC<BatchActionButtonsProps> = ({
   if (!batch) {
     return null
   }
+
+  // Handler for saving batch settings to database
+  const handleBatchSettingsSave = async (newSettings: BatchSettings) => {
+    await updateBatchJob(batch.id, { settings: newSettings })
+    toast.success('Batch settings updated')
+  }
+
+  // Determine if settings can be edited
+  const isSettingsEditable = batch.status === 'pending' || batch.status === 'paused'
 
   // Determine gap spacing based on variant
   const gapClass = variant === 'card' ? 'gap-2' : 'gap-3'
@@ -93,7 +121,14 @@ export const BatchActionButtons: React.FC<BatchActionButtonsProps> = ({
         <React.Fragment key="status-actions">
           <BatchStatusIndicator statistics={statistics!} />
           <Divider />
-          {showSettingsButton && <BatchSettingsDialog batch={batch} size="sm" />}
+          {showSettingsButton && (
+            <BatchSettingsDialog
+              settings={batch.settings}
+              onSave={handleBatchSettingsSave}
+              isEditable={isSettingsEditable}
+              triggerButton={{ size: 'sm' }}
+            />
+          )}
           <DuplicateBatchButton batch={batch} size="sm" />
           <DeleteBatchDialog batch={batch} onSuccess={onDelete} size="sm" />
         </React.Fragment>

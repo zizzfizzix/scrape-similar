@@ -10,37 +10,72 @@ import {
 } from '@/components/ui/dialog'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { BatchSettingsForm } from '@/entrypoints/batch-scrape/components/BatchSettings'
-import { updateBatchJob, type BatchScrapeJob, type BatchSettings } from '@/utils/batch-scrape-db'
-import type { ButtonSize } from '@/utils/types'
+import type { BatchSettings } from '@/utils/batch-scrape-db'
+import type { ButtonSize, ButtonVariant } from '@/utils/types'
 import { Settings } from 'lucide-react'
 import React, { useState } from 'react'
-import { toast } from 'sonner'
 
-interface BatchSettingsDialogProps {
-  batch: BatchScrapeJob
-  /** Callback after successful settings update */
-  onSettingsUpdated?: () => void
-  /** Whether to stop click propagation (useful in clickable cards) */
-  stopPropagation?: boolean
+interface TriggerButtonConfig {
   /** Button size variant */
   size?: ButtonSize
+  /** Button variant */
+  variant?: ButtonVariant
+  /** Whether the trigger button is disabled */
+  disabled?: boolean
+  /** Whether to stop click propagation (useful in clickable cards) */
+  stopPropagation?: boolean
 }
 
+interface FormConfig {
+  /** Whether to show the reset button in the form */
+  showResetButton?: boolean
+  /** Description text for the dialog */
+  description?: string
+}
+
+interface BatchSettingsDialogProps {
+  /** Current settings to display/edit */
+  settings: BatchSettings
+  /** Called when user saves settings - parent decides what to do (save to DB, update state, etc.) */
+  onSave: (settings: BatchSettings) => void | Promise<void>
+  /** Whether the settings can be edited (default: true) */
+  isEditable?: boolean
+  /** Trigger button configuration */
+  triggerButton?: TriggerButtonConfig
+  /** Form configuration */
+  form?: FormConfig
+}
+
+/**
+ * A controlled dialog for editing batch settings.
+ * The parent component provides settings and an onSave callback.
+ * The parent decides what to do on save (update DB, update local state, etc.).
+ */
 export const BatchSettingsDialog: React.FC<BatchSettingsDialogProps> = ({
-  batch,
-  onSettingsUpdated,
-  stopPropagation = false,
-  size = 'icon',
+  settings,
+  onSave,
+  isEditable = true,
+  triggerButton = {},
+  form = {},
 }) => {
+  // Destructure nested configs with defaults
+  const {
+    size = 'sm',
+    variant = 'ghost',
+    disabled = false,
+    stopPropagation = false,
+  } = triggerButton
+  const { showResetButton = false, description = 'Configure how URLs are scraped in this batch.' } =
+    form
   const [open, setOpen] = useState(false)
-  const [settings, setSettings] = useState<BatchSettings>(batch.settings)
+  const [localSettings, setLocalSettings] = useState<BatchSettings>(settings)
   const [isSaving, setIsSaving] = useState(false)
 
-  // Reset settings when dialog opens
+  // Reset local settings when dialog opens
   const handleOpenChange = (newOpen: boolean) => {
     setOpen(newOpen)
     if (newOpen) {
-      setSettings(batch.settings)
+      setLocalSettings(settings)
     }
   }
 
@@ -53,55 +88,62 @@ export const BatchSettingsDialog: React.FC<BatchSettingsDialogProps> = ({
   const handleSave = async () => {
     try {
       setIsSaving(true)
-      await updateBatchJob(batch.id, { settings })
-      toast.success('Batch settings updated')
+      await onSave(localSettings)
       setOpen(false)
-      onSettingsUpdated?.()
     } catch (error) {
-      toast.error('Failed to update batch settings')
+      // Parent's onSave should handle errors/toasts
     } finally {
       setIsSaving(false)
     }
   }
 
-  // Only allow editing for pending or paused batches
-  const isEditable = batch.status === 'pending' || batch.status === 'paused'
+  const handleCancel = () => {
+    setLocalSettings(settings)
+    setOpen(false)
+  }
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <Tooltip>
         <TooltipTrigger asChild>
           <DialogTrigger asChild>
-            <Button variant="ghost" size={size} onClick={handleTriggerClick}>
+            <Button variant={variant} size={size} onClick={handleTriggerClick} disabled={disabled}>
               <Settings className="h-4 w-4" />
             </Button>
           </DialogTrigger>
         </TooltipTrigger>
         <TooltipContent>Batch settings</TooltipContent>
       </Tooltip>
-      <DialogContent className="sm:max-w-[600px]" onClick={(e) => e.stopPropagation()}>
+      <DialogContent
+        className="sm:max-w-[600px]"
+        onClick={(e) => stopPropagation && e.stopPropagation()}
+      >
         <DialogHeader>
           <DialogTitle>Batch Settings</DialogTitle>
           <DialogDescription>
             {isEditable
-              ? 'Configure how URLs are scraped in this batch.'
+              ? description
               : 'Settings cannot be changed while batch is running or completed.'}
           </DialogDescription>
         </DialogHeader>
         <div className="py-4">
-          <BatchSettingsForm settings={settings} onChange={setSettings} disabled={!isEditable} />
+          <BatchSettingsForm
+            settings={localSettings}
+            onChange={setLocalSettings}
+            disabled={!isEditable || disabled}
+            showResetButton={showResetButton}
+          />
         </div>
-        {isEditable && (
+        {isEditable ? (
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)} disabled={isSaving}>
+            <Button variant="outline" onClick={handleCancel} disabled={isSaving}>
               Cancel
             </Button>
             <Button onClick={handleSave} disabled={isSaving}>
-              {isSaving ? 'Saving...' : 'Save Changes'}
+              {isSaving ? 'Saving...' : 'Save'}
             </Button>
           </DialogFooter>
-        )}
-        {!isEditable && (
+        ) : (
           <DialogFooter>
             <Button onClick={() => setOpen(false)}>Close</Button>
           </DialogFooter>

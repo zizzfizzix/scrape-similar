@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Toaster } from '@/components/ui/sonner'
+import { usePresets } from '@/hooks/usePresets'
 import { FEATURE_FLAGS, isFeatureEnabled } from '@/utils/feature-flags'
 import { chromeExtensionId } from '@@/package.json' with { type: 'json' }
 import log from 'loglevel'
@@ -153,7 +154,6 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
   const [scrapeResult, setScrapeResult] = useState<ScrapeResult | null>(null)
   // Track the configuration that produced the current scrapeResult
   const [resultProducingConfig, setResultProducingConfig] = useState<ScrapeConfig | null>(null)
-  const [presets, setPresets] = useState<Preset[]>([])
   const [isScraping, setIsScraping] = useState(false)
   const [tabUrl, setTabUrl] = useState<string | null>(null)
   const [showPresets, setShowPresets] = useState(false)
@@ -166,6 +166,15 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
   const [showEmptyRows, setShowEmptyRows] = useState(false)
   const [pickerModeActive, setPickerModeActive] = useState(false)
   const [batchScrapeEnabled, setBatchScrapeEnabled] = useState(false)
+
+  // Use presets hook for preset management
+  const {
+    presets,
+    getPresetConfig: loadPresetConfig,
+    handleSavePreset,
+    handleDeletePreset,
+    handleResetSystemPresets,
+  } = usePresets()
 
   // Memoized export filename (regenerates if tabUrl changes)
   const exportFilename = React.useMemo(() => {
@@ -366,21 +375,8 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
     setPickerModeActive(pickerModeActive ?? false)
   }, [])
 
-  // Initialize: load presets, listen for messages, AND listen for tab activation
+  // Initialize: listen for tab activation
   useEffect(() => {
-    // Load presets (system + user, respecting status)
-    const loadPresets = async () => {
-      try {
-        const loadedPresets = await getAllPresets()
-        setPresets(loadedPresets)
-      } catch (error) {
-        log.error('Error loading presets:', error)
-        setPresets([])
-      }
-    }
-
-    loadPresets()
-
     // Listen for tab activation
     const tabActivationListener = (activeInfo: { tabId: number; previousTabId?: number }) => {
       log.debug(`SidePanel detected tab activation: ${activeInfo.tabId}`)
@@ -470,25 +466,6 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
     })
     return () => unwatch()
   }, [targetTabId, handleInitialData])
-
-  // ---------------------------------------------------------------------------
-  // Watch preset collections (sync-area keys) – keeps local state in sync when
-  // presets are created, deleted or system-preset visibility changes elsewhere.
-  // ---------------------------------------------------------------------------
-  useEffect(() => {
-    const unwatchUserPresets = storage.watch<Preset[]>(
-      `sync:${STORAGE_KEYS.USER_PRESETS}` as const,
-      () => getAllPresets().then(setPresets),
-    )
-    const unwatchSystemPresetStatus = storage.watch<Record<string, boolean>>(
-      'sync:system_preset_status' as const,
-      () => getAllPresets().then(setPresets),
-    )
-    return () => {
-      unwatchUserPresets()
-      unwatchSystemPresetStatus()
-    }
-  }, [])
 
   // ---------------------------------------------------------------------------
   // Load batch scrape feature flag and watch for changes
@@ -664,109 +641,22 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
     )
   }
 
+  // Wrap the hook's handleLoadPreset to also update config and trigger highlight
   const handleLoadPreset = (preset: Preset) => {
-    handleConfigChange(preset.config)
+    // Use hook's function for analytics and getting config
+    const presetConfig = loadPresetConfig(preset)
+
+    // Update local config state
+    handleConfigChange(presetConfig)
 
     // Trigger highlighting if the preset has a main selector
-    if (preset.config.mainSelector) {
-      handleHighlight(preset.config.mainSelector)
-    }
-
-    // Track preset loaded event
-    trackEvent(ANALYTICS_EVENTS.PRESET_LOAD, {
-      type: isSystemPreset(preset) ? 'system' : 'user',
-      preset_name: isSystemPreset(preset) ? preset.name : null,
-      preset_id: isSystemPreset(preset) ? preset.id : null,
-    })
-  }
-
-  const handleSavePreset = async (name: string) => {
-    const preset: Preset = {
-      id: Date.now().toString(),
-      name,
-      config,
-      createdAt: Date.now(),
-    }
-    try {
-      const success = await savePreset(preset)
-      if (success) {
-        const updatedPresets = await getAllPresets()
-        setPresets(updatedPresets)
-        log.debug('Preset saved successfully and UI updated')
-
-        // Track preset saved event
-        trackEvent(ANALYTICS_EVENTS.PRESET_SAVE, {
-          type: 'user',
-          columns_count: config.columns.length,
-        })
-      } else {
-        log.error('Failed to save preset')
-      }
-    } catch (error) {
-      log.error('Error saving preset:', error)
+    if (presetConfig.mainSelector) {
+      handleHighlight(presetConfig.mainSelector)
     }
   }
 
-  // Hide system preset or delete user preset
-  const handleDeletePreset = async (preset: Preset) => {
-    if (isSystemPreset(preset)) {
-      // Hide system preset by setting enabled=false in status map
-      const statusMap = await getSystemPresetStatus()
-      statusMap[preset.id] = false
-      await setSystemPresetStatus(statusMap)
-      toast.success(`System preset "${preset.name}" hidden.`)
-      // Reload all presets
-      const updatedPresets = await getAllPresets()
-      setPresets(updatedPresets)
-
-      // Track preset hidden event
-      trackEvent(ANALYTICS_EVENTS.PRESET_HIDE, {
-        type: 'system',
-        preset_name: preset.name,
-        preset_id: preset.id,
-      })
-      return
-    }
-    // Otherwise, delete user preset as before
-    try {
-      const success = await deletePreset(preset.id)
-      if (success) {
-        const updatedPresets = await getAllPresets()
-        setPresets(updatedPresets)
-        toast.success(
-          <>
-            Preset "<span className="ph_hidden">{preset.name}</span>" deleted
-          </>,
-        )
-
-        // Track preset deleted event
-        trackEvent(ANALYTICS_EVENTS.PRESET_DELETION, {
-          type: 'user',
-        })
-      } else {
-        toast.error(
-          <>
-            Error, preset "<span className="ph_hidden">{preset.name}</span>" couldn't be deleted
-          </>,
-        )
-      }
-    } catch (error) {
-      log.error('Error deleting preset:', error)
-    }
-  }
-
-  // Reset (enable) all system presets
-  const handleResetSystemPresets = async () => {
-    await setSystemPresetStatus({}) // Clear all disables
-    const updatedPresets = await getAllPresets()
-    setPresets(updatedPresets)
-    toast.success('System presets have been reset')
-
-    // Track system presets reset event
-    trackEvent(ANALYTICS_EVENTS.SYSTEM_PRESETS_RESET, {
-      type: 'system',
-    })
-  }
+  // Wrap the hook's handleSavePreset to pass current config
+  const handleSavePresetWithConfig = (name: string) => handleSavePreset(name, config)
 
   // Check if the current tab is showing the full data view
   if (tabUrl?.startsWith(`chrome-extension://${chromeExtensionId}/full-data-view.html`)) {
@@ -839,7 +729,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
               initialOptions={initialOptions}
               presets={presets}
               onLoadPreset={handleLoadPreset}
-              onSavePreset={handleSavePreset}
+              onSavePreset={handleSavePresetWithConfig}
               onDeletePreset={handleDeletePreset}
               showPresets={showPresets}
               setShowPresets={setShowPresets}

@@ -1,20 +1,23 @@
 import { AppHeader } from '@/components/AppHeader'
 import { BatchActionButtons } from '@/components/BatchActionButtons'
+import ConfigForm from '@/components/ConfigForm'
 import { ConsentWrapper } from '@/components/ConsentWrapper'
 import { Footer } from '@/components/footer'
 import ResultsTable from '@/components/ResultsTable'
 import { Button } from '@/components/ui/button'
+import { ButtonGroup } from '@/components/ui/button-group'
 import { Input } from '@/components/ui/input'
 import { Toaster } from '@/components/ui/sonner'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { BatchConfig } from '@/entrypoints/batch-scrape/components/BatchConfig'
-import { BatchSettingsComponent } from '@/entrypoints/batch-scrape/components/BatchSettings'
 import { BatchUrlInput } from '@/entrypoints/batch-scrape/components/BatchUrlInput'
+import { UrlProgressTable } from '@/entrypoints/batch-scrape/components/UrlProgressTable'
 import { useBatchScrape } from '@/entrypoints/batch-scrape/hooks/useBatchScrape'
+import { usePresets } from '@/hooks/usePresets'
+import { useVisualPicker } from '@/hooks/useVisualPicker'
 import { navigateToBatchHistory } from '@/utils/batch-operations'
 import { DEFAULT_BATCH_SETTINGS, getBatchJob, type BatchSettings } from '@/utils/batch-scrape-db'
 import { validateAndDeduplicateUrls } from '@/utils/batch-url-utils'
-import { ArrowLeft, Save } from 'lucide-react'
+import { ArrowLeft, Plus, Save } from 'lucide-react'
 import React, { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -32,20 +35,57 @@ const BatchScrapeApp: React.FC = () => {
   })
   const [settings, setSettings] = useState<BatchSettings>(DEFAULT_BATCH_SETTINGS)
   const [batchName, setBatchName] = useState('')
-  const [isCreating, setIsCreating] = useState(false)
+  const [isStarting, setIsStarting] = useState(false)
   const [selectedRows, setSelectedRows] = useState<ScrapedRow[]>([])
+  const [showPresets, setShowPresets] = useState(false)
 
   // Use batch scrape hook
   const {
     batch,
     statistics,
     combinedResults,
-    createBatch,
-    startBatch,
+    createAndStartBatch,
     pauseBatch,
     resumeBatch,
     updateBatchName,
   } = useBatchScrape(batchIdFromUrl)
+
+  // Use presets hook
+  const {
+    presets,
+    getPresetConfig: loadPreset,
+    handleSavePreset,
+    handleDeletePreset,
+  } = usePresets()
+
+  // Wrap handleLoadPreset to update local config state
+  const handleLoadPreset = useCallback(
+    (preset: Preset) => {
+      const newConfig = loadPreset(preset)
+      setConfig(newConfig)
+    },
+    [loadPreset],
+  )
+
+  // Use visual picker hook
+  const { isPickerActive, openPicker } = useVisualPicker({
+    onSelectorPicked: (selector) => {
+      setConfig((prev) => ({ ...prev, mainSelector: selector }))
+    },
+  })
+
+  // Handle picker mode - opens first URL in picker
+  const handlePickerMode = useCallback(async () => {
+    const validation = validateAndDeduplicateUrls(urlsInput)
+    const firstUrl = validation.valid[0]
+
+    if (!firstUrl) {
+      toast.error('Add at least one URL first')
+      return
+    }
+
+    await openPicker(firstUrl)
+  }, [urlsInput, openPicker])
 
   // Load duplication data from Dexie if duplicateFromId is present
   useEffect(() => {
@@ -62,8 +102,8 @@ const BatchScrapeApp: React.FC = () => {
     }
   }, [duplicateFromId])
 
-  // Handle create batch
-  const handleCreateBatch = useCallback(async () => {
+  // Handle create and start batch
+  const handleStart = useCallback(async () => {
     // Validate URLs
     const validation = validateAndDeduplicateUrls(urlsInput)
     if (validation.valid.length === 0) {
@@ -78,9 +118,14 @@ const BatchScrapeApp: React.FC = () => {
     }
 
     try {
-      setIsCreating(true)
-      const newBatch = await createBatch(config, validation.valid, batchName || undefined, settings)
-      toast.success(`Created batch with ${validation.valid.length} URLs`)
+      setIsStarting(true)
+      const newBatch = await createAndStartBatch(
+        config,
+        validation.valid,
+        batchName || undefined,
+        settings,
+      )
+      toast.success(`Started batch with ${validation.valid.length} URLs`)
 
       // Update URL to include batch ID
       const newUrl = new URL(window.location.href)
@@ -88,21 +133,11 @@ const BatchScrapeApp: React.FC = () => {
       newUrl.searchParams.delete('duplicateFrom')
       window.history.replaceState({}, '', newUrl.toString())
     } catch (err) {
-      toast.error('Failed to create batch')
-    } finally {
-      setIsCreating(false)
-    }
-  }, [urlsInput, config, settings, batchName, createBatch])
-
-  // Handle start
-  const handleStart = useCallback(async () => {
-    try {
-      await startBatch()
-      toast.success('Batch scrape started')
-    } catch (err) {
       toast.error('Failed to start batch')
+    } finally {
+      setIsStarting(false)
     }
-  }, [startBatch])
+  }, [urlsInput, config, settings, batchName, createAndStartBatch])
 
   // Handle pause
   const handlePause = useCallback(async () => {
@@ -154,7 +189,6 @@ const BatchScrapeApp: React.FC = () => {
   const isRunning = batch?.status === 'running'
   const isPaused = batch?.status === 'paused'
   const isCompleted = batch?.status === 'completed'
-  const canStart = !!(batch && batch.status === 'pending')
   const canPause = isRunning
   const canResume = isPaused
 
@@ -171,10 +205,29 @@ const BatchScrapeApp: React.FC = () => {
         <TooltipProvider>
           <AppHeader
             left={
-              <Button variant="outline" size="sm" onClick={navigateToBatchHistory}>
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to History
-              </Button>
+              batch ? (
+                // Button group when viewing results
+                <ButtonGroup>
+                  <Button variant="outline" size="sm" onClick={navigateToBatchHistory}>
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    History
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => (window.location.href = '/batch-scrape.html')}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    New
+                  </Button>
+                </ButtonGroup>
+              ) : (
+                // Single button when creating new batch
+                <Button variant="outline" size="sm" onClick={navigateToBatchHistory}>
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back to History
+                </Button>
+              )
             }
             center={
               <div className="relative w-96">
@@ -211,9 +264,9 @@ const BatchScrapeApp: React.FC = () => {
                 combinedResults={combinedResults}
                 config={config}
                 selectedRows={selectedRows}
-                isCreating={isCreating}
-                onCreateBatch={handleCreateBatch}
-                canStart={canStart}
+                settings={settings}
+                onSettingsChange={setSettings}
+                isStarting={isStarting}
                 canPause={canPause}
                 canResume={canResume}
                 onStart={handleStart}
@@ -240,22 +293,30 @@ const BatchScrapeApp: React.FC = () => {
             {/* Show form if no batch yet */}
             {!batch && (
               <>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div className="space-y-6">
-                    <BatchConfig config={config} onChange={setConfig} disabled={isCreating} />
-                  </div>
-                  <div className="space-y-6">
-                    <BatchSettingsComponent
-                      settings={settings}
-                      onChange={setSettings}
-                      disabled={isCreating}
-                    />
-                  </div>
-                </div>
+                <ConfigForm
+                  config={config}
+                  onChange={setConfig}
+                  isLoading={isStarting}
+                  initialOptions={null}
+                  presets={presets}
+                  onLoadPreset={handleLoadPreset}
+                  onSavePreset={(name) => handleSavePreset(name, config)}
+                  onDeletePreset={handleDeletePreset}
+                  showPresets={showPresets}
+                  setShowPresets={setShowPresets}
+                  lastScrapeRowCount={null}
+                  showPickerButton={true}
+                  showScrapeButton={false}
+                  onPickerMode={handlePickerMode}
+                  pickerModeActive={isPickerActive}
+                />
 
-                <BatchUrlInput urls={urlsInput} onChange={setUrlsInput} disabled={isCreating} />
+                <BatchUrlInput urls={urlsInput} onChange={setUrlsInput} disabled={isStarting} />
               </>
             )}
+
+            {/* URL Progress Table */}
+            {batch && <UrlProgressTable batchId={batch.id} />}
 
             {/* Results */}
             {batch && combinedResults.length > 0 && (

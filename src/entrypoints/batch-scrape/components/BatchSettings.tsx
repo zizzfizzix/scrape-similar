@@ -1,5 +1,4 @@
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
@@ -163,42 +162,5 @@ export const BatchSettingsForm: React.FC<BatchSettingsFormProps> = ({
         />
       </div>
     </div>
-  )
-}
-
-interface BatchSettingsComponentProps {
-  settings: BatchSettings
-  onChange: (settings: BatchSettings) => void
-  disabled?: boolean
-}
-
-/**
- * Batch settings wrapped in a Card with header and reset button.
- * Used in the new batch page.
- */
-export const BatchSettingsComponent: React.FC<BatchSettingsComponentProps> = ({
-  settings,
-  onChange,
-  disabled,
-}) => {
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle>Batch Settings</CardTitle>
-            <CardDescription>Configure how URLs are scraped</CardDescription>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <BatchSettingsForm
-          settings={settings}
-          onChange={onChange}
-          disabled={disabled}
-          showResetButton={true}
-        />
-      </CardContent>
-    </Card>
   )
 }
