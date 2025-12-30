@@ -58,6 +58,7 @@ export const ANALYTICS_EVENTS = {
   DEBUG_MODE_TOGGLE: 'debug_mode_toggle',
   HIDDEN_SETTINGS_UNLOCK: 'hidden_settings_unlock',
   KEYBOARD_SHORTCUT_COPY: 'keyboard_shortcut_copy',
+  FEATURE_FLAG_OVERRIDE: 'feature_flag_override',
 
   // Scraping operations
   SCRAPE_INITIATION_FROM_CONTEXT_MENU: 'scrape_initiation_from_context_menu',
@@ -105,6 +106,7 @@ export const ANALYTICS_EVENTS = {
   // Context menu entry points
   CONTEXT_MENU_QUICK_SCRAPE: 'context_menu_quick_scrape',
   CONTEXT_MENU_VISUAL_PICKER: 'context_menu_visual_picker',
+  CONTEXT_MENU_BATCH_SCRAPE: 'context_menu_batch_scrape',
 
   // Visual Picker events
   PICKER_MODE_ENABLE: 'picker_mode_enable',
@@ -112,6 +114,20 @@ export const ANALYTICS_EVENTS = {
   PICKER_ELEMENT_SELECT: 'picker_element_select',
   PICKER_CONTEXT_MENU_OPEN: 'picker_context_menu_open',
   PICKER_LEVEL_CHANGE: 'picker_level_change',
+
+  // Batch Scrape events
+  BATCH_SCRAPE_CREATE: 'batch_scrape_create',
+  BATCH_SCRAPE_START: 'batch_scrape_start',
+  BATCH_SCRAPE_COMPLETE: 'batch_scrape_complete',
+  BATCH_SCRAPE_PAUSE: 'batch_scrape_pause',
+  BATCH_SCRAPE_RESUME: 'batch_scrape_resume',
+  BATCH_SCRAPE_URL_SUCCESS: 'batch_scrape_url_success',
+  BATCH_SCRAPE_URL_FAILURE: 'batch_scrape_url_failure',
+  BATCH_SCRAPE_PREVIEW: 'batch_scrape_preview',
+  BATCH_SCRAPE_EXPORT: 'batch_scrape_export',
+  BATCH_SCRAPE_HISTORY_VIEW: 'batch_scrape_history_view',
+  BATCH_SCRAPE_HISTORY_DELETE: 'batch_scrape_history_delete',
+  BATCH_SCRAPE_OPEN_FROM_HISTORY: 'batch_scrape_open_from_history',
 } as const
 
 /**
@@ -167,7 +183,9 @@ export const trackEvent = async (
       case EXTENSION_CONTEXTS.POPUP:
       case EXTENSION_CONTEXTS.OPTIONS:
       case EXTENSION_CONTEXTS.ONBOARDING:
-      case EXTENSION_CONTEXTS.FULL_DATA_VIEW: {
+      case EXTENSION_CONTEXTS.FULL_DATA_VIEW:
+      case EXTENSION_CONTEXTS.BATCH_SCRAPE:
+      case EXTENSION_CONTEXTS.BATCH_SCRAPE_HISTORY: {
         if ((window as any).__scrape_similar_posthog) {
           ;(window as any).__scrape_similar_posthog.capture(eventName, eventProperties)
           log.debug(`Tracked event in ${context} context: ${eventName}`, eventProperties)

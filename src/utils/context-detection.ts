@@ -9,6 +9,8 @@ export const EXTENSION_CONTEXTS = {
   OPTIONS: 'options',
   ONBOARDING: 'onboarding',
   FULL_DATA_VIEW: 'full_data_view',
+  BATCH_SCRAPE: 'batch_scrape',
+  BATCH_SCRAPE_HISTORY: 'batch_scrape_history',
   UNKNOWN: 'unknown',
 } as const
 
@@ -90,6 +92,22 @@ export const isFullDataView = (): boolean => {
   )
 }
 
+export const isBatchScrape = (): boolean => {
+  return (
+    typeof window !== 'undefined' &&
+    window.location.protocol === 'chrome-extension:' &&
+    window.location.pathname.includes('batch-scrape.html')
+  )
+}
+
+export const isBatchScrapeHistory = (): boolean => {
+  return (
+    typeof window !== 'undefined' &&
+    window.location.protocol === 'chrome-extension:' &&
+    window.location.pathname.includes('batch-scrape-history')
+  )
+}
+
 /**
  * Gets the current extension context
  */
@@ -120,6 +138,14 @@ export const getCurrentContext = (): ExtensionContext => {
 
   if (isFullDataView()) {
     return EXTENSION_CONTEXTS.FULL_DATA_VIEW
+  }
+
+  if (isBatchScrape()) {
+    return EXTENSION_CONTEXTS.BATCH_SCRAPE
+  }
+
+  if (isBatchScrapeHistory()) {
+    return EXTENSION_CONTEXTS.BATCH_SCRAPE_HISTORY
   }
 
   return EXTENSION_CONTEXTS.UNKNOWN

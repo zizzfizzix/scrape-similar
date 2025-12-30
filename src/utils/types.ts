@@ -47,8 +47,7 @@ export interface SidePanelConfig {
   elementDetails?: ElementDetailsPayload | null
   selectionOptions?: SelectionOptions
   currentScrapeConfig?: ScrapeConfig
-  scrapeResult?: ScrapeResult
-  resultProducingConfig?: ScrapeConfig // Config that produced the current scrapeResult
+  // Note: scrapeResult is now stored in Dexie, not in session storage
   highlightMatchCount?: number | null
   highlightError?: string | null
   pickerModeActive?: boolean
@@ -88,6 +87,10 @@ export type MessageResponse =
       success: true
       url: string
     }
+  | {
+      success: true
+      data?: ScrapeResult
+    }
 
 // Message types
 export const MESSAGE_TYPES = {
@@ -106,6 +109,7 @@ export const MESSAGE_TYPES = {
 
   // From sidepanel to background
   EXPORT_TO_SHEETS: 'export-to-google-sheets',
+  SCRAPE_PAGE: 'scrape-page', // Request background to scrape a page
 
   // From content script to background
   GET_DEBUG_MODE: 'GET_DEBUG_MODE',
@@ -120,6 +124,15 @@ export const MESSAGE_TYPES = {
 
   // Onboarding demo
   TRIGGER_DEMO_SCRAPE: 'trigger_demo_scrape',
+
+  // Batch scrape operations
+  BATCH_SCRAPE_START: 'batch-scrape-start',
+  BATCH_SCRAPE_PAUSE: 'batch-scrape-pause',
+  BATCH_SCRAPE_RESUME: 'batch-scrape-resume',
+  BATCH_SCRAPE_RETRY_URL: 'batch-scrape-retry-url',
+  BATCH_SCRAPE_PREVIEW: 'batch-scrape-preview',
+  OPEN_BATCH_SCRAPE: 'open-batch-scrape',
+  OPEN_BATCH_SCRAPE_HISTORY: 'open-batch-scrape-history',
 } as const
 
 // Analytics message payload interface
@@ -133,3 +146,37 @@ export interface SystemPresetStatusMap {
 }
 
 export const SYSTEM_PRESET_STATUS_KEY = 'system_preset_status' as const
+
+// Batch scrape related interfaces
+export interface BatchScrapeStartPayload {
+  batchId: string
+}
+
+export interface BatchScrapeRetryPayload {
+  batchId: string
+  urlResultId: string
+}
+
+export interface BatchScrapePreviewPayload {
+  config: ScrapeConfig
+  url: string
+}
+
+export interface OpenBatchScrapePayload {
+  config?: ScrapeConfig
+  batchId?: string // For resuming existing batch
+  urls?: string[] // URLs to pre-populate in the batch scrape form
+}
+
+// Shared UI types
+export interface StorageUsage {
+  used: number
+  quota: number
+  percentUsed: number
+}
+
+// Re-export ButtonSize from button variants for reuse across components
+// This avoids importing class-variance-authority in every component that needs button sizes
+import type { buttonVariants } from '@/components/ui/button'
+import type { VariantProps } from 'class-variance-authority'
+export type ButtonSize = VariantProps<typeof buttonVariants>['size']

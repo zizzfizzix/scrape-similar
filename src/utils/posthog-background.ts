@@ -1,6 +1,7 @@
 // PostHog initialization for background service workers and non-React contexts
 // This allows tracking events directly from the background script without message passing
 
+import { BOOTSTRAPPED_FLAGS, syncFeatureFlagsFromPostHog } from '@/utils/feature-flags'
 import { isDevOrTest } from '@/utils/modeTest'
 import log from 'loglevel'
 
@@ -76,6 +77,7 @@ export const getPostHogBackground = async (): Promise<PostHog | null> => {
         // Supply our own distinct_id to ensure consistent distinct_id across extension contexts
         bootstrap: {
           distinctID: distinctId.toString(),
+          featureFlags: BOOTSTRAPPED_FLAGS,
         },
         api_host: apiHost,
         persistence: 'localStorage',
@@ -99,6 +101,11 @@ export const getPostHogBackground = async (): Promise<PostHog | null> => {
           '$session_entry_pathname',
           '$session_entry_referrer',
         ],
+      })
+
+      // Sync feature flags from PostHog when they're loaded from server
+      posthogInstance.onFeatureFlags(() => {
+        syncFeatureFlagsFromPostHog(posthogInstance)
       })
 
       // React to debugMode changes in production to keep config in sync

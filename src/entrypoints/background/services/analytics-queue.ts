@@ -1,9 +1,9 @@
+import type { QueuedEvent } from '@/entrypoints/background/types'
 import { EVENT_QUEUE_STORAGE_KEY, queueMutex } from '@/utils/analytics'
 import { ANALYTICS_CONSENT_STORAGE_KEY } from '@/utils/consent'
 import { getPostHogBackground, resetPostHogInstance } from '@/utils/posthog-background'
 import log from 'loglevel'
 import { PostHog } from 'posthog-js/dist/module.no-external'
-import type { QueuedEvent } from '../types'
 
 /**
  * Configure PostHog rate limiting

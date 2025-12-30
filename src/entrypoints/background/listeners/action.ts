@@ -1,6 +1,6 @@
+import { initializeSessionState } from '@/entrypoints/background/services/session-storage'
 import { ANALYTICS_EVENTS, trackEvent } from '@/utils/analytics'
 import log from 'loglevel'
-import { initializeSessionState } from '../services/session-storage'
 
 /**
  * Handle action button clicks to toggle sidepanel

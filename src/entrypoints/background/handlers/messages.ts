@@ -1,7 +1,7 @@
+import { handleContentScriptMessage } from '@/entrypoints/background/handlers/content-script'
+import { handleUiMessage } from '@/entrypoints/background/handlers/ui'
+import { applySidePanelDataUpdates } from '@/entrypoints/background/services/session-storage'
 import log from 'loglevel'
-import { applySidePanelDataUpdates } from '../services/session-storage'
-import { handleContentScriptMessage } from './content-script'
-import { handleUiMessage } from './ui'
 
 /**
  * Main message router - determines message source and dispatches to appropriate handler
@@ -37,6 +37,8 @@ export const setupMessageListener = (): void => {
           sendResponse({ success: false, error: 'tabId or sender.tab.id required' })
           return true
         }
+
+        // Update session storage with UI state
         applySidePanelDataUpdates(targetId, updates)
           .then(() => sendResponse({ success: true }))
           .catch((error) => {
