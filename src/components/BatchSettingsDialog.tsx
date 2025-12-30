@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dialog'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { BatchSettingsForm } from '@/entrypoints/batch-scrape/components/BatchSettings'
-import { updateBatchJob, type BatchScrapeJob, type BatchSettings } from '@/utils/batch-scrape-db'
+import { updateBatchJob, type BatchScrapeJob, type BatchSettings } from '@/utils/scrape-db'
 import type { ButtonSize } from '@/utils/types'
 import { Settings } from 'lucide-react'
 import React, { useState } from 'react'

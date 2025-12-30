@@ -10,6 +10,7 @@
 
 import { setupMessageListener } from '@/entrypoints/background/handlers/messages'
 import { setupActionListener } from '@/entrypoints/background/listeners/action'
+import { setupAlarmsListener } from '@/entrypoints/background/listeners/alarms'
 import { setupCommandsListener } from '@/entrypoints/background/listeners/commands'
 import { setupContextMenuListener } from '@/entrypoints/background/listeners/context-menu'
 import {
@@ -42,6 +43,7 @@ export default defineBackground(() => {
   setupActionListener()
   setupContextMenuListener()
   setupCommandsListener()
+  setupAlarmsListener()
 
   // Set up message routing
   setupMessageListener()

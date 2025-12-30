@@ -1,4 +1,3 @@
-import { pauseBatchJob, resumeBatchJob, startBatchJob } from '@/utils/batch-operations'
 import {
   createBatchJob,
   createUrlResults,
@@ -10,7 +9,8 @@ import {
   type BatchScrapeUrlResult,
   type BatchSettings,
   type BatchStatistics,
-} from '@/utils/batch-scrape-db'
+} from '@/utils/scrape-db'
+import { pauseBatchJob, resumeBatchJob, startBatchJob } from '@/utils/scrape-operations'
 import { MESSAGE_TYPES } from '@/utils/types'
 import { useLiveQuery } from 'dexie-react-hooks'
 import log from 'loglevel'

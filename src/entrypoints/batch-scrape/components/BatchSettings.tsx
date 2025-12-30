@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { DEFAULT_BATCH_SETTINGS, type BatchSettings } from '@/utils/batch-scrape-db'
+import { DEFAULT_BATCH_SETTINGS, type BatchSettings } from '@/utils/scrape-db'
 import { HelpCircle, RotateCcw } from 'lucide-react'
 import React from 'react'
 

@@ -2,9 +2,11 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Toaster } from '@/components/ui/sonner'
 import { FEATURE_FLAGS, isFeatureEnabled } from '@/utils/feature-flags'
+import { getScrapeJobForTab, liveGetScrapeResultForTab, promoteScrapeJob } from '@/utils/scrape-db'
 import { chromeExtensionId } from '@@/package.json' with { type: 'json' }
+import { useLiveQuery } from 'dexie-react-hooks'
 import log from 'loglevel'
-import { Minimize2, X } from 'lucide-react'
+import { Minimize2, Save, X } from 'lucide-react'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import slugify from 'slugify'
 import { toast } from 'sonner'
@@ -150,9 +152,17 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
     mainSelector: '',
     columns: [{ name: 'Text', selector: '.' }],
   })
-  const [scrapeResult, setScrapeResult] = useState<ScrapeResult | null>(null)
-  // Track the configuration that produced the current scrapeResult
-  const [resultProducingConfig, setResultProducingConfig] = useState<ScrapeConfig | null>(null)
+
+  // Use Dexie live query to get scrape result for current tab
+  const scrapeData = useLiveQuery(
+    () => (targetTabId ? liveGetScrapeResultForTab(targetTabId) : undefined),
+    [targetTabId],
+  )
+
+  // Extract scrape result and config from Dexie data
+  const scrapeResult = scrapeData?.result || null
+  const resultProducingConfig = scrapeData?.config || null
+
   const [presets, setPresets] = useState<Preset[]>([])
   const [isScraping, setIsScraping] = useState(false)
   const [tabUrl, setTabUrl] = useState<string | null>(null)
@@ -182,7 +192,6 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
       elementDetails: undefined,
       selectionOptions: undefined,
       currentScrapeConfig: undefined,
-      scrapeResult: undefined,
     }
   }
 
@@ -234,11 +243,6 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
     })
   }, [])
 
-  // Reset result-producing config when switching tabs
-  useEffect(() => {
-    setResultProducingConfig(null)
-  }, [targetTabId])
-
   // --- Unified utility to save all sidepanel state to session storage ---
   const saveSidePanelState = useCallback((tabId: number, updates: Partial<SidePanelConfig>) => {
     browser.runtime.sendMessage({
@@ -286,8 +290,6 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
       elementDetails,
       currentScrapeConfig,
       initialSelectionText,
-      scrapeResult,
-      resultProducingConfig,
       highlightMatchCount,
       highlightError,
       pickerModeActive,
@@ -298,7 +300,6 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
       mainSelector: '',
       columns: [{ name: 'Text', selector: '.' }],
     }
-    let newConfig = defaultConfig
     let newOptions: SelectionOptions | null = null // Explicitly allow null
 
     // Set config from storage if available. If not present, do not change config on highlight-only updates.
@@ -317,7 +318,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
       // Fallback: If no saved config, but element details exist (e.g., from context menu),
       // initialize config with the XPath from the selected element.
       log.debug('Initializing config from elementDetails XPath:', elementDetails.xpath)
-      newConfig = {
+      const newConfig = {
         ...defaultConfig, // Start with default columns
         mainSelector: elementDetails.xpath,
       }
@@ -344,17 +345,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
     // Update the initialOptions state
     setInitialOptions(newOptions)
 
-    // Load saved scraped data from session storage if available
-    if (scrapeResult) {
-      setScrapeResult(scrapeResult)
-      // Set the config that produced these results
-      if (resultProducingConfig) {
-        setResultProducingConfig(resultProducingConfig)
-      }
-    } else {
-      setScrapeResult(null)
-      setResultProducingConfig(null)
-    }
+    // Note: scrapeResult is now loaded from Dexie via useLiveQuery, not from session storage
 
     setIsScraping(false)
 
@@ -526,17 +517,22 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
     setIsScraping(true)
     // Capture the exact config used for this scrape
     const configAtScrapeTime = config
-    browser.tabs.sendMessage(
-      targetTabId,
+
+    // Send scrape request to background (backend)
+    // Background will handle content script communication and storage
+    browser.runtime.sendMessage(
       {
-        type: MESSAGE_TYPES.START_SCRAPE,
-        payload: config,
+        type: MESSAGE_TYPES.SCRAPE_PAGE,
+        payload: {
+          tabId: targetTabId,
+          config: configAtScrapeTime,
+        },
       },
       (response) => {
         setIsScraping(false)
         if (!response && browser.runtime.lastError) {
           setContentScriptCommsError(
-            'Could not connect to the content script. Please reload the page or ensure the extension is enabled for this site.',
+            'Could not connect to background service. Please try reloading the extension.',
           )
           setLastScrapeRowCount(null)
           return
@@ -547,13 +543,8 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
           log.error('Error during scrape:', response.error)
           return
         }
-        // Successful scrape – remember the config used to produce current results
+        // Successful scrape - result is in Dexie and will appear via useLiveQuery
         if (response?.success === true) {
-          setResultProducingConfig(configAtScrapeTime)
-          // Also save to storage so it persists
-          if (targetTabId !== null) {
-            saveSidePanelState(targetTabId, { resultProducingConfig: configAtScrapeTime })
-          }
           // Persist recent main selector (local only) if it is not a preset selector
           ;(async () => {
             const selectorUsed = (configAtScrapeTime.mainSelector || '').trim()
@@ -883,13 +874,38 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
               <div className="flex flex-col gap-6" ref={dataTableRef}>
                 <div className="flex items-center justify-between gap-4">
                   <h2 className="text-2xl font-bold">Extracted Data</h2>
-                  <ExportButtons
-                    scrapeResult={scrapeResult}
-                    config={config}
-                    showEmptyRows={showEmptyRows}
-                    filename={exportFilename}
-                    variant="outline"
-                  />
+                  <div className="flex items-center gap-2">
+                    {scrapeData && targetTabId && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          try {
+                            const job = await getScrapeJobForTab(targetTabId)
+                            if (job && job.tabId) {
+                              await promoteScrapeJob(job.id)
+                              toast.success('Scrape saved permanently')
+                            } else {
+                              toast.info('Scrape is already saved')
+                            }
+                          } catch (error) {
+                            log.error('Error promoting scrape:', error)
+                            toast.error('Failed to save scrape')
+                          }
+                        }}
+                      >
+                        <Save className="h-4 w-4 mr-2" />
+                        Save
+                      </Button>
+                    )}
+                    <ExportButtons
+                      scrapeResult={scrapeResult}
+                      config={config}
+                      showEmptyRows={showEmptyRows}
+                      filename={exportFilename}
+                      variant="outline"
+                    />
+                  </div>
                 </div>
                 <DataTable
                   data={scrapeResult.data || []}

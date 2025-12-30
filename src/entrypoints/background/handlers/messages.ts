@@ -37,6 +37,8 @@ export const setupMessageListener = (): void => {
           sendResponse({ success: false, error: 'tabId or sender.tab.id required' })
           return true
         }
+
+        // Update session storage with UI state
         applySidePanelDataUpdates(targetId, updates)
           .then(() => sendResponse({ success: true }))
           .catch((error) => {

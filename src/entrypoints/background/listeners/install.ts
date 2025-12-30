@@ -1,3 +1,4 @@
+import { cleanupExpiredScrapes, setupCleanupAlarm } from '@/entrypoints/background/listeners/alarms'
 import { injectContentScriptToAllTabs } from '@/entrypoints/background/utils/content-injection'
 import {
   initializeContextMenus,
@@ -55,6 +56,12 @@ export const setupInstallListener = (): void => {
     // Inject content script into all tabs on install/update
     injectContentScriptToAllTabs()
 
+    // Set up cleanup alarm for expired single scrapes
+    await setupCleanupAlarm()
+
+    // Run initial cleanup
+    await cleanupExpiredScrapes()
+
     log.debug('Service worker is running')
 
     // Track extension installation/update
@@ -81,6 +88,12 @@ export const setupStartupListener = (): void => {
     // Set initial batch scrape menu visibility on startup
     const batchScrapeEnabled = await isFeatureEnabled(FEATURE_FLAGS.BATCH_SCRAPE_ENABLED)
     updateBatchScrapeMenuVisible(batchScrapeEnabled)
+
+    // Set up cleanup alarm
+    await setupCleanupAlarm()
+
+    // Run cleanup on startup
+    await cleanupExpiredScrapes()
 
     log.debug('Service worker is running')
   })

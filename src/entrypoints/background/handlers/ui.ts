@@ -8,6 +8,14 @@ import { handleExportToSheets } from '@/entrypoints/background/handlers/sheets-e
 import { handleDemoScrape } from '@/entrypoints/background/services/demo-scrape'
 import type { MessageHandler } from '@/entrypoints/background/types'
 import { FEATURE_FLAGS, isFeatureEnabled } from '@/utils/feature-flags'
+import {
+  createScrapeJob,
+  createUrlResults,
+  getJobUrlResults,
+  getScrapeJobForTab,
+  updateScrapeJob,
+  updateUrlResult,
+} from '@/utils/scrape-db'
 import log from 'loglevel'
 
 /**
@@ -44,6 +52,95 @@ const handleExportFromUi: MessageHandler = async (message, sender, sendResponse)
 const handleDemoScrapeMessage: MessageHandler = async (message, sender, sendResponse) => {
   log.debug('🎬 UI requested demo scrape from onboarding')
   await handleDemoScrape(sender, sendResponse)
+}
+
+/**
+ * Handle SCRAPE_PAGE message from SidePanel (or other UI contexts)
+ * Background acts as the backend orchestrator for all scraping operations
+ */
+const handleScrapePage: MessageHandler = async (message, sender, sendResponse) => {
+  log.debug('UI requested page scrape')
+
+  try {
+    const payload = message.payload as { tabId: number; config: ScrapeConfig }
+    const { tabId, config } = payload
+
+    if (!tabId || !config) {
+      throw new Error('Missing required fields: tabId or config')
+    }
+
+    // Get tab info for URL
+    const tab = await browser.tabs.get(tabId)
+    const tabUrl = tab.url || 'unknown'
+
+    // Send scrape request to content script
+    const scrapeResponse = await browser.tabs.sendMessage(tabId, {
+      type: MESSAGE_TYPES.START_SCRAPE,
+      payload: config,
+    })
+
+    if (!scrapeResponse?.success || !scrapeResponse.data) {
+      throw new Error(scrapeResponse?.error || 'Scrape failed')
+    }
+
+    const scrapeResult = scrapeResponse.data as ScrapeResult
+
+    // Store in Dexie - check if job exists for this tab
+    const existingJob = await getScrapeJobForTab(tabId)
+
+    if (existingJob) {
+      // Update existing job
+      await updateScrapeJob(existingJob.id, {
+        config,
+        updatedAt: Date.now(),
+      })
+
+      const existingResults = await getJobUrlResults(existingJob.id)
+      if (existingResults.length > 0) {
+        await updateUrlResult(existingResults[0].id, {
+          result: scrapeResult,
+          status: 'completed',
+          completedAt: Date.now(),
+        })
+      } else {
+        const urlResults = await createUrlResults(existingJob.id, [tabUrl])
+        await updateUrlResult(urlResults[0].id, {
+          result: scrapeResult,
+          status: 'completed',
+          completedAt: Date.now(),
+        })
+      }
+
+      log.debug('Updated single scrape job for tab:', tabId)
+    } else {
+      // Create new single scrape job
+      const job = await createScrapeJob(
+        config,
+        [tabUrl],
+        undefined, // auto-generate name
+        undefined, // use defaults
+        tabId, // marks as ephemeral single scrape
+      )
+
+      const urlResults = await createUrlResults(job.id, [tabUrl])
+      await updateUrlResult(urlResults[0].id, {
+        result: scrapeResult,
+        status: 'completed',
+        completedAt: Date.now(),
+      })
+
+      log.debug('Created single scrape job for tab:', tabId)
+    }
+
+    // Respond to UI with success and result summary
+    sendResponse({
+      success: true,
+      data: scrapeResult,
+    })
+  } catch (error) {
+    log.error('Error in SCRAPE_PAGE handler:', error)
+    sendResponse({ success: false, error: (error as Error).message })
+  }
 }
 
 /**
@@ -179,6 +276,7 @@ const uiHandlers: Record<string, MessageHandler> = {
   [MESSAGE_TYPES.EXPORT_TO_SHEETS]: handleExportFromUi,
   [MESSAGE_TYPES.OPEN_SIDEPANEL]: handleOpenSidepanel,
   [MESSAGE_TYPES.TRIGGER_DEMO_SCRAPE]: handleDemoScrapeMessage,
+  [MESSAGE_TYPES.SCRAPE_PAGE]: handleScrapePage,
   [MESSAGE_TYPES.OPEN_BATCH_SCRAPE]: handleOpenBatchScrape,
   [MESSAGE_TYPES.OPEN_BATCH_SCRAPE_HISTORY]: handleOpenBatchScrapeHistory,
   [MESSAGE_TYPES.BATCH_SCRAPE_START]: handleBatchScrapeStart,

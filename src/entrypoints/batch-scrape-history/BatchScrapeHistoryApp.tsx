@@ -14,13 +14,13 @@ import {
 } from '@/components/ui/select'
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { getStorageUsage, liveGetAllBatchJobs, type BatchScrapeJob } from '@/utils/scrape-db'
 import {
   formatStorageUsage,
   pauseBatchJob,
   resumeBatchJob,
   startBatchJob,
-} from '@/utils/batch-operations'
-import { getStorageUsage, liveGetAllBatchJobs, type BatchScrapeJob } from '@/utils/batch-scrape-db'
+} from '@/utils/scrape-operations'
 import { formatDistanceToNow } from 'date-fns'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { HardDrive, Loader2, Plus, Search } from 'lucide-react'

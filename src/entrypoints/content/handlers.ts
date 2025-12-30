@@ -103,40 +103,13 @@ const handleStartScrape = (
     columns_count: config.columns.length,
   })
 
-  if (state.tabId === null) {
-    const errMsg = 'tabId not initialized in content script.'
-    log.error(errMsg)
-    sendResponse({ success: false, error: errMsg })
-    return true
-  }
-
-  // Send scrape result to background script for storage
-  browser.runtime.sendMessage(
-    {
-      type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
-      payload: { tabId: state.tabId, updates: { scrapeResult } },
-    },
-    (response) => {
-      if (browser.runtime.lastError) {
-        log.error('Error sending scrape result to background:', browser.runtime.lastError)
-        sendResponse({
-          success: false,
-          error: 'Failed to save data to storage: ' + browser.runtime.lastError.message,
-        })
-      } else if (response?.success) {
-        sendResponse({
-          success: true,
-          data: scrapeResult,
-          message: `Scraped ${scrapeResult.data.length} items successfully and stored in session.`,
-        })
-      } else {
-        sendResponse({
-          success: false,
-          error: response?.error || 'Failed to save data to storage',
-        })
-      }
-    },
-  )
+  // Respond synchronously with the scrape result
+  // The caller (background for UI-initiated scrapes, or batch scraper) handles storage
+  sendResponse({
+    success: true,
+    data: scrapeResult,
+    message: `Scraped ${scrapeResult.data.length} items successfully.`,
+  })
   return true
 }
 

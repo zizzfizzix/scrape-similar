@@ -47,8 +47,7 @@ export interface SidePanelConfig {
   elementDetails?: ElementDetailsPayload | null
   selectionOptions?: SelectionOptions
   currentScrapeConfig?: ScrapeConfig
-  scrapeResult?: ScrapeResult
-  resultProducingConfig?: ScrapeConfig // Config that produced the current scrapeResult
+  // Note: scrapeResult is now stored in Dexie, not in session storage
   highlightMatchCount?: number | null
   highlightError?: string | null
   pickerModeActive?: boolean
@@ -88,6 +87,10 @@ export type MessageResponse =
       success: true
       url: string
     }
+  | {
+      success: true
+      data?: ScrapeResult
+    }
 
 // Message types
 export const MESSAGE_TYPES = {
@@ -106,6 +109,7 @@ export const MESSAGE_TYPES = {
 
   // From sidepanel to background
   EXPORT_TO_SHEETS: 'export-to-google-sheets',
+  SCRAPE_PAGE: 'scrape-page', // Request background to scrape a page
 
   // From content script to background
   GET_DEBUG_MODE: 'GET_DEBUG_MODE',

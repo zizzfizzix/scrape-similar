@@ -1,17 +1,17 @@
-import { deleteBatchJob, type BatchScrapeJob } from '@/utils/batch-scrape-db'
+import { deleteScrapeJob, type ScrapeJob } from '@/utils/scrape-db'
 import { MESSAGE_TYPES, type StorageUsage } from '@/utils/types'
 import log from 'loglevel'
 import { toast } from 'sonner'
 
 /**
- * Delete a batch job with toast notifications and optional callback
+ * Delete a scrape job with toast notifications and optional callback
  */
 export const handleDeleteBatch = async (
-  batch: BatchScrapeJob,
+  batch: ScrapeJob,
   onSuccess?: () => void,
 ): Promise<void> => {
   try {
-    await deleteBatchJob(batch.id)
+    await deleteScrapeJob(batch.id)
     toast.success('Batch deleted')
     onSuccess?.()
   } catch (error) {
@@ -22,9 +22,9 @@ export const handleDeleteBatch = async (
 
 /**
  * Navigate to duplicate a batch with the same config, URLs, and settings
- * Loads data from the existing batch in Dexie database
+ * Loads data from the existing job in Dexie database
  */
-export const navigateToDuplicate = (batch: BatchScrapeJob): void => {
+export const navigateToDuplicate = (batch: ScrapeJob): void => {
   const url = new URL(browser.runtime.getURL('/batch-scrape.html'))
   url.searchParams.set('duplicateFrom', batch.id)
   window.location.href = url.toString()
