@@ -1,10 +1,9 @@
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { DEFAULT_BATCH_SETTINGS, type BatchSettings } from '@/utils/batch-scrape-db'
-import { HelpCircle, RotateCcw } from 'lucide-react'
+import { type BatchSettings } from '@/utils/batch-scrape-db'
+import { HelpCircle } from 'lucide-react'
 import React from 'react'
 
 interface BatchSettingsFormProps {
@@ -24,20 +23,8 @@ export const BatchSettingsForm: React.FC<BatchSettingsFormProps> = ({
   disabled,
   showResetButton = false,
 }) => {
-  const handleReset = () => {
-    onChange(DEFAULT_BATCH_SETTINGS)
-  }
-
   return (
     <div className="space-y-4">
-      {showResetButton && (
-        <div className="flex justify-end">
-          <Button variant="outline" size="sm" onClick={handleReset} disabled={disabled}>
-            <RotateCcw className="h-4 w-4 mr-2" />
-            Reset
-          </Button>
-        </div>
-      )}
       <div className="grid grid-cols-3 gap-4">
         {/* Max Concurrency */}
         <div className="space-y-2">

@@ -10,9 +10,9 @@ import {
 } from '@/components/ui/dialog'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { BatchSettingsForm } from '@/entrypoints/batch-scrape/components/BatchSettings'
-import type { BatchSettings } from '@/utils/batch-scrape-db'
+import { DEFAULT_BATCH_SETTINGS, type BatchSettings } from '@/utils/batch-scrape-db'
 import type { ButtonSize, ButtonVariant } from '@/utils/types'
-import { Settings } from 'lucide-react'
+import { RotateCcw, Settings } from 'lucide-react'
 import React, { useState } from 'react'
 
 interface TriggerButtonConfig {
@@ -102,6 +102,19 @@ export const BatchSettingsDialog: React.FC<BatchSettingsDialogProps> = ({
     setOpen(false)
   }
 
+  const handleReset = () => {
+    setLocalSettings(DEFAULT_BATCH_SETTINGS)
+  }
+
+  const isDefaultSettings = () => {
+    return (
+      localSettings.maxConcurrency === DEFAULT_BATCH_SETTINGS.maxConcurrency &&
+      localSettings.delayBetweenRequests === DEFAULT_BATCH_SETTINGS.delayBetweenRequests &&
+      localSettings.maxRetries === DEFAULT_BATCH_SETTINGS.maxRetries &&
+      localSettings.disableJsRendering === DEFAULT_BATCH_SETTINGS.disableJsRendering
+    )
+  }
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <Tooltip>
@@ -135,13 +148,27 @@ export const BatchSettingsDialog: React.FC<BatchSettingsDialogProps> = ({
           />
         </div>
         {isEditable ? (
-          <DialogFooter>
-            <Button variant="outline" onClick={handleCancel} disabled={isSaving}>
-              Cancel
-            </Button>
-            <Button onClick={handleSave} disabled={isSaving}>
-              {isSaving ? 'Saving...' : 'Save'}
-            </Button>
+          <DialogFooter className="sm:flex-row sm:justify-between sm:space-x-0">
+            {showResetButton ? (
+              <Button
+                variant="outline"
+                onClick={handleReset}
+                disabled={isSaving || isDefaultSettings()}
+              >
+                <RotateCcw className="h-4 w-4 mr-2" />
+                Reset
+              </Button>
+            ) : (
+              <div />
+            )}
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={handleCancel} disabled={isSaving}>
+                Cancel
+              </Button>
+              <Button onClick={handleSave} disabled={isSaving}>
+                {isSaving ? 'Saving...' : 'Save'}
+              </Button>
+            </div>
           </DialogFooter>
         ) : (
           <DialogFooter>
