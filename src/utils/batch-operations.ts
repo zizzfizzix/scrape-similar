@@ -21,16 +21,6 @@ export const handleDeleteBatch = async (
 }
 
 /**
- * Navigate to duplicate a batch with the same config, URLs, and settings
- * Loads data from the existing batch in Dexie database
- */
-export const navigateToDuplicate = (batch: BatchScrapeJob): void => {
-  const url = new URL(browser.runtime.getURL('/batch-scrape.html'))
-  url.searchParams.set('duplicateFrom', batch.id)
-  window.location.href = url.toString()
-}
-
-/**
  * Navigate back to batch history
  */
 export const navigateToBatchHistory = (): void => {

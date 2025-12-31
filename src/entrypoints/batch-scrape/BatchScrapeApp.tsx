@@ -17,6 +17,7 @@ import { useVisualPicker } from '@/hooks/useVisualPicker'
 import { navigateToBatchHistory } from '@/utils/batch-operations'
 import { DEFAULT_BATCH_SETTINGS, getBatchJob, type BatchSettings } from '@/utils/batch-scrape-db'
 import { validateAndDeduplicateUrls } from '@/utils/batch-url-utils'
+import { getBatchHistoryUrl, getNewBatchUrl } from '@/utils/batch-urls'
 import { ArrowLeft, Plus, Save } from 'lucide-react'
 import React, { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
@@ -208,24 +209,26 @@ const BatchScrapeApp: React.FC = () => {
               batch ? (
                 // Button group when viewing results
                 <ButtonGroup>
-                  <Button variant="outline" size="sm" onClick={navigateToBatchHistory}>
-                    <ArrowLeft className="h-4 w-4 mr-2" />
-                    History
+                  <Button variant="outline" size="sm" asChild>
+                    <a href={getBatchHistoryUrl()}>
+                      <ArrowLeft className="h-4 w-4 mr-2" />
+                      History
+                    </a>
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => (window.location.href = '/batch-scrape.html')}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    New
+                  <Button variant="outline" size="sm" asChild>
+                    <a href={getNewBatchUrl()}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      New
+                    </a>
                   </Button>
                 </ButtonGroup>
               ) : (
                 // Single button when creating new batch
-                <Button variant="outline" size="sm" onClick={navigateToBatchHistory}>
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to History
+                <Button variant="outline" size="sm" asChild>
+                  <a href={getBatchHistoryUrl()}>
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Back to History
+                  </a>
                 </Button>
               )
             }

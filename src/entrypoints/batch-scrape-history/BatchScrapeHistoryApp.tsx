@@ -21,6 +21,7 @@ import {
   startBatchJob,
 } from '@/utils/batch-operations'
 import { getStorageUsage, liveGetAllBatchJobs, type BatchScrapeJob } from '@/utils/batch-scrape-db'
+import { getBatchUrl, getNewBatchUrl } from '@/utils/batch-urls'
 import { formatDistanceToNow } from 'date-fns'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { HardDrive, Loader2, Plus, Search } from 'lucide-react'
@@ -104,18 +105,6 @@ const BatchScrapeHistoryApp: React.FC = () => {
     return filtered
   }, [batches, searchQuery, statusFilter])
 
-  // Handle new batch
-  const handleNewBatch = () => {
-    window.location.href = browser.runtime.getURL('/batch-scrape.html')
-  }
-
-  // Handle open batch
-  const handleOpenBatch = (batchId: string) => {
-    const url = new URL(browser.runtime.getURL('/batch-scrape.html'))
-    url.searchParams.set('batchId', batchId)
-    window.location.href = url.toString()
-  }
-
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Toaster />
@@ -129,9 +118,11 @@ const BatchScrapeHistoryApp: React.FC = () => {
               </div>
             }
             right={
-              <Button onClick={handleNewBatch}>
-                <Plus className="h-4 w-4 mr-2" />
-                New Batch
+              <Button asChild>
+                <a href={getNewBatchUrl()}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  New Batch
+                </a>
               </Button>
             }
           />
@@ -203,16 +194,16 @@ const BatchScrapeHistoryApp: React.FC = () => {
                     <Card key={batch.id} className="hover:bg-muted/50 transition-colors">
                       <CardHeader>
                         <div className="flex items-start justify-between gap-4">
-                          <div
-                            className="space-y-2 flex-1 cursor-pointer"
-                            onClick={() => handleOpenBatch(batch.id)}
+                          <a
+                            href={getBatchUrl(batch.id)}
+                            className="space-y-2 flex-1 cursor-pointer no-underline hover:no-underline"
                           >
                             <CardTitle className="text-lg ph_hidden">{batch.name}</CardTitle>
                             <CardDescription className="ph_hidden">
                               Created{' '}
                               {formatDistanceToNow(new Date(batch.createdAt), { addSuffix: true })}
                             </CardDescription>
-                          </div>
+                          </a>
                           <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
                             <BatchActionButtons
                               variant="card"
