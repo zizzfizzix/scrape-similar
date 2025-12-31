@@ -26,7 +26,8 @@ const BatchScrapeApp: React.FC = () => {
   // URL params
   const urlParams = new URLSearchParams(window.location.search)
   const batchIdFromUrl = urlParams.get('batchId') || undefined
-  const duplicateFromId = urlParams.get('duplicateFrom') || undefined
+  const duplicateFromBatchId = urlParams.get('duplicateFromBatchId') || undefined
+  const loadFromTabId = urlParams.get('loadFromTabId') || undefined
 
   // State
   const [urlsInput, setUrlsInput] = useState('')
@@ -88,10 +89,10 @@ const BatchScrapeApp: React.FC = () => {
     await openPicker(firstUrl)
   }, [urlsInput, openPicker])
 
-  // Load duplication data from Dexie if duplicateFromId is present
+  // Load duplication data from Dexie if duplicateFromBatchId is present
   useEffect(() => {
-    if (duplicateFromId) {
-      getBatchJob(duplicateFromId).then((sourceBatch) => {
+    if (duplicateFromBatchId) {
+      getBatchJob(duplicateFromBatchId).then((sourceBatch) => {
         if (sourceBatch) {
           setConfig(sourceBatch.config)
           setUrlsInput(sourceBatch.urls.join('\n'))
@@ -101,7 +102,31 @@ const BatchScrapeApp: React.FC = () => {
         }
       })
     }
-  }, [duplicateFromId])
+  }, [duplicateFromBatchId])
+
+  // Load config from sidepanel session storage if loadFromTabId is present
+  useEffect(() => {
+    if (loadFromTabId) {
+      storage
+        .getItem<SidePanelConfig>(`session:sidepanel_config_${loadFromTabId}`)
+        .then((sidepanelData) => {
+          if (sidepanelData) {
+            // Load ALL the data from sidepanel session
+            if (sidepanelData.currentScrapeConfig) {
+              setConfig(sidepanelData.currentScrapeConfig)
+            }
+            // Get the tab URL from browser tabs API
+            browser.tabs.get(Number(loadFromTabId), (tab) => {
+              if (tab?.url && !browser.runtime.lastError) {
+                setUrlsInput(tab.url)
+              }
+            })
+          } else {
+            toast.error('Failed to load configuration from sidepanel')
+          }
+        })
+    }
+  }, [loadFromTabId])
 
   // Handle create and start batch
   const handleStart = useCallback(async () => {
@@ -131,7 +156,8 @@ const BatchScrapeApp: React.FC = () => {
       // Update URL to include batch ID
       const newUrl = new URL(window.location.href)
       newUrl.searchParams.set('batchId', newBatch.id)
-      newUrl.searchParams.delete('duplicateFrom')
+      newUrl.searchParams.delete('duplicateFromBatchId')
+      newUrl.searchParams.delete('loadFromTabId')
       window.history.replaceState({}, '', newUrl.toString())
     } catch (err) {
       toast.error('Failed to start batch')

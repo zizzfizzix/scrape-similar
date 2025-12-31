@@ -738,6 +738,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
               highlightMatchCount={highlightMatchCount}
               highlightError={highlightError}
               pickerModeActive={pickerModeActive}
+              tabId={targetTabId}
               tabUrl={tabUrl}
               batchScrapeEnabled={batchScrapeEnabled}
               // Show rescrape hint when there is data and config differs from the config that produced it

@@ -7,7 +7,6 @@ import {
 import { handleExportToSheets } from '@/entrypoints/background/handlers/sheets-export'
 import { handleDemoScrape } from '@/entrypoints/background/services/demo-scrape'
 import type { MessageHandler } from '@/entrypoints/background/types'
-import { FEATURE_FLAGS, isFeatureEnabled } from '@/utils/feature-flags'
 import log from 'loglevel'
 
 /**
@@ -44,68 +43,6 @@ const handleExportFromUi: MessageHandler = async (message, sender, sendResponse)
 const handleDemoScrapeMessage: MessageHandler = async (message, sender, sendResponse) => {
   log.debug('🎬 UI requested demo scrape from onboarding')
   await handleDemoScrape(sender, sendResponse)
-}
-
-/**
- * Handle OPEN_BATCH_SCRAPE message from UI
- */
-const handleOpenBatchScrape: MessageHandler = async (message, sender, sendResponse) => {
-  log.debug('UI requested to open batch scrape page')
-
-  // Check feature flag first
-  const enabled = await isFeatureEnabled(FEATURE_FLAGS.BATCH_SCRAPE_ENABLED)
-  if (!enabled) {
-    log.warn('Batch scrape feature is not enabled')
-    sendResponse({ success: false, error: 'Batch scrape feature is not enabled' })
-    return
-  }
-
-  try {
-    const payload = message.payload as OpenBatchScrapePayload | undefined
-    const url = new URL(browser.runtime.getURL('/batch-scrape.html'))
-
-    // Add config, urls, or batchId to URL params
-    if (payload?.config) {
-      url.searchParams.set('config', JSON.stringify(payload.config))
-    }
-    if (payload?.urls) {
-      url.searchParams.set('urls', JSON.stringify(payload.urls))
-    }
-    if (payload?.batchId) {
-      url.searchParams.set('batchId', payload.batchId)
-    }
-
-    // Create new tab with batch scrape page
-    await browser.tabs.create({ url: url.toString() })
-    sendResponse({ success: true })
-  } catch (error) {
-    log.error('Error opening batch scrape page:', error)
-    sendResponse({ success: false, error: (error as Error).message })
-  }
-}
-
-/**
- * Handle OPEN_BATCH_SCRAPE_HISTORY message from UI
- */
-const handleOpenBatchScrapeHistory: MessageHandler = async (message, sender, sendResponse) => {
-  log.debug('UI requested to open batch scrape history page')
-
-  // Check feature flag first
-  const enabled = await isFeatureEnabled(FEATURE_FLAGS.BATCH_SCRAPE_ENABLED)
-  if (!enabled) {
-    log.warn('Batch scrape feature is not enabled')
-    sendResponse({ success: false, error: 'Batch scrape feature is not enabled' })
-    return
-  }
-
-  try {
-    const url = browser.runtime.getURL('/batch-scrape-history.html')
-    await browser.tabs.create({ url })
-    sendResponse({ success: true })
-  } catch (error) {
-    log.error('Error opening batch scrape history page:', error)
-    sendResponse({ success: false, error: (error as Error).message })
-  }
 }
 
 /**
@@ -179,8 +116,6 @@ const uiHandlers: Record<string, MessageHandler> = {
   [MESSAGE_TYPES.EXPORT_TO_SHEETS]: handleExportFromUi,
   [MESSAGE_TYPES.OPEN_SIDEPANEL]: handleOpenSidepanel,
   [MESSAGE_TYPES.TRIGGER_DEMO_SCRAPE]: handleDemoScrapeMessage,
-  [MESSAGE_TYPES.OPEN_BATCH_SCRAPE]: handleOpenBatchScrape,
-  [MESSAGE_TYPES.OPEN_BATCH_SCRAPE_HISTORY]: handleOpenBatchScrapeHistory,
   [MESSAGE_TYPES.BATCH_SCRAPE_START]: handleBatchScrapeStart,
   [MESSAGE_TYPES.BATCH_SCRAPE_PAUSE]: handleBatchScrapePause,
   [MESSAGE_TYPES.BATCH_SCRAPE_RESUME]: handleBatchScrapeResume,

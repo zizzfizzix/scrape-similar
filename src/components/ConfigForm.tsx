@@ -23,6 +23,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Textarea } from '@/components/ui/textarea'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useRecentSelectors } from '@/hooks/useRecentSelectors'
+import { getBatchUrlFromTab } from '@/utils/batch-urls'
 import log from 'loglevel'
 
 import {
@@ -32,7 +33,7 @@ import {
   Crosshair,
   HelpCircle,
   Info,
-  Layers,
+  LayersPlus,
   LocateOff,
   OctagonAlert,
   Play,
@@ -65,6 +66,7 @@ interface ConfigFormProps {
   highlightError?: string
   rescrapeAdvised?: boolean
   pickerModeActive?: boolean
+  tabId?: number | null // Tab ID for session storage link
   tabUrl?: string | null // Current tab URL for batch scrape
   batchScrapeEnabled?: boolean // Feature flag for batch scrape
   showPickerButton?: boolean // Whether to show visual picker button (default: true)
@@ -88,6 +90,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
   highlightError,
   rescrapeAdvised = false,
   pickerModeActive = false,
+  tabId,
   tabUrl,
   batchScrapeEnabled = false,
   showPickerButton = true,
@@ -1115,26 +1118,18 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                 </>
               )}
             </Button>
-            {batchScrapeEnabled && (
+            {batchScrapeEnabled && tabId && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     variant="outline"
                     className="shrink-0"
-                    onClick={() => {
-                      const payload: OpenBatchScrapePayload = { config }
-                      // Add current tab URL if available
-                      if (tabUrl) {
-                        payload.urls = [tabUrl]
-                      }
-                      browser.runtime.sendMessage({
-                        type: MESSAGE_TYPES.OPEN_BATCH_SCRAPE,
-                        payload,
-                      })
-                    }}
-                    disabled={isLoading || config.columns.length === 0}
+                    disabled={isLoading || config.columns.length === 0 || !tabId}
+                    asChild
                   >
-                    <Layers className="w-4 h-4" />
+                    <a href={getBatchUrlFromTab(tabId)} target="_blank">
+                      <LayersPlus className="w-4 h-4" />
+                    </a>
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>Batch Scrape (multiple URLs)</TooltipContent>

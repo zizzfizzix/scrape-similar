@@ -127,8 +127,6 @@ export const MESSAGE_TYPES = {
   BATCH_SCRAPE_RESUME: 'batch-scrape-resume',
   BATCH_SCRAPE_RETRY_URL: 'batch-scrape-retry-url',
   BATCH_SCRAPE_PREVIEW: 'batch-scrape-preview',
-  OPEN_BATCH_SCRAPE: 'open-batch-scrape',
-  OPEN_BATCH_SCRAPE_HISTORY: 'open-batch-scrape-history',
 } as const
 
 // Analytics message payload interface
@@ -156,12 +154,6 @@ export interface BatchScrapeRetryPayload {
 export interface BatchScrapePreviewPayload {
   config: ScrapeConfig
   url: string
-}
-
-export interface OpenBatchScrapePayload {
-  config?: ScrapeConfig
-  batchId?: string // For resuming existing batch
-  urls?: string[] // URLs to pre-populate in the batch scrape form
 }
 
 // Shared UI types

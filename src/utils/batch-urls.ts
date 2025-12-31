@@ -30,6 +30,15 @@ export const getBatchUrl = (batchId: string): string => {
  */
 export const getDuplicateBatchUrl = (batchId: string): string => {
   const url = new URL(browser.runtime.getURL('/batch-scrape.html'))
-  url.searchParams.set('duplicateFrom', batchId)
+  url.searchParams.set('duplicateFromBatchId', batchId)
+  return url.toString()
+}
+
+/**
+ * Get URL for loading batch config from sidepanel tab session
+ */
+export const getBatchUrlFromTab = (tabId: number): string => {
+  const url = new URL(browser.runtime.getURL('/batch-scrape.html'))
+  url.searchParams.set('loadFromTabId', tabId.toString())
   return url.toString()
 }
