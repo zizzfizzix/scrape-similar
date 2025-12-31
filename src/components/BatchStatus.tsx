@@ -1,5 +1,5 @@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import type { BatchStatistics } from '@/entrypoints/batch-scrape/hooks/useBatchScrape'
+import type { BatchStatistics } from '@/hooks/useBatchScrape'
 import type { BatchScrapeJob } from '@/utils/batch-scrape-db'
 import { CheckCircle2, Clock, Loader2, Pause, XCircle } from 'lucide-react'
 import React from 'react'

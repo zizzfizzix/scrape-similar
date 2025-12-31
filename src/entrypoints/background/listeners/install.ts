@@ -25,7 +25,7 @@ export const setupInstallListener = (): void => {
     if (details.reason === 'install') {
       try {
         await browser.tabs.create({
-          url: browser.runtime.getURL('/onboarding.html'),
+          url: browser.runtime.getURL('/app.html#/onboarding'),
           active: true,
         })
         log.debug('Opened onboarding page for new installation')

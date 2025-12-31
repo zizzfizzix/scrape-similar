@@ -24,7 +24,7 @@ export const handleDeleteBatch = async (
  * Navigate back to batch history
  */
 export const navigateToBatchHistory = (): void => {
-  window.location.href = browser.runtime.getURL('/batch-scrape-history.html')
+  window.location.href = browser.runtime.getURL('/app.html#/scrapes')
 }
 
 /**

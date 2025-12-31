@@ -69,12 +69,17 @@ test.describe('Debug Mode', () => {
     test('allows unlocking and toggling debug mode which persists across reloads', async ({
       serviceWorker,
       openSidePanel,
+      context,
     }) => {
       // Launch the side-panel
       const sidePanel = await openSidePanel()
 
       // Dismiss consent modal
       await TestHelpers.dismissAnalyticsConsent(serviceWorker)
+
+      // Open a random wiki page for sidepanel to be in a default state
+      const randomWikiPage = await TestHelpers.openRandomWikiPage(context)
+      await randomWikiPage.bringToFront()
 
       // Open the settings drawer via the toolbar button
       await sidePanel.getByRole('button', { name: /settings/i }).click()
@@ -106,6 +111,7 @@ test.describe('Debug Mode', () => {
     test('debug row hidden by default and appears after 5 header clicks', async ({
       serviceWorker,
       openSidePanel,
+      context,
     }) => {
       // Dismiss consent modal
       await TestHelpers.dismissAnalyticsConsent(serviceWorker)
@@ -117,6 +123,10 @@ test.describe('Debug Mode', () => {
 
       // Launch the side-panel
       const sidePanel = await openSidePanel()
+
+      // Open a random wiki page for sidepanel to be in a default state
+      const randomWikiPage = await TestHelpers.openRandomWikiPage(context)
+      await randomWikiPage.bringToFront()
 
       // Open the settings drawer via the toolbar button
       await sidePanel.getByRole('button', { name: /settings/i }).click()

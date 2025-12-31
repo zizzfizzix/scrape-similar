@@ -23,7 +23,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Textarea } from '@/components/ui/textarea'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useRecentSelectors } from '@/hooks/useRecentSelectors'
-import { getBatchUrlFromTab } from '@/utils/batch-urls'
+import { getScrapeFromTabUrl } from '@/utils/app-urls'
 import log from 'loglevel'
 
 import {
@@ -1127,7 +1127,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                     disabled={isLoading || config.columns.length === 0 || !tabId}
                     asChild
                   >
-                    <a href={getBatchUrlFromTab(tabId)} target="_blank">
+                    <a href={getScrapeFromTabUrl(tabId)} target="_blank">
                       <LayersPlus className="w-4 h-4" />
                     </a>
                   </Button>

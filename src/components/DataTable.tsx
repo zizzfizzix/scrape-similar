@@ -278,7 +278,7 @@ const DataTable: React.FC<DataTableProps> = ({
     })
 
     // Use type assertion since WXT will generate this entrypoint
-    const fullViewUrl = browser.runtime.getURL(`/full-data-view.html?tabId=${tabId}`)
+    const fullViewUrl = browser.runtime.getURL(`/app.html#/data/${tabId}`)
     browser.tabs.create({ url: fullViewUrl })
 
     // Close the sidepanel window after opening the full view

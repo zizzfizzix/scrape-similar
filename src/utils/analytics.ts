@@ -183,9 +183,10 @@ export const trackEvent = async (
       case EXTENSION_CONTEXTS.POPUP:
       case EXTENSION_CONTEXTS.OPTIONS:
       case EXTENSION_CONTEXTS.ONBOARDING:
-      case EXTENSION_CONTEXTS.FULL_DATA_VIEW:
-      case EXTENSION_CONTEXTS.BATCH_SCRAPE:
-      case EXTENSION_CONTEXTS.BATCH_SCRAPE_HISTORY: {
+      case EXTENSION_CONTEXTS.DATA_VIEW:
+      case EXTENSION_CONTEXTS.SCRAPE_NEW:
+      case EXTENSION_CONTEXTS.SCRAPE_DETAIL:
+      case EXTENSION_CONTEXTS.SCRAPES_LIST: {
         if ((window as any).__scrape_similar_posthog) {
           ;(window as any).__scrape_similar_posthog.capture(eventName, eventProperties)
           log.debug(`Tracked event in ${context} context: ${eventName}`, eventProperties)

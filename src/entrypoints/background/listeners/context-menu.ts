@@ -151,8 +151,8 @@ const handleBatchScrape = async (
 
   try {
     // Open batch scrape page directly (we're already in the background script)
-    const url = new URL(browser.runtime.getURL('/batch-scrape.html'))
-    await browser.tabs.create({ url: url.toString() })
+    const url = browser.runtime.getURL('/app.html#/scrapes/new')
+    await browser.tabs.create({ url })
     log.debug('Batch scrape page opened via context menu')
   } catch (error) {
     log.error('Error handling batch-scrape context menu:', error)

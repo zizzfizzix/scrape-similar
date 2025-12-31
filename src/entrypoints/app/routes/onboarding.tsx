@@ -1,10 +1,16 @@
+import { ConsentCard } from '@/components/ConsentCard'
+import { ConsentContent } from '@/components/ConsentContent'
 import { Logo } from '@/components/Logo'
+import { useConsent } from '@/components/consent-provider'
+import { Footer } from '@/components/footer'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { Toaster } from '@/components/ui/sonner'
+import { ANALYTICS_EVENTS, trackEvent } from '@/utils/analytics'
 import { isTest } from '@/utils/modeTest'
+import { MESSAGE_TYPES } from '@/utils/types'
 import {
   Ban,
   Check,
@@ -35,7 +41,7 @@ interface OnboardingSlide {
   image?: string
 }
 
-const OnboardingApp: React.FC = () => {
+const OnboardingPage: React.FC = () => {
   const [currentSlide, setCurrentSlide] = useState(0)
   const [platform, setPlatform] = useState<'mac' | 'win'>('win')
   const { loading: isLoading, state: consentState, setConsent } = useConsent()
@@ -776,4 +782,4 @@ const OnboardingApp: React.FC = () => {
   )
 }
 
-export default OnboardingApp
+export default OnboardingPage

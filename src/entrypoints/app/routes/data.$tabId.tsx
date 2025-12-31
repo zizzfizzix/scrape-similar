@@ -1,5 +1,7 @@
 import { AppHeader } from '@/components/AppHeader'
+import { ConsentWrapper } from '@/components/ConsentWrapper'
 import ExportButtons from '@/components/ExportButtons'
+import { Footer } from '@/components/footer'
 import ResultsTable from '@/components/ResultsTable'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -13,9 +15,10 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
-
 import { ANALYTICS_EVENTS, trackEvent } from '@/utils/analytics'
 import { isDevOrTest } from '@/utils/modeTest'
+import { MESSAGE_TYPES } from '@/utils/types'
+import { useNavigate, useParams } from '@tanstack/react-router'
 import log from 'loglevel'
 import { ArrowLeft, ChevronsUpDown } from 'lucide-react'
 import React, { useCallback, useEffect, useState } from 'react'
@@ -29,12 +32,11 @@ interface TabData {
   config: ScrapeConfig
 }
 
-interface FullDataViewAppProps {}
-
-const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
-  // URL parsing
-  const urlParams = new URLSearchParams(window.location.search)
-  const initialTabId = urlParams.get('tabId') ? parseInt(urlParams.get('tabId')!) : null
+const DataViewPage: React.FC = () => {
+  // Get tab ID from URL params
+  const { tabId: tabIdParam } = useParams({ from: '/data/$tabId' })
+  const initialTabId = parseInt(tabIdParam)
+  const navigate = useNavigate()
 
   // State
   const [currentTabId, setCurrentTabId] = useState<number | null>(initialTabId)
@@ -177,9 +179,10 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
               setCurrentTabId(newTab.tabId)
               setCurrentTabData(newTab)
               // Update URL
-              const newUrl = new URL(window.location.href)
-              newUrl.searchParams.set('tabId', newTab.tabId.toString())
-              window.history.replaceState({}, '', newUrl.toString())
+              navigate({
+                to: '/data/$tabId',
+                params: { tabId: newTab.tabId.toString() },
+              })
             } else if (currentTabId === tabId) {
               // No other tabs available
               setCurrentTabId(null)
@@ -217,18 +220,20 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
               setCurrentTabId(updatedTabData.tabId)
               setCurrentTabData(updatedTabData)
               // Update URL
-              const newUrl = new URL(window.location.href)
-              newUrl.searchParams.set('tabId', updatedTabData.tabId.toString())
-              window.history.replaceState({}, '', newUrl.toString())
+              navigate({
+                to: '/data/$tabId',
+                params: { tabId: updatedTabData.tabId.toString() },
+              })
             } else if (currentTabId === null && newTabs.length > 1 && prev.length === 0) {
               // If we had no tabs before and now have multiple, select the first one
               const firstTab = newTabs[0]
               setCurrentTabId(firstTab.tabId)
               setCurrentTabData(firstTab)
               // Update URL
-              const newUrl = new URL(window.location.href)
-              newUrl.searchParams.set('tabId', firstTab.tabId.toString())
-              window.history.replaceState({}, '', newUrl.toString())
+              navigate({
+                to: '/data/$tabId',
+                params: { tabId: firstTab.tabId.toString() },
+              })
             }
 
             return newTabs
@@ -273,9 +278,10 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
           setCurrentTabId(newTab.tabId)
           setCurrentTabData(newTab)
           // Update URL
-          const newUrl = new URL(window.location.href)
-          newUrl.searchParams.set('tabId', newTab.tabId.toString())
-          window.history.replaceState({}, '', newUrl.toString())
+          navigate({
+            to: '/data/$tabId',
+            params: { tabId: newTab.tabId.toString() },
+          })
         } else if (currentTabId === tabId) {
           // No other tabs available
           setCurrentTabId(null)
@@ -294,7 +300,7 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
       browser.tabs.onCreated.removeListener(handleTabCreated)
       browser.tabs.onRemoved.removeListener(handleTabRemoved)
     }
-  }, [currentTabId])
+  }, [currentTabId, navigate])
 
   // Handle tab switching
   const handleTabSwitch = (tabId: number) => {
@@ -305,9 +311,10 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
       // Reset selected rows when switching tabs
       setSelectedRows([])
       // Update URL
-      const newUrl = new URL(window.location.href)
-      newUrl.searchParams.set('tabId', tabId.toString())
-      window.history.replaceState({}, '', newUrl.toString())
+      navigate({
+        to: '/data/$tabId',
+        params: { tabId: tabId.toString() },
+      })
 
       // Track tab switch
       trackEvent(ANALYTICS_EVENTS.FULL_DATA_VIEW_TAB_SWITCH, {
@@ -564,4 +571,4 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
   )
 }
 
-export default FullDataViewApp
+export default DataViewPage

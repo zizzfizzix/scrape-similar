@@ -3,6 +3,7 @@ import { Card } from '@/components/ui/card'
 import { Toaster } from '@/components/ui/sonner'
 import { usePresets } from '@/hooks/usePresets'
 import { FEATURE_FLAGS, isFeatureEnabled } from '@/utils/feature-flags'
+import { extractTabIdFromDataUrl } from '@/utils/hash-url-parser'
 import { chromeExtensionId } from '@@/package.json' with { type: 'json' }
 import log from 'loglevel'
 import { Minimize2, X } from 'lucide-react'
@@ -68,9 +69,8 @@ const ExtensionPageControls: React.FC<{
     if (!currentTabUrl || !showBackButton) return
 
     try {
-      // Parse the URL to get the original tabId
-      const url = new URL(currentTabUrl)
-      const originalTabId = url.searchParams.get('tabId')
+      // Parse the URL to get the original tabId from hash path (e.g., app.html#/data/123)
+      const originalTabId = extractTabIdFromDataUrl(currentTabUrl)
 
       if (originalTabId) {
         const tabId = Number(originalTabId)
@@ -95,7 +95,7 @@ const ExtensionPageControls: React.FC<{
         }
       } else {
         toast.error('No target tab ID found')
-        log.error('No tabId parameter found in URL:', currentTabUrl)
+        log.error('No tabId found in hash path:', currentTabUrl)
       }
     } catch (err) {
       toast.error('Failed to switch back to tab')
@@ -658,36 +658,29 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
   // Wrap the hook's handleSavePreset to pass current config
   const handleSavePresetWithConfig = (name: string) => handleSavePreset(name, config)
 
-  // Check if the current tab is showing the full data view
-  if (tabUrl?.startsWith(`chrome-extension://${chromeExtensionId}/full-data-view.html`)) {
+  // Check if the current tab is showing the app pages (full data view, batch scrape, etc.)
+  if (tabUrl?.startsWith(`chrome-extension://${chromeExtensionId}/app.html`)) {
+    // Determine title based on hash route
+    let title = 'App Mode Active'
+    if (tabUrl.includes('#/data/')) {
+      title = 'Full Screen View Active'
+    } else if (tabUrl.includes('#/scrapes')) {
+      title = 'Batch Scrape Mode Active'
+    } else if (tabUrl.includes('#/onboarding')) {
+      title = 'Onboarding Active'
+    }
+
     return (
       <div className="flex flex-col h-screen font-sans min-w-0 max-w-full w-full box-border">
         <Toaster />
         <ConsentWrapper>
           <main className="flex-1 flex min-w-0 w-full">
             <ExtensionPageControls
-              title="Full Screen View Active"
+              title={title}
               currentTabUrl={tabUrl}
               currentTabId={targetTabId}
-              showBackButton={true}
+              showBackButton={tabUrl.includes('#/data/')}
             />
-          </main>
-        </ConsentWrapper>
-      </div>
-    )
-  }
-
-  // Check if the current tab is showing batch scrape pages
-  if (
-    tabUrl?.startsWith(`chrome-extension://${chromeExtensionId}/batch-scrape.html`) ||
-    tabUrl?.startsWith(`chrome-extension://${chromeExtensionId}/batch-scrape-history.html`)
-  ) {
-    return (
-      <div className="flex flex-col h-screen font-sans min-w-0 max-w-full w-full box-border">
-        <Toaster />
-        <ConsentWrapper>
-          <main className="flex-1 flex min-w-0 w-full">
-            <ExtensionPageControls title="Batch Scrape Mode Active" />
           </main>
         </ConsentWrapper>
       </div>

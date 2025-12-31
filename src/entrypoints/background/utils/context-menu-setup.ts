@@ -6,7 +6,7 @@ import log from 'loglevel'
 const CONTEXT_MENU_URL_PATTERNS = [
   'http://*/*',
   'https://*/*',
-  `chrome-extension://${browser.runtime.id}/onboarding.html`,
+  `chrome-extension://${browser.runtime.id}/app.html`,
 ]
 
 interface ContextMenuItem {

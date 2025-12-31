@@ -21,14 +21,14 @@ import {
   startBatchJob,
 } from '@/utils/batch-operations'
 import { getStorageUsage, liveGetAllBatchJobs, type BatchScrapeJob } from '@/utils/batch-scrape-db'
-import { getBatchUrl, getNewBatchUrl } from '@/utils/batch-urls'
+import { Link } from '@tanstack/react-router'
 import { formatDistanceToNow } from 'date-fns'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { HardDrive, Loader2, Plus, Search } from 'lucide-react'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 
-const BatchScrapeHistoryApp: React.FC = () => {
+const ScrapesListPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [storageUsage, setStorageUsage] = useState({ used: 0, quota: 0, percentUsed: 0 })
@@ -113,16 +113,16 @@ const BatchScrapeHistoryApp: React.FC = () => {
           <AppHeader
             left={
               <div>
-                <h1 className="text-2xl font-bold">Batch Scrape History</h1>
+                <h1 className="text-2xl font-bold">Batch Scrapes</h1>
                 <p className="text-sm text-muted-foreground">Manage your batch scrape jobs</p>
               </div>
             }
             right={
               <Button asChild>
-                <a href={getNewBatchUrl()}>
+                <Link to="/scrapes/new">
                   <Plus className="h-4 w-4 mr-2" />
                   New Batch
-                </a>
+                </Link>
               </Button>
             }
           />
@@ -194,8 +194,9 @@ const BatchScrapeHistoryApp: React.FC = () => {
                     <Card key={batch.id} className="hover:bg-muted/50 transition-colors">
                       <CardHeader>
                         <div className="flex items-start justify-between gap-4">
-                          <a
-                            href={getBatchUrl(batch.id)}
+                          <Link
+                            to="/scrapes/$id"
+                            params={{ id: batch.id }}
                             className="space-y-2 flex-1 cursor-pointer no-underline hover:no-underline"
                           >
                             <CardTitle className="text-lg ph_hidden">{batch.name}</CardTitle>
@@ -203,7 +204,7 @@ const BatchScrapeHistoryApp: React.FC = () => {
                               Created{' '}
                               {formatDistanceToNow(new Date(batch.createdAt), { addSuffix: true })}
                             </CardDescription>
-                          </a>
+                          </Link>
                           <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
                             <BatchActionButtons
                               variant="card"
@@ -246,4 +247,4 @@ const BatchScrapeHistoryApp: React.FC = () => {
   )
 }
 
-export default BatchScrapeHistoryApp
+export default ScrapesListPage

@@ -1,3 +1,4 @@
+import { BatchSettingsForm } from '@/components/BatchSettings'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -9,7 +10,6 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { BatchSettingsForm } from '@/entrypoints/batch-scrape/components/BatchSettings'
 import { DEFAULT_BATCH_SETTINGS, type BatchSettings } from '@/utils/batch-scrape-db'
 import type { ButtonSize, ButtonVariant } from '@/utils/types'
 import { RotateCcw, Settings } from 'lucide-react'

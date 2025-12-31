@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { getDuplicateScrapeUrl } from '@/utils/app-urls'
 import type { BatchScrapeJob } from '@/utils/batch-scrape-db'
-import { getDuplicateBatchUrl } from '@/utils/batch-urls'
 import type { ButtonSize } from '@/utils/types'
 import { Copy } from 'lucide-react'
 import React from 'react'
@@ -28,7 +28,7 @@ export const DuplicateBatchButton: React.FC<DuplicateBatchButtonProps> = ({
           asChild
           onClick={stopPropagation ? (e) => e.stopPropagation() : undefined}
         >
-          <a href={getDuplicateBatchUrl(batch.id)}>
+          <a href={getDuplicateScrapeUrl(batch.id)}>
             <Copy className="h-4 w-4" />
           </a>
         </Button>
