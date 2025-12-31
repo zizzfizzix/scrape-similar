@@ -24,6 +24,7 @@ interface UseVisualPickerReturn {
 export const useVisualPicker = (options: UseVisualPickerOptions): UseVisualPickerReturn => {
   const { onSelectorPicked } = options
   const [pickerTabId, setPickerTabId] = useState<number | null>(null)
+  const [originTabId, setOriginTabId] = useState<number | null>(null)
 
   // Use ref to avoid stale closure issues in message listener
   const onSelectorPickedRef = useRef(onSelectorPicked)
@@ -34,16 +35,28 @@ export const useVisualPicker = (options: UseVisualPickerOptions): UseVisualPicke
   // Close picker tab
   const closePicker = useCallback(() => {
     if (pickerTabId) {
+      // Focus back to batch creation tab before closing picker tab
+      if (originTabId) {
+        browser.tabs.update(originTabId, { active: true }).catch(() => {
+          // Origin tab might have been closed, ignore error
+        })
+      }
       browser.tabs.remove(pickerTabId).catch(() => {
         // Tab may already be closed
       })
       setPickerTabId(null)
     }
-  }, [pickerTabId])
+  }, [pickerTabId, originTabId])
 
   // Open a URL in a new tab and enable picker mode
   const openPicker = useCallback(async (url: string) => {
     try {
+      // Capture the current tab ID (batch creation tab) to return focus later
+      const currentTab = await browser.tabs.getCurrent()
+      if (currentTab?.id) {
+        setOriginTabId(currentTab.id)
+      }
+
       // Open tab with URL
       const tab = await browser.tabs.create({ url, active: true })
       if (!tab.id) {
@@ -122,6 +135,13 @@ export const useVisualPicker = (options: UseVisualPickerOptions): UseVisualPicke
           toast.success('Selector updated from picker')
         }
 
+        // Focus back to batch creation tab before closing picker tab
+        if (originTabId) {
+          browser.tabs.update(originTabId, { active: true }).catch(() => {
+            // Origin tab might have been closed, ignore error
+          })
+        }
+
         // Close picker tab
         browser.tabs.remove(pickerTabId).catch(() => {})
         setPickerTabId(null)
@@ -135,7 +155,7 @@ export const useVisualPicker = (options: UseVisualPickerOptions): UseVisualPicke
     return () => {
       browser.runtime.onMessage.removeListener(handleMessage)
     }
-  }, [pickerTabId])
+  }, [pickerTabId, originTabId])
 
   // Cleanup on unmount
   useEffect(() => {
