@@ -53,7 +53,16 @@ export const TestHelpers = {
    */
   async openOnboardingPage(context: BrowserContext, extensionId: string): Promise<Page> {
     const page = await context.newPage()
-    await page.goto(`chrome-extension://${extensionId}/onboarding.html`)
+    await page.goto(`chrome-extension://${extensionId}/app.html#/onboarding`)
+    return page
+  },
+
+  /**
+   * Opens the onboarding page for the extension
+   */
+  async openRandomWikiPage(context: BrowserContext): Promise<Page> {
+    const page = await context.newPage()
+    await page.goto(`https://en.wikipedia.org/wiki/Special:Random`)
     return page
   },
 
@@ -62,7 +71,7 @@ export const TestHelpers = {
    */
   async openFullDataViewPage(context: BrowserContext, extensionId: string): Promise<Page> {
     const page = await context.newPage()
-    await page.goto(`chrome-extension://${extensionId}/full-data-view.html`)
+    await page.goto(`chrome-extension://${extensionId}/app.html#/data/1`)
     return page
   },
 
@@ -156,7 +165,7 @@ export const TestHelpers = {
   async openFullDataView(sidePanel: Page, context: BrowserContext): Promise<Page> {
     const [fullDataViewPage] = await Promise.all([
       context
-        .waitForEvent('page', { predicate: (p) => p.url().includes('full-data-view.html') })
+        .waitForEvent('page', { predicate: (p) => p.url().includes('app.html#/data/') })
         .then(async (p) => {
           await p.locator('table').waitFor({ state: 'visible' })
           return p

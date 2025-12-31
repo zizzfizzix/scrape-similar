@@ -6,10 +6,13 @@ import {
   getCurrentContext,
   isBackgroundContext,
   isContentScript,
-  isFullDataView,
+  isDataView,
   isOnboardingPage,
   isOptionsPage,
   isPopup,
+  isScrapeDetail,
+  isScrapeNew,
+  isScrapesList,
   isSidePanel,
 } from '@/utils/context-detection'
 
@@ -53,13 +56,16 @@ afterEach(() => {
 const createWindow = ({
   protocol = 'chrome-extension:',
   pathname,
+  hash = '',
 }: {
   protocol?: string
   pathname: string
+  hash?: string
 }) => ({
   location: {
     protocol,
     pathname,
+    hash,
   },
 })
 
@@ -116,26 +122,73 @@ describe('context detection utilities', () => {
   })
 
   it('detects onboarding page context', () => {
-    vi.stubGlobal('window', createWindow({ pathname: '/onboarding.html' }))
+    vi.stubGlobal('window', createWindow({ pathname: '/app.html', hash: '#/onboarding' }))
 
     expect(isOnboardingPage()).toBe(true)
     expect(getCurrentContext()).toBe(EXTENSION_CONTEXTS.ONBOARDING)
   })
 
-  it('detects full data view context', () => {
-    vi.stubGlobal('window', createWindow({ pathname: '/full-data-view.html' }))
+  it('detects data view context', () => {
+    vi.stubGlobal('window', createWindow({ pathname: '/app.html', hash: '#/data/123' }))
 
-    expect(isFullDataView()).toBe(true)
-    expect(getCurrentContext()).toBe(EXTENSION_CONTEXTS.FULL_DATA_VIEW)
+    expect(isDataView()).toBe(true)
+    expect(getCurrentContext()).toBe(EXTENSION_CONTEXTS.DATA_VIEW)
   })
 
   it.each(getEntrypointPaths())(
     'detects context other than UNKNOWN for each of the entrypoints in src/entrypoints',
     (path) => {
-      vi.stubGlobal('window', createWindow({ pathname: path }))
+      // app.html uses hash-based routing, so we need to provide a hash
+      // For other entrypoints, pathname alone is sufficient
+      const hash = path === 'app.html' ? '#/onboarding' : ''
+      vi.stubGlobal('window', createWindow({ pathname: path, hash }))
       expect(getCurrentContext()).not.toBe(EXTENSION_CONTEXTS.UNKNOWN)
     },
   )
+
+  it('detects onboarding route in app.html', () => {
+    vi.stubGlobal('window', createWindow({ pathname: '/app.html', hash: '#/onboarding' }))
+
+    expect(isOnboardingPage()).toBe(true)
+    expect(getCurrentContext()).toBe(EXTENSION_CONTEXTS.ONBOARDING)
+  })
+
+  it('detects data view route in app.html', () => {
+    vi.stubGlobal('window', createWindow({ pathname: '/app.html', hash: '#/data/123' }))
+
+    expect(isDataView()).toBe(true)
+    expect(getCurrentContext()).toBe(EXTENSION_CONTEXTS.DATA_VIEW)
+  })
+
+  it('detects scrapes list route in app.html', () => {
+    vi.stubGlobal('window', createWindow({ pathname: '/app.html', hash: '#/scrapes' }))
+
+    expect(isScrapesList()).toBe(true)
+    expect(getCurrentContext()).toBe(EXTENSION_CONTEXTS.SCRAPES_LIST)
+  })
+
+  it('detects scrape detail route in app.html', () => {
+    vi.stubGlobal('window', createWindow({ pathname: '/app.html', hash: '#/scrapes/abc-123' }))
+
+    expect(isScrapeDetail()).toBe(true)
+    expect(getCurrentContext()).toBe(EXTENSION_CONTEXTS.SCRAPE_DETAIL)
+  })
+
+  it('detects new scrape route in app.html', () => {
+    vi.stubGlobal('window', createWindow({ pathname: '/app.html', hash: '#/scrapes/new' }))
+
+    expect(isScrapeNew()).toBe(true)
+    expect(isScrapeDetail()).toBe(false) // Should not match detail
+    expect(getCurrentContext()).toBe(EXTENSION_CONTEXTS.SCRAPE_NEW)
+  })
+
+  it('detects new scrape route with query params in app.html', () => {
+    vi.stubGlobal('window', createWindow({ pathname: '/app.html', hash: '#/scrapes/new?from=abc' }))
+
+    expect(isScrapeNew()).toBe(true)
+    expect(isScrapeDetail()).toBe(false)
+    expect(getCurrentContext()).toBe(EXTENSION_CONTEXTS.SCRAPE_NEW)
+  })
 
   it('returns UNKNOWN context when pathname is not a known extension page', () => {
     vi.stubGlobal('window', createWindow({ pathname: '/not-an-entrypoint.html' }))

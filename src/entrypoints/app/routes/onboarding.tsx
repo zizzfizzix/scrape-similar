@@ -1,10 +1,16 @@
+import { ConsentCard } from '@/components/ConsentCard'
+import { ConsentContent } from '@/components/ConsentContent'
 import { Logo } from '@/components/Logo'
+import { useConsent } from '@/components/consent-provider'
+import { Footer } from '@/components/footer'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { Toaster } from '@/components/ui/sonner'
+import { ANALYTICS_EVENTS, trackEvent } from '@/utils/analytics'
 import { isTest } from '@/utils/modeTest'
+import { MESSAGE_TYPES } from '@/utils/types'
 import {
   Ban,
   Check,
@@ -14,6 +20,7 @@ import {
   Crosshair,
   Download,
   Keyboard,
+  Layers,
   MousePointer,
   Pin,
   Puzzle,
@@ -34,7 +41,7 @@ interface OnboardingSlide {
   image?: string
 }
 
-const OnboardingApp: React.FC = () => {
+const OnboardingPage: React.FC = () => {
   const [currentSlide, setCurrentSlide] = useState(0)
   const [platform, setPlatform] = useState<'mac' | 'win'>('win')
   const { loading: isLoading, state: consentState, setConsent } = useConsent()
@@ -395,6 +402,65 @@ const OnboardingApp: React.FC = () => {
     },
     {
       id: 5,
+      title: 'Batch Scrape',
+      description: 'Scrape multiple URLs with one configuration',
+      icon: <Layers className="h-8 w-8" />,
+      content: (
+        <div className="space-y-4">
+          <p className="text-muted-foreground">
+            Use Batch Scrape to extract data from multiple URLs with the same configuration. Perfect
+            for scraping product pages, search results, or any repeated structure across URLs.
+          </p>
+          <div className="space-y-3">
+            <div className="flex items-start space-x-3">
+              <div className="w-5 h-5 bg-primary rounded-full mt-1 shrink-0 flex items-center justify-center">
+                <span className="text-xs font-medium text-primary-foreground">1</span>
+              </div>
+              <div>
+                <p className="text-sm font-medium">Access from sidepanel or context menu</p>
+                <p className="text-xs text-muted-foreground">
+                  Click the layers icon next to the scrape button, or right-click and select "Batch
+                  scrape"
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start space-x-3">
+              <div className="w-5 h-5 bg-primary rounded-full mt-1 shrink-0 flex items-center justify-center">
+                <span className="text-xs font-medium text-primary-foreground">2</span>
+              </div>
+              <div>
+                <p className="text-sm font-medium">Enter URLs and configure scraping</p>
+                <p className="text-xs text-muted-foreground">
+                  Add one URL per line or upload a CSV/TXT file. Set concurrency, delays, and
+                  retries.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start space-x-3">
+              <div className="w-5 h-5 bg-primary rounded-full mt-1 shrink-0 flex items-center justify-center">
+                <span className="text-xs font-medium text-primary-foreground">3</span>
+              </div>
+              <div>
+                <p className="text-sm font-medium">Monitor progress and export</p>
+                <p className="text-xs text-muted-foreground">
+                  Watch real-time progress with status for each URL. Export combined results with a
+                  URL column.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-muted p-3 rounded-lg">
+            <p className="text-xs text-muted-foreground">
+              <strong>Features:</strong> Automatic retries with exponential backoff, pause/resume,
+              configurable concurrency (1-10 tabs), rate limiting, and IndexedDB storage for
+              persistence
+            </p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: 6,
       title: 'Ready-to-Use Presets',
       description: 'Quick start with pre-configured settings',
       icon: <Settings className="h-8 w-8" />,
@@ -449,7 +515,7 @@ const OnboardingApp: React.FC = () => {
       ),
     },
     {
-      id: 6,
+      id: 7,
       title: 'Keyboard Shortcuts',
       description: 'Quick access to key features',
       icon: <Keyboard className="h-8 w-8" />,
@@ -521,7 +587,7 @@ const OnboardingApp: React.FC = () => {
       ),
     },
     {
-      id: 7,
+      id: 8,
       title: 'Privacy & Security',
       description: 'Your data stays safe on your computer',
       icon: <Shield className="h-8 w-8" />,
@@ -574,7 +640,7 @@ const OnboardingApp: React.FC = () => {
       ),
     },
     {
-      id: 8,
+      id: 9,
       title: "You're all set!",
       description: 'Ready to start scraping',
       icon: <Check className="h-8 w-8" />,
@@ -716,4 +782,4 @@ const OnboardingApp: React.FC = () => {
   )
 }
 
-export default OnboardingApp
+export default OnboardingPage

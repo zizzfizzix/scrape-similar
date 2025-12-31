@@ -48,7 +48,7 @@ test.describe('Full Data View', () => {
 
     // Open full data view directly without any scraped data
     const fullDataViewPage = await context.newPage()
-    await fullDataViewPage.goto(`chrome-extension://${extensionId}/full-data-view.html`)
+    await fullDataViewPage.goto(`chrome-extension://${extensionId}/app.html#/data/0`)
 
     // Should show no data available message
     await expect(fullDataViewPage.getByText('No Data Available')).toBeVisible()
@@ -736,7 +736,7 @@ test.describe('Full Data View', () => {
   test('handles error states gracefully', async ({ context, extensionId }) => {
     // Open full data view with invalid tab ID
     const fullDataViewPage = await context.newPage()
-    await fullDataViewPage.goto(`chrome-extension://${extensionId}/full-data-view.html?tabId=99999`)
+    await fullDataViewPage.goto(`chrome-extension://${extensionId}/app.html#/data/99999`)
 
     // Should either show no data message or handle gracefully
     // The app should not crash and should show appropriate feedback

@@ -1,6 +1,9 @@
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Toaster } from '@/components/ui/sonner'
+import { usePresets } from '@/hooks/usePresets'
+import { FEATURE_FLAGS, isFeatureEnabled } from '@/utils/feature-flags'
+import { extractTabIdFromDataUrl } from '@/utils/hash-url-parser'
 import { chromeExtensionId } from '@@/package.json' with { type: 'json' }
 import log from 'loglevel'
 import { Minimize2, X } from 'lucide-react'
@@ -54,17 +57,20 @@ const SplashScreen: React.FC<{ tabUrl: string }> = ({ tabUrl }) => (
   </div>
 )
 
-// Special view for when the side panel is viewing a full data view tab
-const FullDataViewControls: React.FC<{
-  currentTabUrl: string
-  currentTabId: number | null
-}> = ({ currentTabUrl, currentTabId }) => {
-  // Handle going back to the original tab and close the full-data-view tab
+// Generic special view for when the side panel is viewing extension pages
+const ExtensionPageControls: React.FC<{
+  title: string
+  currentTabUrl?: string
+  currentTabId?: number | null
+  showBackButton?: boolean
+}> = ({ title, currentTabUrl, currentTabId, showBackButton = false }) => {
+  // Handle going back to the original tab and close the current extension tab
   const handleBackToTab = async () => {
+    if (!currentTabUrl || !showBackButton) return
+
     try {
-      // Parse the full data view URL to get the original tabId
-      const url = new URL(currentTabUrl)
-      const originalTabId = url.searchParams.get('tabId')
+      // Parse the URL to get the original tabId from hash path (e.g., app.html#/data/123)
+      const originalTabId = extractTabIdFromDataUrl(currentTabUrl)
 
       if (originalTabId) {
         const tabId = Number(originalTabId)
@@ -78,10 +84,10 @@ const FullDataViewControls: React.FC<{
           await browser.tabs.update(tabId, { active: true })
           log.debug(`Switched back to tab ${tabId}`)
 
-          // Close the current full-data-view tab (currentTabId is the full-data-view tab)
+          // Close the current extension tab
           if (currentTabId) {
             await browser.tabs.remove(currentTabId)
-            log.debug(`Closed full-data-view tab ${currentTabId}`)
+            log.debug(`Closed extension tab ${currentTabId}`)
           }
         } catch (tabError) {
           toast.error('Target tab does not exist')
@@ -89,7 +95,7 @@ const FullDataViewControls: React.FC<{
         }
       } else {
         toast.error('No target tab ID found')
-        log.error('No tabId parameter found in URL:', currentTabUrl)
+        log.error('No tabId found in hash path:', currentTabUrl)
       }
     } catch (err) {
       toast.error('Failed to switch back to tab')
@@ -111,15 +117,17 @@ const FullDataViewControls: React.FC<{
   return (
     <div className="flex flex-1 items-center justify-center w-full min-w-0">
       <div className="flex flex-col items-center justify-center text-center w-full max-w-md mx-auto gap-6">
-        <h2 className="text-2xl mb-4">Full Screen View Active</h2>
+        <h2 className="text-2xl mb-4">{title}</h2>
 
         <div className="flex flex-col gap-4">
-          <Button onClick={handleBackToTab}>
-            <Minimize2 className="h-4 w-4" />
-            Compact View
-          </Button>
+          {showBackButton && (
+            <Button onClick={handleBackToTab}>
+              <Minimize2 className="h-4 w-4" />
+              Compact View
+            </Button>
+          )}
 
-          <Button onClick={handleCloseSidePanel} variant="outline">
+          <Button onClick={handleCloseSidePanel} variant="outline" className="w-full">
             <X className="h-4 w-4" />
             Hide Sidepanel
           </Button>
@@ -146,7 +154,6 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
   const [scrapeResult, setScrapeResult] = useState<ScrapeResult | null>(null)
   // Track the configuration that produced the current scrapeResult
   const [resultProducingConfig, setResultProducingConfig] = useState<ScrapeConfig | null>(null)
-  const [presets, setPresets] = useState<Preset[]>([])
   const [isScraping, setIsScraping] = useState(false)
   const [tabUrl, setTabUrl] = useState<string | null>(null)
   const [showPresets, setShowPresets] = useState(false)
@@ -158,6 +165,16 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
   const [highlightError, setHighlightError] = useState<string | undefined>(undefined)
   const [showEmptyRows, setShowEmptyRows] = useState(false)
   const [pickerModeActive, setPickerModeActive] = useState(false)
+  const [batchScrapeEnabled, setBatchScrapeEnabled] = useState(false)
+
+  // Use presets hook for preset management
+  const {
+    presets,
+    getPresetConfig: loadPresetConfig,
+    handleSavePreset,
+    handleDeletePreset,
+    handleResetSystemPresets,
+  } = usePresets()
 
   // Memoized export filename (regenerates if tabUrl changes)
   const exportFilename = React.useMemo(() => {
@@ -358,21 +375,8 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
     setPickerModeActive(pickerModeActive ?? false)
   }, [])
 
-  // Initialize: load presets, listen for messages, AND listen for tab activation
+  // Initialize: listen for tab activation
   useEffect(() => {
-    // Load presets (system + user, respecting status)
-    const loadPresets = async () => {
-      try {
-        const loadedPresets = await getAllPresets()
-        setPresets(loadedPresets)
-      } catch (error) {
-        log.error('Error loading presets:', error)
-        setPresets([])
-      }
-    }
-
-    loadPresets()
-
     // Listen for tab activation
     const tabActivationListener = (activeInfo: { tabId: number; previousTabId?: number }) => {
       log.debug(`SidePanel detected tab activation: ${activeInfo.tabId}`)
@@ -464,21 +468,23 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
   }, [targetTabId, handleInitialData])
 
   // ---------------------------------------------------------------------------
-  // Watch preset collections (sync-area keys) – keeps local state in sync when
-  // presets are created, deleted or system-preset visibility changes elsewhere.
+  // Load batch scrape feature flag and watch for changes
   // ---------------------------------------------------------------------------
   useEffect(() => {
-    const unwatchUserPresets = storage.watch<Preset[]>(
-      `sync:${STORAGE_KEYS.USER_PRESETS}` as const,
-      () => getAllPresets().then(setPresets),
-    )
-    const unwatchSystemPresetStatus = storage.watch<Record<string, boolean>>(
-      'sync:system_preset_status' as const,
-      () => getAllPresets().then(setPresets),
-    )
+    isFeatureEnabled(FEATURE_FLAGS.BATCH_SCRAPE_ENABLED).then(setBatchScrapeEnabled)
+
+    const unwatchFeatureFlags = storage.watch('local:featureFlags', async () => {
+      const enabled = await isFeatureEnabled(FEATURE_FLAGS.BATCH_SCRAPE_ENABLED)
+      setBatchScrapeEnabled(enabled)
+    })
+    const unwatchOverrides = storage.watch('local:featureFlagOverrides', async () => {
+      const enabled = await isFeatureEnabled(FEATURE_FLAGS.BATCH_SCRAPE_ENABLED)
+      setBatchScrapeEnabled(enabled)
+    })
+
     return () => {
-      unwatchUserPresets()
-      unwatchSystemPresetStatus()
+      unwatchFeatureFlags()
+      unwatchOverrides()
     }
   }, [])
 
@@ -635,118 +641,46 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
     )
   }
 
+  // Wrap the hook's handleLoadPreset to also update config and trigger highlight
   const handleLoadPreset = (preset: Preset) => {
-    handleConfigChange(preset.config)
+    // Use hook's function for analytics and getting config
+    const presetConfig = loadPresetConfig(preset)
+
+    // Update local config state
+    handleConfigChange(presetConfig)
 
     // Trigger highlighting if the preset has a main selector
-    if (preset.config.mainSelector) {
-      handleHighlight(preset.config.mainSelector)
-    }
-
-    // Track preset loaded event
-    trackEvent(ANALYTICS_EVENTS.PRESET_LOAD, {
-      type: isSystemPreset(preset) ? 'system' : 'user',
-      preset_name: isSystemPreset(preset) ? preset.name : null,
-      preset_id: isSystemPreset(preset) ? preset.id : null,
-    })
-  }
-
-  const handleSavePreset = async (name: string) => {
-    const preset: Preset = {
-      id: Date.now().toString(),
-      name,
-      config,
-      createdAt: Date.now(),
-    }
-    try {
-      const success = await savePreset(preset)
-      if (success) {
-        const updatedPresets = await getAllPresets()
-        setPresets(updatedPresets)
-        log.debug('Preset saved successfully and UI updated')
-
-        // Track preset saved event
-        trackEvent(ANALYTICS_EVENTS.PRESET_SAVE, {
-          type: 'user',
-          columns_count: config.columns.length,
-        })
-      } else {
-        log.error('Failed to save preset')
-      }
-    } catch (error) {
-      log.error('Error saving preset:', error)
+    if (presetConfig.mainSelector) {
+      handleHighlight(presetConfig.mainSelector)
     }
   }
 
-  // Hide system preset or delete user preset
-  const handleDeletePreset = async (preset: Preset) => {
-    if (isSystemPreset(preset)) {
-      // Hide system preset by setting enabled=false in status map
-      const statusMap = await getSystemPresetStatus()
-      statusMap[preset.id] = false
-      await setSystemPresetStatus(statusMap)
-      toast.success(`System preset "${preset.name}" hidden.`)
-      // Reload all presets
-      const updatedPresets = await getAllPresets()
-      setPresets(updatedPresets)
+  // Wrap the hook's handleSavePreset to pass current config
+  const handleSavePresetWithConfig = (name: string) => handleSavePreset(name, config)
 
-      // Track preset hidden event
-      trackEvent(ANALYTICS_EVENTS.PRESET_HIDE, {
-        type: 'system',
-        preset_name: preset.name,
-        preset_id: preset.id,
-      })
-      return
+  // Check if the current tab is showing the app pages (full data view, batch scrape, etc.)
+  if (tabUrl?.startsWith(`chrome-extension://${chromeExtensionId}/app.html`)) {
+    // Determine title based on hash route
+    let title = 'App Mode Active'
+    if (tabUrl.includes('#/data/')) {
+      title = 'Full Screen View Active'
+    } else if (tabUrl.includes('#/scrapes')) {
+      title = 'Batch Scrape Mode Active'
+    } else if (tabUrl.includes('#/onboarding')) {
+      title = 'Onboarding Active'
     }
-    // Otherwise, delete user preset as before
-    try {
-      const success = await deletePreset(preset.id)
-      if (success) {
-        const updatedPresets = await getAllPresets()
-        setPresets(updatedPresets)
-        toast.success(
-          <>
-            Preset "<span className="ph_hidden">{preset.name}</span>" deleted
-          </>,
-        )
 
-        // Track preset deleted event
-        trackEvent(ANALYTICS_EVENTS.PRESET_DELETION, {
-          type: 'user',
-        })
-      } else {
-        toast.error(
-          <>
-            Error, preset "<span className="ph_hidden">{preset.name}</span>" couldn't be deleted
-          </>,
-        )
-      }
-    } catch (error) {
-      log.error('Error deleting preset:', error)
-    }
-  }
-
-  // Reset (enable) all system presets
-  const handleResetSystemPresets = async () => {
-    await setSystemPresetStatus({}) // Clear all disables
-    const updatedPresets = await getAllPresets()
-    setPresets(updatedPresets)
-    toast.success('System presets have been reset')
-
-    // Track system presets reset event
-    trackEvent(ANALYTICS_EVENTS.SYSTEM_PRESETS_RESET, {
-      type: 'system',
-    })
-  }
-
-  // Check if the current tab is showing the full data view
-  if (tabUrl?.startsWith(`chrome-extension://${chromeExtensionId}/full-data-view.html`)) {
     return (
       <div className="flex flex-col h-screen font-sans min-w-0 max-w-full w-full box-border">
         <Toaster />
         <ConsentWrapper>
           <main className="flex-1 flex min-w-0 w-full">
-            <FullDataViewControls currentTabUrl={tabUrl} currentTabId={targetTabId} />
+            <ExtensionPageControls
+              title={title}
+              currentTabUrl={tabUrl}
+              currentTabId={targetTabId}
+              showBackButton={tabUrl.includes('#/data/')}
+            />
           </main>
         </ConsentWrapper>
       </div>
@@ -788,7 +722,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
               initialOptions={initialOptions}
               presets={presets}
               onLoadPreset={handleLoadPreset}
-              onSavePreset={handleSavePreset}
+              onSavePreset={handleSavePresetWithConfig}
               onDeletePreset={handleDeletePreset}
               showPresets={showPresets}
               setShowPresets={setShowPresets}
@@ -797,6 +731,9 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
               highlightMatchCount={highlightMatchCount}
               highlightError={highlightError}
               pickerModeActive={pickerModeActive}
+              tabId={targetTabId}
+              tabUrl={tabUrl}
+              batchScrapeEnabled={batchScrapeEnabled}
               // Show rescrape hint when there is data and config differs from the config that produced it
               rescrapeAdvised={
                 !!(scrapeResult && scrapeResult.data && scrapeResult.data.length > 0) &&

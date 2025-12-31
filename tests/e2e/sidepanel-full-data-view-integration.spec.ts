@@ -111,7 +111,7 @@ test.describe('Sidepanel Full Data View Integration', () => {
 
     // Manually navigate to a full data view URL to test detection
     const fullDataViewPage = await context.newPage()
-    await fullDataViewPage.goto(`chrome-extension://${extensionId}/full-data-view.html?tabId=123`)
+    await fullDataViewPage.goto(`chrome-extension://${extensionId}/app.html#/data/123`)
 
     // Open sidepanel while viewing full data view
     const sidePanel = await openSidePanel()
@@ -138,7 +138,7 @@ test.describe('Sidepanel Full Data View Integration', () => {
 
     // Navigate to a full data view URL without tabId parameter
     const fullDataViewPage = await context.newPage()
-    await fullDataViewPage.goto(`chrome-extension://${extensionId}/full-data-view.html`)
+    await fullDataViewPage.goto(`chrome-extension://${extensionId}/app.html#/data/0`)
 
     // Open sidepanel
     const sidePanel = await openSidePanel()
@@ -206,7 +206,7 @@ test.describe('Sidepanel Full Data View Integration', () => {
 
     // Create a full data view URL with a tab ID that doesn't exist
     const fullDataViewPage = await context.newPage()
-    await fullDataViewPage.goto(`chrome-extension://${extensionId}/full-data-view.html?tabId=99999`)
+    await fullDataViewPage.goto(`chrome-extension://${extensionId}/app.html#/data/99999`)
 
     // Open sidepanel
     const sidePanel = await openSidePanel()
@@ -238,7 +238,7 @@ test.describe('Sidepanel Full Data View Integration', () => {
 
     // Navigate to full data view
     const fullDataViewPage = await context.newPage()
-    await fullDataViewPage.goto(`chrome-extension://${extensionId}/full-data-view.html?tabId=123`)
+    await fullDataViewPage.goto(`chrome-extension://${extensionId}/app.html#/data/123`)
 
     // Open sidepanel
     const sidePanel = await openSidePanel()
@@ -278,7 +278,7 @@ test.describe('Sidepanel Full Data View Integration', () => {
 
     // Navigate to full data view
     const fullDataViewPage = await context.newPage()
-    await fullDataViewPage.goto(`chrome-extension://${extensionId}/full-data-view.html?tabId=123`)
+    await fullDataViewPage.goto(`chrome-extension://${extensionId}/app.html#/data/123`)
 
     // Open sidepanel
     const sidePanel = await openSidePanel()

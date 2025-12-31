@@ -120,6 +120,13 @@ export const MESSAGE_TYPES = {
 
   // Onboarding demo
   TRIGGER_DEMO_SCRAPE: 'trigger_demo_scrape',
+
+  // Batch scrape operations
+  BATCH_SCRAPE_START: 'batch-scrape-start',
+  BATCH_SCRAPE_PAUSE: 'batch-scrape-pause',
+  BATCH_SCRAPE_RESUME: 'batch-scrape-resume',
+  BATCH_SCRAPE_RETRY_URL: 'batch-scrape-retry-url',
+  BATCH_SCRAPE_PREVIEW: 'batch-scrape-preview',
 } as const
 
 // Analytics message payload interface
@@ -133,3 +140,32 @@ export interface SystemPresetStatusMap {
 }
 
 export const SYSTEM_PRESET_STATUS_KEY = 'system_preset_status' as const
+
+// Batch scrape related interfaces
+export interface BatchScrapeStartPayload {
+  batchId: string
+}
+
+export interface BatchScrapeRetryPayload {
+  batchId: string
+  urlResultId: string
+}
+
+export interface BatchScrapePreviewPayload {
+  config: ScrapeConfig
+  url: string
+}
+
+// Shared UI types
+export interface StorageUsage {
+  used: number
+  quota: number
+  percentUsed: number
+}
+
+// Re-export ButtonSize from button variants for reuse across components
+// This avoids importing class-variance-authority in every component that needs button sizes
+import type { buttonVariants } from '@/components/ui/button'
+import type { VariantProps } from 'class-variance-authority'
+export type ButtonSize = VariantProps<typeof buttonVariants>['size']
+export type ButtonVariant = VariantProps<typeof buttonVariants>['variant']

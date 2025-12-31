@@ -1,7 +1,7 @@
+import { handleExportToSheets } from '@/entrypoints/background/handlers/sheets-export'
+import type { MessageHandler } from '@/entrypoints/background/types'
 import { trackEvent } from '@/utils/analytics'
 import log from 'loglevel'
-import type { MessageHandler } from '../types'
-import { handleExportToSheets } from './sheets-export'
 
 /**
  * Handle GET_MY_TAB_ID message - return tab ID to content script

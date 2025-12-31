@@ -5,3 +5,6 @@ node_modules
 pnpm-lock.yaml
 pnpm-workspace.yaml
 CHANGELOG.md
+
+# shadcn ui
+src/components/ui

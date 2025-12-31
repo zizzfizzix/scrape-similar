@@ -1,7 +1,7 @@
+import { applySidePanelDataUpdates } from '@/entrypoints/background/services/session-storage'
 import { ANALYTICS_EVENTS, trackEvent } from '@/utils/analytics'
 import { isTest } from '@/utils/modeTest'
 import log from 'loglevel'
-import { applySidePanelDataUpdates } from './session-storage'
 
 /**
  * Handle demo scrape setup from onboarding

@@ -8,7 +8,10 @@ export const EXTENSION_CONTEXTS = {
   POPUP: 'popup',
   OPTIONS: 'options',
   ONBOARDING: 'onboarding',
-  FULL_DATA_VIEW: 'full_data_view',
+  DATA_VIEW: 'full_data_view', // Keep old value for analytics compatibility
+  SCRAPE_NEW: 'scrape_new',
+  SCRAPE_DETAIL: 'scrape_detail',
+  SCRAPES_LIST: 'scrapes_list',
   UNKNOWN: 'unknown',
 } as const
 
@@ -78,15 +81,45 @@ export const isOnboardingPage = (): boolean => {
   return (
     typeof window !== 'undefined' &&
     window.location.protocol === 'chrome-extension:' &&
-    window.location.pathname.includes('onboarding')
+    window.location.pathname.includes('app.html') &&
+    window.location.hash.includes('#/onboarding')
   )
 }
 
-export const isFullDataView = (): boolean => {
+export const isDataView = (): boolean => {
   return (
     typeof window !== 'undefined' &&
     window.location.protocol === 'chrome-extension:' &&
-    window.location.pathname.includes('full-data-view')
+    window.location.pathname.includes('app.html') &&
+    window.location.hash.includes('#/data/')
+  )
+}
+
+export const isScrapeNew = (): boolean => {
+  return (
+    typeof window !== 'undefined' &&
+    window.location.protocol === 'chrome-extension:' &&
+    window.location.pathname.includes('app.html') &&
+    window.location.hash.startsWith('#/scrapes/new')
+  )
+}
+
+export const isScrapeDetail = (): boolean => {
+  return (
+    typeof window !== 'undefined' &&
+    window.location.protocol === 'chrome-extension:' &&
+    window.location.pathname.includes('app.html') &&
+    window.location.hash.includes('/scrapes/') &&
+    !window.location.hash.startsWith('#/scrapes/new') // Exclude new scrape route
+  )
+}
+
+export const isScrapesList = (): boolean => {
+  return (
+    typeof window !== 'undefined' &&
+    window.location.protocol === 'chrome-extension:' &&
+    window.location.pathname.includes('app.html') &&
+    window.location.hash === '#/scrapes'
   )
 }
 
@@ -118,8 +151,20 @@ export const getCurrentContext = (): ExtensionContext => {
     return EXTENSION_CONTEXTS.ONBOARDING
   }
 
-  if (isFullDataView()) {
-    return EXTENSION_CONTEXTS.FULL_DATA_VIEW
+  if (isDataView()) {
+    return EXTENSION_CONTEXTS.DATA_VIEW
+  }
+
+  if (isScrapeNew()) {
+    return EXTENSION_CONTEXTS.SCRAPE_NEW
+  }
+
+  if (isScrapeDetail()) {
+    return EXTENSION_CONTEXTS.SCRAPE_DETAIL
+  }
+
+  if (isScrapesList()) {
+    return EXTENSION_CONTEXTS.SCRAPES_LIST
   }
 
   return EXTENSION_CONTEXTS.UNKNOWN

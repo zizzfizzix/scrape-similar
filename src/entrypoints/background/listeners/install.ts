@@ -1,8 +1,12 @@
+import { injectContentScriptToAllTabs } from '@/entrypoints/background/utils/content-injection'
+import {
+  initializeContextMenus,
+  updateBatchScrapeMenuVisible,
+} from '@/entrypoints/background/utils/context-menu-setup'
 import { ANALYTICS_EVENTS, trackEvent } from '@/utils/analytics'
+import { FEATURE_FLAGS, initializeFeatureFlags, isFeatureEnabled } from '@/utils/feature-flags'
 import { initializeStorage } from '@/utils/storage'
 import log from 'loglevel'
-import { injectContentScriptToAllTabs } from '../utils/content-injection'
-import { initializeContextMenus } from '../utils/context-menu-setup'
 
 /**
  * Handle extension installation and updates
@@ -14,11 +18,14 @@ export const setupInstallListener = (): void => {
     // Initialize storage
     await initializeStorage()
 
+    // Initialize feature flags storage
+    await initializeFeatureFlags()
+
     // Show onboarding on first install (no storage check)
     if (details.reason === 'install') {
       try {
         await browser.tabs.create({
-          url: browser.runtime.getURL('/onboarding.html'),
+          url: browser.runtime.getURL('/app.html#/onboarding'),
           active: true,
         })
         log.debug('Opened onboarding page for new installation')
@@ -29,6 +36,11 @@ export const setupInstallListener = (): void => {
 
     // Create context menu items
     initializeContextMenus()
+
+    // Set initial batch scrape menu visibility based on feature flag
+    // Storage watchers will ensure the visibility updates correctly once menus are created
+    const batchScrapeEnabled = await isFeatureEnabled(FEATURE_FLAGS.BATCH_SCRAPE_ENABLED)
+    updateBatchScrapeMenuVisible(batchScrapeEnabled)
 
     // Set side panel behavior - make the action icon open/close the sidepanel
     try {
@@ -48,14 +60,28 @@ export const setupInstallListener = (): void => {
     // Track extension installation/update
     trackEvent(ANALYTICS_EVENTS.EXTENSION_INSTALLATION)
   })
+
+  // Watch for feature flag changes and update context menu accordingly
+  const updateMenuFromFlags = async () => {
+    const enabled = await isFeatureEnabled(FEATURE_FLAGS.BATCH_SCRAPE_ENABLED)
+    updateBatchScrapeMenuVisible(enabled)
+  }
+
+  storage.watch('local:featureFlags', updateMenuFromFlags)
+  storage.watch('local:featureFlagOverrides', updateMenuFromFlags)
 }
 
 /**
  * Handle browser startup (extension enabled)
  */
 export const setupStartupListener = (): void => {
-  browser.runtime.onStartup.addListener(() => {
+  browser.runtime.onStartup.addListener(async () => {
     injectContentScriptToAllTabs()
+
+    // Set initial batch scrape menu visibility on startup
+    const batchScrapeEnabled = await isFeatureEnabled(FEATURE_FLAGS.BATCH_SCRAPE_ENABLED)
+    updateBatchScrapeMenuVisible(batchScrapeEnabled)
+
     log.debug('Service worker is running')
   })
 }

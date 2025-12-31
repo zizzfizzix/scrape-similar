@@ -22,6 +22,8 @@ import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Textarea } from '@/components/ui/textarea'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useRecentSelectors } from '@/hooks/useRecentSelectors'
+import { getScrapeFromTabUrl } from '@/utils/app-urls'
 import log from 'loglevel'
 
 import {
@@ -31,6 +33,7 @@ import {
   Crosshair,
   HelpCircle,
   Info,
+  LayersPlus,
   LocateOff,
   OctagonAlert,
   Play,
@@ -46,9 +49,9 @@ import { toast } from 'sonner'
 interface ConfigFormProps {
   config: ScrapeConfig
   onChange: (config: ScrapeConfig) => void
-  onScrape: () => void
-  onHighlight: (selector: string) => void
-  onPickerMode: () => void
+  onScrape?: () => void
+  onHighlight?: (selector: string) => void
+  onPickerMode?: () => void
   isLoading: boolean
   initialOptions: SelectionOptions | null
   presets: Preset[]
@@ -63,6 +66,11 @@ interface ConfigFormProps {
   highlightError?: string
   rescrapeAdvised?: boolean
   pickerModeActive?: boolean
+  tabId?: number | null // Tab ID for session storage link
+  tabUrl?: string | null // Current tab URL for batch scrape
+  batchScrapeEnabled?: boolean // Feature flag for batch scrape
+  showPickerButton?: boolean // Whether to show visual picker button (default: true)
+  showScrapeButton?: boolean // Whether to show scrape button (default: true)
 }
 
 const ConfigForm: React.FC<ConfigFormProps> = ({
@@ -82,6 +90,11 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
   highlightError,
   rescrapeAdvised = false,
   pickerModeActive = false,
+  tabId,
+  tabUrl,
+  batchScrapeEnabled = false,
+  showPickerButton = true,
+  showScrapeButton = true,
 }) => {
   // Local state for adding a new column
   const [newColumnName, setNewColumnName] = useState('')
@@ -151,9 +164,12 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
   // Derived flags
   const hasUncommittedChanges = mainSelectorDraft !== config.mainSelector
 
-  // Show highlight/error badges only when selector is committed
+  // Show highlight/error badges only when selector is committed and highlighting is available
   const isMainSelectorValid =
-    !hasUncommittedChanges && typeof highlightMatchCount === 'number' && !highlightError
+    !hasUncommittedChanges &&
+    typeof highlightMatchCount === 'number' &&
+    !highlightError &&
+    !!onHighlight
 
   // Debug logging for validation state changes
   useEffect(() => {
@@ -215,7 +231,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
     if (value !== latest.mainSelector) {
       onChange({ ...latest, mainSelector: value })
     }
-    if (value.trim()) {
+    if (value.trim() && onHighlight) {
       onHighlight(value)
     }
   }
@@ -351,7 +367,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
   const handleAutosuggestSelect = (preset: Preset) => {
     // Update the draft immediately to prevent blur handler from committing stale value
     setMainSelectorDraft(preset.config.mainSelector)
-    // Load the full preset (including columns) just like the Load button does
+    // Load the full preset (including columns)
     onLoadPreset(preset)
     setIsAutosuggestOpen(false)
     mainSelectorInputRef.current?.focus()
@@ -418,23 +434,8 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
     })
   }, [presets, mainSelectorDraft])
 
-  // Recent selectors state
-  const [recentSelectors, setRecentSelectors] = useState<string[]>([])
-
-  useEffect(() => {
-    getRecentMainSelectors().then(setRecentSelectors)
-  }, [])
-
-  // Watch local storage for recents updates and refresh state
-  useEffect(() => {
-    const unwatch = storage.watch<string[]>(
-      `local:${STORAGE_KEYS.RECENT_MAIN_SELECTORS}` as const,
-      (list) => {
-        setRecentSelectors(Array.isArray(list) ? list : [])
-      },
-    )
-    return () => unwatch()
-  }, [])
+  // Use recent selectors hook
+  const recentSelectors = useRecentSelectors()
 
   const recentSuggestions = React.useMemo(() => {
     const query = (mainSelectorDraft || '').toLowerCase().trim()
@@ -539,8 +540,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
           )
           if (!isPreset) {
             await pushRecentMainSelector(mainSelectorDraft)
-            const updated = await getRecentMainSelectors()
-            setRecentSelectors(updated)
+            // useRecentSelectors hook will automatically update via storage watcher
           }
           if (hasUncommittedChanges) {
             // First Enter after changes: validate selector via highlight
@@ -548,7 +548,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
             mainSelectorInputRef.current?.blur()
           } else {
             // No changes: if valid, trigger scrape; otherwise, validate again
-            if (isMainSelectorValid) {
+            if (isMainSelectorValid && onScrape) {
               onScrape()
             } else {
               commitMainSelector(mainSelectorDraft)
@@ -679,7 +679,6 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                   variant="destructive"
                   onClick={handleConfirmDeletePreset}
                   disabled={isSaving}
-                  loading={isSaving}
                 >
                   {presetToDelete && isSystemPreset(presetToDelete) ? 'Hide' : 'Delete'}
                 </Button>
@@ -731,7 +730,6 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                     config.columns.length === 0 ||
                     !isMainSelectorValid
                   }
-                  loading={isSaving}
                 >
                   Save
                 </Button>
@@ -838,12 +836,10 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                                     e.preventDefault()
                                     e.stopPropagation()
                                     removeRecentMainSelector(selector).then(() => {
-                                      getRecentMainSelectors().then((updated) => {
-                                        setRecentSelectors(updated)
-                                        // Keep dropdown open and move focus back to Command root
-                                        requestAnimationFrame(() => {
-                                          commandRef.current?.focus()
-                                        })
+                                      // useRecentSelectors hook will automatically update via storage watcher
+                                      // Keep dropdown open and move focus back to Command root
+                                      requestAnimationFrame(() => {
+                                        commandRef.current?.focus()
                                       })
                                     })
                                   }}
@@ -890,30 +886,35 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
             </div>
           )}
           {/* Begin adornment: visual picker button inside the input on the left */}
-          <div ref={beginAdornmentRef} className="absolute inset-y-0 left-0 flex items-center pl-1">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  type="button"
-                  tabIndex={-1}
-                  aria-label={pickerModeActive ? 'Close visual picker' : 'Open visual picker'}
-                  className="size-7 p-0.5 rounded focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-0"
-                  onClick={onPickerMode}
-                >
-                  {pickerModeActive ? (
-                    <LocateOff className="size-4" />
-                  ) : (
-                    <Crosshair className="size-4" />
-                  )}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="top" align="start">
-                {pickerModeActive ? 'Close visual picker' : 'Pick element visually'}
-              </TooltipContent>
-            </Tooltip>
-          </div>
+          {showPickerButton && onPickerMode && (
+            <div
+              ref={beginAdornmentRef}
+              className="absolute inset-y-0 left-0 flex items-center pl-1"
+            >
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    type="button"
+                    tabIndex={-1}
+                    aria-label={pickerModeActive ? 'Close visual picker' : 'Open visual picker'}
+                    className="size-7 p-0.5 rounded focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-0"
+                    onClick={onPickerMode}
+                  >
+                    {pickerModeActive ? (
+                      <LocateOff className="size-4" />
+                    ) : (
+                      <Crosshair className="size-4" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top" align="start">
+                  {pickerModeActive ? 'Close visual picker' : 'Pick element visually'}
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          )}
 
           {/* End adornments: badges and info button */}
           <div
@@ -1046,7 +1047,6 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
               <TooltipTrigger asChild>
                 <Button
                   onClick={handleGuessConfig}
-                  loading={guessButtonState === 'generating'}
                   disabled={guessButtonState === 'generating' || !isMainSelectorValid}
                   aria-label="Auto-generate configuration from selector"
                 >
@@ -1085,40 +1085,58 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
           </div>
         </div>
         {/* Centered Scrape Button, visually closer to columns */}
-        <div className="flex w-full justify-center mt-4 -mb-2">
-          <Button
-            className="w-full max-w-2xl"
-            onClick={() => {
-              trackEvent(ANALYTICS_EVENTS.SCRAPE_BUTTON_PRESS)
-              onScrape()
-            }}
-            loading={isLoading}
-            disabled={
-              isLoading ||
-              config.columns.length === 0 ||
-              (!isMainSelectorValid && !hasUncommittedChanges)
-            }
-          >
-            {hasUncommittedChanges ? (
-              <>
-                <SquareCheckBig className="w-4 h-4" />
-                <span>Validate selector</span>
-              </>
-            ) : rescrapeAdvised && scrapeButtonState !== 'zero-found' ? (
-              <>
-                <RefreshCcw />
-                <span>Scrape</span>
-              </>
-            ) : scrapeButtonState === 'zero-found' ? (
-              '0 found'
-            ) : (
-              <>
-                <Play className="w-4 h-4" />
-                <span>Scrape</span>
-              </>
+        {showScrapeButton && onScrape && (
+          <div className="flex w-full justify-center mt-4 -mb-2 gap-2">
+            <Button
+              className="grow max-w-2xl"
+              onClick={() => {
+                trackEvent(ANALYTICS_EVENTS.SCRAPE_BUTTON_PRESS)
+                onScrape()
+              }}
+              disabled={
+                isLoading ||
+                config.columns.length === 0 ||
+                (!isMainSelectorValid && !hasUncommittedChanges)
+              }
+            >
+              {hasUncommittedChanges ? (
+                <>
+                  <SquareCheckBig className="w-4 h-4" />
+                  <span>Validate selector</span>
+                </>
+              ) : rescrapeAdvised && scrapeButtonState !== 'zero-found' ? (
+                <>
+                  <RefreshCcw />
+                  <span>Scrape</span>
+                </>
+              ) : scrapeButtonState === 'zero-found' ? (
+                '0 found'
+              ) : (
+                <>
+                  <Play className="w-4 h-4" />
+                  <span>Scrape</span>
+                </>
+              )}
+            </Button>
+            {batchScrapeEnabled && tabId && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="shrink-0"
+                    disabled={isLoading || config.columns.length === 0 || !tabId}
+                    asChild
+                  >
+                    <a href={getScrapeFromTabUrl(tabId)} target="_blank">
+                      <LayersPlus className="w-4 h-4" />
+                    </a>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Batch Scrape (multiple URLs)</TooltipContent>
+              </Tooltip>
             )}
-          </Button>
-        </div>
+          </div>
+        )}
       </div>
     </div>
   )

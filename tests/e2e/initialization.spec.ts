@@ -20,7 +20,7 @@ test('opens onboarding page on first install', async ({ context, extensionId }) 
     }))
 
   expect(onboardingPage).toBeTruthy()
-  expect(onboardingPage.url()).toBe(`chrome-extension://${extensionId}/onboarding.html`)
+  expect(onboardingPage.url()).toBe(`chrome-extension://${extensionId}/app.html#/onboarding`)
 })
 
 test('initialises storage with empty user presets array', async ({ serviceWorker }) => {
