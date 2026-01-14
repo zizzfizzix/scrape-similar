@@ -301,11 +301,16 @@ test.describe('Sidepanel Core Functionality', () => {
 
     const filePath = await download.path()
     if (filePath) {
-      const XLSX = await import('xlsx')
-      const buf = await fs.readFile(filePath)
-      const wb = XLSX.read(buf, { type: 'buffer' })
-      const ws = wb.Sheets[wb.SheetNames[0]]
-      const aoa = XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[][]
+      const ExcelJS = await import('exceljs')
+      const data = await fs.readFile(filePath)
+      const workbook = new ExcelJS.default.Workbook()
+      // Playwright's Buffer type differs from Node's Buffer type, but they're compatible at runtime
+      // @ts-expect-error - TS2345: Buffer.from creates Buffer<ArrayBuffer> vs expected Buffer
+      await workbook.xlsx.load(Buffer.from(data.buffer, data.byteOffset, data.byteLength))
+      const worksheet = workbook.worksheets[0]
+      const values = worksheet.getSheetValues()
+      // getSheetValues returns 1-based array with first element undefined
+      const aoa = values.slice(1).map((row) => (Array.isArray(row) ? row.slice(1) : []))
 
       const uiHeaders = await sidePanel.evaluate(() => {
         const ths = Array.from(document.querySelectorAll('table thead th'))

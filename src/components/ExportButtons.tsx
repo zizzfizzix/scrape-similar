@@ -270,13 +270,17 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({
     })
 
     try {
-      // Dynamic import for maximum tree-shaking; only bring writeFileXLSX and utils
-      const XLSX = await import('xlsx')
+      // Dynamic import for tree-shaking
+      const ExcelJS = await import('exceljs')
+      const workbook = new ExcelJS.Workbook()
+      const worksheet = workbook.addWorksheet('Data')
 
-      // Build a 2D array with header row followed by data rows
-      const aoa: any[][] = [columns]
+      // Add header row
+      worksheet.addRow(columns)
+
+      // Add data rows
       for (const row of dataToExport) {
-        aoa.push(
+        worksheet.addRow(
           columnKeys.map((key) => {
             const value = row.data[key]
             return value == null ? '' : value
@@ -284,13 +288,19 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({
         )
       }
 
-      const ws = XLSX.utils.aoa_to_sheet(aoa)
-      const wb = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(wb, ws, 'Data')
-
-      const xlsxFilename = `${exportFilename}.xlsx`
-      // Use writeFileXLSX specifically to allow tree-shaking of the rest
-      XLSX.writeFileXLSX(wb, xlsxFilename, { compression: true })
+      // Generate buffer and trigger download
+      const buffer = await workbook.xlsx.writeBuffer()
+      const blob = new Blob([buffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `${exportFilename}.xlsx`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
 
       toast.success('Excel file saved')
       setIsDropdownOpen(false)
