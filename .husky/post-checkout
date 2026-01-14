@@ -1,0 +1,37 @@
+#!/bin/bash
+# $1 = previous HEAD (0000... for new worktrees)
+# $2 = new HEAD
+# $3 = flag (1 for branch checkout)
+
+# Only run when a new worktree is created
+if [[ "$1" == "0000000000000000000000000000000000000000" ]]; then
+    echo "[Husky] New worktree detected. Starting setup..."
+
+    # 1. Identify the origin repository root
+    # Inside a worktree, --git-common-dir points to the main repo's .git folder
+    ORIGIN_REPO=$(git rev-parse --path-format=absolute --git-common-dir | xargs dirname)
+    
+    # 2. Copy .env files if they exist in the origin root
+    if [ -f "$ORIGIN_REPO/.env" ]; then
+        echo "[Husky] Copying .env from $ORIGIN_REPO"
+        cp "$ORIGIN_REPO/.env" .
+    else
+        echo "[Husky] Warning: No .env found in origin root ($ORIGIN_REPO)"
+    fi
+
+    if [ -f "$ORIGIN_REPO/.env.test" ]; then
+        echo "[Husky] Copying .env.test from $ORIGIN_REPO"
+        cp "$ORIGIN_REPO/.env.test" .
+    else
+        echo "[Husky] Warning: No .env.test found in origin root ($ORIGIN_REPO)"
+    fi
+
+    # 3. Run pnpm install if package.json exists
+    if [ -f "package.json" ]; then
+        echo "[Husky] Running pnpm install..."
+        # Using --silent to keep worktree creation fast and clean
+        pnpm install --silent
+    fi
+
+    echo "[Husky] Setup complete for $(pwd)"
+fi
