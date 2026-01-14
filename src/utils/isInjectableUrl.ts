@@ -12,7 +12,7 @@ const nonInjectableUrls = {
     'blob://',
     'data://',
   ],
-  match: ['^https://chrome.google.com/(.+/)?webstore/'],
+  match: ['^https://chrome\\.google\\.com/(.+/)?webstore/'],
 }
 
 export const isInjectableUrl = (url?: string): boolean => {

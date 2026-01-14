@@ -17,11 +17,11 @@ const NON_INJECTABLE_CASES: Array<{ url: string; pattern: string }> = [
   },
   {
     url: 'https://chrome.google.com/webstore/detail/ibamcdbhdohmndghmidginmpggcjmeob',
-    pattern: '^https://chrome.google.com/(.+/)?webstore/',
+    pattern: '^https://chrome\\.google\\.com/(.+/)?webstore/',
   },
   {
     url: 'https://chrome.google.com/webstore/detail/toolbar-spacer/golladjmjodbefcoombodcdhimkmgemd?hl=Ar',
-    pattern: '^https://chrome.google.com/(.+/)?webstore/',
+    pattern: '^https://chrome\\.google\\.com/(.+/)?webstore/',
   },
 ]
 
