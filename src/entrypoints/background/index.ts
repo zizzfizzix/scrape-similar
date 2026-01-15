@@ -8,15 +8,22 @@
  * - Managing analytics queue and consent
  */
 
+import { setupMessageListener } from '@/entrypoints/background/handlers/messages'
+import { setupActionListener } from '@/entrypoints/background/listeners/action'
+import { setupCommandsListener } from '@/entrypoints/background/listeners/commands'
+import { setupContextMenuListener } from '@/entrypoints/background/listeners/context-menu'
+import {
+  initializeUninstallUrl,
+  setupInstallListener,
+  setupStartupListener,
+} from '@/entrypoints/background/listeners/install'
+import {
+  setupTabRemovedListener,
+  setupTabUpdatedListener,
+} from '@/entrypoints/background/listeners/tabs'
+import { initializeAnalyticsQueue } from '@/entrypoints/background/services/analytics-queue'
+import { initializeDebugMode } from '@/entrypoints/background/services/debug-mode'
 import log from 'loglevel'
-import { setupMessageListener } from './handlers/messages'
-import { setupActionListener } from './listeners/action'
-import { setupCommandsListener } from './listeners/commands'
-import { setupContextMenuListener } from './listeners/context-menu'
-import { setupInstallListener, setupStartupListener } from './listeners/install'
-import { setupTabRemovedListener, setupTabUpdatedListener } from './listeners/tabs'
-import { initializeAnalyticsQueue } from './services/analytics-queue'
-import { initializeDebugMode } from './services/debug-mode'
 
 // Set default log level
 log.setDefaultLevel('error')
@@ -27,6 +34,9 @@ export default defineBackground(() => {
 
   // Initialize analytics queue and consent watchers
   initializeAnalyticsQueue()
+
+  // Initialize uninstall URL and watcher
+  initializeUninstallUrl()
 
   // Set up event listeners
   setupInstallListener()
