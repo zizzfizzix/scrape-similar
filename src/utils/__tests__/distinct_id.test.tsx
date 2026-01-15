@@ -47,9 +47,6 @@ import { getPostHogBackground } from '@/utils/posthog-background'
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 
-// Key used by getOrCreateDistinctId
-const DISTINCT_ID_KEY = 'local:distinct_id'
-
 // ------------------------- Tests -------------------------
 describe('PostHog distinct id consistency', () => {
   beforeEach(async () => {
@@ -60,7 +57,7 @@ describe('PostHog distinct id consistency', () => {
   })
 
   afterEach(async () => {
-    await storage.removeItem(DISTINCT_ID_KEY)
+    await storage.removeItem(distinctId.DISTINCT_ID_KEY)
   })
 
   it('uses the same distinct id across background and helper retrieval', async () => {
