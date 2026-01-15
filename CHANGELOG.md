@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.8.0](https://github.com/zizzfizzix/scrape-similar/compare/v0.7.0...v0.8.0) (2026-01-15)
+
+
+### Features
+
+* **dev:** add worktree setup hook ([#162](https://github.com/zizzfizzix/scrape-similar/issues/162)) ([6976050](https://github.com/zizzfizzix/scrape-similar/commit/69760506c3301c8c1c89aad32965ea3942e4e6bd))
+* open feedback survey on uninstall ([#163](https://github.com/zizzfizzix/scrape-similar/issues/163)) ([398146c](https://github.com/zizzfizzix/scrape-similar/commit/398146c01651593a1d5f0fd82e5106cc43fd7a74))
+
+
+### Bug Fixes
+
+* code scanning alert no. 1: Workflow does not contain permissions ([#158](https://github.com/zizzfizzix/scrape-similar/issues/158)) ([4080e7e](https://github.com/zizzfizzix/scrape-similar/commit/4080e7ec4947eeaa6e8aa4599e5c350129e43960))
+* code scanning alert no. 2: Workflow does not contain permissions ([#159](https://github.com/zizzfizzix/scrape-similar/issues/159)) ([f3e2f55](https://github.com/zizzfizzix/scrape-similar/commit/f3e2f55827d3c36efdfa82180b68c8243be05560))
+* code scanning alert no. 3: Incomplete regular expression for hostnames ([#157](https://github.com/zizzfizzix/scrape-similar/issues/157)) ([8b1bb7e](https://github.com/zizzfizzix/scrape-similar/commit/8b1bb7e49f23e803cceb1e4a7a00f8e2aa07a0b3))
+* mask input fields explicitly ([#148](https://github.com/zizzfizzix/scrape-similar/issues/148)) ([8f3cba9](https://github.com/zizzfizzix/scrape-similar/commit/8f3cba93ecd93541f8a5f6bf7511c3dfdf8a857d))
+
 ## [0.7.0](https://github.com/zizzfizzix/scrape-similar/compare/v0.6.0...v0.7.0) (2025-12-27)
 
 
