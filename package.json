@@ -52,7 +52,7 @@
     "vaul": "^1.1.2"
   },
   "devDependencies": {
-    "@playwright/test": "^1.57.0",
+    "@playwright/test": "^1.58.0",
     "@thedutchcoder/postcss-rem-to-px": "^0.0.2",
     "@toolwind/anchors": "^1.0.10",
     "@types/chrome": "^0.1.33",
