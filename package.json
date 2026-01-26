@@ -56,7 +56,7 @@
     "@thedutchcoder/postcss-rem-to-px": "^0.0.2",
     "@toolwind/anchors": "^1.0.10",
     "@types/chrome": "^0.1.33",
-    "@types/react": "^19.2.8",
+    "@types/react": "^19.2.9",
     "@types/react-dom": "^19.2.3",
     "@vitest/coverage-v8": "^4.0.17",
     "@wxt-dev/auto-icons": "^1.1.0",
