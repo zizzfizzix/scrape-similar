@@ -46,7 +46,7 @@
     "react-dom": "^19.2.3",
     "slugify": "^1.6.6",
     "sonner": "^2.0.7",
-    "tailwind-merge": "^3.4.0",
+    "tailwind-merge": "^3.4.1",
     "tailwindcss": "^4.1.18",
     "uuid": "^13.0.0",
     "vaul": "^1.1.2"
