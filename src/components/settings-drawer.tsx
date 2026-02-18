@@ -12,12 +12,14 @@ import React, { useEffect, useRef, useState } from 'react'
 
 interface SettingsDrawerProps {
   onResetSystemPresets?: () => void
+  onPresetsImported?: () => void
   debugMode?: boolean
   onDebugModeChange?: (enabled: boolean) => void
 }
 
 export const SettingsDrawer: React.FC<SettingsDrawerProps> = ({
   onResetSystemPresets,
+  onPresetsImported,
   debugMode,
   onDebugModeChange,
 }) => {
@@ -51,6 +53,7 @@ export const SettingsDrawer: React.FC<SettingsDrawerProps> = ({
           <Settings
             ref={settingsRef}
             onResetSystemPresets={onResetSystemPresets}
+            onPresetsImported={onPresetsImported}
             debugMode={debugMode}
             onDebugModeChange={onDebugModeChange}
           />

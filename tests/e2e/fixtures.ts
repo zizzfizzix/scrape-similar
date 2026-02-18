@@ -188,6 +188,32 @@ export const TestHelpers = {
     })
     base.expect(debugMode).toBe(expectedValue)
   },
+
+  /**
+   * Sets user presets in sync storage (for E2E import/export tests).
+   * Uses the same shape WXT defineItem uses: value at user_presets, version at user_presets$
+   */
+  async setUserPresets(
+    serviceWorker: Worker,
+    presets: Array<Record<string, unknown>>,
+  ): Promise<void> {
+    await serviceWorker.evaluate((presets) => {
+      chrome.storage.sync.set({
+        user_presets: presets,
+        user_presets$: { v: 1 },
+      })
+    }, presets)
+  },
+
+  /**
+   * Reads user presets from sync storage (for E2E assertions).
+   */
+  async getUserPresets(serviceWorker: Worker): Promise<Array<Record<string, unknown>>> {
+    return await serviceWorker.evaluate(async () => {
+      const { user_presets } = await chrome.storage.sync.get('user_presets')
+      return user_presets ?? []
+    })
+  },
 }
 
 export const test = base.extend<{

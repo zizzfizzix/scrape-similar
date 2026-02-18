@@ -5,4 +5,9 @@ node_modules
 pnpm-lock.yaml
 pnpm-workspace.yaml
 CHANGELOG.md
+
+# shadcn components
 src/components/ui
+
+# E2E fixtures that are intentionally invalid (Prettier would error on them)
+tests/e2e/fixtures/preset-invalid-syntax.json

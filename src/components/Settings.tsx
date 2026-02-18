@@ -1,27 +1,40 @@
+import { ResponsiveDialog } from '@/components/responsive-dialog'
 import { Button } from '@/components/ui/button'
+import { ButtonGroup } from '@/components/ui/button-group'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { getPresets, setPresets, USER_PRESETS_VERSION } from '@/utils/storage'
+import { validatePresetImport } from '@/utils/validatePresets'
 import log from 'loglevel'
-import { Clipboard } from 'lucide-react'
+import { Clipboard, Import, Upload } from 'lucide-react'
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { toast } from 'sonner'
 
 interface SettingsProps {
   onResetSystemPresets?: () => void
+  onPresetsImported?: () => void
   debugMode?: boolean
   onDebugModeChange?: (enabled: boolean) => void
   className?: string
   ref?: React.Ref<{ unlockDebugMode: () => void }>
 }
 
+type ImportConfirmState =
+  | { open: false }
+  | { open: true; presets: Preset[]; skippedSystemCount: number }
+
 export const Settings = React.memo(
   ({
     onResetSystemPresets,
+    onPresetsImported,
     debugMode = false,
     onDebugModeChange,
     className,
     ref,
   }: SettingsProps) => {
     const [showDebugRow, setShowDebugRow] = useState(debugMode)
+    const [importConfirm, setImportConfirm] = useState<ImportConfirmState>({ open: false })
+    const fileInputRef = useRef<HTMLInputElement>(null)
     const { loading: consentLoading, state: consentState, setConsent } = useConsent()
     const clickCountRef = useRef(0)
     const timerRef = useRef<NodeJS.Timeout | null>(null)
@@ -118,6 +131,91 @@ export const Settings = React.memo(
       }
     }, [onResetSystemPresets])
 
+    const handleExportPresets = useCallback(async () => {
+      try {
+        const presets = await getPresets()
+        const blob = new Blob(
+          [JSON.stringify({ version: USER_PRESETS_VERSION, presets }, null, 2)],
+          { type: 'application/json' },
+        )
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = 'scrape-similar-presets.json'
+        a.click()
+        URL.revokeObjectURL(url)
+        trackEvent(ANALYTICS_EVENTS.PRESET_EXPORT, { presetCount: presets.length })
+      } catch (error) {
+        log.error('Error exporting presets:', error)
+      }
+    }, [])
+
+    const handleImportPresetsClick = useCallback(() => {
+      fileInputRef.current?.click()
+    }, [])
+
+    const handleImportFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0]
+      e.target.value = ''
+      if (!file) return
+      try {
+        const text = await file.text()
+        const data = JSON.parse(text) as unknown
+        const result = validatePresetImport(data)
+        if ('error' in result) {
+          toast.error(result.error)
+          trackEvent(ANALYTICS_EVENTS.PRESET_IMPORT, {
+            success: false,
+            reason: result.error,
+          })
+          return
+        }
+        setImportConfirm({
+          open: true,
+          presets: result.presets,
+          skippedSystemCount: result.skippedSystemCount,
+        })
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Invalid JSON'
+        toast.error(`Failed to read preset file: ${message}`)
+        trackEvent(ANALYTICS_EVENTS.PRESET_IMPORT, {
+          success: false,
+          reason: message,
+        })
+      }
+    }, [])
+
+    const handleImportConfirm = useCallback(async () => {
+      if (!importConfirm.open) return
+      const { presets, skippedSystemCount } = importConfirm
+      try {
+        const ok = await setPresets(presets)
+        if (!ok) throw new Error('setPresets failed')
+        trackEvent(ANALYTICS_EVENTS.PRESET_IMPORT, {
+          success: true,
+          presetCount: presets.length,
+        })
+        setImportConfirm({ open: false })
+        const message =
+          skippedSystemCount > 0
+            ? `Imported ${presets.length} presets. ${skippedSystemCount} (system) presets were skipped.`
+            : `Imported ${presets.length} presets.`
+        toast.success(message)
+        onPresetsImported?.()
+      } catch (error) {
+        log.error('Error importing presets:', error)
+        toast.error('Failed to import presets')
+        trackEvent(ANALYTICS_EVENTS.PRESET_IMPORT, {
+          success: false,
+          reason: error instanceof Error ? error.message : 'Import failed',
+        })
+      }
+    }, [importConfirm, onPresetsImported])
+
+    const handleImportCancel = useCallback(() => {
+      setImportConfirm({ open: false })
+    }, [])
+
     const handleAnalyticsToggle = (checked: boolean) => {
       setConsent(checked)
     }
@@ -128,6 +226,7 @@ export const Settings = React.memo(
     const themeToggleId = useId()
     const keyboardShortcutId = useId()
     const systemPresetsId = useId()
+    const userPresetsId = useId()
 
     // Expose the unlock function via ref
     React.useImperativeHandle(ref, () => ({
@@ -179,6 +278,74 @@ export const Settings = React.memo(
             Reset
           </Button>
         </div>
+        <div className="flex items-center justify-between gap-4">
+          <span className="text-sm font-medium" id={`${userPresetsId}-label`}>
+            User presets
+          </span>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json,application/json"
+            className="hidden"
+            aria-hidden
+            onChange={handleImportFileChange}
+          />
+          <ButtonGroup aria-label="User presets import and export">
+            <Button
+              id={`${userPresetsId}-import`}
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleImportPresetsClick}
+              aria-label="Import user presets"
+            >
+              <Import className="mr-1 size-4" />
+              Import
+            </Button>
+            <Button
+              id={`${userPresetsId}-export`}
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleExportPresets}
+              aria-label="Export user presets"
+            >
+              <Upload className="mr-1 size-4" />
+              Export
+            </Button>
+          </ButtonGroup>
+        </div>
+        <ResponsiveDialog.Root
+          open={importConfirm.open}
+          onOpenChange={(open) => !open && setImportConfirm({ open: false })}
+        >
+          <ResponsiveDialog.Content showCloseButton>
+            <ResponsiveDialog.Header>
+              <ResponsiveDialog.Title>Import user presets</ResponsiveDialog.Title>
+              <ResponsiveDialog.Description>
+                {importConfirm.open && importConfirm.skippedSystemCount > 0 && (
+                  <span className="block mb-2">
+                    {importConfirm.skippedSystemCount} preset(s) were skipped because they match
+                    system presets and cannot be imported.
+                  </span>
+                )}
+                Current presets will be lost.
+                <br />
+                Edit the file before importing to merge or adjust.
+              </ResponsiveDialog.Description>
+            </ResponsiveDialog.Header>
+            <ResponsiveDialog.Footer>
+              <ResponsiveDialog.Close>
+                <Button type="button" variant="outline" onClick={handleImportCancel}>
+                  Cancel
+                </Button>
+              </ResponsiveDialog.Close>
+              <Button type="button" variant="destructive" onClick={handleImportConfirm}>
+                Import
+              </Button>
+            </ResponsiveDialog.Footer>
+          </ResponsiveDialog.Content>
+        </ResponsiveDialog.Root>
         {!consentLoading && (
           <div className="flex items-center justify-between gap-4">
             <span className="text-sm font-medium" id={`${analyticsSwitchId}-label`}>

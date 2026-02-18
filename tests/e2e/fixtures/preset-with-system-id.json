@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "presets": [
+    {
+      "id": "e2e-user-only",
+      "name": "User Only Preset",
+      "config": {
+        "mainSelector": "//div",
+        "columns": [{ "name": "A", "selector": "." }]
+      },
+      "createdAt": 1700000000000
+    },
+    {
+      "id": "sys-nofollow-links",
+      "name": "Copy of system preset",
+      "config": {
+        "mainSelector": "//a[@rel='nofollow']",
+        "columns": [{ "name": "URL", "selector": "@href" }]
+      },
+      "createdAt": 1700000000000
+    }
+  ]
+}

@@ -6,10 +6,27 @@ export const STORAGE_KEYS = {
   RECENT_MAIN_SELECTORS: 'recent_main_selectors',
 }
 
+/** Current version for user presets storage and export/import file format. */
+export const USER_PRESETS_VERSION = 1
+
+/** Migrations for user presets. Export for reuse in validatePresetImport (import of old file versions). */
+export const PRESET_MIGRATIONS: Record<number, (oldValue: unknown) => Preset[]> = {
+  // Future: 2: (old: PresetV1[]) => old.map(p => ({ ...p, newField: default }))
+}
+
+export const userPresetsStorage = storage.defineItem<Preset[]>(
+  `sync:${STORAGE_KEYS.USER_PRESETS}`,
+  {
+    version: USER_PRESETS_VERSION,
+    fallback: [],
+    migrations: PRESET_MIGRATIONS,
+  },
+)
+
 // Get presets from storage
 export const getPresets = async (): Promise<Preset[]> => {
   try {
-    return (await storage.getItem<Preset[]>(`sync:${STORAGE_KEYS.USER_PRESETS}`)) ?? []
+    return (await userPresetsStorage.getValue()) ?? []
   } catch (error) {
     log.error('Error getting presets from storage:', error)
     return []
@@ -31,7 +48,7 @@ export const savePreset = async (preset: Preset): Promise<boolean> => {
       presets.push(preset)
     }
 
-    await storage.setItem(`sync:${STORAGE_KEYS.USER_PRESETS}`, presets)
+    await userPresetsStorage.setValue(presets)
     return true
   } catch (error) {
     log.error('Error saving preset to storage:', error)
@@ -45,7 +62,7 @@ export const deletePreset = async (presetId: string): Promise<boolean> => {
     const presets = await getPresets()
     const updatedPresets = presets.filter((p) => p.id !== presetId)
 
-    await storage.setItem(`sync:${STORAGE_KEYS.USER_PRESETS}`, updatedPresets)
+    await userPresetsStorage.setValue(updatedPresets)
     return true
   } catch (error) {
     log.error('Error deleting preset from storage:', error)
@@ -53,15 +70,21 @@ export const deletePreset = async (presetId: string): Promise<boolean> => {
   }
 }
 
-// Initialize storage with default values
+// Set all user presets (used by import). Replaces existing.
+export const setPresets = async (presets: Preset[]): Promise<boolean> => {
+  try {
+    await userPresetsStorage.setValue(presets)
+    return true
+  } catch (error) {
+    log.error('Error setting presets in storage:', error)
+    return false
+  }
+}
+
+// Initialize storage with default values. With defineItem fallback, empty is handled; no-op for compatibility.
 export const initializeStorage = async (): Promise<void> => {
   try {
-    const presets = await getPresets()
-
-    // Only initialize if storage is empty
-    if (presets.length === 0) {
-      await storage.setItem(`sync:${STORAGE_KEYS.USER_PRESETS}`, [])
-    }
+    await getPresets()
   } catch (error) {
     log.error('Error initializing storage:', error)
   }

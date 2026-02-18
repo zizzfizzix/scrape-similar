@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "presets": [
+    {
+      "id": "e2e-user-1",
+      "name": "E2E User Preset",
+      "config": {
+        "mainSelector": "//div[@class='item']",
+        "columns": [
+          { "name": "Title", "selector": ".//h2" },
+          { "name": "Link", "selector": "@href" }
+        ]
+      },
+      "createdAt": 1700000000000
+    }
+  ]
+}

@@ -739,6 +739,10 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
     })
   }
 
+  const handlePresetsImported = useCallback(() => {
+    getAllPresets().then(setPresets)
+  }, [])
+
   // Check if the current tab is showing the full data view
   if (tabUrl?.startsWith(`chrome-extension://${chromeExtensionId}/full-data-view.html`)) {
     return (
@@ -765,6 +769,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
         <Footer
           showSettings={true}
           onResetSystemPresets={handleResetSystemPresets}
+          onPresetsImported={handlePresetsImported}
           debugMode={debugMode}
           onDebugModeChange={onDebugModeChange}
         />
@@ -855,6 +860,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
       <Footer
         showSettings={true}
         onResetSystemPresets={handleResetSystemPresets}
+        onPresetsImported={handlePresetsImported}
         debugMode={debugMode}
         onDebugModeChange={onDebugModeChange}
       />
