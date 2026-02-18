@@ -442,6 +442,10 @@ test.describe('DataTable Enhancements', () => {
     // Verify tooltip appears
     await expect(sidePanel.getByText('Highlight this element')).toBeVisible()
 
+    // reset the hover state
+    await highlightButton.click()
+    await expect(sidePanel.getByText('Highlight this element')).toBeHidden()
+
     // Move to copy button
     await copyButton.hover()
 

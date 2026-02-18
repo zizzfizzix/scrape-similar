@@ -31,6 +31,7 @@ import {
   Crosshair,
   HelpCircle,
   Info,
+  Loader2,
   LocateOff,
   OctagonAlert,
   Play,
@@ -679,8 +680,10 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                   variant="destructive"
                   onClick={handleConfirmDeletePreset}
                   disabled={isSaving}
-                  loading={isSaving}
                 >
+                  {isSaving ? (
+                    <Loader2 className="size-4 animate-spin" data-icon="inline-start" />
+                  ) : null}
                   {presetToDelete && isSystemPreset(presetToDelete) ? 'Hide' : 'Delete'}
                 </Button>
                 <DrawerClose asChild>
@@ -731,8 +734,10 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                     config.columns.length === 0 ||
                     !isMainSelectorValid
                   }
-                  loading={isSaving}
                 >
+                  {isSaving ? (
+                    <Loader2 className="size-4 animate-spin" data-icon="inline-start" />
+                  ) : null}
                   Save
                 </Button>
                 <DrawerClose asChild>
@@ -1046,11 +1051,12 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
               <TooltipTrigger asChild>
                 <Button
                   onClick={handleGuessConfig}
-                  loading={guessButtonState === 'generating'}
                   disabled={guessButtonState === 'generating' || !isMainSelectorValid}
                   aria-label="Auto-generate configuration from selector"
                 >
-                  {guessButtonState === 'success' ? (
+                  {guessButtonState === 'generating' ? (
+                    <Loader2 className="size-4 animate-spin" data-icon="inline-start" />
+                  ) : guessButtonState === 'success' ? (
                     <Check />
                   ) : guessButtonState === 'failure' ? (
                     <X />
@@ -1092,13 +1098,15 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
               trackEvent(ANALYTICS_EVENTS.SCRAPE_BUTTON_PRESS)
               onScrape()
             }}
-            loading={isLoading}
             disabled={
               isLoading ||
               config.columns.length === 0 ||
               (!isMainSelectorValid && !hasUncommittedChanges)
             }
           >
+            {isLoading ? (
+              <Loader2 className="size-4 animate-spin" data-icon="inline-start" />
+            ) : null}
             {hasUncommittedChanges ? (
               <>
                 <SquareCheckBig className="w-4 h-4" />

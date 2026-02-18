@@ -72,7 +72,7 @@ test.describe('Preset import/export', () => {
       await fileInput.setInputFiles(PRESET_VALID)
 
       await expect(
-        page.getByRole('dialog').getByText(/importing will replace all your user presets/i),
+        page.getByRole('dialog').getByText(/current presets will be lost/i),
       ).toBeVisible()
       await expect(page.getByRole('button', { name: /cancel/i })).toBeVisible()
       await page.getByRole('button', { name: /cancel/i }).click()
@@ -102,7 +102,9 @@ test.describe('Preset import/export', () => {
       const fileInput = page.locator('input[type="file"]')
       await fileInput.setInputFiles(PRESET_VALID)
 
-      await expect(page.getByRole('dialog').getByText(/importing will replace/i)).toBeVisible()
+      await expect(
+        page.getByRole('dialog').getByText(/current presets will be lost/i),
+      ).toBeVisible()
       await page.getByRole('button', { name: /^import$/i }).click()
 
       await expect(page.getByRole('dialog')).toBeHidden({ timeout: 3000 })
