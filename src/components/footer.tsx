@@ -8,6 +8,7 @@ interface FooterProps {
   className?: string
   showSettings?: boolean
   onResetSystemPresets?: () => void
+  onPresetsImported?: () => void
   debugMode?: boolean
   onDebugModeChange?: (enabled: boolean) => void
 }
@@ -16,6 +17,7 @@ export const Footer: React.FC<FooterProps> = ({
   className = '',
   showSettings = false,
   onResetSystemPresets,
+  onPresetsImported,
   debugMode = false,
   onDebugModeChange,
 }) => {
@@ -76,6 +78,7 @@ export const Footer: React.FC<FooterProps> = ({
         {footerContent}
         <SettingsDrawer
           onResetSystemPresets={onResetSystemPresets}
+          onPresetsImported={onPresetsImported}
           debugMode={debugMode}
           onDebugModeChange={onDebugModeChange}
         />

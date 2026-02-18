@@ -1,3 +1,4 @@
+import { Toaster } from '@/components/ui/sonner'
 import { isDevOrTest } from '@/utils/modeTest'
 import log from 'loglevel'
 import React, { useEffect, useRef, useState } from 'react'
@@ -62,6 +63,7 @@ const OptionsApp: React.FC = () => {
         </div>
       </ConsentWrapper>
       <Footer />
+      <Toaster />
     </div>
   )
 }

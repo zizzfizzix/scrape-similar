@@ -46,6 +46,8 @@ export const ANALYTICS_EVENTS = {
   PRESET_SAVE: 'preset_save',
   PRESET_DELETION: 'preset_deletion',
   PRESET_HIDE: 'preset_hide',
+  PRESET_EXPORT: 'preset_export',
+  PRESET_IMPORT: 'preset_import',
   SYSTEM_PRESETS_RESET: 'system_presets_reset',
 
   // Extension lifecycle
