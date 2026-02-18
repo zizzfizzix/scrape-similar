@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/zizzfizzix/scrape-similar/compare/v0.8.0...v0.9.0) (2026-02-18)
+
+
+### Features
+
+* add user preset import and export  ([#185](https://github.com/zizzfizzix/scrape-similar/issues/185)) ([c7abf02](https://github.com/zizzfizzix/scrape-similar/commit/c7abf02dded717cfe2aef38156d96ea34e617e43))
+
 ## [0.8.0](https://github.com/zizzfizzix/scrape-similar/compare/v0.7.0...v0.8.0) (2026-01-15)
 
 
