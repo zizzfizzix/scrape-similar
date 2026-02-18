@@ -1,4 +1,5 @@
 import '@/assets/tailwind.css'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import SidePanel from '@/entrypoints/sidepanel/SidePanel'
 import { isDevOrTest } from '@/utils/modeTest'
 import log from 'loglevel'
@@ -40,7 +41,9 @@ if (!appElement) {
 
     return (
       <ThemeProvider>
-        <SidePanel debugMode={debugMode} onDebugModeChange={handleDebugModeChange} />
+        <TooltipProvider>
+          <SidePanel debugMode={debugMode} onDebugModeChange={handleDebugModeChange} />
+        </TooltipProvider>
       </ThemeProvider>
     )
   }

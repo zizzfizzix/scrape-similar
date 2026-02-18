@@ -1,4 +1,5 @@
 import '@/assets/tailwind.css'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import OptionsApp from '@/entrypoints/options/OptionsApp'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
@@ -8,7 +9,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <ThemeProvider>
       <ConsentProvider>
         <PostHogWrapper>
-          <OptionsApp />
+          <TooltipProvider>
+            <OptionsApp />
+          </TooltipProvider>
         </PostHogWrapper>
       </ConsentProvider>
     </ThemeProvider>
