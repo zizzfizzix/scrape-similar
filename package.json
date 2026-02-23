@@ -49,7 +49,7 @@
     "@playwright/test": "^1.58.2",
     "@thedutchcoder/postcss-rem-to-px": "^0.0.2",
     "@toolwind/anchors": "^1.0.10",
-    "@types/chrome": "^0.1.36",
+    "@types/chrome": "^0.1.37",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitest/coverage-v8": "^4.0.18",
