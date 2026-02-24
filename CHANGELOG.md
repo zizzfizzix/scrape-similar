@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.0](https://github.com/zizzfizzix/scrape-similar/compare/v0.9.0...v0.10.0) (2026-02-24)
+
+
+### Features
+
+* **ci:** use github specific reporter for playwright ([#193](https://github.com/zizzfizzix/scrape-similar/issues/193)) ([47fb4bf](https://github.com/zizzfizzix/scrape-similar/commit/47fb4bf7bd17c4743d3a26e1994f73391ac7697f))
+
 ## [0.9.0](https://github.com/zizzfizzix/scrape-similar/compare/v0.8.0...v0.9.0) (2026-02-18)
 
 
