@@ -91,8 +91,8 @@ importers:
         specifier: ^4.0.18
         version: 4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.2.3)(jiti@2.6.1)(jsdom@28.1.0)(lightningcss@1.31.1))
       '@wxt-dev/auto-icons':
-        specifier: ^1.1.0
-        version: 1.1.0(wxt@0.20.17(@types/node@25.2.3)(jiti@2.6.1)(lightningcss@1.31.1)(rollup@4.57.1))
+        specifier: ^1.1.1
+        version: 1.1.1(wxt@0.20.17(@types/node@25.2.3)(jiti@2.6.1)(lightningcss@1.31.1)(rollup@4.57.1))
       '@wxt-dev/module-react':
         specifier: ^1.1.5
         version: 1.1.5(vite@7.3.1(@types/node@25.2.3)(jiti@2.6.1)(lightningcss@1.31.1))(wxt@0.20.17(@types/node@25.2.3)(jiti@2.6.1)(lightningcss@1.31.1)(rollup@4.57.1))
@@ -1833,8 +1833,8 @@ packages:
   '@webext-core/match-patterns@1.0.3':
     resolution: {integrity: sha512-NY39ACqCxdKBmHgw361M9pfJma8e4AZo20w9AY+5ZjIj1W2dvXC8J31G5fjfOGbulW9w4WKpT8fPooi0mLkn9A==}
 
-  '@wxt-dev/auto-icons@1.1.0':
-    resolution: {integrity: sha512-lDFZjDbrY5gDaapUuUOYTPudE88oB3Z7rTdg0N7iq2WIWga1h0bhzCJDaqNqMvPN2DCYvHFfA0cnqA12vEJjiA==}
+  '@wxt-dev/auto-icons@1.1.1':
+    resolution: {integrity: sha512-Dw2NKK51CCFurE95NptiEheuxVtkeX4vTQwEbhCkFVP9LzXNxOZTX9C9NAsGe6OfahelXlS51TW74hTSzsMILw==}
     peerDependencies:
       wxt: '>=0.19.0'
 
@@ -5516,7 +5516,7 @@ snapshots:
 
   '@webext-core/match-patterns@1.0.3': {}
 
-  '@wxt-dev/auto-icons@1.1.0(wxt@0.20.17(@types/node@25.2.3)(jiti@2.6.1)(lightningcss@1.31.1)(rollup@4.57.1))':
+  '@wxt-dev/auto-icons@1.1.1(wxt@0.20.17(@types/node@25.2.3)(jiti@2.6.1)(lightningcss@1.31.1)(rollup@4.57.1))':
     dependencies:
       defu: 6.1.4
       fs-extra: 11.3.3
