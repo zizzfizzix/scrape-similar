@@ -2,7 +2,7 @@
   "name": "scrape-similar",
   "description": "Extract data from websites into spreadsheets.",
   "private": true,
-  "version": "0.9.0",
+  "version": "0.10.0",
   "author": "Kuba Serafinowski",
   "type": "module",
   "chromeExtensionId": "bhgobenflkkhfcgkikejaaejenoddcmo",
