@@ -54,7 +54,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitest/coverage-v8": "^4.0.18",
     "@wxt-dev/auto-icons": "^1.1.1",
-    "@wxt-dev/module-react": "^1.2.1",
+    "@wxt-dev/module-react": "^1.2.2",
     "husky": "^9.1.7",
     "jsdom": "^28.1.0",
     "postcss": "^8.5.8",
