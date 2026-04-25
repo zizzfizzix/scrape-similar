@@ -40,9 +40,9 @@ The Cursor rule (`.cursor/rules/browser-extension.mdc`) instructs **never to run
 
 - `background/` — MV3 service worker. Entry is `index.ts` which only wires up listeners + services. Logic lives in:
   - `handlers/` — message routing (`messages.ts` is the central router that splits content-script vs extension-page messages), Sheets export, content-script + UI handlers.
-  - `listeners/` — `chrome.*` event subscriptions (action click, commands, context menu, install/startup, tab updates).
+  - `listeners/` — `browser.*` event subscriptions (action click, commands, context menu, install/startup, tab updates).
   - `services/` — long-lived state: `analytics-queue` (PostHog event queue with consent gating), `debug-mode`, `demo-scrape`, `session-storage` (per-tab `SidePanelConfig`).
-  - `utils/` — `auth.ts` (Google OAuth via `chrome.identity`), `content-injection.ts`, `context-menu-setup.ts`.
+  - `utils/` — `auth.ts` (Google OAuth via `browser.identity`), `content-injection.ts`, `context-menu-setup.ts`.
 - `content/` — content script injected into all http(s) pages. `handlers.ts` dispatches messages; `picker/` implements the visual element picker; `highlight.ts` paints matches; `state.ts` holds per-tab state including `lastRightClickedElement`.
 - `sidepanel/`, `options/`, `onboarding/`, `full-data-view/` — React UIs. Each has `index.html` + `main.tsx` + an App component.
 
@@ -101,7 +101,7 @@ shadcn-ui components in `src/components/ui/` are generated/managed; custom compo
 - Variable naming: use auxiliary verbs for booleans (`isX`, `hasX`, `shouldX`).
 - Directories: lowercase-with-dashes. Functions/variables: camelCase. Message-type / event-name constants: `UPPERCASE_WITH_UNDERSCORE`.
 - Define explicit interfaces for every cross-context message payload — see existing types in `src/utils/types.ts`.
-- Wrap callback-style `chrome.*` APIs and handle `browser.runtime.lastError`; prefer the `browser.*` (WXT/webextension-polyfill) API surface for cross-browser compatibility.
+- **Always use `browser.*` (auto-imported by WXT) and the `Browser.*` namespace for types — never `chrome.*`.** WXT's typed `browser` works cross-browser (Chromium, Firefox, Edge) and `Browser.tabs.Tab`, `Browser.sidePanel.OpenOptions`, `Browser.runtime.InstalledDetails`, etc. are the canonical types. `chrome.*` globals are not part of the typing setup and produce IDE errors. If you must touch a callback-style API, handle `browser.runtime.lastError`.
 - Never use `eval()` or assign to `innerHTML` in content scripts.
 
 ## Git
