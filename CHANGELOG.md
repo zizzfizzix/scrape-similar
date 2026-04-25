@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.1](https://github.com/zizzfizzix/scrape-similar/compare/v0.10.0...v0.10.1) (2026-04-25)
+
+
+### Bug Fixes
+
+* keep data table aligned with producing config after column delete ([#220](https://github.com/zizzfizzix/scrape-similar/issues/220)) ([9dbc5b5](https://github.com/zizzfizzix/scrape-similar/commit/9dbc5b51d106987476136ecdcce0bfa43a950214))
+
 ## [0.10.0](https://github.com/zizzfizzix/scrape-similar/compare/v0.9.0...v0.10.0) (2026-03-11)
 
 
