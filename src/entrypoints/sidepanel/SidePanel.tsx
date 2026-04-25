@@ -837,7 +837,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
                   <h2 className="text-2xl font-bold">Extracted Data</h2>
                   <ExportButtons
                     scrapeResult={scrapeResult}
-                    config={config}
+                    config={resultProducingConfig || config}
                     showEmptyRows={showEmptyRows}
                     filename={exportFilename}
                     variant="outline"
@@ -846,7 +846,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
                 <DataTable
                   data={scrapeResult.data || []}
                   onRowHighlight={handleRowHighlight}
-                  config={config}
+                  config={resultProducingConfig || config}
                   columnOrder={scrapeResult.columnOrder}
                   showEmptyRows={showEmptyRows}
                   onShowEmptyRowsChange={setShowEmptyRows}
