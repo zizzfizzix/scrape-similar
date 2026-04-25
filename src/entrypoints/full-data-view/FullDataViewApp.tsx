@@ -118,10 +118,14 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
                 tabUrl: tab.url || 'Unknown URL',
                 tabTitle: tab.title || 'Unknown Title',
                 scrapeResult: storedData.scrapeResult,
-                config: storedData.currentScrapeConfig || {
-                  mainSelector: '',
-                  columns: [{ name: 'Text', selector: '.' }],
-                },
+                // Prefer the config that produced the data over the current edit-able
+                // config; the data layout (column keys, mainSelector) is only valid in
+                // terms of the producing config.
+                config: storedData.resultProducingConfig ||
+                  storedData.currentScrapeConfig || {
+                    mainSelector: '',
+                    columns: [{ name: 'Text', selector: '.' }],
+                  },
               })
             }
           } catch (err) {
