@@ -25,7 +25,7 @@ export const injectContentScriptToAllTabs = async (): Promise<void> => {
       try {
         await browser.scripting.executeScript({
           target: { tabId: tab.id! },
-          files: [file],
+          files: [file as ScriptPublicPath],
         })
       } catch (error) {
         // Ignore errors for restricted pages

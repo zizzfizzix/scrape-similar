@@ -50,11 +50,11 @@ const handleOpenSidepanel: MessageHandler = async (message, sender, sendResponse
   const tabId = sender.tab?.id
   log.debug(`Content script in tab ${tabId} requested to open sidepanel`)
   try {
-    const options: Partial<chrome.sidePanel.OpenOptions> = {}
+    const options: Partial<Browser.sidePanel.OpenOptions> = {}
     if (sender.tab?.id) options.tabId = sender.tab.id
     if (sender.tab?.windowId) options.windowId = sender.tab.windowId
 
-    await chrome.sidePanel.open(options as chrome.sidePanel.OpenOptions)
+    await browser.sidePanel.open(options as Browser.sidePanel.OpenOptions)
     log.debug(
       `Sidepanel opened for ${sender.tab?.id ? `tab ${sender.tab.id}` : 'current active tab'}`,
     )

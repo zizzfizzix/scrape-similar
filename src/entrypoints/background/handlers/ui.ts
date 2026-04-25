@@ -9,11 +9,11 @@ import { handleExportToSheets } from './sheets-export'
 const handleOpenSidepanel: MessageHandler = async (message, sender, sendResponse) => {
   log.debug('UI requested to open sidepanel')
   try {
-    const options: Partial<chrome.sidePanel.OpenOptions> = {}
+    const options: Partial<Browser.sidePanel.OpenOptions> = {}
     if (sender.tab?.id) options.tabId = sender.tab.id
     if (sender.tab?.windowId) options.windowId = sender.tab.windowId
 
-    await chrome.sidePanel.open(options as chrome.sidePanel.OpenOptions)
+    await browser.sidePanel.open(options as Browser.sidePanel.OpenOptions)
     log.debug(
       `Sidepanel opened for ${sender.tab?.id ? `tab ${sender.tab.id}` : 'current active tab'}`,
     )
@@ -65,6 +65,6 @@ export const handleUiMessage: MessageHandler = async (message, sender, sendRespo
   } else {
     log.debug('🟡 Unhandled UI message type:', message.type)
     log.warn(`Unhandled UI message type: ${message.type}`)
-    sendResponse({ warning: 'Unhandled message type' })
+    sendResponse({ success: false, warning: 'Unhandled message type' })
   }
 }
