@@ -11,6 +11,7 @@ Package manager: **pnpm** (Node >= 22). Do not use npm/yarn for installs.
 ## Commands
 
 ```bash
+cp .env.example .env    # one-time: local env config the unit tests need (see below)
 pnpm install            # install deps; postinstall runs `wxt prepare`
 pnpm dev                # WXT dev server (auto-reloads). Targets Chromium by default.
 pnpm dev:firefox        # dev server targeting Firefox
@@ -31,6 +32,10 @@ pnpm update:shadcn      # rerun bash scripts/update-shadcn.sh to refresh shadcn-
 ```
 
 A husky `pre-commit` hook runs `pnpm fmt-check` and `pnpm test`; both must pass to commit.
+
+**Copy `.env.example` to `.env` before running the test suite locally.** The PostHog tests read `VITE_PUBLIC_POSTHOG_KEY` / `VITE_PUBLIC_POSTHOG_HOST` and fail without them; any non-empty placeholder values work for the unit tests (the ones shipped in `.env.example` are fine), and real project values are only needed to exercise actual analytics. CI supplies these as repository secrets, so the failures show up only on a fresh local clone.
+
+**Never commit `.env`.** It is gitignored and must stay that way — only `.env.example` is tracked.
 
 The Cursor rule (`.cursor/rules/browser-extension.mdc`) instructs **never to run `pnpm dev`** in agent contexts — use `pnpm build` (or `pnpm compile`) to verify changes instead.
 
@@ -72,7 +77,7 @@ Use **`loglevel`** (`import log from 'loglevel'`), never `console.*`. Each entry
 
 ### Analytics (PostHog)
 
-Events are queued via `queueEvent` (mutex-guarded, capped at `MAX_QUEUED_EVENTS = 1000`, FIFO drop) into `local:event_queue`. The background `analytics-queue` service flushes to PostHog only after the user grants consent (consent state is also storage-driven). `VITE_PUBLIC_POSTHOG_KEY` / `VITE_PUBLIC_POSTHOG_HOST` come from `.env` — see `.env.example`. Never hallucinate API keys; read them from `.env`.
+Events are queued via `queueEvent` (mutex-guarded, capped at `MAX_QUEUED_EVENTS = 1000`, FIFO drop) into `local:event_queue`. The background `analytics-queue` service flushes to PostHog only after the user grants consent (consent state is also storage-driven). `VITE_PUBLIC_POSTHOG_KEY` / `VITE_PUBLIC_POSTHOG_HOST` come from `.env` — see `.env.example`. Never hallucinate API keys; read them from `.env`. See [Commands](#commands) for the local `.env` setup the unit tests require and the rule against committing it.
 
 PostHog naming rules:
 
@@ -88,6 +93,7 @@ Manifest is generated dynamically by `wxt.config.ts`. CSP allowlists PostHog and
 ## Testing
 
 - **Unit tests**: Vitest with jsdom (`vitest.config.ts`, `vitest.setup.ts` patches `TextEncoder` for jsdom). Tests live in `__tests__/` directories next to the code (`src/utils/__tests__`, `src/components/__tests__`, `src/entrypoints/content/__tests__`, `src/entrypoints/background/listeners/__tests__`). `WxtVitest()` plugin provides `browser.*` and `storage.*` mocks. Tests under `tests/e2e/**` are excluded from the unit run.
+- **Missing `.env` is not a regression**: without a local `.env`, `pnpm test` fails exactly 6 tests — 4 in `src/utils/__tests__/posthog-debug.test.ts` and 2 in `src/utils/__tests__/distinct_id.test.tsx`. That signature means missing local env config, so the fix is `cp .env.example .env` — never `--no-verify` to bypass the pre-commit hook, and never committing the `.env` you just created.
 - **E2E tests**: Playwright (`playwright.config.ts`, `tests/e2e/`). Tests load the test build (`pnpm build:test` first) as an unpacked extension and drive the service worker + extension pages. Use the `TestHelpers` and fixtures in `tests/e2e/fixtures.ts`. `chromeExtensionId` is read from `package.json`. CI uses 20 workers and the `github` reporter (`playwright.config.ts:11`).
 
 ## UI components
