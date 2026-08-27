@@ -305,12 +305,12 @@ const handleGuessConfigFromSelector = (
     sendResponse({ success: false, error: errMsg })
     return true
   }
-  const elements = evaluateXPath(mainSelector)
-  if (elements.length === 0) {
+  const [firstElement] = evaluateXPath(mainSelector)
+  if (!firstElement) {
     sendResponse({ success: false, error: 'No elements found for selector' })
     return true
   }
-  const guessed = guessScrapeConfigForElement(elements[0])
+  const guessed = guessScrapeConfigForElement(firstElement)
   const updatedConfig = {
     ...guessed,
     mainSelector,

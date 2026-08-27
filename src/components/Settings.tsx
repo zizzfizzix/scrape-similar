@@ -47,8 +47,8 @@ export const Settings = React.memo(
       storage
         .getItems(['local:debugMode', 'local:debugUnlocked'])
         .then(([debugMode, debugUnlocked]) => {
-          debugModeValRef.current = !!debugMode.value
-          debugUnlockedValRef.current = !!debugUnlocked.value
+          debugModeValRef.current = !!debugMode?.value
+          debugUnlockedValRef.current = !!debugUnlocked?.value
           setShowDebugRow(debugModeValRef.current || debugUnlockedValRef.current)
         })
     }, [])

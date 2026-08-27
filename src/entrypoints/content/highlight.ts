@@ -27,8 +27,9 @@ export const highlightMatchingElements = (
 ): void => {
   const shouldScroll = options?.shouldScroll !== false
   // Scroll first element into view if available (unless disabled)
-  if (shouldScroll && elements.length > 0 && !isVisibleAndInViewport(elements[0])) {
-    elements[0].scrollIntoView({ behavior: 'smooth', block: 'center' })
+  const [firstElement] = elements
+  if (shouldScroll && firstElement && !isVisibleAndInViewport(firstElement)) {
+    firstElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 
   elements.forEach((element) => {

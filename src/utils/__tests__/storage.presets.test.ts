@@ -41,6 +41,6 @@ describe('user presets storage', () => {
     await setPresets([second])
     const presets = await getPresets()
     expect(presets).toHaveLength(1)
-    expect(presets[0].id).toBe('test-preset-2')
+    expect(presets[0]?.id).toBe('test-preset-2')
   })
 })

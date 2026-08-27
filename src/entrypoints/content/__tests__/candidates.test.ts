@@ -107,7 +107,7 @@ describe('chooseDefaultCandidateIndex', () => {
     const index = chooseDefaultCandidateIndex(candidates)
 
     // Should pick a selector that matches multiple items
-    const selectedSelector = candidates[index]
+    const selectedSelector = candidates[index] ?? ''
     const matches = evaluateXPath(selectedSelector)
     expect(matches.length).toBeGreaterThanOrEqual(2)
   })
@@ -153,7 +153,7 @@ describe('chooseDefaultCandidateIndex', () => {
 
     // Should not pick the most generic (all spans)
     // Should pick something more specific like rows or cells
-    const selectedSelector = candidates[index]
+    const selectedSelector = candidates[index] ?? ''
     const matches = evaluateXPath(selectedSelector)
     expect(matches.length).toBeGreaterThanOrEqual(2)
     // Index should be relatively early in the list (more specific)

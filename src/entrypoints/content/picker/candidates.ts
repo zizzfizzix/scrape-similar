@@ -23,8 +23,8 @@ export const generateSelectorCandidates = (
  * Choose the default candidate index (first one with at least 2 matches)
  */
 export const chooseDefaultCandidateIndex = (candidates: string[]): number => {
-  for (let i = 0; i < candidates.length; i++) {
-    const count = evaluateXPath(candidates[i]).length
+  for (const [i, candidate] of candidates.entries()) {
+    const count = evaluateXPath(candidate).length
     if (count >= 2) return i
   }
   return 0

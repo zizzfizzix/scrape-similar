@@ -7,16 +7,16 @@ class ESBuildAndJSDOMCompatibleTextEncoder extends TextEncoder {
     super()
   }
 
-  encode(input: string) {
+  override encode(input: string) {
     if (typeof input !== 'string') {
       throw new TypeError('`input` must be a string')
     }
 
     const decodedURI = decodeURIComponent(encodeURIComponent(input))
-    const arr = new Uint8Array(decodedURI.length)
     const chars = decodedURI.split('')
-    for (let i = 0; i < chars.length; i++) {
-      arr[i] = decodedURI[i].charCodeAt(0)
+    const arr = new Uint8Array(chars.length)
+    for (const [i, char] of chars.entries()) {
+      arr[i] = char.charCodeAt(0)
     }
     return arr
   }

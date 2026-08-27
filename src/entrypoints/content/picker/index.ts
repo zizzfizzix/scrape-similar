@@ -127,6 +127,13 @@ const processMouseUpdate = (state: ContentScriptState): void => {
   state.selectorCandidates = generateSelectorCandidates(el)
   state.selectedCandidateIndex = chooseDefaultCandidateIndex(state.selectorCandidates)
   const selector = state.selectorCandidates[state.selectedCandidateIndex]
+  if (!selector) {
+    // No candidate could be built (e.g. the hovered element is <body> itself).
+    state.currentXPath = ''
+    removePickerHighlights(state.highlightedElements)
+    updatePickerBannerContent(0, '', state)
+    return
+  }
   state.currentXPath = selector
 
   // Cache guessed config (for columns); we'll override mainSelector on click

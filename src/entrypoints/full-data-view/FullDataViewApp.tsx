@@ -171,23 +171,24 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
 
         // Only update current tab selection if not preserving current selection
         if (!preserveCurrentSelection) {
+          const [firstTabWithData] = tabsWithData
           // Set current tab data
           if (currentTabId) {
             const currentData = tabsWithData.find((data) => data.tabId === currentTabId)
             setCurrentTabData(currentData || null)
-            if (!currentData && tabsWithData.length > 0) {
+            if (!currentData && firstTabWithData) {
               // Fallback to first available tab if specified tab not found
-              setCurrentTabId(tabsWithData[0].tabId)
-              setCurrentTabData(tabsWithData[0])
-            } else if (!currentData && tabsWithData.length === 0) {
+              setCurrentTabId(firstTabWithData.tabId)
+              setCurrentTabData(firstTabWithData)
+            } else if (!currentData) {
               // No data available anywhere, reset current tab
               setCurrentTabId(null)
               setCurrentTabData(null)
             }
-          } else if (tabsWithData.length > 0) {
+          } else if (firstTabWithData) {
             // No specific tab requested, use first available
-            setCurrentTabId(tabsWithData[0].tabId)
-            setCurrentTabData(tabsWithData[0])
+            setCurrentTabId(firstTabWithData.tabId)
+            setCurrentTabData(firstTabWithData)
           }
         } else {
           // Preserve current selection but update the data if available
@@ -278,8 +279,8 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
           setAllTabsData((prev) => {
             const filtered = prev.filter((tabData) => tabData.tabId !== tabId)
             // If this was the current tab and there are other tabs, switch to first available
-            if (currentTabId === tabId && filtered.length > 0) {
-              const newTab = filtered[0]
+            const [newTab] = filtered
+            if (currentTabId === tabId && newTab) {
               setCurrentTabId(newTab.tabId)
               setCurrentTabData(newTab)
               // Update URL
@@ -318,6 +319,7 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
               newTabs = [...prev, updatedTabData]
             }
 
+            const [firstTab] = newTabs
             // If there's no current tab selected and this is the first/only tab, select it
             if (currentTabId === null && newTabs.length === 1) {
               setCurrentTabId(updatedTabData.tabId)
@@ -326,9 +328,13 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
               const newUrl = new URL(window.location.href)
               newUrl.searchParams.set('tabId', updatedTabData.tabId.toString())
               window.history.replaceState({}, '', newUrl.toString())
-            } else if (currentTabId === null && newTabs.length > 1 && prev.length === 0) {
+            } else if (
+              currentTabId === null &&
+              firstTab &&
+              newTabs.length > 1 &&
+              prev.length === 0
+            ) {
               // If we had no tabs before and now have multiple, select the first one
-              const firstTab = newTabs[0]
               setCurrentTabId(firstTab.tabId)
               setCurrentTabData(firstTab)
               // Update URL
@@ -374,8 +380,8 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
       setAllTabsData((prev) => {
         const filtered = prev.filter((tabData) => tabData.tabId !== tabId)
         // If this was the current tab and there are other tabs, switch to first available
-        if (currentTabId === tabId && filtered.length > 0) {
-          const newTab = filtered[0]
+        const [newTab] = filtered
+        if (currentTabId === tabId && newTab) {
           setCurrentTabId(newTab.tabId)
           setCurrentTabData(newTab)
           // Update URL

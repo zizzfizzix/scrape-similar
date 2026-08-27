@@ -47,65 +47,71 @@ const OnboardingApp: React.FC = () => {
 
   // Track card views when slide changes (after consent decision)
   useEffect(() => {
-    if (consentState !== undefined) {
-      const currentSlideData = slides[currentSlide]
-      trackEvent(ANALYTICS_EVENTS.ONBOARDING_CARD_VIEW, {
-        slide_number: currentSlide + 1,
-        slide_id: currentSlideData.id,
-        slide_title: currentSlideData.title,
-        slide_description: currentSlideData.description,
-        is_first_slide: currentSlide === 0,
-        is_last_slide: currentSlide === slides.length - 1,
-        total_slides: slides.length,
-      })
-    }
+    if (consentState === undefined) return
+    const currentSlideData = slides[currentSlide]
+    if (!currentSlideData) return
+    trackEvent(ANALYTICS_EVENTS.ONBOARDING_CARD_VIEW, {
+      slide_number: currentSlide + 1,
+      slide_id: currentSlideData.id,
+      slide_title: currentSlideData.title,
+      slide_description: currentSlideData.description,
+      is_first_slide: currentSlide === 0,
+      is_last_slide: currentSlide === slides.length - 1,
+      total_slides: slides.length,
+    })
   }, [currentSlide, consentState])
 
   const handleNext = () => {
     if (consentState === undefined) return
-    if (currentSlide < slides.length - 1) {
-      const nextSlide = currentSlide + 1
-      setCurrentSlide(nextSlide)
+    const nextSlide = currentSlide + 1
+    const fromSlideData = slides[currentSlide]
+    const toSlideData = slides[nextSlide]
+    // No next slide means we are already on the last one
+    if (!fromSlideData || !toSlideData) return
 
-      // Track navigation
-      trackEvent(ANALYTICS_EVENTS.ONBOARDING_NEXT_BUTTON_PRESS, {
-        from_slide: {
-          index: currentSlide + 1,
-          title: slides[currentSlide].title,
-        },
-        to_slide: {
-          index: nextSlide + 1,
-          title: slides[nextSlide].title,
-        },
+    setCurrentSlide(nextSlide)
+
+    // Track navigation
+    trackEvent(ANALYTICS_EVENTS.ONBOARDING_NEXT_BUTTON_PRESS, {
+      from_slide: {
+        index: currentSlide + 1,
+        title: fromSlideData.title,
+      },
+      to_slide: {
+        index: nextSlide + 1,
+        title: toSlideData.title,
+      },
+    })
+
+    // Track completion if this is the last slide
+    if (nextSlide === slides.length - 1) {
+      trackEvent(ANALYTICS_EVENTS.ONBOARDING_COMPLETE, {
+        total_slides_viewed: slides.length,
       })
-
-      // Track completion if this is the last slide
-      if (nextSlide === slides.length - 1) {
-        trackEvent(ANALYTICS_EVENTS.ONBOARDING_COMPLETE, {
-          total_slides_viewed: slides.length,
-        })
-      }
     }
   }
 
   const handlePrevious = () => {
     if (consentState === undefined) return
-    if (currentSlide > 0) {
-      const prevSlide = currentSlide - 1
-      setCurrentSlide(prevSlide)
+    const prevSlide = currentSlide - 1
+    const fromSlideData = slides[currentSlide]
+    const toSlideData = prevSlide >= 0 ? slides[prevSlide] : undefined
+    // No previous slide means we are already on the first one
+    if (!fromSlideData || !toSlideData) return
 
-      // Track navigation
-      trackEvent(ANALYTICS_EVENTS.ONBOARDING_PREVIOUS_BUTTON_PRESS, {
-        from_slide: {
-          index: currentSlide + 1,
-          title: slides[currentSlide].title,
-        },
-        to_slide: {
-          index: prevSlide + 1,
-          title: slides[prevSlide].title,
-        },
-      })
-    }
+    setCurrentSlide(prevSlide)
+
+    // Track navigation
+    trackEvent(ANALYTICS_EVENTS.ONBOARDING_PREVIOUS_BUTTON_PRESS, {
+      from_slide: {
+        index: currentSlide + 1,
+        title: fromSlideData.title,
+      },
+      to_slide: {
+        index: prevSlide + 1,
+        title: toSlideData.title,
+      },
+    })
   }
 
   const onConsentChange = async (accepted: boolean) => {
@@ -604,6 +610,8 @@ const OnboardingApp: React.FC = () => {
     },
   ]
 
+  const activeSlide = slides[currentSlide]
+
   // Wait for consent state to load
   if (isLoading) {
     return null
@@ -662,10 +670,10 @@ const OnboardingApp: React.FC = () => {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
-                  {slides[currentSlide].icon}
+                  {activeSlide?.icon}
                   <div>
-                    <CardTitle className="text-xl">{slides[currentSlide].title}</CardTitle>
-                    <CardDescription>{slides[currentSlide].description}</CardDescription>
+                    <CardTitle className="text-xl">{activeSlide?.title}</CardTitle>
+                    <CardDescription>{activeSlide?.description}</CardDescription>
                   </div>
                 </div>
 
@@ -705,7 +713,7 @@ const OnboardingApp: React.FC = () => {
                 </div>
               </div>
 
-              {slides[currentSlide].content}
+              {activeSlide?.content}
             </CardContent>
           </Card>
         </div>

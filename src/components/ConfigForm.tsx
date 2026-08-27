@@ -227,8 +227,10 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
 
   // Handle column name change
   const handleColumnNameChange = (index: number, value: string) => {
+    const column = config.columns[index]
+    if (!column) return
     const newColumns = [...config.columns]
-    newColumns[index] = { ...newColumns[index], name: value }
+    newColumns[index] = { ...column, name: value }
     onChange({
       ...config,
       columns: newColumns,
@@ -237,8 +239,10 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
 
   // Handle column selector change
   const handleColumnSelectorChange = (index: number, value: string) => {
+    const column = config.columns[index]
+    if (!column) return
     const newColumns = [...config.columns]
-    newColumns[index] = { ...newColumns[index], selector: value }
+    newColumns[index] = { ...column, selector: value }
     onChange({
       ...config,
       columns: newColumns,
@@ -523,7 +527,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
         const selectedId = combinedSuggestionValues[selectedAutosuggestIndex]
         if (selectedId?.startsWith('recent-')) {
           // Extract the index from the recent ID (e.g., "recent-0" -> 0)
-          const recentIndex = parseInt(selectedId.split('-')[1], 10)
+          const recentIndex = parseInt(selectedId.slice('recent-'.length), 10)
           const selector = recentSuggestions[recentIndex]
           if (selector) {
             handleRecentSelectorSelect(selector)

@@ -1,5 +1,5 @@
 import fs from 'fs/promises'
-import { expect, test, TestHelpers } from './fixtures'
+import { expect, getFirstWorksheet, test, TestHelpers } from './fixtures'
 
 /**
  * Core sidepanel functionality tests that aren't covered by other test files
@@ -296,7 +296,7 @@ test.describe('Sidepanel Core Functionality', () => {
       const fileContent = await fs.readFile(fileData, 'utf-8')
 
       const lines = fileContent.trim().split(/\r?\n/)
-      const headers = lines[0].split(',').map((header) => header.replace(/"/g, ''))
+      const headers = (lines[0] ?? '').split(',').map((header) => header.replace(/"/g, ''))
 
       const uiHeaders = await sidePanel.evaluate(() => {
         const ths = Array.from(document.querySelectorAll('table thead th'))
@@ -342,7 +342,7 @@ test.describe('Sidepanel Core Functionality', () => {
       // Playwright's Buffer type differs from Node's Buffer type, but they're compatible at runtime
       // @ts-expect-error - TS2345: Buffer.from creates Buffer<ArrayBuffer> vs expected Buffer
       await workbook.xlsx.load(Buffer.from(data.buffer, data.byteOffset, data.byteLength))
-      const worksheet = workbook.worksheets[0]
+      const worksheet = getFirstWorksheet(workbook)
       const values = worksheet.getSheetValues()
       // getSheetValues returns 1-based array with first element undefined
       const aoa = values.slice(1).map((row) => (Array.isArray(row) ? row.slice(1) : []))
