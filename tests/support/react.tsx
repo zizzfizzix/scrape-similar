@@ -74,3 +74,32 @@ export const setInputValue = (input: HTMLInputElement, value: string): void => {
   setter?.call(input, value)
   input.dispatchEvent(new Event('input', { bubbles: true }))
 }
+
+/**
+ * Open a Radix trigger.
+ *
+ * Radix primitives open on `pointerdown` rather than `click`, and jsdom's
+ * `click()` dispatches neither pointer event, so send the full sequence.
+ */
+export const openRadixTrigger = (trigger: HTMLElement): void => {
+  trigger.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }))
+  trigger.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0 }))
+  trigger.click()
+}
+
+/**
+ * Find a portalled Radix item by its visible label.
+ *
+ * Menu, dialog and drawer content is rendered into `document.body`, outside the
+ * container the tree was mounted in.
+ */
+export const findByRole = (role: string, label: string): HTMLElement => {
+  const candidates = [...document.querySelectorAll<HTMLElement>(`[role="${role}"]`)]
+  const match = candidates.find((candidate) => candidate.textContent?.trim() === label)
+  if (!match) {
+    throw new Error(
+      `No ${role} labelled "${label}"; saw ${JSON.stringify(candidates.map((c) => c.textContent?.trim()))}`,
+    )
+  }
+  return match
+}

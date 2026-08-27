@@ -6,6 +6,18 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { ANALYTICS_EVENTS, trackEvent } from '@/utils/analytics'
+import {
+  CSV_MIME_TYPE,
+  defaultExportFilename,
+  describeExportScope,
+  describeSheetsExportFailure,
+  downloadFile,
+  resolveExportRows,
+  rowsToCsv,
+  rowsToXlsxBuffer,
+  SHEETS_EXPORT_TIMEOUT_MS,
+  XLSX_MIME_TYPE,
+} from '@/utils/export-data'
 import { getColumnKeys } from '@/utils/getColumnKeys'
 import { rowsToTsv } from '@/utils/tsv'
 import type { ScrapeConfig, ScrapeResult, ScrapedRow } from '@/utils/types'
@@ -49,30 +61,14 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({
     }
   }, [])
 
-  // Generate filename if not provided
-  const exportFilename = filename || `Data Export - ${new Date().toISOString().split('T')[0]}`
+  const exportFilename = filename || defaultExportFilename(new Date())
 
-  // Prepare data for export
-  const hasSelection = selectedRows && selectedRows.length > 0
-  const isExportingAll = !hasSelection || selectedRows.length === (scrapeResult.data || []).length
-
-  const dataToExport =
-    hasSelection && !isExportingAll
-      ? selectedRows
-      : showEmptyRows
-        ? scrapeResult.data || []
-        : (scrapeResult.data || []).filter((row) => !row.metadata.isEmpty)
+  const resolved = resolveExportRows({ scrapeResult, selectedRows, showEmptyRows })
+  const dataToExport = resolved.rows
+  const exportText = describeExportScope(resolved)
 
   const columns = scrapeResult.columnOrder || []
   const columnKeys = getColumnKeys(columns, config.columns)
-
-  // Generate descriptive text for export actions
-  const exportText =
-    hasSelection && !isExportingAll
-      ? selectedRows!.length === 1
-        ? `${selectedRows!.length} row`
-        : `${selectedRows!.length} rows`
-      : 'all'
 
   const handleGoogleSheetsExport = () => {
     if (!dataToExport.length) {
@@ -106,7 +102,8 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({
       clearTimeout(timeoutRef.current)
     }
 
-    // Set a timeout to reset the button state if no response comes back
+    // Reset the button if the background never replies (e.g. the service worker
+    // was torn down mid-export).
     timeoutRef.current = setTimeout(() => {
       log.warn('🔥 ExportButtons: Export timeout - resetting button state')
       setIsExporting(false)
@@ -116,7 +113,7 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({
         error: 'Export timeout',
       })
       timeoutRef.current = null
-    }, 60000) // 60 second timeout
+    }, SHEETS_EXPORT_TIMEOUT_MS)
 
     browser.runtime.sendMessage(messagePayload, (response) => {
       // Clear the timeout since we got a response
@@ -156,31 +153,13 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({
             </span>
           ),
         })
-      } else {
-        log.error('🔥 ExportButtons: Export failed - Full response:', response)
-        log.error('🔥 ExportButtons: Response keys:', response ? Object.keys(response) : 'null')
-        log.error('🔥 ExportButtons: Response JSON:', JSON.stringify(response, null, 2))
-
-        const errorMessage =
-          response?.error ||
-          response?.message ||
-          `Export failed - Response: ${JSON.stringify(response)}`
-
-        // Special handling for auth cancellation
-        if (
-          errorMessage.includes('cancelled') ||
-          errorMessage.includes('denied') ||
-          errorMessage.includes('Authorization')
-        ) {
-          toast.error('Google authorization was cancelled')
-        } else {
-          toast.error(`Export failed: ${errorMessage}`)
-        }
-
-        trackEvent(ANALYTICS_EVENTS.EXPORT_TO_SHEETS_FAILURE, {
-          error: errorMessage,
-        })
+        return
       }
+
+      log.error('🔥 ExportButtons: Export failed - Full response:', response)
+      const failure = describeSheetsExportFailure(response)
+      toast.error(failure.toast)
+      trackEvent(ANALYTICS_EVENTS.EXPORT_TO_SHEETS_FAILURE, { error: failure.error })
     })
   }
 
@@ -197,10 +176,8 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({
       export_type: 'data_table_full',
     })
 
-    const tsvContent = rowsToTsv(dataToExport, columnKeys, columns)
-
     try {
-      await navigator.clipboard.writeText(tsvContent)
+      await navigator.clipboard.writeText(rowsToTsv(dataToExport, columnKeys, columns))
       toast.success('Copied to clipboard')
       setIsDropdownOpen(false)
     } catch {
@@ -222,30 +199,9 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({
       columns_count: columns.length,
     })
 
-    const csvContent = [
-      columns.map((header) => `"${header.replace(/"/g, '""')}"`).join(','),
-      ...dataToExport.map((row) =>
-        columnKeys
-          .map((key) => {
-            const value = row.data[key] || ''
-            const escapedValue = value.replace(/"/g, '""')
-            return `"${escapedValue}"`
-          })
-          .join(','),
-      ),
-    ].join('\n')
-
-    const csvFilename = `${exportFilename}.csv`
     try {
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.setAttribute('href', url)
-      link.setAttribute('download', csvFilename)
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      URL.revokeObjectURL(url)
+      const csv = rowsToCsv(dataToExport, columnKeys, columns)
+      downloadFile(csv, `${exportFilename}.csv`, CSV_MIME_TYPE)
       toast.success('CSV file saved')
       setIsDropdownOpen(false)
     } catch (e) {
@@ -270,38 +226,8 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({
     })
 
     try {
-      // Dynamic import for tree-shaking
-      const ExcelJS = await import('exceljs')
-      const workbook = new ExcelJS.Workbook()
-      const worksheet = workbook.addWorksheet('Data')
-
-      // Add header row
-      worksheet.addRow(columns)
-
-      // Add data rows
-      for (const row of dataToExport) {
-        worksheet.addRow(
-          columnKeys.map((key) => {
-            const value = row.data[key]
-            return value == null ? '' : value
-          }),
-        )
-      }
-
-      // Generate buffer and trigger download
-      const buffer = await workbook.xlsx.writeBuffer()
-      const blob = new Blob([buffer], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      })
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `${exportFilename}.xlsx`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      URL.revokeObjectURL(url)
-
+      const buffer = await rowsToXlsxBuffer(dataToExport, columnKeys, columns)
+      downloadFile(buffer, `${exportFilename}.xlsx`, XLSX_MIME_TYPE)
       toast.success('Excel file saved')
       setIsDropdownOpen(false)
     } catch (e) {

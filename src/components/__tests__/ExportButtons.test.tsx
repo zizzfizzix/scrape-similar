@@ -1,3 +1,4 @@
+import { rowsToXlsxBuffer, XLSX_MIME_TYPE } from '@/utils/export-data'
 import type { ScrapedRow } from '@/utils/types'
 import type ExcelJS from 'exceljs'
 import { describe, expect, it } from 'vitest'
@@ -31,282 +32,151 @@ const getFirstWorksheet = (workbook: ExcelJS.Workbook): ExcelJS.Worksheet => {
   return worksheet
 }
 
+/** Write the rows through the real export path, then read the file back. */
+const roundTrip = async (rows: ScrapedRow[], columnKeys: string[], columns: string[]) => {
+  const buffer = await rowsToXlsxBuffer(rows, columnKeys, columns)
+  const ExcelJSModule = await import('exceljs')
+  const workbook = new ExcelJSModule.default.Workbook()
+  await workbook.xlsx.load(buffer)
+  return { buffer, workbook, worksheet: getFirstWorksheet(workbook) }
+}
+
 describe('Excel export functionality', () => {
   it('generates valid xlsx workbook with correct structure', async () => {
-    const ExcelJS = await import('exceljs')
-    const workbook = new ExcelJS.default.Workbook()
-    const worksheet = workbook.addWorksheet('Data')
-
     const columns = ['Column 1', 'Column 2', 'Column 3']
     const rows = [
       makeRow({ col1: 'A1', col2: 'B1', col3: 'C1' }),
       makeRow({ col1: 'A2', col2: 'B2', col3: 'C2' }),
     ]
-    const columnKeys = ['col1', 'col2', 'col3']
 
-    // Add header row
-    worksheet.addRow(columns)
+    const { buffer, workbook, worksheet } = await roundTrip(rows, ['col1', 'col2', 'col3'], columns)
 
-    // Add data rows
-    for (const row of rows) {
-      worksheet.addRow(columnKeys.map((key) => row.data[key] ?? ''))
-    }
-
-    // Generate buffer
-    const buffer = await workbook.xlsx.writeBuffer()
-
-    // Verify buffer is valid
-    expect(buffer).toBeInstanceOf(Buffer)
     expect(buffer.byteLength).toBeGreaterThan(0)
+    expect(workbook.worksheets.length).toBe(1)
+    expect(worksheet.name).toBe('Data')
 
-    // Read back and verify
-    const readWorkbook = new ExcelJS.default.Workbook()
-    await readWorkbook.xlsx.load(buffer)
-
-    expect(readWorkbook.worksheets.length).toBe(1)
-    expect(getFirstWorksheet(readWorkbook).name).toBe('Data')
-
-    const readSheet = getFirstWorksheet(readWorkbook)
-    const values = readSheet.getSheetValues()
-
-    // getSheetValues returns array with 1-based indexing, and each row has undefined at index 0
+    const values = worksheet.getSheetValues()
     expect(getRowValues(values, 1)).toEqual(['Column 1', 'Column 2', 'Column 3'])
     expect(getRowValues(values, 2)).toEqual(['A1', 'B1', 'C1'])
     expect(getRowValues(values, 3)).toEqual(['A2', 'B2', 'C2'])
   })
 
   it('handles null and undefined values correctly', async () => {
-    const ExcelJS = await import('exceljs')
-    const workbook = new ExcelJS.default.Workbook()
-    const worksheet = workbook.addWorksheet('Data')
+    const rows = [makeRow({ col1: 'A1', col2: null, col3: undefined })]
 
-    const columns = ['Col1', 'Col2', 'Col3']
-    const rows = [makeRow({ col1: null, col2: undefined, col3: 'value' })]
-    const columnKeys = ['col1', 'col2', 'col3']
+    const { worksheet } = await roundTrip(rows, ['col1', 'col2', 'col3'], ['A', 'B', 'C'])
 
-    worksheet.addRow(columns)
-    for (const row of rows) {
-      worksheet.addRow(columnKeys.map((key) => row.data[key] ?? ''))
-    }
-
-    const buffer = await workbook.xlsx.writeBuffer()
-    const readWorkbook = new ExcelJS.default.Workbook()
-    await readWorkbook.xlsx.load(buffer)
-
-    const values = getFirstWorksheet(readWorkbook).getSheetValues()
-    // Null and undefined should become empty strings
-    expect(getRowValues(values, 2)).toEqual(['', '', 'value'])
+    // Null and undefined are written as empty strings, not left blank.
+    expect(worksheet.getRow(2).getCell(1).value).toBe('A1')
+    expect(worksheet.getRow(2).getCell(2).value).toBe('')
+    expect(worksheet.getRow(2).getCell(3).value).toBe('')
   })
 
   it('handles empty data rows correctly', async () => {
-    const ExcelJS = await import('exceljs')
-    const workbook = new ExcelJS.default.Workbook()
-    const worksheet = workbook.addWorksheet('Data')
+    const rows = [makeRow({ col1: '', col2: '', col3: '' }, true)]
 
-    const columns = ['Col1', 'Col2']
-    const rows = [makeRow({ col1: '', col2: '' })]
-    const columnKeys = ['col1', 'col2']
+    const { worksheet } = await roundTrip(rows, ['col1', 'col2', 'col3'], ['A', 'B', 'C'])
 
-    worksheet.addRow(columns)
-    for (const row of rows) {
-      worksheet.addRow(columnKeys.map((key) => row.data[key] ?? ''))
-    }
+    expect(worksheet.getRow(2).getCell(1).value).toBe('')
+  })
 
-    const buffer = await workbook.xlsx.writeBuffer()
-    const readWorkbook = new ExcelJS.default.Workbook()
-    await readWorkbook.xlsx.load(buffer)
+  it('writes the header row even when there are no data rows', async () => {
+    const { worksheet } = await roundTrip([], ['col1'], ['Only column'])
 
-    const values = getFirstWorksheet(readWorkbook).getSheetValues()
-    expect(getRowValues(values, 2)).toEqual(['', ''])
+    expect(getRowValues(worksheet.getSheetValues(), 1)).toEqual(['Only column'])
+    expect(worksheet.rowCount).toBe(1)
   })
 
   it('preserves column order from columnKeys', async () => {
-    const ExcelJS = await import('exceljs')
-    const workbook = new ExcelJS.default.Workbook()
-    const worksheet = workbook.addWorksheet('Data')
+    const rows = [makeRow({ first: '1', second: '2', third: '3' })]
 
-    const columns = ['Third', 'First', 'Second']
-    const rows = [makeRow({ col1: 'A', col2: 'B', col3: 'C' })]
-    const columnKeys = ['col3', 'col1', 'col2'] // Different order
+    const { worksheet } = await roundTrip(
+      rows,
+      ['third', 'first', 'second'],
+      ['Third', 'First', 'Second'],
+    )
 
-    worksheet.addRow(columns)
-    for (const row of rows) {
-      worksheet.addRow(columnKeys.map((key) => row.data[key] ?? ''))
-    }
-
-    const buffer = await workbook.xlsx.writeBuffer()
-    const readWorkbook = new ExcelJS.default.Workbook()
-    await readWorkbook.xlsx.load(buffer)
-
-    const values = getFirstWorksheet(readWorkbook).getSheetValues()
-    // Should follow columnKeys order: col3, col1, col2 -> C, A, B
-    expect(getRowValues(values, 2)).toEqual(['C', 'A', 'B'])
+    const values = worksheet.getSheetValues()
+    expect(getRowValues(values, 1)).toEqual(['Third', 'First', 'Second'])
+    expect(getRowValues(values, 2)).toEqual(['3', '1', '2'])
   })
 
   it('handles special characters in cell values', async () => {
-    const ExcelJS = await import('exceljs')
-    const workbook = new ExcelJS.default.Workbook()
-    const worksheet = workbook.addWorksheet('Data')
-
-    const columns = ['Col1', 'Col2', 'Col3']
     const rows = [
       makeRow({
-        col1: 'Line\nBreak',
-        col2: 'Tab\there',
-        col3: 'Quote"Test',
+        col1: 'Value with "quotes"',
+        col2: 'Value,with,commas',
+        col3: 'Value\twith\ttabs',
       }),
     ]
-    const columnKeys = ['col1', 'col2', 'col3']
 
-    worksheet.addRow(columns)
-    for (const row of rows) {
-      worksheet.addRow(columnKeys.map((key) => row.data[key] ?? ''))
-    }
+    const { worksheet } = await roundTrip(rows, ['col1', 'col2', 'col3'], ['A', 'B', 'C'])
 
-    const buffer = await workbook.xlsx.writeBuffer()
-    const readWorkbook = new ExcelJS.default.Workbook()
-    await readWorkbook.xlsx.load(buffer)
-
-    const values = getFirstWorksheet(readWorkbook).getSheetValues()
-    // Excel should preserve special characters
-    expect(getRowValues(values, 2)).toEqual(['Line\nBreak', 'Tab\there', 'Quote"Test'])
+    expect(getRowValues(worksheet.getSheetValues(), 2)).toEqual([
+      'Value with "quotes"',
+      'Value,with,commas',
+      'Value\twith\ttabs',
+    ])
   })
 
   it('handles numeric and boolean values', async () => {
-    const ExcelJS = await import('exceljs')
-    const workbook = new ExcelJS.default.Workbook()
-    const worksheet = workbook.addWorksheet('Data')
+    const rows = [makeRow({ col1: 42, col2: true, col3: 3.14 })]
 
-    const columns = ['Number', 'Boolean', 'String']
-    const rows = [makeRow({ col1: 123, col2: true, col3: 'text' })]
-    const columnKeys = ['col1', 'col2', 'col3']
+    const { worksheet } = await roundTrip(rows, ['col1', 'col2', 'col3'], ['A', 'B', 'C'])
 
-    worksheet.addRow(columns)
-    for (const row of rows) {
-      worksheet.addRow(columnKeys.map((key) => row.data[key] ?? ''))
-    }
-
-    const buffer = await workbook.xlsx.writeBuffer()
-    const readWorkbook = new ExcelJS.default.Workbook()
-    await readWorkbook.xlsx.load(buffer)
-
-    const values = getFirstWorksheet(readWorkbook).getSheetValues()
-    expect(getRowValues(values, 2)).toEqual([123, true, 'text'])
+    expect(getRowValues(worksheet.getSheetValues(), 2)).toEqual([42, true, 3.14])
   })
 
   it('handles missing keys in row data', async () => {
-    const ExcelJS = await import('exceljs')
-    const workbook = new ExcelJS.default.Workbook()
-    const worksheet = workbook.addWorksheet('Data')
+    const rows = [makeRow({ col1: 'A1' })]
 
-    const columns = ['Col1', 'Col2', 'Col3']
-    const rows = [makeRow({ col1: 'A', col3: 'C' })] // col2 is missing
-    const columnKeys = ['col1', 'col2', 'col3']
+    const { worksheet } = await roundTrip(rows, ['col1', 'missing'], ['A', 'B'])
 
-    worksheet.addRow(columns)
-    for (const row of rows) {
-      worksheet.addRow(columnKeys.map((key) => row.data[key] ?? ''))
-    }
-
-    const buffer = await workbook.xlsx.writeBuffer()
-    const readWorkbook = new ExcelJS.default.Workbook()
-    await readWorkbook.xlsx.load(buffer)
-
-    const values = getFirstWorksheet(readWorkbook).getSheetValues()
-    expect(getRowValues(values, 2)).toEqual(['A', '', 'C'])
+    expect(worksheet.getRow(2).getCell(1).value).toBe('A1')
+    expect(worksheet.getRow(2).getCell(2).value).toBe('')
   })
 
   it('handles multiple rows with varying data', async () => {
-    const ExcelJS = await import('exceljs')
-    const workbook = new ExcelJS.default.Workbook()
-    const worksheet = workbook.addWorksheet('Data')
-
-    const columns = ['Name', 'Age', 'City']
     const rows = [
-      makeRow({ col1: 'Alice', col2: 30, col3: 'NYC' }),
-      makeRow({ col1: 'Bob', col2: null, col3: 'LA' }),
-      makeRow({ col1: 'Charlie', col2: 25, col3: '' }),
+      makeRow({ col1: 'A1', col2: 'B1' }),
+      makeRow({ col1: 'A2' }),
+      makeRow({ col2: 'B3' }),
+      makeRow({}, true),
     ]
-    const columnKeys = ['col1', 'col2', 'col3']
 
-    worksheet.addRow(columns)
-    for (const row of rows) {
-      worksheet.addRow(columnKeys.map((key) => row.data[key] ?? ''))
-    }
+    const { worksheet } = await roundTrip(rows, ['col1', 'col2'], ['A', 'B'])
 
-    const buffer = await workbook.xlsx.writeBuffer()
-    const readWorkbook = new ExcelJS.default.Workbook()
-    await readWorkbook.xlsx.load(buffer)
-
-    const values = getFirstWorksheet(readWorkbook).getSheetValues()
-    expect(getRowValues(values, 1)).toEqual(['Name', 'Age', 'City'])
-    expect(getRowValues(values, 2)).toEqual(['Alice', 30, 'NYC'])
-    expect(getRowValues(values, 3)).toEqual(['Bob', '', 'LA'])
-    expect(getRowValues(values, 4)).toEqual(['Charlie', 25, ''])
+    expect(worksheet.rowCount).toBe(5)
+    expect(worksheet.getRow(2).getCell(1).value).toBe('A1')
+    expect(worksheet.getRow(3).getCell(2).value).toBe('')
+    expect(worksheet.getRow(4).getCell(2).value).toBe('B3')
   })
 
   it('handles unicode and emoji characters', async () => {
-    const ExcelJS = await import('exceljs')
-    const workbook = new ExcelJS.default.Workbook()
-    const worksheet = workbook.addWorksheet('Data')
+    const rows = [makeRow({ col1: '日本語', col2: '🎉 party', col3: 'Ñoño' })]
 
-    const columns = ['Emoji', 'Unicode', 'Mixed']
-    const rows = [makeRow({ col1: '😃👍', col2: '中文', col3: 'Test 🚀' })]
-    const columnKeys = ['col1', 'col2', 'col3']
+    const { worksheet } = await roundTrip(rows, ['col1', 'col2', 'col3'], ['A', 'B', 'C'])
 
-    worksheet.addRow(columns)
-    for (const row of rows) {
-      worksheet.addRow(columnKeys.map((key) => row.data[key] ?? ''))
-    }
-
-    const buffer = await workbook.xlsx.writeBuffer()
-    const readWorkbook = new ExcelJS.default.Workbook()
-    await readWorkbook.xlsx.load(buffer)
-
-    const values = getFirstWorksheet(readWorkbook).getSheetValues()
-    expect(getRowValues(values, 2)).toEqual(['😃👍', '中文', 'Test 🚀'])
+    expect(getRowValues(worksheet.getSheetValues(), 2)).toEqual(['日本語', '🎉 party', 'Ñoño'])
   })
 
   it('handles large datasets efficiently', async () => {
-    const ExcelJS = await import('exceljs')
-    const workbook = new ExcelJS.default.Workbook()
-    const worksheet = workbook.addWorksheet('Data')
+    const rows = Array.from({ length: 1000 }, (_, i) =>
+      makeRow({ col1: `Row ${i}`, col2: String(i) }),
+    )
 
-    const columns = ['Col1', 'Col2', 'Col3']
-    const rows: ScrapedRow[] = []
-    for (let i = 0; i < 1000; i++) {
-      rows.push(makeRow({ col1: `A${i}`, col2: `B${i}`, col3: `C${i}` }))
-    }
-    const columnKeys = ['col1', 'col2', 'col3']
+    const { worksheet } = await roundTrip(rows, ['col1', 'col2'], ['A', 'B'])
 
-    worksheet.addRow(columns)
-    for (const row of rows) {
-      worksheet.addRow(columnKeys.map((key) => row.data[key] ?? ''))
-    }
-
-    const buffer = await workbook.xlsx.writeBuffer()
-    const readWorkbook = new ExcelJS.default.Workbook()
-    await readWorkbook.xlsx.load(buffer)
-
-    const values = getFirstWorksheet(readWorkbook).getSheetValues()
-    // Should have header + 1000 data rows
-    expect(values.length).toBe(1002) // 1-based index + header + 1000 rows
+    expect(worksheet.rowCount).toBe(1001)
+    expect(worksheet.getRow(1001).getCell(1).value).toBe('Row 999')
   })
 
   it('generates valid blob for download', async () => {
-    const ExcelJS = await import('exceljs')
-    const workbook = new ExcelJS.default.Workbook()
-    const worksheet = workbook.addWorksheet('Data')
+    const buffer = await rowsToXlsxBuffer([makeRow({ col1: 'A1' })], ['col1'], ['A'])
 
-    worksheet.addRow(['Col1', 'Col2'])
-    worksheet.addRow(['A', 'B'])
+    const blob = new Blob([buffer], { type: XLSX_MIME_TYPE })
 
-    const buffer = await workbook.xlsx.writeBuffer()
-    const blob = new Blob([buffer], {
-      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    })
-
+    expect(blob.type).toBe(XLSX_MIME_TYPE)
     expect(blob.size).toBeGreaterThan(0)
-    expect(blob.type).toBe('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
   })
 })
