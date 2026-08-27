@@ -9,8 +9,80 @@ import {
 } from '@playwright/test'
 import type ExcelJS from 'exceljs'
 import fs from 'fs'
+import http from 'http'
+import type { AddressInfo } from 'net'
+import path from 'path'
 import { v7 as uuidv7 } from 'uuid'
 const { chromeExtensionId } = pkg
+
+/**
+ * Element counts of tests/e2e/fixtures/pages/scrape-target.html.
+ * Keep in sync when editing that file.
+ */
+export const FIXTURE_PAGE_COUNTS = {
+  span: 24,
+  li: 12,
+} as const
+
+/** XPath that is guaranteed not to match anything on the fixture pages. */
+export const NO_MATCH_SELECTOR = '//*[@id="nonexistent_element_for_test"]'
+
+const CONTENT_TYPES: Record<string, string> = {
+  '.html': 'text/html; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+}
+
+/**
+ * Serves tests/e2e/fixtures/pages over HTTP on an ephemeral port.
+ * Content scripts only run on http(s) URLs, so fixture pages cannot be loaded
+ * from disk - and serving them locally keeps the scrape targets deterministic
+ * and the suite independent of any external site.
+ *
+ * The fixture files are enumerated once up front and the request path is only
+ * ever used as a lookup key, never to build a filesystem path. That keeps the
+ * server incapable of reading anything outside the fixture directory (files are
+ * top-level only; nested directories are not served).
+ */
+const startFixturePagesServer = async () => {
+  const root = path.join(import.meta.dirname, 'fixtures', 'pages')
+
+  const servableFiles = new Map<string, string>(
+    fs
+      .readdirSync(root, { withFileTypes: true })
+      .filter((entry) => entry.isFile())
+      .map((entry) => [`/${entry.name}`, path.join(root, entry.name)]),
+  )
+
+  const server = http.createServer((req, res) => {
+    const [rawPath = '/'] = (req.url ?? '/').split('?')
+    const requestPath = decodeURIComponent(rawPath)
+    const filePath = servableFiles.get(requestPath)
+    if (!filePath) {
+      res.writeHead(404).end(`No such fixture: ${requestPath}`)
+      return
+    }
+
+    fs.readFile(filePath, (error, contents) => {
+      if (error) {
+        res.writeHead(500).end('Failed to read fixture')
+        return
+      }
+      res.writeHead(200, {
+        'content-type': CONTENT_TYPES[path.extname(filePath)] ?? 'application/octet-stream',
+      })
+      res.end(contents)
+    })
+  })
+
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+  const { port } = server.address() as AddressInfo
+
+  return {
+    baseUrl: `http://127.0.0.1:${port}/`,
+    close: () => new Promise<void>((resolve) => server.close(() => resolve())),
+  }
+}
 
 async function waitForChromeApis(worker: Worker, timeout = 5000) {
   const start = Date.now()
@@ -229,12 +301,32 @@ export const TestHelpers = {
   },
 }
 
-export const test = base.extend<{
-  context: BrowserContext
-  extensionId: string
-  serviceWorker: Worker
-  openSidePanel: (transitionUrl?: string) => Promise<Page>
-}>({
+export const test = base.extend<
+  {
+    context: BrowserContext
+    extensionId: string
+    serviceWorker: Worker
+    openSidePanel: (transitionUrl?: string) => Promise<Page>
+    fixturePageUrl: (name: string) => string
+  },
+  { fixturePagesBaseUrl: string }
+>({
+  // Worker-scoped static server for the local HTML fixtures.
+  fixturePagesBaseUrl: [
+    async ({}, use) => {
+      const server = await startFixturePagesServer()
+      await use(server.baseUrl)
+      await server.close()
+    },
+    { scope: 'worker' },
+  ],
+
+  // Resolves a fixture file name to its served URL, e.g.
+  // fixturePageUrl('scrape-target.html').
+  fixturePageUrl: async ({ fixturePagesBaseUrl }, use) => {
+    await use((name: string) => new URL(name, fixturePagesBaseUrl).href)
+  },
+
   // Launch a persistent context with the built extension loaded.
   context: async ({}, use) => {
     const buildTypeSuffix = (env = 'production') => {

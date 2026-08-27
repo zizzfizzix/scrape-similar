@@ -44,6 +44,10 @@ import {
 import React, { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
+// How long the "0 found" feedback stays on the scrape button after a scrape
+// that returned no rows.
+const ZERO_FOUND_FEEDBACK_MS = 1500
+
 interface ConfigFormProps {
   config: ScrapeConfig
   onChange: (config: ScrapeConfig) => void
@@ -94,7 +98,6 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
     'idle' | 'generating' | 'success' | 'failure'
   >('idle')
   const [scrapeButtonState, setScrapeButtonState] = useState<'idle' | 'zero-found'>('idle')
-  const zeroFoundTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // State for Save Preset drawer
   const [isSaveDrawerOpen, setIsSaveDrawerOpen] = useState(false)
@@ -182,25 +185,37 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
     prevColumnsCount.current = config.columns.length
   }, [config.columns.length, shouldScrollToEnd])
 
-  // Watch for lastScrapeRowCount changes
+  // Keep the latest clear callback in a ref so the feedback timer below does not
+  // depend on the parent re-creating the callback on every render.
+  const onClearLastScrapeRowCountRef = useRef(onClearLastScrapeRowCount)
   useEffect(() => {
-    if (typeof lastScrapeRowCount === 'number') {
-      if (lastScrapeRowCount === 0) {
-        setScrapeButtonState('zero-found')
-        if (zeroFoundTimeoutRef.current) clearTimeout(zeroFoundTimeoutRef.current)
-        zeroFoundTimeoutRef.current = setTimeout(() => {
-          setScrapeButtonState('idle')
-          if (onClearLastScrapeRowCount) onClearLastScrapeRowCount()
-        }, 1500)
-      } else {
-        setScrapeButtonState('idle')
-        if (onClearLastScrapeRowCount) onClearLastScrapeRowCount()
-      }
+    onClearLastScrapeRowCountRef.current = onClearLastScrapeRowCount
+  }, [onClearLastScrapeRowCount])
+
+  // Watch for lastScrapeRowCount changes.
+  // Depends on lastScrapeRowCount only: if the callback identity were a dependency
+  // the cleanup would cancel and the body would restart the timer on every parent
+  // render, so the "0 found" feedback could outlive the scrape it belongs to.
+  useEffect(() => {
+    // No scrape feedback pending (or it was invalidated by a config change).
+    if (typeof lastScrapeRowCount !== 'number') {
+      setScrapeButtonState('idle')
+      return
     }
-    return () => {
-      if (zeroFoundTimeoutRef.current) clearTimeout(zeroFoundTimeoutRef.current)
+
+    if (lastScrapeRowCount !== 0) {
+      setScrapeButtonState('idle')
+      onClearLastScrapeRowCountRef.current?.()
+      return
     }
-  }, [lastScrapeRowCount, onClearLastScrapeRowCount])
+
+    setScrapeButtonState('zero-found')
+    const timeout = setTimeout(() => {
+      setScrapeButtonState('idle')
+      onClearLastScrapeRowCountRef.current?.()
+    }, ZERO_FOUND_FEEDBACK_MS)
+    return () => clearTimeout(timeout)
+  }, [lastScrapeRowCount])
 
   useEffect(() => {
     if (endAdornmentRef.current) {

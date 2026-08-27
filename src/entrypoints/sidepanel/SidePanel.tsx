@@ -153,6 +153,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
   const [contentScriptCommsError, setContentScriptCommsError] = useState<string | null>(null)
   // Track last scrape row count for button feedback
   const [lastScrapeRowCount, setLastScrapeRowCount] = useState<number | null>(null)
+  const clearLastScrapeRowCount = useCallback(() => setLastScrapeRowCount(null), [])
   const dataTableRef = useRef<HTMLDivElement | null>(null)
   const [highlightMatchCount, setHighlightMatchCount] = useState<number | undefined>(undefined)
   const [highlightError, setHighlightError] = useState<string | undefined>(undefined)
@@ -245,6 +246,11 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
     const mainSelectorChanged = newConfig.mainSelector !== previousMainSelector
 
     setConfig(newConfig)
+
+    // The row count belongs to the scrape that produced the current results.
+    // Once the config changes it is stale, so drop it instead of letting it
+    // resurface (e.g. as "0 found") when the new selector is validated.
+    setLastScrapeRowCount(null)
 
     // Only clear highlight state if the main selector actually changed
     if (mainSelectorChanged) {
@@ -796,7 +802,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
               showPresets={showPresets}
               setShowPresets={setShowPresets}
               lastScrapeRowCount={lastScrapeRowCount}
-              onClearLastScrapeRowCount={() => setLastScrapeRowCount(null)}
+              onClearLastScrapeRowCount={clearLastScrapeRowCount}
               highlightMatchCount={highlightMatchCount}
               highlightError={highlightError}
               pickerModeActive={pickerModeActive}
