@@ -13,9 +13,9 @@ import { ANALYTICS_EVENTS, trackEvent } from '@/utils/analytics'
 import { getColumnKeys } from '@/utils/getColumnKeys'
 import { rowToTsv } from '@/utils/tsv'
 import {
-  CellContext,
-  ColumnDef,
-  ColumnSizingState,
+  type CellContext,
+  type ColumnDef,
+  type ColumnSizingState,
   flexRender,
   getCoreRowModel,
   useReactTable,

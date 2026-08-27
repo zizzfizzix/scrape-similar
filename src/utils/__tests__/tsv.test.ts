@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { rowToTsv, rowsToTsv } from '@/utils/tsv'
-import { ScrapedRow } from '@/utils/types'
+import type { ScrapedRow } from '@/utils/types'
 
 // Helper to build ScrapedRow quickly
 const makeRow = (data: Record<string, any>): ScrapedRow => ({

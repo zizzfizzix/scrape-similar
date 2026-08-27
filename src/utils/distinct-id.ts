@@ -1,5 +1,5 @@
 import log from 'loglevel'
-import { UUIDTypes, v7 as uuidv7 } from 'uuid'
+import { type UUIDTypes, v7 as uuidv7 } from 'uuid'
 
 export type DistinctId = UUIDTypes
 export const DISTINCT_ID_KEY = 'local:distinct_id'

@@ -1,7 +1,7 @@
 import { getPresets, setPresets } from '@/utils/storage'
 import type { Preset } from '@/utils/types'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { fakeBrowser } from 'wxt/testing'
+import { fakeBrowser } from 'wxt/testing/fake-browser'
 
 const mockPreset: Preset = {
   id: 'test-preset-1',

@@ -49,14 +49,14 @@
     "@playwright/test": "^1.62.1",
     "@thedutchcoder/postcss-rem-to-px": "^0.0.2",
     "@toolwind/anchors": "^1.0.10",
-    "@types/chrome": "^0.1.40",
+    "@types/chrome": "^0.2.6",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "@vitest/coverage-v8": "^4.1.11",
     "@wxt-dev/auto-icons": "^1.1.2",
     "@wxt-dev/module-react": "^1.2.2",
     "husky": "^9.1.7",
-    "jsdom": "^29.0.2",
+    "jsdom": "^30.0.1",
     "postcss": "^8.5.26",
     "prettier": "^3.9.6",
     "prettier-plugin-organize-imports": "^4.3.0",
@@ -64,7 +64,7 @@
     "typescript": "^5.9.3",
     "vite": "^8.2.2",
     "vitest": "^4.1.11",
-    "wxt": "^0.20.25"
+    "wxt": "^0.21.4"
   },
   "packageManager": "pnpm@10.28.0+sha512.05df71d1421f21399e053fde567cea34d446fa02c76571441bfc1c7956e98e363088982d940465fd34480d4d90a0668bc12362f8aa88000a64e83d0b0e47be48"
 }

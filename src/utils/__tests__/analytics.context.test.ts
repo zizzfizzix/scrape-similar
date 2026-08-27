@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { browser } from 'wxt/browser'
-import { fakeBrowser } from 'wxt/testing'
+import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
 
 // Dynamically control the context value returned by getCurrentContext
