@@ -1,4 +1,4 @@
-import { expect, test, TestHelpers } from './fixtures'
+import { expect, FIXTURE_PAGE_COUNTS, SCRAPE_TARGET_PAGE, test, TestHelpers } from './fixtures'
 
 /**
  * End-to-end tests for DataTable enhancements introduced in recent commits:
@@ -14,9 +14,12 @@ test.describe('DataTable Enhancements', () => {
     openSidePanel,
     serviceWorker,
     context,
+    fixturePageUrl,
   }) => {
     const sidePanel = await openSidePanel()
-    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context)
+    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context, {
+      testPageUrl: fixturePageUrl(SCRAPE_TARGET_PAGE),
+    })
 
     // Find the data table container
     const dataTableContainer = sidePanel.locator('.data-table-container')
@@ -44,9 +47,12 @@ test.describe('DataTable Enhancements', () => {
     openSidePanel,
     serviceWorker,
     context,
+    fixturePageUrl,
   }) => {
     const sidePanel = await openSidePanel()
-    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context)
+    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context, {
+      testPageUrl: fixturePageUrl(SCRAPE_TARGET_PAGE),
+    })
 
     // Wait for table to be visible
     const table = sidePanel.getByRole('table')
@@ -138,6 +144,7 @@ test.describe('DataTable Enhancements', () => {
     openSidePanel,
     serviceWorker,
     context,
+    fixturePageUrl,
   }) => {
     const sidePanel = await openSidePanel()
 
@@ -146,12 +153,12 @@ test.describe('DataTable Enhancements', () => {
 
     // Navigate to a page that will have fewer results
     const testPage = await context.newPage()
-    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+    await testPage.goto(fixturePageUrl(SCRAPE_TARGET_PAGE))
     await testPage.bringToFront()
 
-    // Use a selector that matches only a few elements
+    // Use a selector that matches a single element on the fixture page
     const mainSelector = sidePanel.locator('#mainSelector')
-    await mainSelector.fill('//h1') // Should match only 1-2 elements
+    await mainSelector.fill('//h1')
     await mainSelector.press('Enter')
 
     // Auto-generate configuration
@@ -163,34 +170,24 @@ test.describe('DataTable Enhancements', () => {
     await sidePanel.getByRole('button', { name: /^scrape$/i }).click()
     await expect(sidePanel.getByRole('heading', { name: /extracted data/i })).toBeVisible()
 
-    // Check pagination controls
-    const prevButton = sidePanel.getByRole('button', { name: /previous page/i })
-    const nextButton = sidePanel.getByRole('button', { name: /next page/i })
-    const pageInfo = sidePanel.getByText(/page \d+ of \d+/i)
-
-    // If there are fewer rows than the page size (10), pagination should be hidden
-    const tableRows = await sidePanel.locator('tbody tr').count()
-
-    if (tableRows <= 10) {
-      // Pagination controls should not be visible
-      await expect(prevButton).toBeHidden()
-      await expect(nextButton).toBeHidden()
-      await expect(pageInfo).toBeHidden()
-    } else {
-      // Pagination controls should be visible
-      await expect(prevButton).toBeVisible()
-      await expect(nextButton).toBeVisible()
-      await expect(pageInfo).toBeVisible()
-    }
+    // The fixture page has a single h1, so the result fits on one page and the
+    // pagination controls must stay hidden.
+    await expect(sidePanel.locator('tbody tr')).toHaveCount(FIXTURE_PAGE_COUNTS.h1)
+    await expect(sidePanel.getByRole('button', { name: /previous page/i })).toBeHidden()
+    await expect(sidePanel.getByRole('button', { name: /next page/i })).toBeHidden()
+    await expect(sidePanel.getByText(/page \d+ of \d+/i)).toBeHidden()
   })
 
   test('export buttons have improved UX and work correctly', async ({
     openSidePanel,
     serviceWorker,
     context,
+    fixturePageUrl,
   }) => {
     const sidePanel = await openSidePanel()
-    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context)
+    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context, {
+      testPageUrl: fixturePageUrl(SCRAPE_TARGET_PAGE),
+    })
 
     // Find export button
     const exportButton = sidePanel.getByRole('button', { name: /export/i })
@@ -237,6 +234,7 @@ test.describe('DataTable Enhancements', () => {
     openSidePanel,
     serviceWorker,
     context,
+    fixturePageUrl,
   }) => {
     const sidePanel = await openSidePanel()
 
@@ -245,7 +243,7 @@ test.describe('DataTable Enhancements', () => {
 
     // Navigate to a page with varied content lengths
     const testPage = await context.newPage()
-    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+    await testPage.goto(fixturePageUrl(SCRAPE_TARGET_PAGE))
     await testPage.bringToFront()
 
     // Use a more specific selector that will produce multiple columns with different content lengths
@@ -253,8 +251,10 @@ test.describe('DataTable Enhancements', () => {
     await mainSelector.fill('//h2 | //h3') // Mix of different heading levels
     await mainSelector.press('Enter')
 
-    // Wait for selector validation
-    const countBadge = sidePanel.locator('[data-slot="badge"]').filter({ hasText: /^\d+$/ })
+    // Wait for selector validation to report the fixture's exact match count
+    const countBadge = sidePanel
+      .locator('[data-slot="badge"]')
+      .filter({ hasText: new RegExp(`^${FIXTURE_PAGE_COUNTS.h2h3}$`) })
     await expect(countBadge).toBeVisible()
 
     // Manually configure columns to ensure we have multiple columns with different content
@@ -332,9 +332,12 @@ test.describe('DataTable Enhancements', () => {
     openSidePanel,
     serviceWorker,
     context,
+    fixturePageUrl,
   }) => {
     const sidePanel = await openSidePanel()
-    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context)
+    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context, {
+      testPageUrl: fixturePageUrl(SCRAPE_TARGET_PAGE),
+    })
 
     // Find the data table with anchor class
     const dataTable = sidePanel.locator('table.anchor\\/data-table')
@@ -365,20 +368,21 @@ test.describe('DataTable Enhancements', () => {
     openSidePanel,
     serviceWorker,
     context,
+    fixturePageUrl,
   }) => {
     const sidePanel = await openSidePanel()
 
     // Dismiss consent modal
     await TestHelpers.dismissAnalyticsConsent(serviceWorker)
 
-    // Navigate to page and use selector that might produce empty results
+    // Navigate to page and use a selector that produces exactly one empty result
     const testPage = await context.newPage()
-    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+    await testPage.goto(fixturePageUrl(SCRAPE_TARGET_PAGE))
     await testPage.bringToFront()
 
-    // Use a broader selector that may include some empty elements
+    // The fixture page's only classed div holds no text, so it scrapes to an empty row
     const mainSelector = sidePanel.locator('#mainSelector')
-    await mainSelector.fill('//div[@class] | //h2') // Mix that might have some empty divs
+    await mainSelector.fill('//div[@class] | //h2')
     await mainSelector.press('Enter')
 
     // Auto-generate configuration
@@ -390,46 +394,36 @@ test.describe('DataTable Enhancements', () => {
     await sidePanel.getByRole('button', { name: /^scrape$/i }).click()
     await expect(sidePanel.getByRole('heading', { name: /extracted data/i })).toBeVisible()
 
-    // Check if empty rows toggle is present
+    // The empty row means the toggle has to be offered
     const showEmptyRowsSwitch = sidePanel.getByRole('switch', { name: /show.*empty rows/i })
+    await expect(showEmptyRowsSwitch).toBeVisible()
 
-    if (await showEmptyRowsSwitch.isVisible()) {
-      // Get initial row count
-      const initialRowCount = await sidePanel.locator('tbody tr').count()
+    // Only the rows carrying data are shown by default
+    const dataRows = sidePanel.locator('tbody tr')
+    await expect(dataRows).toHaveCount(FIXTURE_PAGE_COUNTS.divWithClassOrH2NonEmpty)
+    await expect(sidePanel.getByText(/rows with data/i)).toBeVisible()
 
-      // Toggle on to show empty rows
-      await showEmptyRowsSwitch.click()
+    // Toggling on adds the empty row
+    await showEmptyRowsSwitch.click()
+    await expect(dataRows).toHaveCount(FIXTURE_PAGE_COUNTS.divWithClassOrH2)
+    await expect(sidePanel.getByText(/total rows/i)).toBeVisible()
 
-      // Should show more or same number of rows
-      const newRowCount = await sidePanel.locator('tbody tr').count()
-      expect(newRowCount).toBeGreaterThanOrEqual(initialRowCount)
-
-      // Verify row count display updates
-      await expect(sidePanel.getByText(/total rows/i)).toBeVisible()
-
-      // Toggle off to hide empty rows
-      await showEmptyRowsSwitch.click()
-
-      // Should return to original count or fewer
-      const finalRowCount = await sidePanel.locator('tbody tr').count()
-      expect(finalRowCount).toBeLessThanOrEqual(newRowCount)
-
-      // Verify row count display updates
-      await expect(sidePanel.getByText(/rows with data/i)).toBeVisible()
-    } else {
-      // If no empty rows toggle, that means all rows have data
-      // Verify the row count display shows "rows with data"
-      await expect(sidePanel.getByText(/rows with data/i)).toBeVisible()
-    }
+    // Toggling off hides it again
+    await showEmptyRowsSwitch.click()
+    await expect(dataRows).toHaveCount(FIXTURE_PAGE_COUNTS.divWithClassOrH2NonEmpty)
+    await expect(sidePanel.getByText(/rows with data/i)).toBeVisible()
   })
 
   test('data table tooltips work for action buttons', async ({
     openSidePanel,
     serviceWorker,
     context,
+    fixturePageUrl,
   }) => {
     const sidePanel = await openSidePanel()
-    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context)
+    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context, {
+      testPageUrl: fixturePageUrl(SCRAPE_TARGET_PAGE),
+    })
 
     // Find action buttons in the first row
     const firstRow = sidePanel.locator('tbody tr').first()

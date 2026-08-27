@@ -1,4 +1,4 @@
-import { expect, test, TestHelpers } from './fixtures'
+import { expect, SCRAPE_TARGET_PAGE, test, TestHelpers } from './fixtures'
 
 /**
  * End-to-end tests for sidepanel integration with full data view:
@@ -14,9 +14,12 @@ test.describe('Sidepanel Full Data View Integration', () => {
     openSidePanel,
     serviceWorker,
     context,
+    fixturePageUrl,
   }) => {
     let sidePanel = await openSidePanel()
-    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context)
+    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context, {
+      testPageUrl: fixturePageUrl(SCRAPE_TARGET_PAGE),
+    })
 
     // Open full data view
     const fullDataViewPage = await TestHelpers.openFullDataView(sidePanel, context)
@@ -41,9 +44,12 @@ test.describe('Sidepanel Full Data View Integration', () => {
     openSidePanel,
     serviceWorker,
     context,
+    fixturePageUrl,
   }) => {
     let sidePanel = await openSidePanel()
-    const testPage = await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context)
+    const testPage = await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context, {
+      testPageUrl: fixturePageUrl(SCRAPE_TARGET_PAGE),
+    })
 
     // Open full data view
     const fullDataViewPage = await TestHelpers.openFullDataView(sidePanel, context)
@@ -73,9 +79,12 @@ test.describe('Sidepanel Full Data View Integration', () => {
     openSidePanel,
     serviceWorker,
     context,
+    fixturePageUrl,
   }) => {
     let sidePanel = await openSidePanel()
-    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context)
+    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context, {
+      testPageUrl: fixturePageUrl(SCRAPE_TARGET_PAGE),
+    })
 
     // Open full data view
     const fullDataViewPage = await TestHelpers.openFullDataView(sidePanel, context)
@@ -160,10 +169,13 @@ test.describe('Sidepanel Full Data View Integration', () => {
     openSidePanel,
     serviceWorker,
     context,
+    fixturePageUrl,
   }) => {
     // Start with normal sidepanel
     let sidePanel = await openSidePanel()
-    const testPage = await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context)
+    const testPage = await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context, {
+      testPageUrl: fixturePageUrl(SCRAPE_TARGET_PAGE),
+    })
 
     // Verify normal sidepanel interface is present
     await expect(sidePanel.locator('#mainSelector')).toBeVisible()

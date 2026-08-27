@@ -2,7 +2,31 @@ import type { ScrapeConfig } from '@/utils/types'
 import { expect, test, TestHelpers } from './fixtures'
 
 /**
- * Onboarding flow tests
+ * Onboarding flow tests.
+ *
+ * These are the only specs still driven against a live site. The demo scrape
+ * target is baked into the extension rather than into the tests:
+ *
+ *   - `src/entrypoints/onboarding/OnboardingApp.tsx` navigates to a hard-coded
+ *     Wikipedia URL (already branched on `isTest`)
+ *   - `src/entrypoints/background/services/demo-scrape.ts` uses a
+ *     `wikitable`-specific selector and column set in test mode
+ *   - `src/entrypoints/background/listeners/tabs.ts` only fires the pending demo
+ *     scrape on a `wikipedia.org/wiki/` URL
+ *
+ * The extension is built before Playwright starts, so it cannot learn the
+ * ephemeral port the fixture server picks per worker (see `fixtures.ts`).
+ *
+ * Decision (issue #254): point the demo at a fixture page by injecting its URL
+ * at build time through a `VITE_`-prefixed env var read by the existing `isTest`
+ * branches, rather than pinning the fixture server to a fixed port. A fixed port
+ * would have to be shared by all Playwright workers - the suite runs 20 - which
+ * means hoisting the server into `playwright.config.ts` as a `webServer` and
+ * giving up the "any free port" property that keeps parallel runs and developer
+ * machines conflict-free. Injection keeps the server per-worker and ephemeral,
+ * at the cost of the three `isTest` branches above also reading the injected URL
+ * (and the tab-update guard matching it instead of `wikipedia.org/wiki/`).
+ * Tracked as follow-up work; until it lands these specs need network access.
  */
 
 test.describe('Onboarding Flow', () => {

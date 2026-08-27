@@ -1,4 +1,4 @@
-import { expect, test, TestHelpers } from './fixtures'
+import { expect, SCRAPE_TARGET_PAGE, test, TestHelpers } from './fixtures'
 
 test.describe('Visual Element Picker', () => {
   test.describe('Enabling Picker Mode', () => {
@@ -6,12 +6,13 @@ test.describe('Visual Element Picker', () => {
       openSidePanel,
       context,
       serviceWorker,
+      fixturePageUrl,
     }) => {
       await TestHelpers.dismissAnalyticsConsent(serviceWorker)
       const sidePanel = await openSidePanel()
 
       const testPage = await context.newPage()
-      await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+      await testPage.goto(fixturePageUrl(SCRAPE_TARGET_PAGE))
       await testPage.bringToFront()
 
       // Bring sidepanel to front and click crosshair button
@@ -29,12 +30,17 @@ test.describe('Visual Element Picker', () => {
       expect(pickerActive).toBe(true)
     })
 
-    test('toggles picker mode on and off', async ({ openSidePanel, context, serviceWorker }) => {
+    test('toggles picker mode on and off', async ({
+      openSidePanel,
+      context,
+      serviceWorker,
+      fixturePageUrl,
+    }) => {
       await TestHelpers.dismissAnalyticsConsent(serviceWorker)
       const sidePanel = await openSidePanel()
 
       const testPage = await context.newPage()
-      await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+      await testPage.goto(fixturePageUrl(SCRAPE_TARGET_PAGE))
       await testPage.bringToFront()
 
       // Enable picker via crosshair button
@@ -64,12 +70,13 @@ test.describe('Visual Element Picker', () => {
       openSidePanel,
       context,
       serviceWorker,
+      fixturePageUrl,
     }) => {
       await TestHelpers.dismissAnalyticsConsent(serviceWorker)
       const sidePanel = await openSidePanel()
 
       const testPage = await context.newPage()
-      await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+      await testPage.goto(fixturePageUrl(SCRAPE_TARGET_PAGE))
       await testPage.bringToFront()
 
       // Enable picker via crosshair button
@@ -100,12 +107,13 @@ test.describe('Visual Element Picker', () => {
       openSidePanel,
       context,
       serviceWorker,
+      fixturePageUrl,
     }) => {
       await TestHelpers.dismissAnalyticsConsent(serviceWorker)
       const sidePanel = await openSidePanel()
 
       const testPage = await context.newPage()
-      await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+      await testPage.goto(fixturePageUrl(SCRAPE_TARGET_PAGE))
       await testPage.bringToFront()
 
       // Enable picker via crosshair button
