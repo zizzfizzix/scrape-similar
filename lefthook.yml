@@ -1,0 +1,22 @@
+# Git hooks managed by lefthook: https://lefthook.dev/configuration/
+# Hooks are installed on `pnpm install` by the `prepare` script
+# (`scripts/install-git-hooks.mjs`).
+# Set LEFTHOOK=0 to skip all hooks for a single command.
+
+pre-commit:
+  # Both checks are read-only and independent, so run them concurrently.
+  parallel: true
+  commands:
+    fmt-check:
+      run: pnpm fmt-check
+      fail_text: "Commit blocked: please run 'pnpm fmt' before staging your changes."
+    unit-tests:
+      run: pnpm test
+      fail_text: 'Commit blocked: unit tests failed.'
+
+post-checkout:
+  # Stream the setup progress instead of buffering it until the hook finishes.
+  follow: true
+  scripts:
+    'worktree-setup.sh':
+      runner: bash

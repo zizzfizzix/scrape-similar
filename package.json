@@ -18,7 +18,7 @@
     "zip:firefox": "wxt zip -b firefox",
     "compile": "tsc --noEmit",
     "postinstall": "wxt prepare",
-    "prepare": "husky",
+    "prepare": "node scripts/install-git-hooks.mjs",
     "test": "vitest --run",
     "test:e2e": "playwright test",
     "update:shadcn": "bash scripts/update-shadcn.sh"
@@ -55,8 +55,8 @@
     "@vitest/coverage-v8": "^4.1.11",
     "@wxt-dev/auto-icons": "^1.1.2",
     "@wxt-dev/module-react": "^1.2.2",
-    "husky": "^9.1.7",
     "jsdom": "^30.0.1",
+    "lefthook": "^2.1.10",
     "postcss": "^8.5.26",
     "prettier": "^3.9.6",
     "prettier-plugin-organize-imports": "^4.3.0",

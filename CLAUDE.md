@@ -31,7 +31,7 @@ pnpm test:e2e           # Playwright E2E. Requires `pnpm build:test` first to pr
 pnpm update:shadcn      # rerun bash scripts/update-shadcn.sh to refresh shadcn-ui components
 ```
 
-A husky `pre-commit` hook runs `pnpm fmt-check` and `pnpm test`; both must pass to commit.
+A lefthook `pre-commit` hook (`lefthook.yml`) runs `pnpm fmt-check` and `pnpm test`; both must pass to commit. Hooks are installed by the `prepare` script (`scripts/install-git-hooks.mjs`) on `pnpm install` — pnpm's warning that lefthook's own build script was ignored is harmless, since that script only does the same `lefthook install`. A `post-checkout` hook (`.lefthook/post-checkout/worktree-setup.sh`) bootstraps newly created worktrees (copies `.env` / `.env.test` from the origin checkout, runs `pnpm install`).
 
 **Copy `.env.example` to `.env` before running the test suite locally.** The PostHog tests read `VITE_PUBLIC_POSTHOG_KEY` / `VITE_PUBLIC_POSTHOG_HOST` and fail without them; any non-empty placeholder values work for the unit tests (the ones shipped in `.env.example` are fine), and real project values are only needed to exercise actual analytics. CI supplies these as repository secrets, so the failures show up only on a fresh local clone.
 
@@ -113,7 +113,7 @@ shadcn-ui components in `src/components/ui/` are generated/managed; custom compo
 ## Git
 
 - Do not stage changes (`git add`) unless explicitly asked.
-- Do not commit unless explicitly asked. The husky `pre-commit` hook runs `pnpm fmt-check` and `pnpm test`; if asked to commit, both must pass — fix failures rather than bypassing the hook.
+- Do not commit unless explicitly asked. The lefthook `pre-commit` hook runs `pnpm fmt-check` and `pnpm test`; if asked to commit, both must pass — fix failures rather than bypassing the hook.
 
 ## Release flow
 
