@@ -24,6 +24,10 @@ class ESBuildAndJSDOMCompatibleTextEncoder extends TextEncoder {
 
 global.TextEncoder = ESBuildAndJSDOMCompatibleTextEncoder
 
+// Tell React it is running under a test harness, so `act` flushes effects
+// instead of warning that the environment does not support it.
+;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+
 // jsdom implements no CSS media queries, but `next-themes` and the responsive
 // Dialog/Drawer switch both call `matchMedia` on mount. Report "no match" so
 // components fall back to their desktop/light defaults.

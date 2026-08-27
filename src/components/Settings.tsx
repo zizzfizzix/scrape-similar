@@ -3,8 +3,17 @@ import { Button } from '@/components/ui/button'
 import { ButtonGroup } from '@/components/ui/button-group'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { getPresets, setPresets, USER_PRESETS_VERSION } from '@/utils/storage'
-import { validatePresetImport } from '@/utils/validatePresets'
+import {
+  buildPresetExportJson,
+  describeImportSuccess,
+  HIDDEN_UNLOCK_CLICKS,
+  HIDDEN_UNLOCK_WINDOW_MS,
+  PRESET_EXPORT_FILENAME,
+  PRESET_EXPORT_MIME_TYPE,
+  readPresetFile,
+} from '@/utils/preset-transfer'
+import { getPresets, setPresets } from '@/utils/storage'
+import { downloadFile } from '@/utils/export-data'
 import log from 'loglevel'
 import { Clipboard, Import, Upload } from 'lucide-react'
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react'
@@ -78,9 +87,9 @@ export const Settings = React.memo(
         // Start/reset timer on first click
         timerRef.current = setTimeout(() => {
           clickCountRef.current = 0
-        }, 5000)
+        }, HIDDEN_UNLOCK_WINDOW_MS)
       }
-      if (clickCountRef.current >= 5) {
+      if (clickCountRef.current >= HIDDEN_UNLOCK_CLICKS) {
         setShowDebugRow(true)
         clickCountRef.current = 0
         if (timerRef.current) {
@@ -133,16 +142,11 @@ export const Settings = React.memo(
     const handleExportPresets = useCallback(async () => {
       try {
         const presets = await getPresets()
-        const blob = new Blob(
-          [JSON.stringify({ version: USER_PRESETS_VERSION, presets }, null, 2)],
-          { type: 'application/json' },
+        downloadFile(
+          buildPresetExportJson(presets),
+          PRESET_EXPORT_FILENAME,
+          PRESET_EXPORT_MIME_TYPE,
         )
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = 'scrape-similar-presets.json'
-        a.click()
-        URL.revokeObjectURL(url)
         trackEvent(ANALYTICS_EVENTS.PRESET_EXPORT, { presetCount: presets.length })
       } catch (error) {
         log.error('Error exporting presets:', error)
@@ -157,31 +161,22 @@ export const Settings = React.memo(
       const file = e.target.files?.[0]
       e.target.value = ''
       if (!file) return
-      try {
-        const text = await file.text()
-        const data = JSON.parse(text) as unknown
-        const result = validatePresetImport(data)
-        if ('error' in result) {
-          toast.error(result.error)
-          trackEvent(ANALYTICS_EVENTS.PRESET_IMPORT, {
-            success: false,
-            reason: result.error,
-          })
-          return
-        }
-        setImportConfirm({
-          open: true,
-          presets: result.presets,
-          skippedSystemCount: result.skippedSystemCount,
-        })
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Invalid JSON'
-        toast.error(`Failed to read preset file: ${message}`)
+
+      const outcome = await readPresetFile(file)
+      if (!outcome.ok) {
+        toast.error(outcome.error)
         trackEvent(ANALYTICS_EVENTS.PRESET_IMPORT, {
           success: false,
-          reason: message,
+          reason: outcome.error,
         })
+        return
       }
+
+      setImportConfirm({
+        open: true,
+        presets: outcome.presets,
+        skippedSystemCount: outcome.skippedSystemCount,
+      })
     }, [])
 
     const handleImportConfirm = useCallback(async () => {
@@ -195,11 +190,7 @@ export const Settings = React.memo(
           presetCount: presets.length,
         })
         setImportConfirm({ open: false })
-        const message =
-          skippedSystemCount > 0
-            ? `Imported ${presets.length} presets. ${skippedSystemCount} (system) presets were skipped.`
-            : `Imported ${presets.length} presets.`
-        toast.success(message)
+        toast.success(describeImportSuccess(presets.length, skippedSystemCount))
         onPresetsImported?.()
       } catch (error) {
         log.error('Error importing presets:', error)
