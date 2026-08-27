@@ -55,13 +55,13 @@ import {
   useTable,
 } from '@tanstack/react-table'
 import {
-  calculateOptimalColumnWidth,
   collectTabsWithData,
   parseRequestedTabId,
   resolveTabSelection,
   visibleRows,
   type TabData,
 } from '@/entrypoints/full-data-view/tab-data'
+import { calculateOptimalColumnWidth, FULL_DATA_VIEW_COLUMN_METRICS } from '@/utils/column-width'
 import log from 'loglevel'
 import {
   ArrowLeft,
@@ -608,6 +608,7 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
           colName,
           filteredData,
           currentTabData.config,
+          FULL_DATA_VIEW_COLUMN_METRICS,
         )
         return {
           id: colName,
@@ -636,7 +637,7 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
       }),
     ]
     return baseColumns
-  }, [currentTabData, filteredData, calculateOptimalColumnWidth])
+  }, [currentTabData, filteredData])
 
   const table = useTable({
     features: fullDataViewFeatures,

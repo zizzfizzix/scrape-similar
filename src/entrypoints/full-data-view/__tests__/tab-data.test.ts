@@ -1,5 +1,4 @@
 import {
-  calculateOptimalColumnWidth,
   collectTabsWithData,
   hasScrapedRows,
   parseRequestedTabId,
@@ -197,79 +196,6 @@ describe('visibleRows', () => {
 
   it('copes with an empty list', () => {
     expect(visibleRows([], false)).toEqual([])
-  })
-})
-
-describe('calculateOptimalColumnWidth', () => {
-  const config: ScrapeConfig = {
-    mainSelector: '//tr',
-    columns: [
-      { name: 'Title', selector: '.' },
-      { name: 'Keyed', selector: '.', key: 'col2' },
-    ],
-  }
-
-  it('gives the tick-box column a fixed narrow width', () => {
-    expect(calculateOptimalColumnWidth('select', [], config)).toBe(35)
-  })
-
-  it('gives the row-number column a fixed narrow width', () => {
-    expect(calculateOptimalColumnWidth('rowIndex', [], config)).toBe(35)
-  })
-
-  it('gives the actions column a fixed width', () => {
-    expect(calculateOptimalColumnWidth('actions', [], config)).toBe(75)
-  })
-
-  it('falls back to a default for a column the config does not describe', () => {
-    expect(calculateOptimalColumnWidth('Unknown', [], config)).toBe(200)
-  })
-
-  it('sizes to the longest value it finds', () => {
-    const rows = [row({ Title: 'a'.repeat(30) })]
-
-    expect(calculateOptimalColumnWidth('Title', rows, config)).toBe(30 * 8 + 24)
-  })
-
-  it('never sizes below the minimum, even for a short header', () => {
-    expect(calculateOptimalColumnWidth('Title', [row({ Title: 'a' })], config)).toBe(100)
-  })
-
-  it('never sizes above the maximum', () => {
-    const rows = [row({ Title: 'a'.repeat(500) })]
-
-    expect(calculateOptimalColumnWidth('Title', rows, config)).toBe(400)
-  })
-
-  it('makes room for a header longer than every value', () => {
-    const longHeader = 'H'.repeat(40)
-    const wideConfig: ScrapeConfig = {
-      mainSelector: '//tr',
-      columns: [{ name: longHeader, selector: '.' }],
-    }
-
-    expect(calculateOptimalColumnWidth(longHeader, [row({ [longHeader]: 'a' })], wideConfig)).toBe(
-      40 * 8 + 24,
-    )
-  })
-
-  it('reads values by the column’s internal key when it has one', () => {
-    const rows = [row({ col2: 'a'.repeat(30), Keyed: '' })]
-
-    expect(calculateOptimalColumnWidth('Keyed', rows, config)).toBe(30 * 8 + 24)
-  })
-
-  it('samples only the first hundred rows', () => {
-    const rows = [
-      ...Array.from({ length: 100 }, () => row({ Title: 'short' })),
-      row({ Title: 'a'.repeat(300) }),
-    ]
-
-    expect(calculateOptimalColumnWidth('Title', rows, config)).toBe(100)
-  })
-
-  it('treats a missing value as empty', () => {
-    expect(calculateOptimalColumnWidth('Title', [row({})], config)).toBe(100)
   })
 })
 

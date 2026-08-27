@@ -49,15 +49,17 @@ const config: ScrapeConfig = {
   ],
 }
 
-const render = (props: Partial<Parameters<typeof ExportButtons>[0]> = {}) =>
-  renderComponent(
-    <ExportButtons
-      scrapeResult={scrapeResult}
-      config={config}
-      showEmptyRows={false}
-      {...(props as Parameters<typeof ExportButtons>[0])}
-    />,
-  )
+type ExportButtonsProps = Parameters<typeof ExportButtons>[0]
+
+const render = (overrides: Partial<ExportButtonsProps> = {}) => {
+  const props: ExportButtonsProps = {
+    scrapeResult,
+    config,
+    showEmptyRows: false,
+    ...overrides,
+  }
+  return renderComponent(<ExportButtons {...props} />)
+}
 
 const trigger = () => querySelector<HTMLButtonElement>(view!.container, 'button')
 const openMenu = () => view!.act(() => openRadixTrigger(trigger()))

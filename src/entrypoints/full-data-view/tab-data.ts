@@ -99,53 +99,6 @@ export const resolveTabSelection = (
 export const visibleRows = (rows: ScrapedRow[], showEmptyRows: boolean): ScrapedRow[] =>
   showEmptyRows ? rows : rows.filter((row) => !row.metadata.isEmpty)
 
-/** Fixed widths for the columns the table adds itself. */
-const FIXED_COLUMN_WIDTHS: Record<string, number> = {
-  select: 35,
-  rowIndex: 35,
-  actions: 75,
-}
-
-/** Width used for a column the config does not describe. */
-const UNKNOWN_COLUMN_WIDTH = 200
-
-/** Rows sampled when sizing a column; enough to be representative, few enough to be quick. */
-const WIDTH_SAMPLE_SIZE = 100
-
-const CHAR_WIDTH_PX = 8
-const CELL_PADDING_PX = 24
-const MIN_COLUMN_WIDTH = 100
-const MAX_COLUMN_WIDTH = 400
-
-/**
- * Width to give a column, from the longest value in the first rows.
- *
- * An approximation: character count times an average glyph width, clamped so a
- * column is never unusably narrow nor wide enough to push the rest off-screen.
- */
-export const calculateOptimalColumnWidth = (
-  columnId: string,
-  rows: ScrapedRow[],
-  config: ScrapeConfig,
-): number => {
-  const fixed = FIXED_COLUMN_WIDTHS[columnId]
-  if (fixed !== undefined) return fixed
-
-  const columnIndex = config.columns.findIndex((column) => column.name === columnId)
-  if (columnIndex === -1) return UNKNOWN_COLUMN_WIDTH
-
-  const dataKey = config.columns[columnIndex]?.key || columnId
-  const longest = rows.slice(0, WIDTH_SAMPLE_SIZE).reduce(
-    (max, row) => Math.max(max, String(row.data[dataKey] || '').length),
-    columnId.length, // The header has to fit too.
-  )
-
-  return Math.min(
-    Math.max(longest * CHAR_WIDTH_PX + CELL_PADDING_PX, MIN_COLUMN_WIDTH),
-    MAX_COLUMN_WIDTH,
-  )
-}
-
 /** The tab id the view was opened for, or null when the URL names none. */
 export const parseRequestedTabId = (search: string): number | null => {
   const raw = new URLSearchParams(search).get('tabId')

@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/table'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { ANALYTICS_EVENTS, trackEvent } from '@/utils/analytics'
+import { calculateOptimalColumnWidth, SIDE_PANEL_COLUMN_METRICS } from '@/utils/column-width'
 import { getColumnKeys } from '@/utils/getColumnKeys'
 import { rowToTsv } from '@/utils/tsv'
 import {
@@ -78,41 +79,6 @@ const DataTable: React.FC<DataTableProps> = ({
   useEffect(() => {
     setPagination((prev) => ({ ...prev, pageIndex: 0 }))
   }, [filteredData])
-
-  // Calculate optimal column widths based on content
-  const calculateOptimalColumnWidth = useCallback(
-    (columnId: string, data: ScrapedRow[], config: ScrapeConfig): number => {
-      if (columnId === 'rowIndex') return 40
-      if (columnId === 'actions') return 60
-
-      // Find the column configuration
-      const columnIndex = config.columns.findIndex((col) => col.name === columnId)
-      if (columnIndex === -1) return 150
-
-      // Sample up to 50 rows for performance (smaller sample for sidepanel)
-      const sampleSize = Math.min(50, data.length)
-      const sampleData = data.slice(0, sampleSize)
-
-      // Calculate max content length
-      let maxLength = columnId.length // Start with header length
-
-      for (const row of sampleData) {
-        const dataKey = config.columns[columnIndex]?.key || columnId
-        const value = row.data[dataKey] || ''
-        const contentLength = String(value).length
-        maxLength = Math.max(maxLength, contentLength)
-      }
-
-      // Convert character count to approximate pixel width
-      // Average character width is about 7px for smaller UI
-      const charWidth = 7
-      const padding = 20 // Account for cell padding
-      const calculatedWidth = Math.min(Math.max(maxLength * charWidth + padding, 80), 300)
-
-      return calculatedWidth
-    },
-    [],
-  )
 
   // Build columns for TanStack Table
   const columns = useMemo<ColumnDef<DataTableFeatures, ScrapedRow>[]>(() => {
@@ -223,7 +189,12 @@ const DataTable: React.FC<DataTableProps> = ({
         enableResizing: false,
       },
       ...columnsOrder.map((colName, index): ColumnDef<DataTableFeatures, ScrapedRow> => {
-        const optimalWidth = calculateOptimalColumnWidth(colName, filteredData, config)
+        const optimalWidth = calculateOptimalColumnWidth(
+          colName,
+          filteredData,
+          config,
+          SIDE_PANEL_COLUMN_METRICS,
+        )
         return {
           accessorKey: colName,
           header: colName,
@@ -244,7 +215,7 @@ const DataTable: React.FC<DataTableProps> = ({
       }),
     ]
     return baseColumns
-  }, [columnsOrder, config, onRowHighlight, filteredData, calculateOptimalColumnWidth])
+  }, [columnsOrder, config, onRowHighlight, filteredData])
 
   const table = useTable({
     features: dataTableFeatures,
