@@ -1,0 +1,4 @@
+# Only install dependency versions that have been published for at least 7 days
+# (10080 minutes). Gives the ecosystem time to yank compromised or broken
+# releases before they can land here.
+minimumReleaseAge: 10080
