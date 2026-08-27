@@ -14,5 +14,30 @@ export default defineConfig({
     setupFiles: './vitest.setup.ts',
     env: loadEnv('test', process.cwd(), ''),
     exclude: [...configDefaults.exclude, './tests/e2e/**'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html', 'lcov'],
+      reportsDirectory: './coverage',
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: [
+        // Generated shadcn-ui primitives: refreshed by `pnpm update:shadcn`.
+        'src/components/ui/**',
+        // Type-only modules have no runtime behaviour to exercise.
+        'src/**/*.d.ts',
+        'src/utils/types.ts',
+        'src/entrypoints/background/types.ts',
+        // Entrypoint bootstrap: `createRoot().render()` / WXT `define*` wiring
+        // with no branching. Exercised end-to-end by the Playwright suite.
+        'src/entrypoints/*/main.tsx',
+        'src/entrypoints/background/index.ts',
+        'src/entrypoints/content/index.ts',
+      ],
+      thresholds: {
+        statements: 100,
+        branches: 100,
+        functions: 100,
+        lines: 100,
+      },
+    },
   },
 })

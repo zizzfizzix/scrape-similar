@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  countXPathMatches,
   evaluateXPath,
   evaluateXPathValues,
   extractData,
@@ -526,5 +527,142 @@ describe('scraper error handling', () => {
   it('generateXPath returns empty string when node invalid', () => {
     // @ts-expect-error - passing null intentionally
     expect(generateXPath(null)).toBe('')
+  })
+})
+
+describe('evaluateXPathValues node kinds', () => {
+  beforeEach(() => {
+    document.body.innerHTML = ''
+  })
+
+  it('returns an empty string for an empty text node', () => {
+    const container = document.createElement('div')
+    container.append(document.createTextNode(''))
+    document.body.append(container)
+
+    expect(evaluateXPathValues('text()', container)).toEqual([''])
+  })
+
+  it('ignores node kinds it has no string form for', () => {
+    document.body.innerHTML = '<div id="c"><!-- a note --></div>'
+    const container = document.querySelector('#c')!
+
+    expect(evaluateXPathValues('comment()', container)).toEqual([])
+  })
+})
+
+describe('evaluateXPath non-element nodes', () => {
+  it('ignores matches that are not elements', () => {
+    document.body.innerHTML = '<div id="c">text<span>child</span></div>'
+    const container = document.querySelector('#c')!
+
+    expect(evaluateXPath('node()', container)).toEqual([container.querySelector('span')])
+  })
+})
+
+describe('countXPathMatches', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '<ul><li>a</li><li>b</li></ul>'
+  })
+
+  it('counts the matching nodes', () => {
+    expect(countXPathMatches('//li')).toBe(2)
+  })
+
+  it('counts within the given context node', () => {
+    expect(countXPathMatches('li', document.querySelector('ul')!)).toBe(2)
+  })
+
+  it('reports zero for an expression the engine rejects', () => {
+    expect(countXPathMatches('//[[invalid')).toBe(0)
+  })
+
+  it('reports zero when nothing matches', () => {
+    expect(countXPathMatches('//table')).toBe(0)
+  })
+})
+
+describe('extractData node-evaluation fallback', () => {
+  /** Stub document.evaluate so the string result is empty and nodes come from `nodes`. */
+  const withNodes = (nodes: Node[]) => {
+    vi.spyOn(document, 'evaluate').mockImplementation(((
+      _expression: string,
+      _context: Node,
+      _resolver: unknown,
+      resultType: number,
+    ) => {
+      if (resultType === XPathResult.STRING_TYPE) return { stringValue: '' } as XPathResult
+      return {
+        snapshotLength: nodes.length,
+        snapshotItem: (index: number) => nodes[index] ?? null,
+      } as XPathResult
+    }) as typeof document.evaluate)
+  }
+
+  const element = () => {
+    document.body.innerHTML = '<div id="e"></div>'
+    return document.querySelector<HTMLElement>('#e')!
+  }
+
+  it('returns the trimmed string value of an attribute node', () => {
+    const attribute = document.createAttribute('data-x')
+    attribute.value = '  attr value  '
+    withNodes([attribute])
+
+    expect(extractData(element(), { name: 'X', selector: 'attribute::data-x' })).toBe('attr value')
+  })
+
+  it('returns the trimmed text of an element node', () => {
+    const host = element()
+    const child = document.createElement('span')
+    child.textContent = '  child text  '
+    withNodes([child])
+
+    expect(extractData(host, { name: 'X', selector: 'span' })).toBe('child text')
+  })
+
+  it('returns an empty string for an element with no text', () => {
+    const host = element()
+    withNodes([document.createElement('span')])
+
+    expect(extractData(host, { name: 'X', selector: 'span' })).toBe('')
+  })
+
+  it('returns an empty string when node evaluation finds nothing either', () => {
+    const host = element()
+    withNodes([])
+
+    expect(extractData(host, { name: 'X', selector: 'span' })).toBe('')
+  })
+})
+
+describe('extractData with a malformed column', () => {
+  it('logs and returns an empty string when the selector is not a string', () => {
+    const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
+    document.body.innerHTML = '<div id="e">text</div>'
+    const host = document.querySelector<HTMLElement>('#e')!
+
+    const result = extractData(host, { name: 'X' } as unknown as ColumnDefinition)
+
+    expect(result).toBe('')
+    expect(errorSpy).toHaveBeenCalledWith('Error extracting data:', expect.any(Error))
+  })
+})
+
+describe('scrapePage empty rows', () => {
+  it('flags a row whose every column is blank', () => {
+    document.body.innerHTML = '<ul><li><span></span></li></ul>'
+
+    const rows = scrapePage({
+      mainSelector: '//li',
+      columns: [
+        { name: 'A', selector: 'span' },
+        { name: 'B', selector: '@data-missing' },
+      ],
+    })
+
+    expect(rows).toHaveLength(1)
+    expect(rows[0]?.metadata.isEmpty).toBe(true)
+    expect(rows[0]?.data).toEqual({ A: '', B: '' })
   })
 })

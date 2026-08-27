@@ -142,3 +142,61 @@ describe('validatePresetImport', () => {
     }
   })
 })
+
+describe('validatePresetImport null guards', () => {
+  const invalidPresetError =
+    'Invalid preset at index 0: missing or invalid fields (id, name, config.mainSelector, config.columns, createdAt).'
+
+  it('rejects a null entry in the presets array', () => {
+    expect(validatePresetImport({ version: 1, presets: [null] })).toEqual({
+      error: invalidPresetError,
+    })
+  })
+
+  it('rejects a preset whose config is null', () => {
+    expect(
+      validatePresetImport({
+        version: 1,
+        presets: [{ id: 'p', name: 'P', config: null, createdAt: 1 }],
+      }),
+    ).toEqual({ error: invalidPresetError })
+  })
+
+  it('rejects a preset with a null column', () => {
+    expect(
+      validatePresetImport({
+        version: 1,
+        presets: [
+          {
+            id: 'p',
+            name: 'P',
+            config: { mainSelector: '//a', columns: [null] },
+            createdAt: 1,
+          },
+        ],
+      }),
+    ).toEqual({ error: invalidPresetError })
+  })
+
+  it('rejects null data', () => {
+    expect(validatePresetImport(null)).toEqual({
+      error: 'Invalid preset file: expected an object.',
+    })
+  })
+})
+
+describe('validatePresetImport column shape', () => {
+  it('rejects a config whose columns field is not an array', () => {
+    expect(
+      validatePresetImport({
+        version: 1,
+        presets: [
+          { id: 'p', name: 'P', config: { mainSelector: '//a', columns: 'nope' }, createdAt: 1 },
+        ],
+      }),
+    ).toEqual({
+      error:
+        'Invalid preset at index 0: missing or invalid fields (id, name, config.mainSelector, config.columns, createdAt).',
+    })
+  })
+})
