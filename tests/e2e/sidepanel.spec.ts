@@ -114,6 +114,41 @@ test.describe('Sidepanel Core Functionality', () => {
     expect(parseInt(badgeText || '0', 10)).toBeGreaterThan(0)
   })
 
+  test('resets match count and disables Scrape when the main selector is cleared', async ({
+    context,
+    serviceWorker,
+    openSidePanel,
+  }) => {
+    const sidePanel = await openSidePanel()
+
+    const testPage = await context.newPage()
+    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+    await testPage.bringToFront()
+
+    // Dismiss consent modal
+    await TestHelpers.dismissAnalyticsConsent(serviceWorker)
+
+    const mainSelector = sidePanel.locator('#mainSelector')
+    const countBadge = sidePanel.locator('[data-slot="badge"]').filter({ hasText: /^\d+$/ })
+    const scrapeBtn = sidePanel.getByRole('button', { name: /^scrape$/i })
+
+    // Commit a valid selector by unfocusing the input
+    await mainSelector.fill('//p')
+    await mainSelector.blur()
+
+    await expect(countBadge).toBeVisible()
+    await expect(scrapeBtn).toBeEnabled()
+
+    // Clearing the selector and unfocusing must reset the validation state
+    await mainSelector.fill('')
+    await mainSelector.blur()
+
+    // The scrape button is checked first: a stale highlight result restored
+    // from session storage would re-enable it shortly after the reset.
+    await expect(scrapeBtn).toBeDisabled()
+    await expect(countBadge).toBeHidden()
+  })
+
   test('scrapes page and displays data table for matching selector', async ({
     context,
     serviceWorker,
