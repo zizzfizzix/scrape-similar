@@ -63,16 +63,22 @@ export const querySelector = <T extends Element = HTMLElement>(
 }
 
 /**
- * Type a value into a controlled input the way a user would.
+ * Type a value into a controlled input or textarea the way a user would.
  *
- * React remembers the last value it rendered, so assigning `input.value`
+ * React remembers the last value it rendered, so assigning `field.value`
  * directly makes it treat the following `input` event as a no-op. Going through
  * the prototype's setter updates the value React is tracking too.
  */
-export const setInputValue = (input: HTMLInputElement, value: string): void => {
-  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
-  setter?.call(input, value)
-  input.dispatchEvent(new Event('input', { bubbles: true }))
+export const setInputValue = (
+  field: HTMLInputElement | HTMLTextAreaElement,
+  value: string,
+): void => {
+  const prototype =
+    field instanceof HTMLTextAreaElement
+      ? HTMLTextAreaElement.prototype
+      : HTMLInputElement.prototype
+  Object.getOwnPropertyDescriptor(prototype, 'value')?.set?.call(field, value)
+  field.dispatchEvent(new Event('input', { bubbles: true }))
 }
 
 /**
