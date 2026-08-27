@@ -253,11 +253,9 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
     }
 
     if (targetTabId !== null) {
-      const updates: Partial<SidePanelConfig> = {
-        currentScrapeConfig: newConfig,
-      }
-
-      saveSidePanelState(targetTabId, updates)
+      // Also resets the persisted highlight result when the main selector
+      // changed, so the storage watcher can't restore a stale match count.
+      saveSidePanelState(targetTabId, buildConfigChangeUpdates(config, newConfig))
     }
   }
 

@@ -152,9 +152,13 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
   // Derived flags
   const hasUncommittedChanges = mainSelectorDraft !== config.mainSelector
 
-  // Show highlight/error badges only when selector is committed
-  const isMainSelectorValid =
-    !hasUncommittedChanges && typeof highlightMatchCount === 'number' && !highlightError
+  // Show highlight/error badges only when a non-empty selector is committed
+  const isMainSelectorValid = isMainSelectorValidated({
+    mainSelector: mainSelectorDraft,
+    hasUncommittedChanges,
+    highlightMatchCount,
+    highlightError,
+  })
 
   // Debug logging for validation state changes
   useEffect(() => {
