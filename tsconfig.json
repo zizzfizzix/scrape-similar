@@ -1,14 +1,15 @@
 {
   "extends": "./.wxt/tsconfig.json",
   "compilerOptions": {
-    // FIXME: shouldn't do this but see https://github.com/wxt-dev/examples/tree/main/examples/react-shadcn#notes and https://github.com/shadcn-ui/ui/issues/6020
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
       "@@/*": ["./*"]
     },
     "allowImportingTsExtensions": true,
     "jsx": "react-jsx",
+    // TS 7 no longer auto-includes @types/chrome here, and the E2E specs rely on
+    // its `chrome.*` globals inside serviceWorker.evaluate callbacks.
+    "types": ["chrome"],
     // WXT 0.21 turned these on in its generated tsconfig. Adopting them means
     // ~100 fixes across the scraper, picker and highlight code, which are
     // semantic decisions best reviewed separately from a dependency bump.
