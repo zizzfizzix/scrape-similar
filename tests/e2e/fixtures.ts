@@ -38,25 +38,38 @@ const CONTENT_TYPES: Record<string, string> = {
  * Content scripts only run on http(s) URLs, so fixture pages cannot be loaded
  * from disk - and serving them locally keeps the scrape targets deterministic
  * and the suite independent of any external site.
+ *
+ * The fixture files are enumerated once up front and the request path is only
+ * ever used as a lookup key, never to build a filesystem path. That keeps the
+ * server incapable of reading anything outside the fixture directory (files are
+ * top-level only; nested directories are not served).
  */
 const startFixturePagesServer = async () => {
   const root = path.join(import.meta.dirname, 'fixtures', 'pages')
 
+  const servableFiles = new Map<string, string>(
+    fs
+      .readdirSync(root, { withFileTypes: true })
+      .filter((entry) => entry.isFile())
+      .map((entry) => [`/${entry.name}`, path.join(root, entry.name)]),
+  )
+
   const server = http.createServer((req, res) => {
-    const requested = path.join(root, decodeURIComponent((req.url ?? '/').split('?')[0]))
-    // Refuse anything that escapes the fixture directory.
-    if (requested !== root && !requested.startsWith(root + path.sep)) {
-      res.writeHead(403).end('Forbidden')
+    const [rawPath = '/'] = (req.url ?? '/').split('?')
+    const requestPath = decodeURIComponent(rawPath)
+    const filePath = servableFiles.get(requestPath)
+    if (!filePath) {
+      res.writeHead(404).end(`No such fixture: ${requestPath}`)
       return
     }
 
-    fs.readFile(requested, (error, contents) => {
+    fs.readFile(filePath, (error, contents) => {
       if (error) {
-        res.writeHead(404).end('Not found')
+        res.writeHead(500).end('Failed to read fixture')
         return
       }
       res.writeHead(200, {
-        'content-type': CONTENT_TYPES[path.extname(requested)] ?? 'application/octet-stream',
+        'content-type': CONTENT_TYPES[path.extname(filePath)] ?? 'application/octet-stream',
       })
       res.end(contents)
     })
