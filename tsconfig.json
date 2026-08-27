@@ -9,12 +9,6 @@
     "jsx": "react-jsx",
     // TS 7 no longer auto-includes @types/chrome here, and the E2E specs rely on
     // its `chrome.*` globals inside serviceWorker.evaluate callbacks.
-    "types": ["chrome"],
-    // WXT 0.21 turned these on in its generated tsconfig. Adopting them means
-    // ~100 fixes across the scraper, picker and highlight code, which are
-    // semantic decisions best reviewed separately from a dependency bump.
-    // Tracked in #245; remove these two lines to adopt.
-    "noUncheckedIndexedAccess": false,
-    "noImplicitOverride": false
+    "types": ["chrome"]
   }
 }

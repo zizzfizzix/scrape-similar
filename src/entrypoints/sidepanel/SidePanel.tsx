@@ -817,8 +817,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
                   if (current.columns.length !== producing.columns.length) return true
 
                   // Check each column
-                  for (let i = 0; i < current.columns.length; i++) {
-                    const currentCol = current.columns[i]
+                  for (const [i, currentCol] of current.columns.entries()) {
                     const producingCol = producing.columns[i]
                     if (!producingCol) return true
                     if (currentCol.name !== producingCol.name) return true

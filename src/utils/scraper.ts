@@ -212,7 +212,9 @@ export const minimizeXPath = (node: Element): string => {
     if (selection > 1) {
       break
     }
-    xpath = result[1] + result[3]
+    // Every group is mandatory in the pattern, so a successful match always
+    // fills them; group 3 can be empty but never absent.
+    xpath = `${result[1] ?? ''}${result[3] ?? ''}`
   }
 
   if (selection === undefined) {
@@ -221,7 +223,7 @@ export const minimizeXPath = (node: Element): string => {
 
   // Trim the front of the path until we have the smallest XPath that returns the same number of elements
   while ((result = xpathFirstSegmentRegex.exec(xpath))) {
-    const trimmed = '/' + result[2]
+    const trimmed = `/${result[2] ?? ''}`
     const trimmedCount = countXPathMatches(trimmed)
     if (trimmedCount !== selection) {
       break
@@ -313,10 +315,9 @@ export const guessScrapeConfigForElement = (element: HTMLElement): ScrapeConfig 
         // First, try to find headers in thead section
         const thead = table.querySelector('thead')
         if (thead) {
-          const headerRows = Array.from(thead.querySelectorAll('tr'))
-          if (headerRows.length > 0) {
-            // Use the last header row from thead
-            const headerRow = headerRows[headerRows.length - 1]
+          // Use the last header row from thead
+          const headerRow = Array.from(thead.querySelectorAll('tr')).at(-1)
+          if (headerRow) {
             ths = Array.from(headerRow.children).filter(
               (child) => child.tagName.toLowerCase() === 'th',
             )
@@ -330,7 +331,8 @@ export const guessScrapeConfigForElement = (element: HTMLElement): ScrapeConfig 
 
           // Look for the closest header row above the current row
           for (let i = currentRowIndex - 1; i >= 0; i--) {
-            const headerRow = allRows[i] as HTMLTableRowElement
+            const headerRow = allRows[i]
+            if (!headerRow) continue
             const headerCells = Array.from(headerRow.children).filter(
               (child) => child.tagName.toLowerCase() === 'th',
             )

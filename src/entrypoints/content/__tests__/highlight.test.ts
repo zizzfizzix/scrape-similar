@@ -179,8 +179,8 @@ describe('highlightMatchingElements', () => {
     expect(animateSpy1).toHaveBeenCalledOnce()
     expect(animateSpy2).toHaveBeenCalledOnce()
     // Check animation keyframes are provided
-    expect(animateSpy1.mock.calls[0][0]).toBeInstanceOf(Array)
-    expect(animateSpy1.mock.calls[0][0].length).toBeGreaterThan(0)
+    expect(animateSpy1.mock.calls[0]?.[0]).toBeInstanceOf(Array)
+    expect(animateSpy1.mock.calls[0]?.[0].length).toBeGreaterThan(0)
   })
 
   it('scrolls first element into view by default', () => {

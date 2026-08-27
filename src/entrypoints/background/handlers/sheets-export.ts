@@ -92,13 +92,13 @@ export const exportToGoogleSheets = async (
   columnKeys?: string[],
 ): Promise<ExportResult> => {
   try {
-    if (!scrapedData || !scrapedData.length) {
+    const [firstRow] = scrapedData ?? []
+    if (!firstRow) {
       return { success: false, error: 'No data to export' }
     }
 
     // Get column headers - use columnOrder if available, otherwise fallback to Object.keys
-    const headers =
-      columnOrder && columnOrder.length > 0 ? columnOrder : Object.keys(scrapedData[0].data)
+    const headers = columnOrder && columnOrder.length > 0 ? columnOrder : Object.keys(firstRow.data)
 
     if (headers.length === 0) {
       return { success: false, error: 'No columns found in data' }

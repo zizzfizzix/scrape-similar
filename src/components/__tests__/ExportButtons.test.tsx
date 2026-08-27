@@ -22,6 +22,15 @@ const getRowValues = (
   return row.slice(1)
 }
 
+// Helper to grab the worksheet a read-back workbook is expected to contain
+const getFirstWorksheet = (workbook: ExcelJS.Workbook): ExcelJS.Worksheet => {
+  const [worksheet] = workbook.worksheets
+  if (!worksheet) {
+    throw new Error('Workbook has no worksheets')
+  }
+  return worksheet
+}
+
 describe('Excel export functionality', () => {
   it('generates valid xlsx workbook with correct structure', async () => {
     const ExcelJS = await import('exceljs')
@@ -55,9 +64,9 @@ describe('Excel export functionality', () => {
     await readWorkbook.xlsx.load(buffer)
 
     expect(readWorkbook.worksheets.length).toBe(1)
-    expect(readWorkbook.worksheets[0].name).toBe('Data')
+    expect(getFirstWorksheet(readWorkbook).name).toBe('Data')
 
-    const readSheet = readWorkbook.worksheets[0]
+    const readSheet = getFirstWorksheet(readWorkbook)
     const values = readSheet.getSheetValues()
 
     // getSheetValues returns array with 1-based indexing, and each row has undefined at index 0
@@ -84,7 +93,7 @@ describe('Excel export functionality', () => {
     const readWorkbook = new ExcelJS.default.Workbook()
     await readWorkbook.xlsx.load(buffer)
 
-    const values = readWorkbook.worksheets[0].getSheetValues()
+    const values = getFirstWorksheet(readWorkbook).getSheetValues()
     // Null and undefined should become empty strings
     expect(getRowValues(values, 2)).toEqual(['', '', 'value'])
   })
@@ -107,7 +116,7 @@ describe('Excel export functionality', () => {
     const readWorkbook = new ExcelJS.default.Workbook()
     await readWorkbook.xlsx.load(buffer)
 
-    const values = readWorkbook.worksheets[0].getSheetValues()
+    const values = getFirstWorksheet(readWorkbook).getSheetValues()
     expect(getRowValues(values, 2)).toEqual(['', ''])
   })
 
@@ -129,7 +138,7 @@ describe('Excel export functionality', () => {
     const readWorkbook = new ExcelJS.default.Workbook()
     await readWorkbook.xlsx.load(buffer)
 
-    const values = readWorkbook.worksheets[0].getSheetValues()
+    const values = getFirstWorksheet(readWorkbook).getSheetValues()
     // Should follow columnKeys order: col3, col1, col2 -> C, A, B
     expect(getRowValues(values, 2)).toEqual(['C', 'A', 'B'])
   })
@@ -158,7 +167,7 @@ describe('Excel export functionality', () => {
     const readWorkbook = new ExcelJS.default.Workbook()
     await readWorkbook.xlsx.load(buffer)
 
-    const values = readWorkbook.worksheets[0].getSheetValues()
+    const values = getFirstWorksheet(readWorkbook).getSheetValues()
     // Excel should preserve special characters
     expect(getRowValues(values, 2)).toEqual(['Line\nBreak', 'Tab\there', 'Quote"Test'])
   })
@@ -181,7 +190,7 @@ describe('Excel export functionality', () => {
     const readWorkbook = new ExcelJS.default.Workbook()
     await readWorkbook.xlsx.load(buffer)
 
-    const values = readWorkbook.worksheets[0].getSheetValues()
+    const values = getFirstWorksheet(readWorkbook).getSheetValues()
     expect(getRowValues(values, 2)).toEqual([123, true, 'text'])
   })
 
@@ -203,7 +212,7 @@ describe('Excel export functionality', () => {
     const readWorkbook = new ExcelJS.default.Workbook()
     await readWorkbook.xlsx.load(buffer)
 
-    const values = readWorkbook.worksheets[0].getSheetValues()
+    const values = getFirstWorksheet(readWorkbook).getSheetValues()
     expect(getRowValues(values, 2)).toEqual(['A', '', 'C'])
   })
 
@@ -229,7 +238,7 @@ describe('Excel export functionality', () => {
     const readWorkbook = new ExcelJS.default.Workbook()
     await readWorkbook.xlsx.load(buffer)
 
-    const values = readWorkbook.worksheets[0].getSheetValues()
+    const values = getFirstWorksheet(readWorkbook).getSheetValues()
     expect(getRowValues(values, 1)).toEqual(['Name', 'Age', 'City'])
     expect(getRowValues(values, 2)).toEqual(['Alice', 30, 'NYC'])
     expect(getRowValues(values, 3)).toEqual(['Bob', '', 'LA'])
@@ -254,7 +263,7 @@ describe('Excel export functionality', () => {
     const readWorkbook = new ExcelJS.default.Workbook()
     await readWorkbook.xlsx.load(buffer)
 
-    const values = readWorkbook.worksheets[0].getSheetValues()
+    const values = getFirstWorksheet(readWorkbook).getSheetValues()
     expect(getRowValues(values, 2)).toEqual(['😃👍', '中文', 'Test 🚀'])
   })
 
@@ -279,7 +288,7 @@ describe('Excel export functionality', () => {
     const readWorkbook = new ExcelJS.default.Workbook()
     await readWorkbook.xlsx.load(buffer)
 
-    const values = readWorkbook.worksheets[0].getSheetValues()
+    const values = getFirstWorksheet(readWorkbook).getSheetValues()
     // Should have header + 1000 data rows
     expect(values.length).toBe(1002) // 1-based index + header + 1000 rows
   })

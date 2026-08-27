@@ -16,23 +16,24 @@ export const handleLevelChange = (
   onUpdate: (matches: number, xpath: string) => void,
   method?: 'slider' | 'keyboard' | 'scroll',
 ): void => {
-  const maxIndex = state.selectorCandidates.length - 1
-  if (level !== state.selectedCandidateIndex && level >= 0 && level <= maxIndex) {
-    const fromLevel = state.selectedCandidateIndex
-    state.selectedCandidateIndex = level
-    const sel = state.selectorCandidates[state.selectedCandidateIndex]
-    state.currentXPath = sel
-    const matches = evaluateXPath(sel)
-    highlightElementsForPicker(matches as HTMLElement[], state.highlightedElements)
-    onUpdate(matches.length, sel)
+  // An out-of-range level has no candidate, so the lookup doubles as the
+  // bounds check.
+  const sel = state.selectorCandidates[level]
+  if (!sel || level === state.selectedCandidateIndex) return
 
-    // Track level change
-    trackEvent(ANALYTICS_EVENTS.PICKER_LEVEL_CHANGE, {
-      from_level: fromLevel,
-      to_level: level,
-      method: method || 'unknown',
-    })
-  }
+  const fromLevel = state.selectedCandidateIndex
+  state.selectedCandidateIndex = level
+  state.currentXPath = sel
+  const matches = evaluateXPath(sel)
+  highlightElementsForPicker(matches, state.highlightedElements)
+  onUpdate(matches.length, sel)
+
+  // Track level change
+  trackEvent(ANALYTICS_EVENTS.PICKER_LEVEL_CHANGE, {
+    from_level: fromLevel,
+    to_level: level,
+    method: method || 'unknown',
+  })
 }
 
 /**

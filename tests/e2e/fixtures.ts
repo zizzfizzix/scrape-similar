@@ -7,6 +7,7 @@ import {
   type Page,
   type Worker,
 } from '@playwright/test'
+import type ExcelJS from 'exceljs'
 import fs from 'fs'
 import { v7 as uuidv7 } from 'uuid'
 const { chromeExtensionId } = pkg
@@ -26,6 +27,18 @@ async function waitForChromeApis(worker: Worker, timeout = 5000) {
     await new Promise((r) => setTimeout(r, 50))
   }
   throw new Error('chrome.* APIs never became available')
+}
+
+/**
+ * Returns the first worksheet of a workbook read back from an export, failing
+ * the test if the workbook turned out to be empty.
+ */
+export const getFirstWorksheet = (workbook: ExcelJS.Workbook): ExcelJS.Worksheet => {
+  const [worksheet] = workbook.worksheets
+  if (!worksheet) {
+    throw new Error('Exported workbook has no worksheets')
+  }
+  return worksheet
 }
 
 // Shared test helpers

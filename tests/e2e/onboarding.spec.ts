@@ -255,11 +255,11 @@ test.describe('Onboarding Demo Scrape', () => {
 
     // Verify column definitions
     const columns = demoConfig.columns
-    expect(columns[0].name).toBe('Rank')
-    expect(columns[1].name).toBe('Country/Territory')
-    expect(columns[2].name).toBe('Population')
-    expect(columns[3].name).toBe('Percentage')
-    expect(columns[4].name).toBe('Date')
+    expect(columns[0]?.name).toBe('Rank')
+    expect(columns[1]?.name).toBe('Country/Territory')
+    expect(columns[2]?.name).toBe('Population')
+    expect(columns[3]?.name).toBe('Percentage')
+    expect(columns[4]?.name).toBe('Date')
   })
 
   test('cleans up demo scrape config after execution', async ({

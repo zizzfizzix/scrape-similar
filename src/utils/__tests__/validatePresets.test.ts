@@ -90,7 +90,11 @@ describe('validatePresetImport', () => {
   })
 
   it('filters out system preset IDs and sets skippedSystemCount', () => {
-    const systemPresetId = SYSTEM_PRESETS[0].id
+    const [systemPreset] = SYSTEM_PRESETS
+    if (!systemPreset) {
+      throw new Error('Expected at least one system preset')
+    }
+    const systemPresetId = systemPreset.id
     const result = validatePresetImport({
       version: 1,
       presets: [
@@ -105,7 +109,7 @@ describe('validatePresetImport', () => {
     expect('error' in result).toBe(false)
     if (!('error' in result)) {
       expect(result.presets).toHaveLength(1)
-      expect(result.presets[0].id).toBe(validPreset.id)
+      expect(result.presets[0]?.id).toBe(validPreset.id)
       expect(result.skippedSystemCount).toBe(1)
     }
   })

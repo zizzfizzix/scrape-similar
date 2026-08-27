@@ -155,7 +155,7 @@ describe('evaluateXPath', () => {
     const section = document.querySelector('section') as HTMLElement
     const matchesScoped = evaluateXPath('.//span', section)
     expect(matchesScoped).toHaveLength(1)
-    expect(matchesScoped[0].textContent).toBe('Inside')
+    expect(matchesScoped[0]?.textContent).toBe('Inside')
   })
 
   it('includes positional index when multiple siblings share the same tag', () => {
@@ -233,19 +233,19 @@ describe('scrapePage', () => {
     expect(result).toHaveLength(3)
 
     // Row 0 assertions
-    expect(result[0].data).toEqual({ text: 'First', id: '1' })
-    expect(result[0].metadata.originalIndex).toBe(0)
-    expect(result[0].metadata.isEmpty).toBe(false)
+    expect(result[0]?.data).toEqual({ text: 'First', id: '1' })
+    expect(result[0]?.metadata.originalIndex).toBe(0)
+    expect(result[0]?.metadata.isEmpty).toBe(false)
 
     // Row 1 assertions
-    expect(result[1].data).toEqual({ text: 'Second', id: '2' })
-    expect(result[1].metadata.originalIndex).toBe(1)
-    expect(result[1].metadata.isEmpty).toBe(false)
+    expect(result[1]?.data).toEqual({ text: 'Second', id: '2' })
+    expect(result[1]?.metadata.originalIndex).toBe(1)
+    expect(result[1]?.metadata.isEmpty).toBe(false)
 
     // Row 2 should be flagged as empty
-    expect(result[2].data).toEqual({ text: '', id: '' })
-    expect(result[2].metadata.originalIndex).toBe(2)
-    expect(result[2].metadata.isEmpty).toBe(true)
+    expect(result[2]?.data).toEqual({ text: '', id: '' })
+    expect(result[2]?.metadata.originalIndex).toBe(2)
+    expect(result[2]?.metadata.isEmpty).toBe(true)
   })
 
   it('correctly determines isEmpty when only some columns are blank', () => {
@@ -267,12 +267,12 @@ describe('scrapePage', () => {
     const rows = scrapePage(config)
 
     // First row: text empty but id has value => not empty
-    expect(rows[0].data).toEqual({ text: '', id: '3' })
-    expect(rows[0].metadata.isEmpty).toBe(false)
+    expect(rows[0]?.data).toEqual({ text: '', id: '3' })
+    expect(rows[0]?.metadata.isEmpty).toBe(false)
 
     // Second row: all good
-    expect(rows[1].data).toEqual({ text: 'Value', id: '4' })
-    expect(rows[1].metadata.isEmpty).toBe(false)
+    expect(rows[1]?.data).toEqual({ text: 'Value', id: '4' })
+    expect(rows[1]?.metadata.isEmpty).toBe(false)
   })
 
   it('returns an empty array when mainSelector matches zero elements', () => {
@@ -319,16 +319,37 @@ describe('guessScrapeConfigForElement', () => {
 
     // Should have two columns matching headers
     expect(config.columns).toHaveLength(2)
-    expect(config.columns[0].name).toBe('Name')
-    expect(config.columns[0].selector).toBe('*[1]')
-    expect(config.columns[1].name).toBe('Age')
-    expect(config.columns[1].selector).toBe('*[2]')
+    expect(config.columns[0]?.name).toBe('Name')
+    expect(config.columns[0]?.selector).toBe('*[1]')
+    expect(config.columns[1]?.name).toBe('Age')
+    expect(config.columns[1]?.selector).toBe('*[2]')
 
     // Main selector should match data rows (tr elements with td)
     const matchedRows = evaluateXPath(config.mainSelector)
     expect(matchedRows).toHaveLength(2)
     expect(matchedRows[0]).toBe(row)
     expect(matchedRows[1]).not.toBe(row)
+  })
+
+  it('uses the last header row when thead holds several', () => {
+    document.body.innerHTML = `
+      <table>
+        <thead>
+          <tr><th colspan="2">Grouped heading</th></tr>
+          <tr><th>Name</th><th>Age</th></tr>
+        </thead>
+        <tbody>
+          <tr id="row"><td>John</td><td>30</td></tr>
+          <tr id="row2"><td>Jane</td><td>25</td></tr>
+        </tbody>
+      </table>
+    `
+    const row = document.getElementById('row') as HTMLElement
+    const config = guessScrapeConfigForElement(row)
+
+    expect(config.columns).toHaveLength(2)
+    expect(config.columns[0]?.name).toBe('Name')
+    expect(config.columns[1]?.name).toBe('Age')
   })
 
   it('prefers repeated row ancestors (tr with sibling trs)', () => {
@@ -349,7 +370,7 @@ describe('guessScrapeConfigForElement', () => {
     // Should select the tr ancestor, not the span
     const matchedElements = evaluateXPath(config.mainSelector)
     expect(matchedElements.length).toBeGreaterThanOrEqual(3)
-    expect(matchedElements[0].tagName.toLowerCase()).toBe('tr')
+    expect(matchedElements[0]?.tagName.toLowerCase()).toBe('tr')
   })
 
   it('prefers li elements with sibling lis', () => {
@@ -366,7 +387,7 @@ describe('guessScrapeConfigForElement', () => {
     // Should select the li ancestor, not the span
     const matchedElements = evaluateXPath(config.mainSelector)
     expect(matchedElements.length).toBeGreaterThanOrEqual(3)
-    expect(matchedElements[0].tagName.toLowerCase()).toBe('li')
+    expect(matchedElements[0]?.tagName.toLowerCase()).toBe('li')
   })
 
   it('prefers dt/dd elements with siblings', () => {
@@ -384,7 +405,7 @@ describe('guessScrapeConfigForElement', () => {
     // Should select the dt ancestor, not the span
     const matchedElements = evaluateXPath(config.mainSelector)
     expect(matchedElements.length).toBeGreaterThanOrEqual(2)
-    expect(matchedElements[0].tagName.toLowerCase()).toBe('dt')
+    expect(matchedElements[0]?.tagName.toLowerCase()).toBe('dt')
   })
 
   it('finds nearest repeating node by walking up DOM tree', () => {

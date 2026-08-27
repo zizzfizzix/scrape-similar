@@ -51,7 +51,7 @@ describe('trackEvent – context specific behaviour', () => {
     await trackEvent(EVENT_NAME, { foo: 'bar' })
 
     expect(captureSpy).toHaveBeenCalledTimes(1)
-    const [capturedName, capturedProps] = captureSpy.mock.calls[0]
+    const [capturedName, capturedProps] = captureSpy.mock.calls[0] ?? []
     expect(capturedName).toBe(EVENT_NAME)
     expect(capturedProps.foo).toBe('bar')
     // extension_context should be BACKGROUND by default
@@ -79,7 +79,7 @@ describe('trackEvent – context specific behaviour', () => {
     await trackEvent(EVENT_NAME, { baz: 'qux' })
 
     expect(captureSpy).toHaveBeenCalledTimes(1)
-    const [capturedName, capturedProps] = captureSpy.mock.calls[0]
+    const [capturedName, capturedProps] = captureSpy.mock.calls[0] ?? []
     expect(capturedName).toBe(EVENT_NAME)
     expect(capturedProps.baz).toBe('qux')
   })
@@ -104,7 +104,7 @@ describe('trackEvent – context specific behaviour', () => {
 
     await trackEvent(EVENT_NAME, { extension_context: 'custom_context' })
 
-    const [, capturedProps] = captureSpy.mock.calls[0]
+    const [, capturedProps] = captureSpy.mock.calls[0] ?? []
     expect(capturedProps.extension_context).toBe('custom_context')
   })
 })
