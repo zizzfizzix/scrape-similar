@@ -32,16 +32,27 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import {
   type CellContext,
   type ColumnDef,
+  columnFilteringFeature,
   type ColumnFiltersState,
+  columnResizingFeature,
+  columnSizingFeature,
   type ColumnSizingState,
+  columnVisibilityFeature,
+  type ColumnVisibilityState,
+  createFilteredRowModel,
+  createPaginatedRowModel,
+  createSortedRowModel,
+  filterFn_includesString,
   flexRender,
-  getCoreRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
+  globalFilteringFeature,
+  rowPaginationFeature,
+  rowSelectionFeature,
+  rowSortingFeature,
+  sortFn_alphanumeric,
+  sortFn_text,
   type SortingState,
-  useReactTable,
-  type VisibilityState,
+  tableFeatures,
+  useTable,
 } from '@tanstack/react-table'
 import log from 'loglevel'
 import {
@@ -57,6 +68,29 @@ import {
 } from 'lucide-react'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
+
+// v9 features are opt-in. The full data view uses sorting, column + global
+// filtering, pagination, row selection, column visibility and column resizing,
+// so each of those features is registered together with the row models and
+// named filter/sort functions it depends on.
+const fullDataViewFeatures = tableFeatures({
+  columnFilteringFeature,
+  filteredRowModel: createFilteredRowModel(),
+  filterFns: { includesString: filterFn_includesString },
+  globalFilteringFeature,
+  rowSortingFeature,
+  sortedRowModel: createSortedRowModel(),
+  // `sortFn: 'auto'` (the default) resolves to one of these for string values.
+  sortFns: { alphanumeric: sortFn_alphanumeric, text: sortFn_text },
+  rowPaginationFeature,
+  paginatedRowModel: createPaginatedRowModel(),
+  rowSelectionFeature,
+  columnVisibilityFeature,
+  columnSizingFeature,
+  columnResizingFeature,
+})
+
+type FullDataViewFeatures = typeof fullDataViewFeatures
 
 interface TabData {
   tabId: number
@@ -83,7 +117,7 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
   const [globalFilter, setGlobalFilter] = useState('')
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
+  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({})
   const [rowSelection, setRowSelection] = useState({})
   const [columnSizing, setColumnSizing] = useState<ColumnSizingState>({})
 
@@ -493,7 +527,7 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
   )
 
   // Build columns for TanStack Table with enhanced features
-  const columns = useMemo<ColumnDef<ScrapedRow>[]>(() => {
+  const columns = useMemo<ColumnDef<FullDataViewFeatures, ScrapedRow>[]>(() => {
     if (!currentTabData) return []
 
     const columnsOrder =
@@ -501,7 +535,7 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
         ? currentTabData.scrapeResult.columnOrder
         : currentTabData.config.columns.map((col) => col.name)
 
-    const baseColumns: ColumnDef<ScrapedRow>[] = [
+    const baseColumns: ColumnDef<FullDataViewFeatures, ScrapedRow>[] = [
       {
         id: 'select',
         header: ({ table }) => (
@@ -550,7 +584,7 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
       {
         id: 'rowIndex',
         header: '#',
-        cell: ({ row }: CellContext<ScrapedRow, unknown>) => {
+        cell: ({ row }: CellContext<FullDataViewFeatures, ScrapedRow>) => {
           const rowData = row.original
           const indexInFilteredData = filteredData.findIndex((item) => item === rowData)
           return indexInFilteredData + 1
@@ -565,7 +599,7 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
       {
         id: 'actions',
         header: 'Actions',
-        cell: ({ row }: CellContext<ScrapedRow, unknown>) => {
+        cell: ({ row }: CellContext<FullDataViewFeatures, ScrapedRow>) => {
           const isEmpty = row.original.metadata.isEmpty
           const originalIndex = row.original.metadata.originalIndex
           const columnKeys = getColumnKeys(columnsOrder, currentTabData.config.columns)
@@ -650,7 +684,7 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
         enableGlobalFilter: false,
         enableResizing: false,
       },
-      ...columnsOrder.map((colName, index): ColumnDef<ScrapedRow> => {
+      ...columnsOrder.map((colName, index): ColumnDef<FullDataViewFeatures, ScrapedRow> => {
         const optimalWidth = calculateOptimalColumnWidth(
           colName,
           filteredData,
@@ -663,7 +697,7 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
             return row.data[dataKey] || ''
           },
           header: colName,
-          cell: ({ row }: CellContext<ScrapedRow, unknown>) => {
+          cell: ({ row }: CellContext<FullDataViewFeatures, ScrapedRow>) => {
             const dataKey = currentTabData.config.columns[index]?.key || colName
             const value = row.original.data[dataKey] || ''
             return (
@@ -685,13 +719,10 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
     return baseColumns
   }, [currentTabData, filteredData, calculateOptimalColumnWidth])
 
-  const table = useReactTable({
+  const table = useTable({
+    features: fullDataViewFeatures,
     data: filteredData,
     columns,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
     enableColumnResizing: true,
     columnResizeMode: 'onChange',
     columnResizeDirection: 'ltr',
@@ -1072,15 +1103,15 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="outline" size="sm" className="w-auto px-3">
-                          {table.getState().pagination.pageSize}
+                          {table.state.pagination.pageSize}
                           <ChevronDown className="ml-2 h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent>
                         <DropdownMenuRadioGroup
-                          value={table.getState().pagination.pageSize.toString()}
+                          value={table.state.pagination.pageSize.toString()}
                           onValueChange={(value) => {
-                            const previousPageSize = table.getState().pagination.pageSize
+                            const previousPageSize = table.state.pagination.pageSize
                             const newPageSize = parseInt(value)
                             table.setPageSize(newPageSize)
 
@@ -1104,8 +1135,7 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
                   </div>
 
                   {/* Center: Navigation controls - only show if there are more rows than the current page size */}
-                  {table.getFilteredRowModel().rows.length >
-                    table.getState().pagination.pageSize && (
+                  {table.getFilteredRowModel().rows.length > table.state.pagination.pageSize && (
                     <div className="col-span-1 flex items-center gap-2">
                       <Button
                         variant="outline"
@@ -1119,7 +1149,7 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
 
                       {/* Page info */}
                       <span className="text-sm text-muted-foreground px-2">
-                        Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
+                        Page {table.state.pagination.pageIndex + 1} of {table.getPageCount()}
                       </span>
 
                       <Button
