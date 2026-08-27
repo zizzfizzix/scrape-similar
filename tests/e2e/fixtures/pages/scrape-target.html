@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Scrape Similar E2E fixture</title>
+  </head>
+  <body>
+    <h1>Scrape Similar E2E fixture</h1>
+
+    <!--
+      Deterministic scrape target. Counts asserted by the E2E suite:
+        //span            -> 24 (12 rows x 2 spans)
+        //li              -> 12
+        //*[@id="nonexistent_element_for_test"] -> 0
+      Keep those in sync with tests/e2e/fixtures.ts (FIXTURE_PAGE_COUNTS)
+      when editing this file.
+    -->
+    <ul id="items">
+      <li><span class="name">Ada Lovelace</span><span class="year">1815</span></li>
+      <li><span class="name">Alan Turing</span><span class="year">1912</span></li>
+      <li><span class="name">Grace Hopper</span><span class="year">1906</span></li>
+      <li><span class="name">Katherine Johnson</span><span class="year">1918</span></li>
+      <li><span class="name">Barbara Liskov</span><span class="year">1939</span></li>
+      <li><span class="name">Margaret Hamilton</span><span class="year">1936</span></li>
+      <li><span class="name">Frances Allen</span><span class="year">1932</span></li>
+      <li><span class="name">Radia Perlman</span><span class="year">1951</span></li>
+      <li><span class="name">Shafi Goldwasser</span><span class="year">1959</span></li>
+      <li><span class="name">Karen Sparck Jones</span><span class="year">1935</span></li>
+      <li><span class="name">Jean Bartik</span><span class="year">1924</span></li>
+      <li><span class="name">Mary Kenneth Keller</span><span class="year">1913</span></li>
+    </ul>
+  </body>
+</html>

@@ -1,5 +1,12 @@
 import fs from 'fs/promises'
-import { expect, getFirstWorksheet, test, TestHelpers } from './fixtures'
+import {
+  expect,
+  FIXTURE_PAGE_COUNTS,
+  getFirstWorksheet,
+  NO_MATCH_SELECTOR,
+  test,
+  TestHelpers,
+} from './fixtures'
 
 /**
  * Core sidepanel functionality tests that aren't covered by other test files
@@ -212,6 +219,56 @@ test.describe('Sidepanel Core Functionality', () => {
 
     // Expect button text to show "0 found"
     await expect(sidePanel.getByRole('button', { name: /0 found/i })).toBeVisible()
+  })
+
+  test('validating a new selector does not resurface the "0 found" scrape state', async ({
+    context,
+    serviceWorker,
+    openSidePanel,
+    fixturePageUrl,
+  }) => {
+    const pageUrl = fixturePageUrl('scrape-target.html')
+    const sidePanel = await openSidePanel(pageUrl)
+
+    // Open the local fixture page so match counts are deterministic
+    const testPage = await context.newPage()
+    await testPage.goto(pageUrl)
+
+    // Bring side-panel to front
+    await sidePanel.bringToFront()
+
+    // Dismiss consent modal
+    await TestHelpers.dismissAnalyticsConsent(serviceWorker)
+
+    // Scrape a selector that matches nothing, so the button enters "0 found"
+    const input = sidePanel.locator('#mainSelector')
+    await input.fill(NO_MATCH_SELECTOR)
+    await input.press('Enter')
+    await expect(sidePanel.locator('[data-slot="badge"]').filter({ hasText: /^0$/ })).toBeVisible()
+    await sidePanel.getByRole('button', { name: /^scrape$/i }).click()
+    await expect(sidePanel.getByRole('button', { name: /0 found/i })).toBeVisible()
+
+    // While that feedback is still on screen, submit a selector that does match
+    // elements. Validating it must not leave the stale "0 found" label in place.
+    await input.fill('//span')
+    await input.press('Enter')
+
+    // Sampled with non-retrying assertions so that a transient "0 found"
+    // cannot be waited away.
+    const zeroFoundButton = sidePanel.getByRole('button', { name: /0 found/i })
+    for (let i = 0; i < 20; i++) {
+      expect(await zeroFoundButton.count(), 'scrape button showed "0 found" while validating').toBe(
+        0,
+      )
+      await sidePanel.waitForTimeout(150)
+    }
+
+    // The selector input badge reports the fixture's real match count
+    await expect(
+      sidePanel
+        .locator('[data-slot="badge"]')
+        .filter({ hasText: new RegExp(`^${FIXTURE_PAGE_COUNTS.span}$`) }),
+    ).toBeVisible()
   })
 
   test('can save preset and reload it via Load combobox', async ({
