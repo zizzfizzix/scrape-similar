@@ -30,7 +30,7 @@ pnpm test:e2e           # Playwright E2E. Requires `pnpm build:test` first to pr
 pnpm update:shadcn      # rerun bash scripts/update-shadcn.sh to refresh shadcn-ui components
 ```
 
-A husky `pre-commit` hook runs `pnpm fmt-check` and `pnpm test`; both must pass to commit.
+A lefthook `pre-commit` hook (`lefthook.yml`) runs `pnpm fmt-check` and `pnpm test`; both must pass to commit. Hooks are installed by the `prepare` script on `pnpm install` — pnpm's warning that lefthook's own build script was ignored is harmless, since that script only does the same `lefthook install`. A `post-checkout` hook (`.lefthook/post-checkout/worktree-setup.sh`) bootstraps newly created worktrees (copies `.env` / `.env.test` from the origin checkout, runs `pnpm install`).
 
 The Cursor rule (`.cursor/rules/browser-extension.mdc`) instructs **never to run `pnpm dev`** in agent contexts — use `pnpm build` (or `pnpm compile`) to verify changes instead.
 
@@ -107,7 +107,7 @@ shadcn-ui components in `src/components/ui/` are generated/managed; custom compo
 ## Git
 
 - Do not stage changes (`git add`) unless explicitly asked.
-- Do not commit unless explicitly asked. The husky `pre-commit` hook runs `pnpm fmt-check` and `pnpm test`; if asked to commit, both must pass — fix failures rather than bypassing the hook.
+- Do not commit unless explicitly asked. The lefthook `pre-commit` hook runs `pnpm fmt-check` and `pnpm test`; if asked to commit, both must pass — fix failures rather than bypassing the hook.
 
 ## Release flow
 
