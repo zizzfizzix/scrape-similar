@@ -20,8 +20,7 @@ interface SettingsProps {
 }
 
 type ImportConfirmState =
-  | { open: false }
-  | { open: true; presets: Preset[]; skippedSystemCount: number }
+  { open: false } | { open: true; presets: Preset[]; skippedSystemCount: number }
 
 export const Settings = React.memo(
   ({

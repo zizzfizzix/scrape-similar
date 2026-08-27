@@ -1,6 +1,6 @@
 import { ANALYTICS_CONSENT_STORAGE_KEY, getConsentState, setConsent } from '@/utils/consent'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { fakeBrowser } from 'wxt/testing'
+import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
 
 // Prefix used by consent utilities when interacting with storage

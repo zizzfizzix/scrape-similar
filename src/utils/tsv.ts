@@ -1,4 +1,4 @@
-import { ScrapedRow } from '@/utils/types'
+import type { ScrapedRow } from '@/utils/types'
 
 /**
  * Escape characters that would break TSV formatting.

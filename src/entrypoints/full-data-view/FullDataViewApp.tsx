@@ -30,18 +30,18 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 import {
-  CellContext,
-  ColumnDef,
-  ColumnFiltersState,
-  ColumnSizingState,
+  type CellContext,
+  type ColumnDef,
+  type ColumnFiltersState,
+  type ColumnSizingState,
   flexRender,
   getCoreRowModel,
   getFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
-  SortingState,
+  type SortingState,
   useReactTable,
-  VisibilityState,
+  type VisibilityState,
 } from '@tanstack/react-table'
 import log from 'loglevel'
 import {

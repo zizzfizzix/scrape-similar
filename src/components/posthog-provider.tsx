@@ -9,7 +9,7 @@ import 'posthog-js/dist/posthog-recorder.js'
 import 'posthog-js/dist/surveys.js'
 import 'posthog-js/dist/tracing-headers.js'
 import 'posthog-js/dist/web-vitals.js'
-import React, { ReactNode, useEffect } from 'react'
+import React, { type ReactNode, useEffect } from 'react'
 
 interface PostHogWrapperProps {
   children: ReactNode

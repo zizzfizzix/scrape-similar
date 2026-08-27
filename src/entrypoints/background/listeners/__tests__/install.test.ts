@@ -4,7 +4,7 @@ import {
 } from '@/entrypoints/background/listeners/install'
 import * as distinctId from '@/utils/distinct-id'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fakeBrowser } from 'wxt/testing'
+import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
 
 // Mock dependencies
@@ -23,7 +23,10 @@ describe('setupUninstallUrl', () => {
     fakeBrowser.reset()
     // Mock browser.runtime.setUninstallURL
     mockSetUninstallURL = vi.fn().mockResolvedValue(undefined)
-    fakeBrowser.runtime.setUninstallURL = mockSetUninstallURL
+    // setUninstallURL is declared with both promise and callback overloads, so a
+    // single-signature mock is not directly assignable to it.
+    fakeBrowser.runtime.setUninstallURL =
+      mockSetUninstallURL as unknown as typeof fakeBrowser.runtime.setUninstallURL
   })
 
   it('should read from storage when called with no arguments', async () => {
@@ -71,7 +74,10 @@ describe('initializeUninstallUrl', () => {
     fakeBrowser.reset()
     // Mock browser.runtime.setUninstallURL
     mockSetUninstallURL = vi.fn().mockResolvedValue(undefined)
-    fakeBrowser.runtime.setUninstallURL = mockSetUninstallURL
+    // setUninstallURL is declared with both promise and callback overloads, so a
+    // single-signature mock is not directly assignable to it.
+    fakeBrowser.runtime.setUninstallURL =
+      mockSetUninstallURL as unknown as typeof fakeBrowser.runtime.setUninstallURL
   })
 
   it('should set initial uninstall URL with distinct_id when it exists in storage', async () => {
