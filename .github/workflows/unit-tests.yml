@@ -40,8 +40,21 @@ jobs:
       - name: Format check
         run: pnpm fmt-check
 
-      - name: Run unit tests
-        run: pnpm test
+      # Enforces the `coverage.thresholds` block in `vitest.config.ts`: the run
+      # exits non-zero if coverage drops below it, so a PR cannot lower it.
+      - name: Run unit tests with coverage
+        run: pnpm test:coverage
+
+      - name: Summarise coverage
+        if: ${{ !cancelled() }}
+        run: node scripts/coverage-summary.mjs >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 30
 
       - name: Build and create extension package
         run: pnpm zip

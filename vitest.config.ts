@@ -16,7 +16,9 @@ export default defineConfig({
     exclude: [...configDefaults.exclude, './tests/e2e/**'],
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'html', 'lcov'],
+      // `json-summary` feeds `scripts/coverage-summary.mjs`, which renders the
+      // numbers onto the PR check page.
+      reporter: ['text', 'html', 'lcov', 'json-summary'],
       reportsDirectory: './coverage',
       include: ['src/**/*.{ts,tsx}'],
       exclude: [
