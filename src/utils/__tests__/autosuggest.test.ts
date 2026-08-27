@@ -97,6 +97,12 @@ describe('filterRecentSelectors', () => {
   it('returns nothing when there are no recents', () => {
     expect(filterRecentSelectors([], allPresets, '')).toEqual([])
   })
+
+  it('tolerates a preset with no selector at all', () => {
+    const withoutSelector = { ...links, config: {} as ScrapeConfig }
+
+    expect(filterRecentSelectors(['//li'], [withoutSelector], '')).toEqual(['//li'])
+  })
 })
 
 describe('buildSuggestionIds', () => {
