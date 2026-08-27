@@ -8,7 +8,7 @@ export default defineConfig({
   webExt: {
     chromiumArgs: ['--user-data-dir=./.wxt/chrome-data'],
   },
-  manifest: ({ mode }) => {
+  manifest: ({ browser, mode }) => {
     // Google APIs domains for CSP
     const googleDomains = [
       'https://sheets.googleapis.com',
@@ -20,6 +20,14 @@ export default defineConfig({
     const isDev = mode === 'development'
     // Allow connecting to vite websocket in dev mode
     const devCSP = isDev ? ' ws://localhost:* http://localhost:*' : ''
+
+    // `use_dynamic_url` is Chromium-only: Firefox ignores it (its extension origin is
+    // already a per-install UUID) and Safari's converter rejects it as unsupported.
+    // WXT gates the key on the same browsers, but only for the web_accessible_resources
+    // entry it generates itself (wxt-dev/wxt#2581) — entries we declare here are passed
+    // through untouched, so we have to gate them ourselves. Moot while the Firefox build
+    // is MV2, since WXT flattens the entry to a plain string array, but not once it isn't.
+    const useDynamicUrl = browser !== 'firefox' && browser !== 'safari'
 
     return {
       name: 'Scrape Similar',
@@ -56,6 +64,9 @@ export default defineConfig({
         {
           resources: ['img/logo/*', 'icons/*'],
           matches: ['http://*/*', 'https://*/*'],
+          // Serve these from a per-session dynamic origin so pages can't probe our
+          // static extension ID to fingerprint the extension.
+          use_dynamic_url: useDynamicUrl,
         },
       ],
     }
