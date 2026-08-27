@@ -15,14 +15,25 @@ import { rowToTsv } from '@/utils/tsv'
 import {
   type CellContext,
   type ColumnDef,
+  columnResizingFeature,
+  columnSizingFeature,
   type ColumnSizingState,
   flexRender,
-  getCoreRowModel,
-  useReactTable,
+  tableFeatures,
+  useTable,
 } from '@tanstack/react-table'
 import { ChevronLeft, ChevronRight, Clipboard, Expand, Highlighter } from 'lucide-react'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
+
+// The side panel table only needs column sizing/resizing; pagination is handled
+// with local component state and the rows are never sorted or filtered here.
+const dataTableFeatures = tableFeatures({
+  columnSizingFeature,
+  columnResizingFeature,
+})
+
+type DataTableFeatures = typeof dataTableFeatures
 
 interface DataTableProps {
   data: ScrapedData
@@ -104,12 +115,12 @@ const DataTable: React.FC<DataTableProps> = ({
   )
 
   // Build columns for TanStack Table
-  const columns = useMemo<ColumnDef<ScrapedRow>[]>(() => {
-    const baseColumns: ColumnDef<ScrapedRow>[] = [
+  const columns = useMemo<ColumnDef<DataTableFeatures, ScrapedRow>[]>(() => {
+    const baseColumns: ColumnDef<DataTableFeatures, ScrapedRow>[] = [
       {
         id: 'rowIndex',
         header: '#',
-        cell: ({ row }: CellContext<ScrapedRow, unknown>) => {
+        cell: ({ row }: CellContext<DataTableFeatures, ScrapedRow>) => {
           // Find the index of this row in the filtered data
           const rowData = row.original
           const indexInFilteredData = filteredData.findIndex((item) => item === rowData)
@@ -123,7 +134,7 @@ const DataTable: React.FC<DataTableProps> = ({
       {
         id: 'actions',
         header: 'Actions',
-        cell: ({ row }: CellContext<ScrapedRow, unknown>) => {
+        cell: ({ row }: CellContext<DataTableFeatures, ScrapedRow>) => {
           // Use the original index for highlighting
           const originalIndex = row.original.metadata.originalIndex
           const isEmpty = row.original.metadata.isEmpty
@@ -211,12 +222,12 @@ const DataTable: React.FC<DataTableProps> = ({
         maxSize: 80,
         enableResizing: false,
       },
-      ...columnsOrder.map((colName, index): ColumnDef<ScrapedRow> => {
+      ...columnsOrder.map((colName, index): ColumnDef<DataTableFeatures, ScrapedRow> => {
         const optimalWidth = calculateOptimalColumnWidth(colName, filteredData, config)
         return {
           accessorKey: colName,
           header: colName,
-          cell: ({ row }: CellContext<ScrapedRow, unknown>) => {
+          cell: ({ row }: CellContext<DataTableFeatures, ScrapedRow>) => {
             const dataKey = config.columns[index]?.key || colName
             const value = row.original.data[dataKey] || ''
             return (
@@ -235,10 +246,10 @@ const DataTable: React.FC<DataTableProps> = ({
     return baseColumns
   }, [columnsOrder, config, onRowHighlight, filteredData, calculateOptimalColumnWidth])
 
-  const table = useReactTable({
+  const table = useTable({
+    features: dataTableFeatures,
     data: filteredData,
     columns,
-    getCoreRowModel: getCoreRowModel(),
     enableColumnResizing: true,
     columnResizeMode: 'onChange',
     columnResizeDirection: 'ltr',
@@ -247,20 +258,13 @@ const DataTable: React.FC<DataTableProps> = ({
       minSize: 60,
       maxSize: 400,
     },
-    manualPagination: false,
-    manualSorting: false,
-    manualFiltering: false,
     state: {
-      pagination,
       columnSizing,
     },
-    onPaginationChange: setPagination,
     onColumnSizingChange: setColumnSizing,
-    pageCount: Math.ceil(filteredData.length / pagination.pageSize),
-    getPaginationRowModel: undefined, // use built-in client-side pagination
   })
 
-  // Get paginated rows manually (since getPaginationRowModel is undefined)
+  // Get paginated rows manually (the row pagination feature is not registered)
   const paginatedRows = useMemo(() => {
     const start = pagination.pageIndex * pagination.pageSize
     const end = start + pagination.pageSize
@@ -363,10 +367,9 @@ const DataTable: React.FC<DataTableProps> = ({
             paginatedRows.map((row) => (
               <TableRow
                 key={row.id}
-                data-state={row.getIsSelected() && 'selected'}
                 className={row.original.metadata.isEmpty ? 'opacity-60 bg-muted/30' : ''}
               >
-                {row.getVisibleCells().map((cell) => (
+                {row.getAllCells().map((cell) => (
                   <TableCell
                     key={cell.id}
                     style={{
