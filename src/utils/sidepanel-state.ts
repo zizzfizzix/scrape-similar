@@ -126,3 +126,26 @@ export const parseFullDataViewTabId = (fullDataViewUrl: string): number | null =
   const parsed = Number(tabId)
   return Number.isFinite(parsed) ? parsed : null
 }
+
+/**
+ * Whether the current config no longer matches the one that produced the
+ * results on screen, i.e. whether re-scraping would change what is shown.
+ *
+ * Compares the resolved key rather than just the name, since the key is what
+ * the scraped rows are stored under.
+ */
+export const hasConfigDrifted = (current: ScrapeConfig, producing: ScrapeConfig): boolean => {
+  if (current.mainSelector !== producing.mainSelector) return true
+  if (current.columns.length !== producing.columns.length) return true
+
+  return current.columns.some((column, index) => {
+    // Safe: the column counts were just checked to match.
+    const producingColumn = producing.columns[index]!
+
+    return (
+      column.name !== producingColumn.name ||
+      column.selector !== producingColumn.selector ||
+      (column.key || column.name) !== (producingColumn.key || producingColumn.name)
+    )
+  })
+}

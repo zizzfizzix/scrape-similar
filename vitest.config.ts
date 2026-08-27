@@ -27,7 +27,8 @@ export default defineConfig({
         'src/utils/types.ts',
         'src/entrypoints/background/types.ts',
         // Entrypoint bootstrap: `createRoot().render()` / WXT `define*` wiring
-        // with no branching. Exercised end-to-end by the Playwright suite.
+        // with no branching — the logic each one used to hold now lives in a
+        // module of its own. Exercised end-to-end by the Playwright suite.
         'src/entrypoints/*/main.tsx',
         'src/entrypoints/background/index.ts',
         'src/entrypoints/content/index.ts',

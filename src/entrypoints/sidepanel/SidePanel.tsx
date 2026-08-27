@@ -6,6 +6,7 @@ import {
   buildConfigChangeUpdates,
   buildExportFilename,
   createDefaultSidePanelState,
+  hasConfigDrifted,
   parseFullDataViewTabId,
   resolveStoredConfig,
 } from '@/utils/sidepanel-state'
@@ -749,30 +750,9 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
               pickerModeActive={pickerModeActive}
               // Show rescrape hint when there is data and config differs from the config that produced it
               rescrapeAdvised={
-                !!(scrapeResult && scrapeResult.data && scrapeResult.data.length > 0) &&
+                !!scrapeResult?.data?.length &&
                 !!resultProducingConfig &&
-                ((): boolean => {
-                  const current = config
-                  const producing = resultProducingConfig
-
-                  // Check main selector
-                  if (current.mainSelector !== producing.mainSelector) return true
-
-                  // Check columns count
-                  if (current.columns.length !== producing.columns.length) return true
-
-                  // Check each column
-                  for (const [i, currentCol] of current.columns.entries()) {
-                    const producingCol = producing.columns[i]
-                    if (!producingCol) return true
-                    if (currentCol.name !== producingCol.name) return true
-                    if (currentCol.selector !== producingCol.selector) return true
-                    const currentKey = currentCol.key || currentCol.name
-                    const producingKey = producingCol.key || producingCol.name
-                    if (currentKey !== producingKey) return true
-                  }
-                  return false
-                })()
+                hasConfigDrifted(config, resultProducingConfig)
               }
             />
             {scrapeResult && scrapeResult.data.length > 0 && (

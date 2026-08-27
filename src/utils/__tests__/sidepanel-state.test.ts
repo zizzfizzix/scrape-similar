@@ -3,6 +3,7 @@ import {
   buildExportFilename,
   createDefaultSidePanelState,
   DEFAULT_SCRAPE_CONFIG,
+  hasConfigDrifted,
   isMainSelectorValidated,
   parseFullDataViewTabId,
   resolveStoredConfig,
@@ -257,5 +258,80 @@ describe('parseFullDataViewTabId', () => {
 
   it('reports none for a URL that will not parse', () => {
     expect(parseFullDataViewTabId('not a url')).toBeNull()
+  })
+})
+
+describe('hasConfigDrifted', () => {
+  const producing: ScrapeConfig = {
+    mainSelector: '//tr',
+    columns: [
+      { name: 'Rank', selector: './td[1]' },
+      { name: 'Country', selector: './td[2]' },
+    ],
+  }
+
+  it('reports no drift for an identical config', () => {
+    expect(hasConfigDrifted({ ...producing }, producing)).toBe(false)
+  })
+
+  it('reports drift when the main selector changed', () => {
+    expect(hasConfigDrifted({ ...producing, mainSelector: '//li' }, producing)).toBe(true)
+  })
+
+  it('reports drift when a column was added', () => {
+    const current = {
+      ...producing,
+      columns: [...producing.columns, { name: 'Extra', selector: '.' }],
+    }
+
+    expect(hasConfigDrifted(current, producing)).toBe(true)
+  })
+
+  it('reports drift when a column was removed', () => {
+    expect(hasConfigDrifted({ ...producing, columns: [producing.columns[0]!] }, producing)).toBe(
+      true,
+    )
+  })
+
+  it('reports drift when a column was renamed', () => {
+    const current = {
+      ...producing,
+      columns: [{ name: 'Position', selector: './td[1]' }, producing.columns[1]!],
+    }
+
+    expect(hasConfigDrifted(current, producing)).toBe(true)
+  })
+
+  it('reports drift when a column was repointed', () => {
+    const current = {
+      ...producing,
+      columns: [{ name: 'Rank', selector: '@data-rank' }, producing.columns[1]!],
+    }
+
+    expect(hasConfigDrifted(current, producing)).toBe(true)
+  })
+
+  it('reports drift when a column gained an internal key', () => {
+    const current = {
+      ...producing,
+      columns: [{ name: 'Rank', selector: './td[1]', key: 'col1' }, producing.columns[1]!],
+    }
+
+    expect(hasConfigDrifted(current, producing)).toBe(true)
+  })
+
+  it('reports no drift when a key merely restates the name', () => {
+    const current = {
+      ...producing,
+      columns: [{ name: 'Rank', selector: './td[1]', key: 'Rank' }, producing.columns[1]!],
+    }
+
+    expect(hasConfigDrifted(current, producing)).toBe(false)
+  })
+
+  it('reports no drift between two empty column lists', () => {
+    const empty: ScrapeConfig = { mainSelector: '//tr', columns: [] }
+
+    expect(hasConfigDrifted(empty, empty)).toBe(false)
   })
 })
