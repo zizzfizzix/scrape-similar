@@ -2,10 +2,16 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Toaster } from '@/components/ui/sonner'
 import { chromeExtensionId } from '@@/package.json' with { type: 'json' }
+import {
+  buildConfigChangeUpdates,
+  buildExportFilename,
+  createDefaultSidePanelState,
+  parseFullDataViewTabId,
+  resolveStoredConfig,
+} from '@/utils/sidepanel-state'
 import log from 'loglevel'
 import { Minimize2, X } from 'lucide-react'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import slugify from 'slugify'
 import { toast } from 'sonner'
 
 // Simple splash screen component
@@ -63,12 +69,9 @@ const FullDataViewControls: React.FC<{
   const handleBackToTab = async () => {
     try {
       // Parse the full data view URL to get the original tabId
-      const url = new URL(currentTabUrl)
-      const originalTabId = url.searchParams.get('tabId')
+      const tabId = parseFullDataViewTabId(currentTabUrl)
 
-      if (originalTabId) {
-        const tabId = Number(originalTabId)
-
+      if (tabId !== null) {
         // Validate that the tab exists before trying to switch to it
         try {
           await browser.tabs.get(tabId)
@@ -161,23 +164,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
   const [pickerModeActive, setPickerModeActive] = useState(false)
 
   // Memoized export filename (regenerates if tabUrl changes)
-  const exportFilename = React.useMemo(() => {
-    const dateTime = new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').split('Z')[0]
-    const urlForSlug = tabUrl || 'unknown-url'
-    const slugifiedUrl = slugify(urlForSlug, { lower: true, strict: true })
-    return `Data export for ${slugifiedUrl} at ${dateTime}`
-  }, [tabUrl])
-
-  // Helper function to create default state
-  const createDefaultState = (): Partial<SidePanelConfig> => {
-    return {
-      initialSelectionText: undefined,
-      elementDetails: undefined,
-      selectionOptions: undefined,
-      currentScrapeConfig: undefined,
-      scrapeResult: undefined,
-    }
-  }
+  const exportFilename = React.useMemo(() => buildExportFilename(tabUrl, new Date()), [tabUrl])
 
   // Keep the ref updated whenever the state changes
   useEffect(() => {
@@ -214,10 +201,9 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
             })
           } else {
             log.debug(`No initial data found in storage for tab ${newTabId}, using default state`)
-            const defaultState = createDefaultState()
             handleInitialData({
               tabId: newTabId,
-              config: defaultState,
+              config: createDefaultSidePanelState(),
             })
           }
         })
@@ -277,67 +263,17 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
     }
 
     log.debug(`Processing data for tab ${payload.tabId}:`, payload.config)
+    const storedState = payload.config || {} // Default to empty object
     const {
-      selectionOptions,
-      elementDetails,
-      currentScrapeConfig,
-      initialSelectionText,
       scrapeResult,
       resultProducingConfig,
       highlightMatchCount,
       highlightError,
       pickerModeActive,
-    } = payload.config || {} // Default to empty object
+    } = storedState
 
-    // --- Reset state before applying new data ---
-    const defaultConfig: ScrapeConfig = {
-      mainSelector: '',
-      columns: [{ name: 'Text', selector: '.' }],
-    }
-    let newConfig = defaultConfig
-    let newOptions: SelectionOptions | null = null // Explicitly allow null
-
-    // Set config from storage if available. If not present, do not change config on highlight-only updates.
-    if (currentScrapeConfig) {
-      log.debug('Loading config from session storage:', currentScrapeConfig)
-      const candidate: ScrapeConfig = {
-        ...defaultConfig,
-        ...currentScrapeConfig,
-        columns:
-          Array.isArray(currentScrapeConfig.columns) && currentScrapeConfig.columns.length > 0
-            ? currentScrapeConfig.columns
-            : defaultConfig.columns,
-      }
-      setConfig(candidate)
-    } else if (elementDetails?.xpath) {
-      // Fallback: If no saved config, but element details exist (e.g., from context menu),
-      // initialize config with the XPath from the selected element.
-      log.debug('Initializing config from elementDetails XPath:', elementDetails.xpath)
-      newConfig = {
-        ...defaultConfig, // Start with default columns
-        mainSelector: elementDetails.xpath,
-      }
-      setConfig(newConfig)
-    } else {
-      // No saved config and no element details - use default config (important for new tabs)
-      log.debug('No saved config or element details, using default config')
-      setConfig(defaultConfig)
-    }
-
-    // Update initial options used by the ConfigForm
-    if (selectionOptions) {
-      log.debug('Setting initialOptions from selectionOptions:', selectionOptions)
-      newOptions = selectionOptions
-    } else if (elementDetails) {
-      // Construct initialOptions from elementDetails if selectionOptions not available
-      log.debug('Constructing initialOptions from elementDetails')
-      const options: SelectionOptions = {
-        xpath: elementDetails.xpath,
-        selectedText: initialSelectionText || elementDetails.text,
-      }
-      newOptions = options
-    }
-    // Update the initialOptions state
+    const { config: newConfig, options: newOptions } = resolveStoredConfig(storedState)
+    setConfig(newConfig)
     setInitialOptions(newOptions)
 
     // Load saved scraped data from session storage if available
@@ -420,7 +356,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
           )
 
           // Just use default state without saving it to storage
-          const defaultState = createDefaultState()
+          const defaultState = createDefaultSidePanelState()
           handleInitialData({
             tabId: newTabId,
             config: defaultState,
