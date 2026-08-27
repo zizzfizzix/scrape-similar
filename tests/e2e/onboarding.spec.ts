@@ -15,18 +15,20 @@ import { expect, test, TestHelpers } from './fixtures'
  *     scrape on a `wikipedia.org/wiki/` URL
  *
  * The extension is built before Playwright starts, so it cannot learn the
- * ephemeral port the fixture server picks per worker (see `fixtures.ts`).
+ * ephemeral port the fixture server picks per worker (see `fixtures.ts`). Note
+ * that this rules out baking a fixture URL in at build time on its own: a single
+ * baked constant would have to point at a host:port every one of the 20 workers
+ * serves, so build-time injection also forces one shared server on a fixed port.
  *
- * Decision (issue #254): point the demo at a fixture page by injecting its URL
- * at build time through a `VITE_`-prefixed env var read by the existing `isTest`
- * branches, rather than pinning the fixture server to a fixed port. A fixed port
- * would have to be shared by all Playwright workers - the suite runs 20 - which
- * means hoisting the server into `playwright.config.ts` as a `webServer` and
- * giving up the "any free port" property that keeps parallel runs and developer
- * machines conflict-free. Injection keeps the server per-worker and ephemeral,
- * at the cost of the three `isTest` branches above also reading the injected URL
- * (and the tab-update guard matching it instead of `wikipedia.org/wiki/`).
- * Tracked as follow-up work; until it lands these specs need network access.
+ * 7 of the 9 tests below need network; `can navigate backwards through
+ * onboarding slides` and `stores demo scrape config correctly before navigation`
+ * already pass offline.
+ *
+ * Picking a fix is tracked in issue #258, which lays out the options and their
+ * costs. The cheapest one that works - verified by prototype - needs no
+ * extension source change at all: intercept the hard-coded demo URL with
+ * `context.route` and fulfil it from a local `wikitable`-shaped fixture, the way
+ * `column-delete.spec.ts` already mocks its table page.
  */
 
 test.describe('Onboarding Flow', () => {
