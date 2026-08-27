@@ -12,7 +12,7 @@
     // WXT 0.21 turned these on in its generated tsconfig. Adopting them means
     // ~100 fixes across the scraper, picker and highlight code, which are
     // semantic decisions best reviewed separately from a dependency bump.
-    // Tracked for follow-up; remove these two lines to adopt.
+    // Tracked in #245; remove these two lines to adopt.
     "noUncheckedIndexedAccess": false,
     "noImplicitOverride": false
   }
