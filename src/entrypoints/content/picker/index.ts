@@ -68,6 +68,19 @@ export const removeCrosshairCursor = (): void => {
 }
 
 /**
+ * Forget the current hover: drop the highlights and blank the banner.
+ *
+ * Used whenever the cursor leaves the page content — over the banner, over the
+ * extension's own UI, or over an element no selector can describe.
+ */
+const clearPickerSelection = (state: ContentScriptState): void => {
+  state.currentHoveredElement = null
+  state.currentXPath = ''
+  removePickerHighlights(state.highlightedElements)
+  updatePickerBannerContent(0, '', state)
+}
+
+/**
  * Process mouse update (throttled via requestAnimationFrame)
  */
 const processMouseUpdate = (state: ContentScriptState): void => {
@@ -88,10 +101,7 @@ const processMouseUpdate = (state: ContentScriptState): void => {
       state.lastMouseY <= bannerRect.bottom
     ) {
       // Mouse is over the banner - clear the display
-      state.currentHoveredElement = null
-      state.currentXPath = ''
-      removePickerHighlights(state.highlightedElements)
-      updatePickerBannerContent(0, '', state)
+      clearPickerSelection(state)
       return
     }
   }
@@ -111,10 +121,7 @@ const processMouseUpdate = (state: ContentScriptState): void => {
 
   // Skip if element is inside any extension UI element (context menu, etc.)
   if (el.closest('[data-wxt-shadow-root]')) {
-    state.currentHoveredElement = null
-    state.currentXPath = ''
-    removePickerHighlights(state.highlightedElements)
-    updatePickerBannerContent(0, '', state)
+    clearPickerSelection(state)
     return
   }
 
@@ -129,9 +136,7 @@ const processMouseUpdate = (state: ContentScriptState): void => {
   const selector = state.selectorCandidates[state.selectedCandidateIndex]
   if (!selector) {
     // No candidate could be built (e.g. the hovered element is <body> itself).
-    state.currentXPath = ''
-    removePickerHighlights(state.highlightedElements)
-    updatePickerBannerContent(0, '', state)
+    clearPickerSelection(state)
     return
   }
   state.currentXPath = selector
@@ -168,6 +173,75 @@ export const handlePickerMouseMove = (event: MouseEvent, state: ContentScriptSta
   }
 }
 
+/** What the picker resolved from a click, ready to store and scrape. */
+export interface PickerSelection {
+  /** Minimal XPath of the exact element that was clicked. */
+  xpath: string
+  /** Config to scrape with: the guessed columns under the chosen selector. */
+  config: ScrapeConfig
+  /** Details of the clicked element, shown in the side panel. */
+  elementDetails: { xpath: string; text: string; html: string }
+}
+
+/**
+ * Resolve a clicked element into the config to scrape with.
+ *
+ * The columns come from the element itself, but `mainSelector` comes from the
+ * candidate level the user settled on, so the scrape covers every sibling
+ * rather than just the one clicked.
+ */
+export const buildPickerSelection = (
+  element: HTMLElement,
+  state: ContentScriptState,
+): PickerSelection => {
+  const xpath = minimizeXPath(element)
+  const selectedSelector = state.selectorCandidates[state.selectedCandidateIndex] || xpath
+  const guessedConfig = state.currentGuessedConfig ?? guessScrapeConfigForElement(element)
+
+  return {
+    xpath,
+    config: { ...guessedConfig, mainSelector: selectedSelector },
+    elementDetails: {
+      xpath,
+      text: element.textContent || '',
+      html: element.outerHTML,
+    },
+  }
+}
+
+/**
+ * Merge `updates` into the tab's side-panel state, rejecting when the
+ * background could not store them.
+ */
+const storeSidePanelUpdates = (tabId: number, updates: Record<string, unknown>): Promise<void> =>
+  new Promise<void>((resolve, reject) => {
+    browser.runtime.sendMessage(
+      { type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA, payload: { tabId, updates } },
+      (response) => {
+        if (browser.runtime.lastError) {
+          log.error('Error saving picker config to background:', browser.runtime.lastError)
+          reject(browser.runtime.lastError)
+        } else if (response?.success) {
+          log.debug('Picker config saved successfully')
+          resolve()
+        } else {
+          log.error('Failed to save picker config:', response?.error)
+          reject(new Error(response?.error || 'Failed to save config'))
+        }
+      },
+    )
+  })
+
+/**
+ * True when the click landed on the extension's own banner or context menu, in
+ * which case the picker should let it through untouched.
+ */
+const isClickOnPickerUi = (event: MouseEvent, state: ContentScriptState): boolean => {
+  const composed = event.composedPath()
+  if (state.bannerRootEl && composed.includes(state.bannerRootEl)) return true
+  return !!state.pickerContextMenuHost && composed.includes(state.pickerContextMenuHost)
+}
+
 /**
  * Handle click in picker mode
  */
@@ -177,25 +251,13 @@ export const handlePickerClick = async (
   disablePickerMode: (source?: string) => void,
 ): Promise<void> => {
   if (!state.pickerModeActive) return
-
-  // If click originated from inside our banner UI, let it pass through
-  const composed = event.composedPath()
-  if (state.bannerRootEl && composed.includes(state.bannerRootEl)) {
-    return
-  }
-
-  // If click originated from inside our context menu, let it pass through
-  if (state.pickerContextMenuHost && event.composedPath().includes(state.pickerContextMenuHost)) {
-    return
-  }
+  if (isClickOnPickerUi(event, state)) return
 
   event.preventDefault()
   event.stopPropagation()
 
-  // Disable picker mode
   disablePickerMode('element_selected')
 
-  // Get the element that was clicked
   const el = document.elementFromPoint(event.clientX, event.clientY)
   if (!el || !(el instanceof HTMLElement)) return
 
@@ -210,60 +272,28 @@ export const handlePickerClick = async (
     total_levels: state.selectorCandidates.length,
   })
 
-  // Use currently selected candidate selector for final scrape
-  const xpath = minimizeXPath(el)
-  const selectedSelector = state.selectorCandidates[state.selectedCandidateIndex] || xpath
-  const guessedConfig = (state.currentGuessedConfig ||
-    guessScrapeConfigForElement(el)) as ScrapeConfig
-  const finalConfig: ScrapeConfig = { ...guessedConfig, mainSelector: selectedSelector }
+  const { config, elementDetails } = buildPickerSelection(el, state)
 
-  if (state.tabId === null) {
+  const { tabId } = state
+  if (tabId === null) {
     log.error('tabId not initialized in content script.')
     return
   }
 
-  // Save config to storage (same flow as right-click scrape similar)
   try {
-    const elementDetails = {
-      xpath,
-      text: el.textContent || '',
-      html: el.outerHTML,
-    }
+    // Save config first, so the side panel shows the selector even if the
+    // scrape below turns up nothing.
+    await storeSidePanelUpdates(tabId, { currentScrapeConfig: config, elementDetails })
 
-    // Update storage with the finalized config that uses the selected mainSelector
-    await new Promise<void>((resolve, reject) => {
-      browser.runtime.sendMessage(
-        {
-          type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
-          payload: {
-            tabId: state.tabId,
-            updates: { currentScrapeConfig: finalConfig, elementDetails },
-          },
-        },
-        (response) => {
-          if (browser.runtime.lastError) {
-            log.error('Error saving picker config to background:', browser.runtime.lastError)
-            reject(browser.runtime.lastError)
-          } else if (response?.success) {
-            log.debug('Picker config saved successfully')
-            resolve()
-          } else {
-            log.error('Failed to save picker config:', response?.error)
-            reject(new Error(response?.error || 'Failed to save config'))
-          }
-        },
-      )
-    })
-
-    // Now highlight the elements (do not scroll during picker flow)
-    const elementsToHighlight = evaluateXPath(finalConfig.mainSelector)
+    // Highlight without scrolling: the user is already looking at the element.
+    const elementsToHighlight = evaluateXPath(config.mainSelector)
     highlightMatchingElements(elementsToHighlight, { shouldScroll: false })
 
     // Persist validation state so the UI marks the selector as validated
     browser.runtime.sendMessage({
       type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
       payload: {
-        tabId: state.tabId,
+        tabId,
         updates: {
           highlightMatchCount: elementsToHighlight.length,
           highlightError: null,
@@ -271,33 +301,28 @@ export const handlePickerClick = async (
       },
     })
 
-    // Track element highlighting (from picker)
     trackEvent(ANALYTICS_EVENTS.ELEMENTS_HIGHLIGHT, {
       elements_count: elementsToHighlight.length,
       is_row_highlight: false,
     })
 
-    // Finally, trigger the scrape
-    const scrapedData = scrapePage(finalConfig)
-    const columnOrder = finalConfig.columns.map((col) => col.name)
+    const scrapedData = scrapePage(config)
     const scrapeResult: ScrapeResult = {
       data: scrapedData,
-      columnOrder,
+      columnOrder: config.columns.map((col) => col.name),
     }
 
     log.debug('Picker mode scrape complete, data:', scrapeResult)
 
-    // Track scraping completion
     trackEvent(ANALYTICS_EVENTS.SCRAPE_COMPLETION, {
       items_scraped: scrapedData.length,
-      columns_count: guessedConfig.columns.length,
+      columns_count: config.columns.length,
     })
 
-    // Send scrape result to background script for storage
     browser.runtime.sendMessage(
       {
         type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
-        payload: { tabId: state.tabId, updates: { scrapeResult } },
+        payload: { tabId, updates: { scrapeResult } },
       },
       async (response) => {
         if (browser.runtime.lastError) {

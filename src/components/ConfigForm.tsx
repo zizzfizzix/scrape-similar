@@ -22,6 +22,22 @@ import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Textarea } from '@/components/ui/textarea'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import {
+  buildSuggestionIds,
+  filterPresetsByQuery,
+  filterRecentSelectors,
+  isSelectorAPreset,
+  nextSuggestionIndex,
+  RECENT_SUGGESTION_PREFIX,
+  resolveSuggestion,
+} from '@/utils/autosuggest'
+import {
+  sanitizeToSingleLine,
+  withAddedColumn,
+  withColumnName,
+  withColumnSelector,
+  withoutColumn,
+} from '@/utils/scrape-config'
 import log from 'loglevel'
 
 import {
@@ -242,37 +258,19 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
 
   // Handle column name change
   const handleColumnNameChange = (index: number, value: string) => {
-    const column = config.columns[index]
-    if (!column) return
-    const newColumns = [...config.columns]
-    newColumns[index] = { ...column, name: value }
-    onChange({
-      ...config,
-      columns: newColumns,
-    })
+    onChange(withColumnName(config, index, value))
   }
 
   // Handle column selector change
   const handleColumnSelectorChange = (index: number, value: string) => {
-    const column = config.columns[index]
-    if (!column) return
-    const newColumns = [...config.columns]
-    newColumns[index] = { ...column, selector: value }
-    onChange({
-      ...config,
-      columns: newColumns,
-    })
+    onChange(withColumnSelector(config, index, value))
   }
 
   // Add a new column
   const addColumn = () => {
     if (!newColumnName.trim()) return
 
-    onChange({
-      ...config,
-      columns: [...config.columns, { name: newColumnName, selector: '.' }],
-    })
-
+    onChange(withAddedColumn(config, newColumnName))
     setNewColumnName('')
   }
 
@@ -280,10 +278,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
   const removeColumn = (index: number) => {
     trackEvent(ANALYTICS_EVENTS.REMOVE_COLUMN_BUTTON_PRESS)
 
-    onChange({
-      ...config,
-      columns: config.columns.filter((_, i) => i !== index),
-    })
+    onChange(withoutColumn(config, index))
   }
 
   // Handler to guess config from selector
@@ -428,9 +423,6 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
     }, 150)
   }
 
-  // Sanitize to single-line by replacing CR/LF with a single space
-  const sanitizeToSingleLine = (value: string) => value.replace(/[\r\n]+/g, ' ')
-
   // Handle main selector change with autosuggest (newline-less)
   const handleMainSelectorChange = (value: string) => {
     const sanitized = sanitizeToSingleLine(value)
@@ -447,15 +439,10 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
   }
 
   // Presets filtered by the main selector draft (acts as search term)
-  const filteredPresetsForAutosuggest = React.useMemo(() => {
-    const query = (mainSelectorDraft || '').toLowerCase().trim()
-    if (!query) return presets
-    return presets.filter((p) => {
-      const name = p.name.toLowerCase()
-      const xpath = (p.config.mainSelector || '').toLowerCase()
-      return name.includes(query) || xpath.includes(query)
-    })
-  }, [presets, mainSelectorDraft])
+  const filteredPresetsForAutosuggest = React.useMemo(
+    () => filterPresetsByQuery(presets, mainSelectorDraft || ''),
+    [presets, mainSelectorDraft],
+  )
 
   // Recent selectors state
   const [recentSelectors, setRecentSelectors] = useState<string[]>([])
@@ -475,22 +462,16 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
     return () => unwatch()
   }, [])
 
-  const recentSuggestions = React.useMemo(() => {
-    const query = (mainSelectorDraft || '').toLowerCase().trim()
-    const presetSelectors = new Set(
-      presets.map((p) => (p.config.mainSelector || '').trim()).filter(Boolean),
-    )
-    return recentSelectors
-      .filter((s) => !presetSelectors.has(s))
-      .filter((s) => (query ? s.toLowerCase().includes(query) : true))
-  }, [recentSelectors, presets, mainSelectorDraft])
+  const recentSuggestions = React.useMemo(
+    () => filterRecentSelectors(recentSelectors, presets, mainSelectorDraft || ''),
+    [recentSelectors, presets, mainSelectorDraft],
+  )
 
   // Combined navigation order for cmdk (recents first, then presets)
-  const combinedSuggestionValues = React.useMemo(() => {
-    const recents = recentSuggestions.map((_, i) => `recent-${i}`)
-    const presetsVals = filteredPresetsForAutosuggest.map((p) => p.id)
-    return [...recents, ...presetsVals]
-  }, [recentSuggestions, filteredPresetsForAutosuggest])
+  const combinedSuggestionValues = React.useMemo(
+    () => buildSuggestionIds(recentSuggestions, filteredPresetsForAutosuggest),
+    [recentSuggestions, filteredPresetsForAutosuggest],
+  )
 
   // Handle keyboard navigation from textarea while dropdown is open/closed
   const handleAutosuggestKeyDown = (e: React.KeyboardEvent) => {
@@ -513,9 +494,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
         })
       } else if (filteredPresetsForAutosuggest.length > 0) {
         setSelectedAutosuggestIndex((prev) => {
-          const total = combinedSuggestionValues.length
-          if (total === 0) return -1
-          const next = prev < total - 1 ? prev + 1 : 0
+          const next = nextSuggestionIndex(prev, combinedSuggestionValues.length, 1)
           setCmdkSelectedId(combinedSuggestionValues[next])
           requestAnimationFrame(() => ensureVisible(next))
           return next
@@ -537,10 +516,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
         })
       } else if (filteredPresetsForAutosuggest.length > 0) {
         setSelectedAutosuggestIndex((prev) => {
-          const total = combinedSuggestionValues.length
-          if (total === 0) return -1
-          const lastIdx = total - 1
-          const next = prev > 0 ? prev - 1 : lastIdx
+          const next = nextSuggestionIndex(prev, combinedSuggestionValues.length, -1)
           setCmdkSelectedId(combinedSuggestionValues[next])
           requestAnimationFrame(() => ensureVisible(next))
           return next
@@ -553,30 +529,20 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
       // Always prevent newline insertion
       e.preventDefault()
       if (isAutosuggestOpen && selectedAutosuggestIndex >= 0) {
-        // Check if the selected item is a recent or a preset
-        const selectedId = combinedSuggestionValues[selectedAutosuggestIndex]
-        if (selectedId?.startsWith('recent-')) {
-          // Extract the index from the recent ID (e.g., "recent-0" -> 0)
-          const recentIndex = parseInt(selectedId.slice('recent-'.length), 10)
-          const selector = recentSuggestions[recentIndex]
-          if (selector) {
-            handleRecentSelectorSelect(selector)
-          }
-        } else {
-          // It's a preset ID
-          const preset = filteredPresetsForAutosuggest.find((p) => p.id === selectedId)
-          if (preset) handleAutosuggestSelect(preset)
-        }
+        const suggestion = resolveSuggestion(
+          combinedSuggestionValues[selectedAutosuggestIndex],
+          recentSuggestions,
+          filteredPresetsForAutosuggest,
+        )
+        if (suggestion?.kind === 'recent') handleRecentSelectorSelect(suggestion.selector)
+        if (suggestion?.kind === 'preset') handleAutosuggestSelect(suggestion.preset)
         return
       }
       if (mainSelectorDraft.trim()) {
         // Save to recents if not a preset, then either validate (if changed) or scrape (if unchanged and valid)
         ;(async () => {
           const all = await getAllPresets()
-          const isPreset = all.some(
-            (p) => (p.config.mainSelector || '').trim() === mainSelectorDraft.trim(),
-          )
-          if (!isPreset) {
+          if (!isSelectorAPreset(mainSelectorDraft, all)) {
             await pushRecentMainSelector(mainSelectorDraft)
             const updated = await getRecentMainSelectors()
             setRecentSelectors(updated)
@@ -854,8 +820,8 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                         <>
                           {recentSuggestions.map((selector, index) => (
                             <CommandItem
-                              key={`recent-${index}-${selector}`}
-                              value={`recent-${index}`}
+                              key={`${RECENT_SUGGESTION_PREFIX}${index}-${selector}`}
+                              value={`${RECENT_SUGGESTION_PREFIX}${index}`}
                               onMouseDown={() => {
                                 // Set flag on mousedown (before blur) to prevent blur handler from committing stale value
                                 isSelectingFromAutosuggestRef.current = true

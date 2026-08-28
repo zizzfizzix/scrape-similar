@@ -1,22 +1,33 @@
 import log from 'loglevel'
 import type { ExportResult } from '../types'
 import { removeCachedAuthToken, requestAuthToken } from '../utils/auth'
+import {
+  buildAppendValuesBody,
+  buildCreateSpreadsheetBody,
+  buildHeaderFormatBody,
+  buildSheetValues,
+  SHEETS_API,
+} from './sheets-payload'
+
+export interface ExportPayload {
+  filename: string
+  scrapedData: ScrapedData
+  columnOrder?: string[]
+  columnKeys?: string[]
+}
+
+/**
+ * Result of validating an EXPORT_TO_SHEETS payload. Modelled as a discriminated
+ * union so a valid result always carries `data` and an invalid one always
+ * carries `error`.
+ */
+export type ExportPayloadValidation =
+  { isValid: true; data: ExportPayload } | { isValid: false; error: string }
 
 /**
  * Validate EXPORT_TO_SHEETS payload structure
  */
-export const validateExportPayload = (
-  payload: any,
-): {
-  isValid: boolean
-  error?: string
-  data?: {
-    filename: string
-    scrapedData: ScrapedData
-    columnOrder?: string[]
-    columnKeys?: string[]
-  }
-} => {
+export const validateExportPayload = (payload: any): ExportPayloadValidation => {
   const { filename, scrapedData, columnOrder, columnKeys } = payload || {}
 
   if (!filename || !filename.trim()) {
@@ -42,11 +53,11 @@ export const handleExportToSheets = async (
   const validation = validateExportPayload(payload)
   if (!validation.isValid) {
     log.error(`${logPrefix} Validation failed:`, validation.error)
-    sendResponse({ success: false, error: validation.error || 'Validation failed' })
+    sendResponse({ success: false, error: validation.error })
     return
   }
 
-  const { filename, scrapedData, columnOrder, columnKeys } = validation.data!
+  const { filename, scrapedData, columnOrder, columnKeys } = validation.data
 
   log.debug(`${logPrefix} Validation passed, requesting auth token`)
 
@@ -81,6 +92,33 @@ export const handleExportToSheets = async (
 }
 
 /**
+ * Issue an authenticated Sheets API request, surfacing an expired token as a
+ * distinct error so the caller can ask the user to retry.
+ */
+const requestSheetsApi = async (token: string, url: string, body: unknown): Promise<any> => {
+  const response = await fetch(url, {
+    method: 'POST',
+    body: JSON.stringify(body),
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  })
+
+  if (response.status === 401) {
+    await removeCachedAuthToken(token)
+    throw new Error('Authentication token expired')
+  }
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}))
+    throw new Error(`API request failed: ${response.statusText} ${JSON.stringify(errorData)}`)
+  }
+
+  return response.json()
+}
+
+/**
  * Export scraped data to a new Google Sheet
  * Creates spreadsheet, populates data, and formats header row
  */
@@ -92,118 +130,36 @@ export const exportToGoogleSheets = async (
   columnKeys?: string[],
 ): Promise<ExportResult> => {
   try {
-    const [firstRow] = scrapedData ?? []
-    if (!firstRow) {
+    const { headers, values } = buildSheetValues(scrapedData, columnOrder, columnKeys)
+
+    if (!scrapedData?.length) {
       return { success: false, error: 'No data to export' }
     }
-
-    // Get column headers - use columnOrder if available, otherwise fallback to Object.keys
-    const headers = columnOrder && columnOrder.length > 0 ? columnOrder : Object.keys(firstRow.data)
-
     if (headers.length === 0) {
       return { success: false, error: 'No columns found in data' }
     }
 
-    // Use columnKeys for data access if available, otherwise use headers
-    const dataKeys = columnKeys && columnKeys.length > 0 ? columnKeys : headers
-
-    // Create sheet values (header row + data rows)
-    const values = [
-      headers,
-      ...scrapedData.map((row) => dataKeys.map((key) => row.data[key] || '')),
-    ]
-
-    // Helper function to make authenticated requests
-    const makeRequest = async (url: string, options: RequestInit) => {
-      const response = await fetch(url, {
-        ...options,
-        headers: {
-          ...options.headers,
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      })
-
-      if (response.status === 401) {
-        await removeCachedAuthToken(token)
-        throw new Error('Authentication token expired')
-      }
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(`API request failed: ${response.statusText} ${JSON.stringify(errorData)}`)
-      }
-
-      return response.json()
-    }
-
-    // Create a new spreadsheet
-    const spreadsheet = await makeRequest('https://sheets.googleapis.com/v4/spreadsheets', {
-      method: 'POST',
-      body: JSON.stringify({
-        properties: {
-          title: filename,
-        },
-      }),
-    })
+    const spreadsheet = await requestSheetsApi(
+      token,
+      SHEETS_API.create(),
+      buildCreateSpreadsheetBody(filename),
+    )
 
     const spreadsheetId = spreadsheet.spreadsheetId
     const spreadsheetUrl = spreadsheet.spreadsheetUrl
-
-    // Get the sheet ID from the created spreadsheet
     const sheetId = spreadsheet.sheets[0].properties.sheetId
 
-    // Update values in the sheet first
-    await makeRequest(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/A1:append?valueInputOption=USER_ENTERED`,
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          range: 'A1',
-          majorDimension: 'ROWS',
-          values,
-        }),
-      },
+    // Write the rows before formatting, so the header row exists to format.
+    await requestSheetsApi(
+      token,
+      SHEETS_API.appendValues(spreadsheetId),
+      buildAppendValuesBody(values),
     )
 
-    // Then format the header row and auto-resize using the correct sheet ID
-    await makeRequest(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          requests: [
-            {
-              repeatCell: {
-                range: {
-                  sheetId: sheetId,
-                  startRowIndex: 0,
-                  endRowIndex: 1,
-                  startColumnIndex: 0,
-                  endColumnIndex: headers.length,
-                },
-                cell: {
-                  userEnteredFormat: {
-                    backgroundColor: { red: 0.95, green: 0.95, blue: 0.95 },
-                    textFormat: { bold: true },
-                  },
-                },
-                fields: 'userEnteredFormat(backgroundColor,textFormat)',
-              },
-            },
-            {
-              autoResizeDimensions: {
-                dimensions: {
-                  sheetId: sheetId,
-                  dimension: 'COLUMNS',
-                  startIndex: 0,
-                  endIndex: headers.length,
-                },
-              },
-            },
-          ],
-        }),
-      },
+    await requestSheetsApi(
+      token,
+      SHEETS_API.batchUpdate(spreadsheetId),
+      buildHeaderFormatBody(sheetId, headers.length),
     )
 
     log.debug(`Successfully exported data to Google Sheet: ${spreadsheetUrl}`)

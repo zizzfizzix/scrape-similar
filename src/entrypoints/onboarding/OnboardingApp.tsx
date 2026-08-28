@@ -22,6 +22,13 @@ import {
   Shield,
   Zap,
 } from 'lucide-react'
+import {
+  buildSlideNavigationProperties,
+  buildSlideViewProperties,
+  demoPageUrl,
+  detectPlatform,
+  nextSlideIndex,
+} from '@/entrypoints/onboarding/navigation'
 import React, { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -40,9 +47,7 @@ const OnboardingApp: React.FC = () => {
   const { loading: isLoading, state: consentState, setConsent } = useConsent()
 
   useEffect(() => {
-    // Detect platform
-    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
-    setPlatform(isMac ? 'mac' : 'win')
+    setPlatform(detectPlatform(navigator.platform))
   }, [])
 
   // Track card views when slide changes (after consent decision)
@@ -50,69 +55,40 @@ const OnboardingApp: React.FC = () => {
     if (consentState === undefined) return
     const currentSlideData = slides[currentSlide]
     if (!currentSlideData) return
-    trackEvent(ANALYTICS_EVENTS.ONBOARDING_CARD_VIEW, {
-      slide_number: currentSlide + 1,
-      slide_id: currentSlideData.id,
-      slide_title: currentSlideData.title,
-      slide_description: currentSlideData.description,
-      is_first_slide: currentSlide === 0,
-      is_last_slide: currentSlide === slides.length - 1,
-      total_slides: slides.length,
-    })
+    trackEvent(
+      ANALYTICS_EVENTS.ONBOARDING_CARD_VIEW,
+      buildSlideViewProperties(currentSlide, currentSlideData, slides.length),
+    )
   }, [currentSlide, consentState])
 
-  const handleNext = () => {
+  const goToAdjacentSlide = (direction: 1 | -1, event: string) => {
     if (consentState === undefined) return
-    const nextSlide = currentSlide + 1
+
+    const targetSlide = nextSlideIndex(currentSlide, slides.length, direction)
+    if (targetSlide === null) return
+
     const fromSlideData = slides[currentSlide]
-    const toSlideData = slides[nextSlide]
-    // No next slide means we are already on the last one
+    const toSlideData = slides[targetSlide]
     if (!fromSlideData || !toSlideData) return
 
-    setCurrentSlide(nextSlide)
+    setCurrentSlide(targetSlide)
+    trackEvent(
+      event,
+      buildSlideNavigationProperties(currentSlide, fromSlideData, targetSlide, toSlideData),
+    )
 
-    // Track navigation
-    trackEvent(ANALYTICS_EVENTS.ONBOARDING_NEXT_BUTTON_PRESS, {
-      from_slide: {
-        index: currentSlide + 1,
-        title: fromSlideData.title,
-      },
-      to_slide: {
-        index: nextSlide + 1,
-        title: toSlideData.title,
-      },
-    })
-
-    // Track completion if this is the last slide
-    if (nextSlide === slides.length - 1) {
+    // Reaching the last slide is what counts as finishing onboarding.
+    if (direction === 1 && targetSlide === slides.length - 1) {
       trackEvent(ANALYTICS_EVENTS.ONBOARDING_COMPLETE, {
         total_slides_viewed: slides.length,
       })
     }
   }
 
-  const handlePrevious = () => {
-    if (consentState === undefined) return
-    const prevSlide = currentSlide - 1
-    const fromSlideData = slides[currentSlide]
-    const toSlideData = prevSlide >= 0 ? slides[prevSlide] : undefined
-    // No previous slide means we are already on the first one
-    if (!fromSlideData || !toSlideData) return
+  const handleNext = () => goToAdjacentSlide(1, ANALYTICS_EVENTS.ONBOARDING_NEXT_BUTTON_PRESS)
 
-    setCurrentSlide(prevSlide)
-
-    // Track navigation
-    trackEvent(ANALYTICS_EVENTS.ONBOARDING_PREVIOUS_BUTTON_PRESS, {
-      from_slide: {
-        index: currentSlide + 1,
-        title: fromSlideData.title,
-      },
-      to_slide: {
-        index: prevSlide + 1,
-        title: toSlideData.title,
-      },
-    })
-  }
+  const handlePrevious = () =>
+    goToAdjacentSlide(-1, ANALYTICS_EVENTS.ONBOARDING_PREVIOUS_BUTTON_PRESS)
 
   const onConsentChange = async (accepted: boolean) => {
     await setConsent(accepted)
@@ -135,12 +111,7 @@ const OnboardingApp: React.FC = () => {
       })
 
       if (response?.success) {
-        // Navigate this tab to the demo Wikipedia page
-        // Use Special:Random by default, but keep deterministic URL for e2e tests.
-        const demoUrl = isTest
-          ? 'https://en.wikipedia.org/wiki/List_of_countries_and_dependencies_by_population'
-          : 'https://en.wikipedia.org/wiki/Special:Random'
-        window.location.replace(demoUrl)
+        window.location.replace(demoPageUrl(isTest))
       } else {
         toast.error('Failed to start demo: ' + (response?.error || 'Unknown error'))
       }

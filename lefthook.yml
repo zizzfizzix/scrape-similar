@@ -3,16 +3,22 @@
 # (`scripts/install-git-hooks.mjs`).
 # Set LEFTHOOK=0 to skip all hooks for a single command.
 
+# Formatting is a property of the diff itself, so it is checked per commit.
 pre-commit:
-  # Both checks are read-only and independent, so run them concurrently.
-  parallel: true
   commands:
     fmt-check:
       run: pnpm fmt-check
       fail_text: "Commit blocked: please run 'pnpm fmt' before staging your changes."
+
+# The test suite takes ~40s and coverage is a property of the branch as a whole,
+# not of each work-in-progress commit, so it gates the push instead.
+pre-push:
+  commands:
     unit-tests:
-      run: pnpm test
-      fail_text: 'Commit blocked: unit tests failed.'
+      # Same command CI runs, so a coverage regression surfaces here rather
+      # than on the PR.
+      run: pnpm test:coverage
+      fail_text: 'Push blocked: unit tests failed or coverage dropped below the threshold.'
 
 post-checkout:
   # Stream the setup progress instead of buffering it until the hook finishes.

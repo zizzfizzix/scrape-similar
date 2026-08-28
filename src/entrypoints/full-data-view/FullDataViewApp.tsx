@@ -54,6 +54,14 @@ import {
   tableFeatures,
   useTable,
 } from '@tanstack/react-table'
+import {
+  collectTabsWithData,
+  parseRequestedTabId,
+  resolveTabSelection,
+  visibleRows,
+  type TabData,
+} from '@/entrypoints/full-data-view/tab-data'
+import { calculateOptimalColumnWidth, FULL_DATA_VIEW_COLUMN_METRICS } from '@/utils/column-width'
 import log from 'loglevel'
 import {
   ArrowLeft,
@@ -92,20 +100,11 @@ const fullDataViewFeatures = tableFeatures({
 
 type FullDataViewFeatures = typeof fullDataViewFeatures
 
-interface TabData {
-  tabId: number
-  tabUrl: string
-  tabTitle: string
-  scrapeResult: ScrapeResult
-  config: ScrapeConfig
-}
-
 interface FullDataViewAppProps {}
 
 const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
   // URL parsing
-  const urlParams = new URLSearchParams(window.location.search)
-  const initialTabId = urlParams.get('tabId') ? parseInt(urlParams.get('tabId')!) : null
+  const initialTabId = parseRequestedTabId(window.location.search)
 
   // State
   const [currentTabId, setCurrentTabId] = useState<number | null>(initialTabId)
@@ -135,70 +134,22 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
         setLoading(true)
         setError(null)
 
-        // Get all tabs with the browser API
-        const tabs = await browser.tabs.query({})
-        const tabsWithData: TabData[] = []
-
-        // Check each tab for stored data
-        for (const tab of tabs) {
-          if (!tab.id) continue
-
-          const sessionKey = `sidepanel_config_${tab.id}`
-          try {
-            const storedData = await storage.getItem<SidePanelConfig>(`session:${sessionKey}`)
-            if (storedData?.scrapeResult?.data && storedData.scrapeResult.data.length > 0) {
-              tabsWithData.push({
-                tabId: tab.id,
-                tabUrl: tab.url || 'Unknown URL',
-                tabTitle: tab.title || 'Unknown Title',
-                scrapeResult: storedData.scrapeResult,
-                // Prefer the config that produced the data over the current edit-able
-                // config; the data layout (column keys, mainSelector) is only valid in
-                // terms of the producing config.
-                config: storedData.resultProducingConfig ||
-                  storedData.currentScrapeConfig || {
-                    mainSelector: '',
-                    columns: [{ name: 'Text', selector: '.' }],
-                  },
-              })
-            }
-          } catch (err) {
-            log.warn(`Error loading data for tab ${tab.id}:`, err)
-          }
-        }
+        const tabsWithData = await collectTabsWithData(await browser.tabs.query({}), (tabId) =>
+          storage.getItem<SidePanelConfig>(`session:sidepanel_config_${tabId}`),
+        )
 
         setAllTabsData(tabsWithData)
 
-        // Only update current tab selection if not preserving current selection
-        if (!preserveCurrentSelection) {
-          const [firstTabWithData] = tabsWithData
-          // Set current tab data
-          if (currentTabId) {
-            const currentData = tabsWithData.find((data) => data.tabId === currentTabId)
-            setCurrentTabData(currentData || null)
-            if (!currentData && firstTabWithData) {
-              // Fallback to first available tab if specified tab not found
-              setCurrentTabId(firstTabWithData.tabId)
-              setCurrentTabData(firstTabWithData)
-            } else if (!currentData) {
-              // No data available anywhere, reset current tab
-              setCurrentTabId(null)
-              setCurrentTabData(null)
-            }
-          } else if (firstTabWithData) {
-            // No specific tab requested, use first available
-            setCurrentTabId(firstTabWithData.tabId)
-            setCurrentTabData(firstTabWithData)
-          }
-        } else {
-          // Preserve current selection but update the data if available
-          if (currentTabId) {
-            const currentData = tabsWithData.find((data) => data.tabId === currentTabId)
-            if (currentData) {
-              setCurrentTabData(currentData)
-            }
-          }
+        if (preserveCurrentSelection) {
+          // Keep whichever tab is showing, but pick up its newer data.
+          const currentData = tabsWithData.find((data) => data.tabId === currentTabId)
+          if (currentData) setCurrentTabData(currentData)
+          return
         }
+
+        const selection = resolveTabSelection(tabsWithData, currentTabId)
+        setCurrentTabId(selection.tabId)
+        setCurrentTabData(selection.data)
       } catch (err) {
         setError('Failed to load tab data: ' + (err as Error).message)
       } finally {
@@ -489,47 +440,9 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
   }
 
   // Filter data based on showEmptyRows toggle
-  const filteredData = useMemo(() => {
-    if (!currentTabData) return []
-    return showEmptyRows
-      ? currentTabData.scrapeResult.data
-      : currentTabData.scrapeResult.data.filter((row) => !row.metadata.isEmpty)
-  }, [currentTabData, showEmptyRows])
-
-  // Calculate optimal column widths based on content
-  const calculateOptimalColumnWidth = useCallback(
-    (columnId: string, data: ScrapedRow[], config: ScrapeConfig): number => {
-      if (columnId === 'select') return 35
-      if (columnId === 'rowIndex') return 35
-      if (columnId === 'actions') return 75
-
-      // Find the column configuration
-      const columnIndex = config.columns.findIndex((col) => col.name === columnId)
-      if (columnIndex === -1) return 200
-
-      // Sample up to 100 rows for performance
-      const sampleSize = Math.min(100, data.length)
-      const sampleData = data.slice(0, sampleSize)
-
-      // Calculate max content length
-      let maxLength = columnId.length // Start with header length
-
-      for (const row of sampleData) {
-        const dataKey = config.columns[columnIndex]?.key || columnId
-        const value = row.data[dataKey] || ''
-        const contentLength = String(value).length
-        maxLength = Math.max(maxLength, contentLength)
-      }
-
-      // Convert character count to approximate pixel width
-      // Average character width is about 8px for most fonts
-      const charWidth = 8
-      const padding = 24 // Account for cell padding
-      const calculatedWidth = Math.min(Math.max(maxLength * charWidth + padding, 100), 400)
-
-      return calculatedWidth
-    },
-    [],
+  const filteredData = useMemo(
+    () => (currentTabData ? visibleRows(currentTabData.scrapeResult.data, showEmptyRows) : []),
+    [currentTabData, showEmptyRows],
   )
 
   // Build columns for TanStack Table with enhanced features
@@ -695,6 +608,7 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
           colName,
           filteredData,
           currentTabData.config,
+          FULL_DATA_VIEW_COLUMN_METRICS,
         )
         return {
           id: colName,
@@ -723,7 +637,7 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
       }),
     ]
     return baseColumns
-  }, [currentTabData, filteredData, calculateOptimalColumnWidth])
+  }, [currentTabData, filteredData])
 
   const table = useTable({
     features: fullDataViewFeatures,

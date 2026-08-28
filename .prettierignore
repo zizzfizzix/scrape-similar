@@ -2,6 +2,7 @@
 .wxt
 .output
 node_modules
+coverage
 pnpm-lock.yaml
 pnpm-workspace.yaml
 CHANGELOG.md

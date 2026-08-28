@@ -11,6 +11,68 @@ interface HandlerDependencies {
 }
 
 /**
+ * Human-readable reason an XPath expression could not be evaluated.
+ *
+ * A malformed expression surfaces as a DOMException from `document.evaluate`,
+ * whose own message is too implementation-specific to show a user.
+ */
+export const describeXPathError = (error: unknown): string => {
+  if (error instanceof DOMException) {
+    if (
+      error.name === 'SyntaxError' &&
+      error.message.includes("Failed to execute 'evaluate' on 'Document'")
+    ) {
+      return 'Invalid XPath'
+    }
+    // DOMException only subclasses Error in a real browser, not in jsdom.
+    return error.message
+  }
+  if (error instanceof Error) return error.message
+  if (typeof error === 'string') return error
+  return 'Evaluation failed'
+}
+
+/**
+ * Turn the background's reply to UPDATE_SIDEPANEL_DATA into the response this
+ * content script sends back to whoever asked it to store something.
+ *
+ * @param lastError - transport failure the browser reported, if any.
+ * @param response - the background's reply, absent on a transport failure.
+ * @param fallbackError - reason to report when the background declines without one.
+ * @param transportErrorPrefix - prepended to a transport failure's message.
+ */
+export const interpretStoreReply = (
+  lastError: { message?: string } | undefined,
+  response: { success?: boolean; error?: string } | undefined,
+  {
+    fallbackError,
+    transportErrorPrefix = '',
+  }: { fallbackError: string; transportErrorPrefix?: string },
+): { success: true } | { success: false; error: string } => {
+  if (lastError) {
+    return { success: false, error: `${transportErrorPrefix}${lastError.message ?? ''}` }
+  }
+  if (response?.success) return { success: true }
+  return { success: false, error: response?.error || fallbackError }
+}
+
+/**
+ * Evaluate `selector`, replying with a failure instead of throwing when the
+ * expression is rejected. Returns null once it has replied.
+ */
+const evaluateOrReply = (
+  selector: string,
+  sendResponse: (response: any) => void,
+): HTMLElement[] | null => {
+  try {
+    return evaluateXPath(selector)
+  } catch (error) {
+    sendResponse({ success: false, error: describeXPathError(error) })
+    return null
+  }
+}
+
+/**
  * Create message handler function
  */
 export const createMessageHandler = (state: ContentScriptState, deps: HandlerDependencies) => {
@@ -119,22 +181,20 @@ const handleStartScrape = (
     (response) => {
       if (browser.runtime.lastError) {
         log.error('Error sending scrape result to background:', browser.runtime.lastError)
-        sendResponse({
-          success: false,
-          error: 'Failed to save data to storage: ' + browser.runtime.lastError.message,
-        })
-      } else if (response?.success) {
-        sendResponse({
-          success: true,
-          data: scrapeResult,
-          message: `Scraped ${scrapeResult.data.length} items successfully and stored in session.`,
-        })
-      } else {
-        sendResponse({
-          success: false,
-          error: response?.error || 'Failed to save data to storage',
-        })
       }
+      const reply = interpretStoreReply(browser.runtime.lastError, response, {
+        fallbackError: 'Failed to save data to storage',
+        transportErrorPrefix: 'Failed to save data to storage: ',
+      })
+      sendResponse(
+        reply.success
+          ? {
+              ...reply,
+              data: scrapeResult,
+              message: `Scraped ${scrapeResult.data.length} items successfully and stored in session.`,
+            }
+          : reply,
+      )
     },
   )
   return true
@@ -149,29 +209,9 @@ const handleHighlightElements = (message: Message, sendResponse: (response: any)
     selector: string
     shouldScroll?: boolean
   }
-  let elements: any[] = []
-  try {
-    elements = evaluateXPath(selector)
-  } catch (err) {
-    let errorMsg = 'Evaluation failed'
-    if (
-      err instanceof DOMException &&
-      err.name === 'SyntaxError' &&
-      typeof err.message === 'string' &&
-      err.message.includes("Failed to execute 'evaluate' on 'Document'")
-    ) {
-      errorMsg = 'Invalid XPath'
-    } else if (err instanceof Error) {
-      errorMsg = err.message
-    } else if (typeof err === 'string') {
-      errorMsg = err
-    }
-    sendResponse({
-      success: false,
-      error: errorMsg,
-    })
-    return
-  }
+  const elements = evaluateOrReply(selector, sendResponse)
+  if (!elements) return
+
   highlightMatchingElements(elements, { shouldScroll })
 
   // Track element highlighting
@@ -197,29 +237,9 @@ const handleHighlightRowElement = (
 ): void => {
   log.debug('Highlighting row element:', message.payload)
   const { selector } = message.payload as { selector: string }
-  let elements: any[] = []
-  try {
-    elements = evaluateXPath(selector)
-  } catch (err) {
-    let errorMsg = 'Evaluation failed'
-    if (
-      err instanceof DOMException &&
-      err.name === 'SyntaxError' &&
-      typeof err.message === 'string' &&
-      err.message.includes("Failed to execute 'evaluate' on 'Document'")
-    ) {
-      errorMsg = 'Invalid XPath'
-    } else if (err instanceof Error) {
-      errorMsg = err.message
-    } else if (typeof err === 'string') {
-      errorMsg = err
-    }
-    sendResponse({
-      success: false,
-      error: errorMsg,
-    })
-    return
-  }
+  const elements = evaluateOrReply(selector, sendResponse)
+  if (!elements) return
+
   highlightMatchingElements(elements)
 
   // Track row element highlighting
@@ -268,15 +288,12 @@ const handleSaveElementDetails = (
       (response) => {
         if (browser.runtime.lastError) {
           log.error('Error sending element config to background:', browser.runtime.lastError)
-          sendResponse({ success: false, error: browser.runtime.lastError.message })
-        } else if (response?.success) {
-          sendResponse({ success: true })
-        } else {
-          sendResponse({
-            success: false,
-            error: response?.error || 'Failed to save config',
-          })
         }
+        sendResponse(
+          interpretStoreReply(browser.runtime.lastError, response, {
+            fallbackError: 'Failed to save config',
+          }),
+        )
       },
     )
   } catch (err) {
@@ -323,15 +340,12 @@ const handleGuessConfigFromSelector = (
     (response) => {
       if (browser.runtime.lastError) {
         log.error('Error sending guessed config to background:', browser.runtime.lastError)
-        sendResponse({ success: false, error: browser.runtime.lastError.message })
-      } else if (response?.success) {
-        sendResponse({ success: true })
-      } else {
-        sendResponse({
-          success: false,
-          error: response?.error || 'Failed to save config',
-        })
       }
+      sendResponse(
+        interpretStoreReply(browser.runtime.lastError, response, {
+          fallbackError: 'Failed to save config',
+        }),
+      )
     },
   )
   return true

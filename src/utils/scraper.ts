@@ -1,4 +1,5 @@
 import log from 'loglevel'
+import { buildColumnsForElement, buildTableRowSelector, findScrapeAncestor } from './scrape-guess'
 
 /**
  * Scrape data from the page based on the provided configuration
@@ -106,14 +107,12 @@ export const extractData = (element: HTMLElement, column: ColumnDefinition): str
     }
 
     // Fall back to node evaluation for selectors that return nodes
-    const values = evaluateXPathValues(selector, element)
-    if (values.length > 0) {
-      // If it's an element, return its textContent; otherwise, return the string value
-      const first = values[0]
-      if (typeof first === 'string') return first.trim()
-      if (first instanceof HTMLElement) return first.textContent?.trim() || ''
-    }
-    return ''
+    const [first] = evaluateXPathValues(selector, element)
+    if (first === undefined) return ''
+    // Attributes and text nodes come back as their string value; elements
+    // contribute their text. `textContent` is only null on Document and
+    // DocumentType nodes, which `evaluateXPathValues` never returns.
+    return typeof first === 'string' ? first.trim() : first.textContent!.trim()
   } catch (error) {
     log.error('Error extracting data:', error)
     return ''
@@ -147,9 +146,8 @@ export const evaluateXPath = (xpath: string, contextNode: Node = document): HTML
  * Returns the index of the element among siblings with the same tag name.
  * Only returns an index if there are multiple siblings of the same tag.
  */
-const getElementIndex = (node: Element): number | null => {
-  if (!node.parentNode) return null
-  const siblings = Array.from(node.parentNode.children).filter(
+const getElementIndex = (node: Element, parent: ParentNode): number | null => {
+  const siblings = Array.from(parent.children).filter(
     (sibling) => sibling.nodeName === node.nodeName,
   )
   if (siblings.length > 1) {
@@ -163,7 +161,8 @@ const getElementIndex = (node: Element): number | null => {
  * Only considers ELEMENT_NODEs.
  */
 export const generateXPath = (node: Node): string => {
-  if (!node || !node.parentNode || node.nodeType !== Node.ELEMENT_NODE) {
+  const parent = node?.parentNode
+  if (!parent || node.nodeType !== Node.ELEMENT_NODE) {
     return ''
   }
   if (node === document.body) {
@@ -171,15 +170,16 @@ export const generateXPath = (node: Node): string => {
   }
   const element = node as Element
   const tag = element.nodeName.toLowerCase()
-  const index = getElementIndex(element)
+  const index = getElementIndex(element, parent)
   const segment = index ? `${tag}[${index}]` : tag
-  return node.parentNode ? `${generateXPath(node.parentNode)}/${segment}` : `/${segment}`
+  return `${generateXPath(parent)}/${segment}`
 }
 
 /**
- * Helper to evaluate an XPath and return the number of matches.
+ * Evaluate an XPath and return the number of matches, treating an expression the
+ * engine rejects as zero matches.
  */
-const countXPathMatches = (xpath: string, contextNode: Node = document): number => {
+export const countXPathMatches = (xpath: string, contextNode: Node = document): number => {
   try {
     const result = document.evaluate(
       xpath,
@@ -214,7 +214,7 @@ export const minimizeXPath = (node: Element): string => {
     }
     // Every group is mandatory in the pattern, so a successful match always
     // fills them; group 3 can be empty but never absent.
-    xpath = `${result[1] ?? ''}${result[3] ?? ''}`
+    xpath = `${result[1]!}${result[3]!}`
   }
 
   if (selection === undefined) {
@@ -223,7 +223,8 @@ export const minimizeXPath = (node: Element): string => {
 
   // Trim the front of the path until we have the smallest XPath that returns the same number of elements
   while ((result = xpathFirstSegmentRegex.exec(xpath))) {
-    const trimmed = `/${result[2] ?? ''}`
+    // As above: a successful match always fills group 2.
+    const trimmed = `/${result[2]!}`
     const trimmedCount = countXPathMatches(trimmed)
     if (trimmedCount !== selection) {
       break
@@ -236,376 +237,17 @@ export const minimizeXPath = (node: Element): string => {
 
 /**
  * Guess a ScrapeConfig for a given element, inspired by bit155 logic but modernized.
- * Handles tables, links, images, lists, and default cases.
+ *
+ * Picks the repeating ancestor that best represents one record, then asks
+ * `scrape-guess` for the columns worth extracting from it. Table rows get a
+ * table-wide selector so every data row is matched, not just the clicked one.
  */
 export const guessScrapeConfigForElement = (element: HTMLElement): ScrapeConfig => {
-  // Prefer repeated row-ish ancestors (tr/li/dt/dd) if present
-  const repeatedRowAncestor = (() => {
-    const tr = element.closest('tr') as HTMLElement | null
-    if (tr && tr.parentElement && tr.parentElement.querySelectorAll(':scope > tr').length > 1) {
-      return tr
-    }
-    const li = element.closest('li') as HTMLElement | null
-    if (li && li.parentElement && li.parentElement.querySelectorAll(':scope > li').length > 1) {
-      return li
-    }
-    const dt = element.closest('dt') as HTMLElement | null
-    if (dt && dt.parentElement && dt.parentElement.querySelectorAll(':scope > dt').length > 1) {
-      return dt
-    }
-    const dd = element.closest('dd') as HTMLElement | null
-    if (dd && dd.parentElement && dd.parentElement.querySelectorAll(':scope > dd').length > 1) {
-      return dd
-    }
-    return null
-  })()
-
-  // Helper: find the nearest ancestor (including self) that has same-tag siblings
-  const findNearestRepeatingNode = (start: HTMLElement): HTMLElement => {
-    const maxLevels = 6
-    const disallowTags = new Set(['html', 'body'])
-    let node: HTMLElement | null = start
-    let levels = 0
-    while (node && levels <= maxLevels) {
-      const tag = node.tagName.toLowerCase()
-      if (!disallowTags.has(tag) && node.parentElement) {
-        const sameTagSiblings = Array.from(node.parentElement.children).filter(
-          (s) => (s as Element).tagName.toLowerCase() === tag,
-        )
-        // Require at least 2 siblings of the same tag to consider it a repeating unit
-        if (sameTagSiblings.length > 1) {
-          // Avoid jumping to very broad layout containers unless there are many siblings
-          if (
-            ['section', 'article', 'main', 'aside', 'figure'].includes(tag) &&
-            sameTagSiblings.length < 3
-          ) {
-            // keep climbing to find a better repeating parent
-          } else {
-            return node
-          }
-        }
-      }
-      node = node.parentElement
-      levels += 1
-    }
-    return start
-  }
-
-  // Choose best ancestor candidate with a bias for specificity
-  const ancestor: HTMLElement = repeatedRowAncestor || findNearestRepeatingNode(element)
-  let tagName = ancestor.tagName.toLowerCase()
-  let mainSelector = minimizeXPath(ancestor)
-  let columns: ColumnDefinition[] = []
-
-  const getText = (el: Element) => el.textContent?.trim() || ''
-  const getDataAttributes = (el: Element) =>
-    Array.from(el.attributes)
-      .filter((attr) => attr.name.startsWith('data-'))
-      .map((attr) => ({
-        name: attr.name,
-        selector: `@${attr.name}`,
-      }))
-
-  switch (tagName) {
-    case 'tr': {
-      const table = ancestor.closest('table')
-      let ths: Element[] = []
-
-      if (table) {
-        // First, try to find headers in thead section
-        const thead = table.querySelector('thead')
-        if (thead) {
-          // Use the last header row from thead
-          const headerRow = Array.from(thead.querySelectorAll('tr')).at(-1)
-          if (headerRow) {
-            ths = Array.from(headerRow.children).filter(
-              (child) => child.tagName.toLowerCase() === 'th',
-            )
-          }
-        }
-
-        // If no headers found in thead, look for headers in the current row's context
-        if (ths.length === 0) {
-          const allRows = Array.from(table.querySelectorAll('tr'))
-          const currentRowIndex = allRows.indexOf(ancestor as HTMLTableRowElement)
-
-          // Look for the closest header row above the current row
-          for (let i = currentRowIndex - 1; i >= 0; i--) {
-            const headerRow = allRows[i]
-            if (!headerRow) continue
-            const headerCells = Array.from(headerRow.children).filter(
-              (child) => child.tagName.toLowerCase() === 'th',
-            )
-            if (headerCells.length > 0) {
-              ths = headerCells
-              break
-            }
-          }
-        }
-
-        // If still no headers found, look for any th elements in the table
-        if (ths.length === 0) {
-          ths = Array.from(table.querySelectorAll('th'))
-        }
-
-        // For tables, we want to target all data rows in the specific table that was clicked
-        // Use the table's position to make the selector more specific
-        const allTables = Array.from(document.querySelectorAll('table'))
-        const tableIndex = allTables.indexOf(table) + 1
-        mainSelector = `(//table)[${tableIndex}]//tr[td]`
-      }
-
-      const tds = Array.from(ancestor.children)
-
-      // For tables with thead/tbody structure, we need to count all cells in data rows
-      // including both th (row headers) and td (data cells)
-      const allCells = tds.filter(
-        (child) => child.tagName.toLowerCase() === 'th' || child.tagName.toLowerCase() === 'td',
-      )
-
-      const maxColumns = Math.max(ths.length, allCells.length)
-      columns = Array.from({ length: maxColumns }, (_, i) => ({
-        name: ths[i] ? getText(ths[i]) || `Column ${i + 1}` : `Column ${i + 1}`,
-        key: `col${i + 1}`,
-        selector: `*[${i + 1}]`,
-      }))
-      break
-    }
-    case 'a':
-      columns = [
-        { name: 'Anchor text', selector: '.' },
-        { name: 'URL', selector: '@href' },
-        { name: 'Rel', selector: '@rel' },
-        { name: 'Target', selector: '@target' },
-        ...getDataAttributes(ancestor),
-      ]
-      break
-    case 'img':
-      columns = [
-        { name: 'Alt Text', selector: '@alt' },
-        { name: 'Source', selector: '@src' },
-        { name: 'Title', selector: '@title' },
-        ...getDataAttributes(ancestor),
-      ]
-      break
-    case 'button':
-      columns = [
-        { name: 'Text', selector: '.' },
-        { name: 'Value', selector: '@value' },
-        { name: 'ARIA Label', selector: '@aria-label' },
-        { name: 'Disabled', selector: '@disabled' },
-        ...getDataAttributes(ancestor),
-      ]
-      break
-    case 'input': {
-      const type = ancestor.getAttribute('type') || ''
-      columns = [
-        { name: 'Value', selector: '@value' },
-        { name: 'Placeholder', selector: '@placeholder' },
-        { name: 'Name', selector: '@name' },
-        { name: 'Type', selector: '@type' },
-        ...getDataAttributes(ancestor),
-      ]
-      if (type === 'checkbox' || type === 'radio') {
-        columns.push({ name: 'Checked', selector: '@checked' })
-      }
-      break
-    }
-    case 'textarea':
-      columns = [
-        { name: 'Value', selector: '.' },
-        { name: 'Placeholder', selector: '@placeholder' },
-        { name: 'Name', selector: '@name' },
-        ...getDataAttributes(ancestor),
-      ]
-      break
-    case 'select':
-      columns = [
-        { name: 'Selected Option', selector: 'option[@selected]' },
-        { name: 'Name', selector: '@name' },
-        ...getDataAttributes(ancestor),
-      ]
-      break
-    case 'dt':
-      columns = [
-        { name: 'Term', selector: '.' },
-        { name: 'Definition', selector: './following-sibling::dd' },
-        ...getDataAttributes(ancestor),
-      ]
-      break
-    case 'li':
-      columns = [{ name: 'List Item', selector: '.' }, ...getDataAttributes(ancestor)]
-      break
-    case 'h1':
-    case 'h2':
-    case 'h3':
-    case 'h4':
-    case 'h5':
-    case 'h6':
-      columns = [
-        { name: 'Heading', selector: '.' },
-        { name: 'ARIA Label', selector: '@aria-label' },
-        ...getDataAttributes(ancestor),
-      ]
-      break
-    case 'article':
-    case 'section':
-    case 'main':
-    case 'aside':
-      columns = [
-        { name: 'Text', selector: '.' },
-        { name: 'ARIA Label', selector: '@aria-label' },
-      ]
-      // Try to find the first heading inside
-      const heading = ancestor.querySelector('h1,h2,h3,h4,h5,h6')
-      if (heading) {
-        columns.push({
-          name: 'Headline',
-          selector: heading.tagName.toLowerCase(),
-        })
-      }
-      columns.push(...getDataAttributes(ancestor))
-      break
-    case 'figure':
-      columns = [
-        { name: 'Image Source', selector: './/img/@src' },
-        { name: 'Image Alt', selector: './/img/@alt' },
-        { name: 'Image Title', selector: './/img/@title' },
-        { name: 'Caption', selector: 'figcaption' },
-        { name: 'Code', selector: 'pre|code' },
-        { name: 'Blockquote', selector: 'blockquote' },
-        { name: 'Paragraph', selector: 'p' },
-        { name: 'Figure Text', selector: '.' },
-        ...getDataAttributes(ancestor),
-      ]
-      break
-    case 'blockquote':
-      columns = [
-        { name: 'Quote', selector: '.' },
-        { name: 'Citation', selector: '@cite' },
-        { name: 'Footer', selector: 'footer' },
-        { name: 'Cite Element', selector: 'cite' },
-        ...getDataAttributes(ancestor),
-      ]
-      break
-    case 'pre':
-    case 'code':
-      columns = [
-        { name: 'Code', selector: '.' },
-        { name: 'Language', selector: '@data-language' },
-        { name: 'Class', selector: '@class' },
-        ...getDataAttributes(ancestor),
-      ]
-      // If parent is figure, add figcaption
-      if (ancestor.parentElement?.tagName.toLowerCase() === 'figure') {
-        columns.push({ name: 'Caption', selector: 'figcaption' })
-      }
-      break
-    case 'colgroup':
-      columns = [
-        { name: 'Span', selector: '@span' },
-        { name: 'Class', selector: '@class' },
-        { name: 'Style', selector: '@style' },
-        ...getDataAttributes(ancestor),
-      ]
-      break
-    case 'col':
-      columns = [
-        { name: 'Span', selector: '@span' },
-        { name: 'Class', selector: '@class' },
-        { name: 'Style', selector: '@style' },
-        ...getDataAttributes(ancestor),
-      ]
-      break
-    case 'table': {
-      const caption = ancestor.querySelector('caption')
-      const ths = Array.from(ancestor.querySelectorAll('th'))
-      const cols = Array.from(ancestor.querySelectorAll('col'))
-      columns = [
-        ...(caption ? [{ name: 'Caption', selector: 'caption' }] : []),
-        ...ths.map((th, i) => ({
-          name: getText(th) || `Column ${i + 1}`,
-          selector: `.//tr/td[${i + 1}]`,
-        })),
-        { name: 'Col Count', selector: 'count(col)' },
-        ...cols.map((col, i) => ({
-          name: `Col ${i + 1} Span`,
-          selector: `.//col[${i + 1}]/@span`,
-        })),
-        ...getDataAttributes(ancestor),
-      ]
-      break
-    }
-    case 'ul':
-    case 'ol':
-      columns = [{ name: 'List Item', selector: 'li' }, ...getDataAttributes(ancestor)]
-      break
-    case 'dl':
-      columns = [
-        { name: 'Term', selector: 'dt' },
-        { name: 'Definition', selector: 'dd' },
-        ...getDataAttributes(ancestor),
-      ]
-      break
-    case 'form':
-      columns = [
-        { name: 'Action', selector: '@action' },
-        { name: 'Method', selector: '@method' },
-        { name: 'Input Names', selector: './/input/@name' },
-        { name: 'Input Types', selector: './/input/@type' },
-        ...getDataAttributes(ancestor),
-      ]
-      break
-    case 'nav':
-      columns = [
-        { name: 'Text', selector: '.' },
-        { name: 'ARIA Label', selector: '@aria-label' },
-        { name: 'Links', selector: 'a/@href' },
-        ...getDataAttributes(ancestor),
-      ]
-      break
-    case 'header':
-    case 'footer':
-      columns = [
-        { name: 'Text', selector: '.' },
-        { name: 'ARIA Label', selector: '@aria-label' },
-        ...getDataAttributes(ancestor),
-      ]
-      break
-    case 'video':
-    case 'audio':
-      columns = [
-        { name: 'Source', selector: 'source/@src' },
-        { name: 'Poster', selector: '@poster' },
-        { name: 'Controls', selector: '@controls' },
-        { name: 'Captions', selector: 'track/@src' },
-        ...getDataAttributes(ancestor),
-      ]
-      break
-    case 'details':
-      columns = [
-        { name: 'Summary', selector: 'summary' },
-        { name: 'Details', selector: '.' },
-        ...getDataAttributes(ancestor),
-      ]
-      break
-    case 'summary':
-      columns = [{ name: 'Summary', selector: '.' }, ...getDataAttributes(ancestor)]
-      break
-    default:
-      if (ancestor.hasAttribute('aria-label')) {
-        columns.push({
-          name: 'ARIA Label',
-          selector: '@aria-label',
-        })
-      }
-      columns.push({ name: 'Text', selector: '.' })
-      columns.push(...getDataAttributes(ancestor))
-      break
-  }
+  const ancestor = findScrapeAncestor(element)
+  const isTableRow = ancestor.tagName.toLowerCase() === 'tr'
 
   return {
-    mainSelector,
-    columns,
+    mainSelector: (isTableRow ? buildTableRowSelector(ancestor) : null) ?? minimizeXPath(ancestor),
+    columns: buildColumnsForElement(ancestor),
   }
 }

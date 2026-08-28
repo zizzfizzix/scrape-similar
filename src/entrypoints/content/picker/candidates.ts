@@ -7,16 +7,17 @@ export const generateSelectorCandidates = (
   start: HTMLElement,
   maxLevels: number = 10,
 ): string[] => {
-  const candidates: string[] = []
+  // A Set keeps insertion order while collapsing ancestors that minimize to the
+  // same expression.
+  const candidates = new Set<string>()
   let node: HTMLElement | null = start
   let levels = 0
   while (node && node !== document.body && levels <= maxLevels) {
-    const xp = minimizeXPath(node)
-    if (!candidates.includes(xp)) candidates.push(xp)
+    candidates.add(minimizeXPath(node))
     node = node.parentElement as HTMLElement | null
     levels += 1
   }
-  return candidates
+  return [...candidates]
 }
 
 /**

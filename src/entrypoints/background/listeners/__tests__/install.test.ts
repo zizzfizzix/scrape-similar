@@ -1,19 +1,31 @@
 import {
   initializeUninstallUrl,
+  setupInstallListener,
+  setupStartupListener,
   setupUninstallUrl,
 } from '@/entrypoints/background/listeners/install'
+import { ANALYTICS_EVENTS } from '@/utils/analytics'
 import * as distinctId from '@/utils/distinct-id'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import log from 'loglevel'
+import { beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
+import { spyOnBrowser } from '@@/tests/support/fake-browser'
 
-// Mock dependencies
-vi.mock('loglevel', () => ({
-  default: {
-    debug: vi.fn(),
-    error: vi.fn(),
-  },
+const trackEvent = vi.hoisted(() => vi.fn())
+vi.mock('@/utils/analytics', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/utils/analytics')>()),
+  trackEvent,
 }))
+
+/** fake-browser has no in-memory manifest, and content-script injection reads it. */
+const stubManifest = () =>
+  spyOnBrowser(fakeBrowser.runtime, 'getManifest').mockReturnValue({
+    manifest_version: 3,
+    name: 'Scrape Similar',
+    version: '0.0.0',
+    content_scripts: [{ js: ['content.js'] }],
+  } as never)
 
 describe('setupUninstallUrl', () => {
   let mockSetUninstallURL: ReturnType<typeof vi.fn>
@@ -153,5 +165,91 @@ describe('initializeUninstallUrl', () => {
 
     // Should not throw
     await expect(initializeUninstallUrl()).resolves.not.toThrow()
+  })
+})
+
+describe('setupInstallListener', () => {
+  let create: MockInstance
+  let setPanelBehavior: MockInstance
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    fakeBrowser.reset()
+    create = spyOnBrowser(fakeBrowser.tabs, 'create').mockResolvedValue({} as Browser.tabs.Tab)
+    setPanelBehavior = vi
+      .spyOn(fakeBrowser.sidePanel, 'setPanelBehavior')
+      .mockResolvedValue(undefined)
+    spyOnBrowser(fakeBrowser.contextMenus, 'create').mockImplementation(() => {})
+    spyOnBrowser(fakeBrowser.scripting, 'executeScript').mockResolvedValue([])
+    stubManifest()
+    setupInstallListener()
+  })
+
+  const install = (reason: 'install' | 'update') =>
+    fakeBrowser.runtime.onInstalled.trigger({
+      reason,
+    } as Browser.runtime.InstalledDetails)
+
+  it('opens onboarding, registers menus and configures the panel on a fresh install', async () => {
+    await install('install')
+
+    expect(create).toHaveBeenCalledWith({
+      url: fakeBrowser.runtime.getURL('/onboarding.html'),
+      active: true,
+    })
+    expect(fakeBrowser.contextMenus.create).toHaveBeenCalledTimes(2)
+    expect(setPanelBehavior).toHaveBeenCalledWith({ openPanelOnActionClick: true })
+    expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.EXTENSION_INSTALLATION)
+  })
+
+  it('does not reopen onboarding on an update', async () => {
+    await install('update')
+
+    expect(create).not.toHaveBeenCalled()
+    expect(setPanelBehavior).toHaveBeenCalled()
+    expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.EXTENSION_INSTALLATION)
+  })
+
+  it('continues when the onboarding tab cannot be opened', async () => {
+    const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
+    const failure = new Error('no window')
+    create.mockRejectedValue(failure)
+
+    await install('install')
+
+    expect(errorSpy).toHaveBeenCalledWith('Error opening onboarding page:', failure)
+    expect(setPanelBehavior).toHaveBeenCalled()
+  })
+
+  it('continues when the panel behaviour cannot be set', async () => {
+    const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
+    const failure = new Error('unsupported')
+    setPanelBehavior.mockRejectedValue(failure)
+
+    await install('update')
+
+    expect(errorSpy).toHaveBeenCalledWith('Error setting side panel behavior:', failure)
+    expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.EXTENSION_INSTALLATION)
+  })
+})
+
+describe('setupStartupListener', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    fakeBrowser.reset()
+    spyOnBrowser(fakeBrowser.scripting, 'executeScript').mockResolvedValue([])
+    stubManifest()
+    setupStartupListener()
+  })
+
+  it('re-injects the content script into every eligible tab', async () => {
+    await fakeBrowser.tabs.create({ url: 'https://example.com' })
+
+    await fakeBrowser.runtime.onStartup.trigger()
+
+    expect(fakeBrowser.scripting.executeScript).toHaveBeenCalledWith({
+      target: { tabId: 1 },
+      files: ['content.js'],
+    })
   })
 })

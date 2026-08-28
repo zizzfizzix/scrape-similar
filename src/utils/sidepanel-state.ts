@@ -1,4 +1,5 @@
-import type { ScrapeConfig, SidePanelConfig } from '@/utils/types'
+import type { ScrapeConfig, SelectionOptions, SidePanelConfig } from '@/utils/types'
+import slugify from 'slugify'
 
 /**
  * Build the session-storage updates to persist when the scrape config changes.
@@ -45,3 +46,106 @@ export const isMainSelectorValidated = ({
   !hasUncommittedChanges &&
   typeof highlightMatchCount === 'number' &&
   !highlightError
+
+/** Columns assumed before the user has configured any. */
+export const DEFAULT_SCRAPE_CONFIG: ScrapeConfig = {
+  mainSelector: '',
+  columns: [{ name: 'Text', selector: '.' }],
+}
+
+/**
+ * Filename for an export from this tab.
+ *
+ * Slugified so it is safe on every platform, and stamped with the time so
+ * repeated exports from one page do not overwrite each other.
+ */
+export const buildExportFilename = (tabUrl: string | null, now: Date): string => {
+  const dateTime = now.toISOString().replace(/[:.]/g, '-').replace('T', '_').split('Z')[0]
+  const slug = slugify(tabUrl || 'unknown-url', { lower: true, strict: true })
+  return `Data export for ${slug} at ${dateTime}`
+}
+
+/** The blank session state a tab starts from. */
+export const createDefaultSidePanelState = (): Partial<SidePanelConfig> => ({
+  initialSelectionText: undefined,
+  elementDetails: undefined,
+  selectionOptions: undefined,
+  currentScrapeConfig: undefined,
+  scrapeResult: undefined,
+})
+
+/**
+ * The config and selection to show for a stored session state.
+ *
+ * A stored config wins. Failing that, a right-click that recorded an element
+ * seeds the main selector from it. Otherwise the panel starts blank.
+ */
+export const resolveStoredConfig = (
+  state: SidePanelConfig,
+): { config: ScrapeConfig; options: SelectionOptions | null } => {
+  const { currentScrapeConfig, elementDetails, selectionOptions, initialSelectionText } = state
+
+  const config = currentScrapeConfig
+    ? {
+        ...DEFAULT_SCRAPE_CONFIG,
+        ...currentScrapeConfig,
+        // A stored config with no columns cannot produce anything, so keep the default.
+        columns:
+          Array.isArray(currentScrapeConfig.columns) && currentScrapeConfig.columns.length > 0
+            ? currentScrapeConfig.columns
+            : DEFAULT_SCRAPE_CONFIG.columns,
+      }
+    : elementDetails?.xpath
+      ? { ...DEFAULT_SCRAPE_CONFIG, mainSelector: elementDetails.xpath }
+      : DEFAULT_SCRAPE_CONFIG
+
+  const options: SelectionOptions | null =
+    selectionOptions ??
+    (elementDetails
+      ? { xpath: elementDetails.xpath, selectedText: initialSelectionText || elementDetails.text }
+      : null)
+
+  return { config, options }
+}
+
+/**
+ * The tab a full-data-view URL was opened for, or null when it names none.
+ *
+ * Returns null rather than throwing for a URL that will not parse, so the
+ * caller can report one "no target tab" message either way.
+ */
+export const parseFullDataViewTabId = (fullDataViewUrl: string): number | null => {
+  let tabId: string | null
+  try {
+    tabId = new URL(fullDataViewUrl).searchParams.get('tabId')
+  } catch {
+    return null
+  }
+  if (!tabId) return null
+
+  const parsed = Number(tabId)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+/**
+ * Whether the current config no longer matches the one that produced the
+ * results on screen, i.e. whether re-scraping would change what is shown.
+ *
+ * Compares the resolved key rather than just the name, since the key is what
+ * the scraped rows are stored under.
+ */
+export const hasConfigDrifted = (current: ScrapeConfig, producing: ScrapeConfig): boolean => {
+  if (current.mainSelector !== producing.mainSelector) return true
+  if (current.columns.length !== producing.columns.length) return true
+
+  return current.columns.some((column, index) => {
+    // Safe: the column counts were just checked to match.
+    const producingColumn = producing.columns[index]!
+
+    return (
+      column.name !== producingColumn.name ||
+      column.selector !== producingColumn.selector ||
+      (column.key || column.name) !== (producingColumn.key || producingColumn.name)
+    )
+  })
+}
