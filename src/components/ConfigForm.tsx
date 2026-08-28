@@ -408,6 +408,13 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
       const movedIntoDropdown = !!(active && autosuggestRef.current?.contains(active))
       if (movedIntoDropdown) return
 
+      // The input can regain focus before this fires - a drawer or dialog
+      // restoring focus to its trigger blurs the textarea, and the user clicks
+      // straight back into it. Closing the suggestions then yanks them away
+      // while they are typing, so treat a refocused input as still active.
+      const isBackInMainSelector = active === mainSelectorInputRef.current
+      if (isBackInMainSelector) return
+
       setIsAutosuggestOpen(false)
       commitMainSelector(mainSelectorDraft)
     }, 150)

@@ -602,8 +602,31 @@ export const test = base.extend<
      * open panel would emit no `page` event at all, leaving the wait below to
      * time out.
      */
-    const findOpenSidePanel = () =>
-      context.pages().find((page) => !page.isClosed() && page.url().startsWith(sidePanelUrlPrefix))
+    const findOpenSidePanel = () => {
+      const open = context
+        .pages()
+        .filter((page) => !page.isClosed() && page.url().startsWith(sidePanelUrlPrefix))
+      // Prefer the most recently created: closing the transition tab can leave
+      // a torn-down panel document listed for a moment after its replacement.
+      return open[open.length - 1]
+    }
+
+    /**
+     * Waits for an open side panel whose React app has actually mounted, so a
+     * document that is on its way out is never handed to a test.
+     */
+    const waitForMountedSidePanel = async () => {
+      const deadline = Date.now() + SIDE_PANEL_ATTACH_TIMEOUT
+      while (Date.now() < deadline) {
+        const candidate = findOpenSidePanel()
+        const isMounted = await candidate
+          ?.evaluate(() => !!document.getElementById('app')?.childElementCount)
+          .catch(() => false)
+        if (candidate && isMounted) return candidate
+        await new Promise((resolve) => setTimeout(resolve, 50))
+      }
+      throw new Error('Side panel never mounted')
+    }
 
     const resizeSidePanel = async (sidePanel: Page) => {
       // Due to PW_CHROMIUM_ATTACH_TO_OTHER=1 sidepanel inherits the viewport of other pages,
@@ -671,12 +694,18 @@ export const test = base.extend<
         // the background opens the panel for `sender.tab`, so a tab that is
         // already gone makes chrome.sidePanel.open() throw and no panel ever
         // shows up. That race is what made every side-panel spec flaky under load.
-        return await sidePanelPage
+        await sidePanelPage
       } finally {
         // Close the transition page. It may already be gone if the context is
         // tearing down, which must not mask the original failure.
         await page.close().catch(() => {})
       }
+
+      // Re-acquire only now. Closing the transition tab makes Chrome tear the
+      // panel document down and build a new one for the next active tab, so the
+      // handle from the open above can point at a document that is about to die
+      // - a test driving it waits out its timeout on a panel that never renders.
+      return await waitForMountedSidePanel()
     }
 
     const open = async (transitionUrl: string = fixturePageUrl(BLANK_PAGE)) => {
@@ -686,7 +715,9 @@ export const test = base.extend<
           // A panel that is already attached needs no second open - including
           // one that attached late, while the previous attempt was unwinding.
           const alreadyOpen = findOpenSidePanel()
-          return await resizeSidePanel(alreadyOpen ?? (await triggerSidePanel(transitionUrl)))
+          return await resizeSidePanel(
+            alreadyOpen ? await waitForMountedSidePanel() : await triggerSidePanel(transitionUrl),
+          )
         } catch (error) {
           lastError = error
         }

@@ -99,6 +99,37 @@ test.describe('Main selector autosuggest', () => {
     }
   })
 
+  test('refocusing the main selector keeps the autosuggest open past a pending blur', async ({
+    openSidePanel,
+    serviceWorker,
+    context,
+    fixturePageUrl,
+  }) => {
+    await TestHelpers.dismissAnalyticsConsent(serviceWorker)
+    const sidePanel = await openSidePanel()
+
+    const testPage = await context.newPage()
+    await testPage.goto(fixturePageUrl(SCRAPE_TARGET_PAGE))
+    await testPage.bringToFront()
+
+    const input = sidePanel.locator('#mainSelector')
+    const dropdown = sidePanel.locator('[data-slot="command-list"]')
+
+    await input.focus()
+    await expect(dropdown).toBeVisible()
+
+    // Blur and refocus, the way a closing drawer restores focus to its trigger
+    // before the user clicks straight back into the input. The blur handler's
+    // 150ms timer is still pending at this point.
+    await input.blur()
+    await input.focus()
+
+    // Once that timer fires it has to leave the suggestions alone: the input is
+    // focused again, and closing the dropdown would yank them away mid-typing.
+    await sidePanel.waitForTimeout(400)
+    await expect(dropdown).toBeVisible()
+  })
+
   test('save preset then Load shows it; autosuggest does not duplicate it from recents', async ({
     openSidePanel,
     context,
