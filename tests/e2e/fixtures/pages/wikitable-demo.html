@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>List of countries and dependencies by population</title>
+  </head>
+  <body>
+    <!--
+      Stand-in for the live Wikipedia article the onboarding demo navigates to.
+      The demo target is baked into the extension, so the onboarding specs serve
+      this page at that URL through TestHelpers.mockDemoTargetPage instead of
+      loading it from the fixture server.
+
+      Its shape mirrors what the baked demo config
+      (src/entrypoints/background/services/demo-scrape.ts) expects of the
+      article: a single `wikitable` whose tbody opens with a header row, then
+      data rows of five cells each, the second holding the country link.
+
+        //table[contains(@class, "wikitable")][1]//tr[position() > 1 and position() <= 11]
+          -> 10 (the first 10 of the 12 data rows; the header row is position 1)
+
+      Every value the specs assert lives in DEMO_TARGET_PAGE_FACTS in
+      tests/e2e/fixtures.ts - keep the two in sync when editing this file.
+    -->
+    <h1 id="firstHeading">List of countries and dependencies by population</h1>
+
+    <p>
+      Deterministic copy of the article's population table, served locally so the onboarding demo
+      runs offline and its row values never shift under the assertions.
+    </p>
+
+    <table class="wikitable sortable">
+      <tbody>
+        <tr>
+          <th>Rank</th>
+          <th>Country / Dependency</th>
+          <th>Population</th>
+          <th>% of world</th>
+          <th>Date</th>
+        </tr>
+        <tr>
+          <td>1</td>
+          <td><a href="/wiki/India">India</a></td>
+          <td>1,450,935,791</td>
+          <td>17.8%</td>
+          <td>1 Jul 2024</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td><a href="/wiki/China">China</a></td>
+          <td>1,419,321,278</td>
+          <td>17.4%</td>
+          <td>1 Jul 2024</td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td><a href="/wiki/United_States">United States</a></td>
+          <td>345,426,571</td>
+          <td>4.2%</td>
+          <td>1 Jul 2024</td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td><a href="/wiki/Indonesia">Indonesia</a></td>
+          <td>283,487,931</td>
+          <td>3.5%</td>
+          <td>1 Jul 2024</td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td><a href="/wiki/Pakistan">Pakistan</a></td>
+          <td>251,269,164</td>
+          <td>3.1%</td>
+          <td>1 Jul 2024</td>
+        </tr>
+        <tr>
+          <td>6</td>
+          <td><a href="/wiki/Nigeria">Nigeria</a></td>
+          <td>232,679,478</td>
+          <td>2.9%</td>
+          <td>1 Jul 2024</td>
+        </tr>
+        <tr>
+          <td>7</td>
+          <td><a href="/wiki/Brazil">Brazil</a></td>
+          <td>211,998,573</td>
+          <td>2.6%</td>
+          <td>1 Jul 2024</td>
+        </tr>
+        <tr>
+          <td>8</td>
+          <td><a href="/wiki/Bangladesh">Bangladesh</a></td>
+          <td>173,562,364</td>
+          <td>2.1%</td>
+          <td>1 Jul 2024</td>
+        </tr>
+        <tr>
+          <td>9</td>
+          <td><a href="/wiki/Russia">Russia</a></td>
+          <td>144,820,423</td>
+          <td>1.8%</td>
+          <td>1 Jul 2024</td>
+        </tr>
+        <tr>
+          <td>10</td>
+          <td><a href="/wiki/Ethiopia">Ethiopia</a></td>
+          <td>132,059,767</td>
+          <td>1.6%</td>
+          <td>1 Jul 2024</td>
+        </tr>
+        <tr>
+          <td>11</td>
+          <td><a href="/wiki/Mexico">Mexico</a></td>
+          <td>130,861,007</td>
+          <td>1.6%</td>
+          <td>1 Jul 2024</td>
+        </tr>
+        <tr>
+          <td>12</td>
+          <td><a href="/wiki/Japan">Japan</a></td>
+          <td>123,753,041</td>
+          <td>1.5%</td>
+          <td>1 Jul 2024</td>
+        </tr>
+      </tbody>
+    </table>
+  </body>
+</html>
