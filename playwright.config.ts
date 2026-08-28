@@ -24,9 +24,7 @@ export default defineConfig({
   // matter if workers ever exceeded the spec-file count - which is what the old
   // `workers: 20` did, capping itself at 13.
   workers: process.env.CI ? 4 : '50%',
-  // The `list` reporter owns the log; the custom one adds GitHub annotations for
-  // real failures only, so a test that passed on retry leaves the PR diff clean.
-  reporter: process.env.CI ? [['list'], ['./tests/e2e/reporters/github-annotations.ts']] : 'list',
+  reporter: process.env.CI ? 'github' : 'list',
   use: {
     trace: 'retain-on-failure',
   },

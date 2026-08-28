@@ -390,10 +390,9 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
   }
 
   /**
-   * Pending blur commit. The blur handler waits before acting so a click on a
-   * suggestion still lands, which means the input can be focused again - or the
-   * form gone - by the time it fires. Holding the timer lets those cases cancel
-   * it instead of letting a stale blur act on a state that has moved on.
+   * The blur handler defers so a click on a suggestion still lands, which means
+   * the input can be focused again - or the form gone - by the time it fires.
+   * Holding the timer lets those cases cancel a blur that no longer applies.
    */
   const blurCommitTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 

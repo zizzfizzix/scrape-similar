@@ -102,14 +102,9 @@ export const DEFAULT_SCRAPE_SELECTOR = '(//a)[position() <= 10]'
 /** Rows DEFAULT_SCRAPE_SELECTOR yields on either scrape target. */
 export const DEFAULT_SCRAPE_ROW_COUNT = 10
 
-/**
- * How long a single openSidePanel() attempt waits for the side-panel target to
- * attach. Kept well under the test timeout so a lost target leaves room for a
- * retry rather than burning the whole budget.
- */
+/** Kept well under the test timeout, so a lost target leaves room for a retry. */
 const SIDE_PANEL_ATTACH_TIMEOUT = 7_000
 
-/** How many times openSidePanel() retries a side-panel target that never attached. */
 const SIDE_PANEL_OPEN_ATTEMPTS = 2
 
 /** XPath that is guaranteed not to match anything on the fixture pages. */
@@ -191,19 +186,13 @@ async function waitForChromeApis(worker: Worker, timeout = 5000) {
   throw new Error('chrome.* APIs never became available')
 }
 
-/**
- * How long a fresh context is given to expose the extension's service-worker
- * target before it is written off as unusable.
- */
 const EXTENSION_WORKER_TIMEOUT = 10_000
 
-/** How many times the context fixture relaunches a browser with no visible worker. */
 const CONTEXT_LAUNCH_ATTEMPTS = 3
 
 const findExtensionWorker = (context: BrowserContext, extensionId: string) =>
   context.serviceWorkers().find((worker) => worker.url().includes(extensionId))
 
-/** Reports whether Playwright can see the extension's service worker at all. */
 const hasVisibleExtensionWorker = async (context: BrowserContext, extensionId: string) => {
   if (findExtensionWorker(context, extensionId)) return true
 
@@ -211,8 +200,7 @@ const hasVisibleExtensionWorker = async (context: BrowserContext, extensionId: s
     predicate: (worker) => worker.url().includes(extensionId),
     timeout: EXTENSION_WORKER_TIMEOUT,
   })
-  // Nothing awaits this promise when the wait times out; keep its rejection
-  // handled so it cannot surface as an unhandled rejection.
+  // Handled so a timed-out wait cannot surface as an unhandled rejection.
   started.catch(() => {})
 
   try {
@@ -551,7 +539,6 @@ export const test = base.extend<
         if (isWorkerVisible) {
           context = candidate
         } else {
-          // Even a restarted worker stayed invisible; the context is unusable.
           await candidate.close()
         }
       }
@@ -565,7 +552,6 @@ export const test = base.extend<
       await use(context)
     } finally {
       await context?.close()
-      // Cleanup user data dirs after each test run.
       for (const userDataDir of userDataDirs) {
         fs.rmSync(userDataDir, { recursive: true, force: true })
       }
@@ -611,10 +597,7 @@ export const test = base.extend<
       return open[open.length - 1]
     }
 
-    /**
-     * Waits for an open side panel whose React app has actually mounted, so a
-     * document that is on its way out is never handed to a test.
-     */
+    /** Mounted, so a document on its way out is never handed to a test. */
     const waitForMountedSidePanel = async () => {
       const deadline = Date.now() + SIDE_PANEL_ATTACH_TIMEOUT
       while (Date.now() < deadline) {
@@ -638,7 +621,6 @@ export const test = base.extend<
       return sidePanel
     }
 
-    // Inject a button into the transition page that, when clicked, sends the trigger message.
     const injectTriggerButton = async (tabUrl: string) => {
       await serviceWorker.evaluate(
         async (arg) => {
@@ -672,7 +654,6 @@ export const test = base.extend<
     }
 
     const triggerSidePanel = async (transitionUrl: string) => {
-      // Navigate to any injectable page (default is the blank local fixture).
       const page = await context.newPage()
       try {
         await page.goto(transitionUrl)
@@ -683,11 +664,9 @@ export const test = base.extend<
           predicate: (p) => p.url().startsWith(sidePanelUrlPrefix),
           timeout: SIDE_PANEL_ATTACH_TIMEOUT,
         })
-        // A failed attempt leaves nothing awaiting this promise; keep its
-        // rejection handled so it cannot surface as an unhandled rejection.
+        // Handled so a failed attempt cannot surface as an unhandled rejection.
         sidePanelPage.catch(() => {})
 
-        // Click the injected button to trigger the sidepanel opening.
         await page.click('#openSidePanelBtn')
 
         // Wait for the sidepanel to appear *before* closing the transition page:
@@ -696,8 +675,8 @@ export const test = base.extend<
         // shows up. That race is what made every side-panel spec flaky under load.
         await sidePanelPage
       } finally {
-        // Close the transition page. It may already be gone if the context is
-        // tearing down, which must not mask the original failure.
+        // It may already be gone if the context is tearing down, which must
+        // not mask the original failure.
         await page.close().catch(() => {})
       }
 
