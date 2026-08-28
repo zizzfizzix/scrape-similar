@@ -1,3 +1,4 @@
+import { COVERAGE_EXCLUSIONS } from './coverage-exclusions.ts'
 import { loadEnv, type PluginOption } from 'vite'
 import { configDefaults, defineConfig } from 'vitest/config'
 import { WxtVitest } from 'wxt/testing/vitest-plugin'
@@ -21,20 +22,7 @@ export default defineConfig({
       reporter: ['text', 'html', 'lcov', 'json-summary'],
       reportsDirectory: './coverage',
       include: ['src/**/*.{ts,tsx}'],
-      exclude: [
-        // Generated shadcn-ui primitives: refreshed by `pnpm update:shadcn`.
-        'src/components/ui/**',
-        // Type-only modules have no runtime behaviour to exercise.
-        'src/**/*.d.ts',
-        'src/utils/types.ts',
-        'src/entrypoints/background/types.ts',
-        // Entrypoint bootstrap: `createRoot().render()` / WXT `define*` wiring
-        // with no branching — the logic each one used to hold now lives in a
-        // module of its own. Exercised end-to-end by the Playwright suite.
-        'src/entrypoints/*/main.tsx',
-        'src/entrypoints/background/index.ts',
-        'src/entrypoints/content/index.ts',
-      ],
+      exclude: COVERAGE_EXCLUSIONS,
       thresholds: {
         statements: 100,
         branches: 100,
