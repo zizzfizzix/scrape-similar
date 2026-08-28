@@ -459,12 +459,17 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
   useEffect(() => {
     if (!targetTabId) return
     const key = `session:sidepanel_config_${targetTabId}` as const
-    const unwatch = storage.watch<SidePanelConfig>(key, (newValue) => {
-      if (newValue) {
-        handleInitialData({ tabId: targetTabId, config: newValue })
-      }
-    })
-    return () => unwatch()
+
+    // The tab's state is also read when the tab resolves, before this watcher
+    // exists; the backfill picks up whatever landed in that gap - an auto-scrape
+    // finishing while the panel is still starting up, say.
+    return subscribeWithBackfill<SidePanelConfig>(
+      {
+        watch: (onChange) => storage.watch<SidePanelConfig>(key, onChange),
+        read: () => storage.getItem<SidePanelConfig>(key),
+      },
+      (config) => handleInitialData({ tabId: targetTabId, config }),
+    )
   }, [targetTabId, handleInitialData])
 
   // ---------------------------------------------------------------------------
