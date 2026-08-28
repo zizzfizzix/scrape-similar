@@ -4,6 +4,7 @@ import {
   test as base,
   chromium,
   type BrowserContext,
+  type Locator,
   type Page,
   type Worker,
 } from '@playwright/test'
@@ -165,7 +166,15 @@ const startFixturePagesServer = async () => {
 
   return {
     baseUrl: `http://127.0.0.1:${port}/`,
-    close: () => new Promise<void>((resolve) => server.close(() => resolve())),
+    close: () =>
+      new Promise<void>((resolve) => {
+        server.close(() => resolve())
+        // `close()` on its own only stops new connections and then waits for the
+        // live ones to end. A browser that outlives a single test holds its
+        // keep-alive sockets open, so that wait would run to the teardown
+        // timeout - the sockets have to be dropped explicitly.
+        server.closeAllConnections()
+      }),
   }
 }
 
@@ -244,6 +253,208 @@ const restartExtensionWorker = async (context: BrowserContext, extensionId: stri
   } finally {
     await page.close().catch(() => {})
   }
+}
+
+/**
+ * Hands back a running extension service worker Playwright can drive.
+ *
+ * A per-test browser was always young enough to still have the worker Chrome
+ * started it with. A shared one is not: MV3 tears an idle worker down after
+ * ~30s, so between two tests the handle the last one used can already be gone.
+ * `restartExtensionWorker` doubles as the wake-up - loading an extension page
+ * and messaging the runtime starts a stopped worker back up, and doing it
+ * through CDP guarantees Playwright is attached when it comes back.
+ */
+const acquireExtensionWorker = async (context: BrowserContext, extensionId: string) => {
+  let worker = findExtensionWorker(context, extensionId)
+
+  if (!worker) {
+    await restartExtensionWorker(context, extensionId)
+    if (await hasVisibleExtensionWorker(context, extensionId)) {
+      worker = findExtensionWorker(context, extensionId)
+    }
+  }
+
+  if (!worker) {
+    throw new Error('Extension service worker is not running and could not be restarted')
+  }
+
+  await waitForChromeApis(worker)
+  return worker
+}
+
+const buildTypeSuffix = (env = 'production') => {
+  if (env === 'test') return '-test'
+  if (env === 'development') return '-dev'
+  return ''
+}
+
+/**
+ * Launches persistent contexts with the built extension loaded, and owns every
+ * one it hands out: whatever the tests do with them, worker teardown closes the
+ * browsers and removes their user-data dirs.
+ */
+const createBrowserLauncher = (extensionId: string) => {
+  const extensionPath = `${process.cwd()}/.output/chrome-mv3${buildTypeSuffix(process.env.NODE_ENV)}`
+
+  // Allow Playwright to attach to Chrome side-panel targets (workaround for
+  // https://github.com/microsoft/playwright/issues/26693).
+  process.env.PW_CHROMIUM_ATTACH_TO_OTHER = '1'
+
+  // Every launch gets its own user data dir, so concurrent workers - and a
+  // worker that had to replace a wedged browser - never share a profile.
+  const userDataDirs = new Map<BrowserContext, string>()
+  const createdDirs: string[] = []
+  const closedContexts = new WeakSet<BrowserContext>()
+
+  const removeDir = (userDataDir: string) =>
+    fs.rmSync(userDataDir, { recursive: true, force: true })
+
+  const launchOnce = async () => {
+    const userDataDir = `${process.cwd()}/.browser/${uuidv7()}`
+    createdDirs.push(userDataDir)
+
+    const context = await chromium.launchPersistentContext(userDataDir, {
+      channel: 'chromium',
+      headless: !!process.env.CI,
+      args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`],
+    })
+    context.once('close', () => closedContexts.add(context))
+    userDataDirs.set(context, userDataDir)
+    return context
+  }
+
+  const close = async (context: BrowserContext) => {
+    const userDataDir = userDataDirs.get(context)
+    userDataDirs.delete(context)
+    await context.close().catch(() => {})
+    if (userDataDir) removeDir(userDataDir)
+  }
+
+  /**
+   * Recovers from, and as a last resort discards, a context whose extension
+   * service worker Playwright failed to attach to - see restartExtensionWorker.
+   */
+  const launch = async () => {
+    let context: BrowserContext | undefined
+
+    for (let attempt = 1; attempt <= CONTEXT_LAUNCH_ATTEMPTS && !context; attempt++) {
+      const candidate = await launchOnce()
+
+      let isWorkerVisible = await hasVisibleExtensionWorker(candidate, extensionId)
+      if (!isWorkerVisible) {
+        await restartExtensionWorker(candidate, extensionId)
+        isWorkerVisible = await hasVisibleExtensionWorker(candidate, extensionId)
+      }
+
+      if (isWorkerVisible) {
+        context = candidate
+      } else {
+        await close(candidate)
+      }
+    }
+
+    if (!context) {
+      throw new Error(
+        `Extension service worker never became visible after ${CONTEXT_LAUNCH_ATTEMPTS} browser launches`,
+      )
+    }
+
+    return context
+  }
+
+  return {
+    launch,
+    close,
+    isAlive: (context: BrowserContext) => !closedContexts.has(context),
+    async dispose() {
+      for (const context of [...userDataDirs.keys()]) {
+        await close(context)
+      }
+      // Anything a failed launch left behind never made it into the map.
+      for (const userDataDir of createdDirs) {
+        removeDir(userDataDir)
+      }
+    },
+  }
+}
+
+/**
+ * Holds a worker's shared browser, replacing it when it turns out to be unusable.
+ *
+ * Reusing one browser across a worker's tests is what makes the suite scale, but
+ * it also means a test that wedges the browser would otherwise take every test
+ * behind it down with it. Discarding the context is the escape hatch: the next
+ * `acquire()` launches a fresh one and only the test that broke it fails.
+ */
+const createSharedBrowser = (launcher: ReturnType<typeof createBrowserLauncher>) => {
+  let current: BrowserContext | undefined
+
+  return {
+    async acquire() {
+      if (current && !launcher.isAlive(current)) current = undefined
+      current ??= await launcher.launch()
+      return current
+    },
+    async discard() {
+      const context = current
+      current = undefined
+      if (context) await launcher.close(context)
+    },
+  }
+}
+
+/**
+ * Returns a shared browser to the state a freshly launched one is in, so that
+ * nothing a test left behind is observable by the next one.
+ *
+ * Per-test isolation used to be free because the browser was thrown away. It is
+ * not any more, so every piece of state the extension keeps has to be undone
+ * here: storage in all three areas (presets, system-preset status, analytics
+ * consent, debug mode, recent selectors, the analytics queue, and the per-tab
+ * side-panel session blobs), the open tabs together with their content scripts,
+ * the side panel, and any routing a spec installed on the context.
+ *
+ * The background's own state needs no separate handling: it is either derived
+ * from storage or keyed by tab id, and tab ids are never reused within a browser
+ * session.
+ */
+const resetExtensionState = async (context: BrowserContext, extensionId: string) => {
+  // Routes are registered per test - see TestHelpers.mockDemoTargetPage.
+  await context.unrouteAll({ behavior: 'ignoreErrors' })
+
+  // Before the tabs go: waking the worker opens an extension page of its own,
+  // which the sweep below then closes along with everything else.
+  const serviceWorker = await acquireExtensionWorker(context, extensionId)
+
+  // The replacement tab opens first - a window whose last tab closes takes the
+  // whole persistent context down with it.
+  const survivor = await context.newPage()
+  await Promise.all(
+    context
+      .pages()
+      .filter((page) => page !== survivor && !page.isClosed())
+      // Side-panel documents close like any other page, and Chrome reopens the
+      // panel from scratch the next time a test asks for it.
+      .map((page) => page.close({ runBeforeUnload: false }).catch(() => {})),
+  )
+
+  await serviceWorker.evaluate(async () => {
+    // The side panel is window-global: it outlives the tab it was opened from,
+    // and would otherwise still be showing when the next test starts. Disabling
+    // it closes it; re-enabling restores the manifest default without reopening.
+    await chrome.sidePanel.setOptions({ enabled: false })
+    await chrome.sidePanel.setOptions({ path: 'sidepanel.html', enabled: true })
+
+    // After the tabs, so that the onRemoved cleanup they trigger cannot write
+    // session keys back in behind the clear. That listener only ever removes
+    // items, so whatever lands late is harmless.
+    await Promise.all([
+      chrome.storage.local.clear(),
+      chrome.storage.session.clear(),
+      chrome.storage.sync.clear(),
+    ])
+  })
 }
 
 /**
@@ -406,6 +617,20 @@ export const TestHelpers = {
   },
 
   /**
+   * Clicks a control whose own handler closes the page the control lives on.
+   *
+   * Those handlers call `window.close()` straight from the click listener, so
+   * the page can be gone before Playwright has the click acknowledged - and
+   * `click()` then rejects with "Target page, context or browser has been
+   * closed" even though the click did exactly what the caller wanted. Swallowing
+   * that hides nothing: every caller goes on to wait for what the click was
+   * supposed to produce, so a click that genuinely missed still fails there.
+   */
+  async clickSelfClosingControl(control: Locator): Promise<void> {
+    await control.click().catch(() => {})
+  },
+
+  /**
    * Opens full data view from sidepanel expand button
    */
   async openFullDataView(sidePanel: Page, context: BrowserContext): Promise<Page> {
@@ -416,7 +641,10 @@ export const TestHelpers = {
           await p.locator('table').waitFor({ state: 'visible' })
           return p
         }),
-      sidePanel.getByRole('button', { name: /open in full view/i }).click(),
+      // Opening the full view closes the side panel the button sits in.
+      TestHelpers.clickSelfClosingControl(
+        sidePanel.getByRole('button', { name: /open in full view/i }),
+      ),
     ])
 
     return fullDataViewPage
@@ -471,16 +699,40 @@ export const TestHelpers = {
   },
 }
 
+/**
+ * Opt out of the shared browser for a whole spec file:
+ *
+ *   test.use({ shouldIsolateBrowser: true })
+ *
+ * Reserve it for tests that need a browser the extension has never run in -
+ * anything asserting on install-time behaviour, which `resetExtensionState`
+ * cannot reproduce because `chrome.runtime.onInstalled` fires once per profile.
+ * Everything else should stay on the shared browser; that is where the
+ * wall-clock win is.
+ *
+ * It is a worker-scoped option, so Playwright runs the files that set it in
+ * their own worker and no shared browser is ever launched there.
+ */
+export type ExtensionTestOptions = {
+  shouldIsolateBrowser: boolean
+}
+
 export const test = base.extend<
   {
     context: BrowserContext
-    extensionId: string
     serviceWorker: Worker
     openSidePanel: (transitionUrl?: string) => Promise<Page>
     fixturePageUrl: (name: string) => string
   },
-  { fixturePagesBaseUrl: string }
+  ExtensionTestOptions & {
+    fixturePagesBaseUrl: string
+    extensionId: string
+    browserLauncher: ReturnType<typeof createBrowserLauncher>
+    sharedBrowser: ReturnType<typeof createSharedBrowser>
+  }
 >({
+  shouldIsolateBrowser: [false, { scope: 'worker', option: true }],
+
   // Worker-scoped static server for the local HTML fixtures.
   fixturePagesBaseUrl: [
     async ({}, use) => {
@@ -497,85 +749,72 @@ export const test = base.extend<
     await use((name: string) => new URL(name, fixturePagesBaseUrl).href)
   },
 
-  // Launch a persistent context with the built extension loaded.
-  context: async ({ extensionId }, use) => {
-    const buildTypeSuffix = (env = 'production') => {
-      if (env === 'test') return '-test'
-      if (env === 'development') return '-dev'
-      return ''
+  // Owns every browser this worker launches, shared or isolated.
+  browserLauncher: [
+    async ({ extensionId }, use) => {
+      const launcher = createBrowserLauncher(extensionId)
+      try {
+        await use(launcher)
+      } finally {
+        await launcher.dispose()
+      }
+    },
+    { scope: 'worker' },
+  ],
+
+  // The browser this worker's tests reuse. Launched on first use, so a worker
+  // running only isolated specs never starts one.
+  sharedBrowser: [
+    async ({ browserLauncher }, use) => {
+      await use(createSharedBrowser(browserLauncher))
+    },
+    { scope: 'worker' },
+  ],
+
+  /**
+   * A persistent context with the built extension loaded.
+   *
+   * Shared across the worker's tests by default and reset between them, because
+   * launching one browser per test is what used to keep the suite's wall-clock
+   * flat however many workers it was given. `shouldIsolateBrowser` opts a spec
+   * file out - see the option's docs.
+   */
+  context: async ({ shouldIsolateBrowser, browserLauncher, sharedBrowser, extensionId }, use) => {
+    if (shouldIsolateBrowser) {
+      const context = await browserLauncher.launch()
+      try {
+        await use(context)
+      } finally {
+        await browserLauncher.close(context)
+      }
+      return
     }
 
-    const extensionPath = `${process.cwd()}/.output/chrome-mv3${buildTypeSuffix(process.env.NODE_ENV)}`
-
-    // Allow Playwright to attach to Chrome side-panel targets (workaround for
-    // https://github.com/microsoft/playwright/issues/26693).
-    process.env.PW_CHROMIUM_ATTACH_TO_OTHER = '1'
-
-    // Use different user data dir for each launch to parallelize tests.
-    const userDataDirs: string[] = []
-    const launch = async () => {
-      const userDataDir = `${process.cwd()}/.browser/${uuidv7()}`
-      userDataDirs.push(userDataDir)
-      return await chromium.launchPersistentContext(userDataDir, {
-        channel: 'chromium',
-        headless: !!process.env.CI,
-        args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`],
-      })
-    }
-
-    // Recover from, and as a last resort discard, a context whose extension
-    // service worker Playwright failed to attach to - see restartExtensionWorker.
-    let context: BrowserContext | undefined
+    let context = await sharedBrowser.acquire()
     try {
-      for (let attempt = 1; attempt <= CONTEXT_LAUNCH_ATTEMPTS && !context; attempt++) {
-        const candidate = await launch()
-
-        let isWorkerVisible = await hasVisibleExtensionWorker(candidate, extensionId)
-        if (!isWorkerVisible) {
-          await restartExtensionWorker(candidate, extensionId)
-          isWorkerVisible = await hasVisibleExtensionWorker(candidate, extensionId)
-        }
-
-        if (isWorkerVisible) {
-          context = candidate
-        } else {
-          await candidate.close()
-        }
-      }
-
-      if (!context) {
-        throw new Error(
-          `Extension service worker never became visible after ${CONTEXT_LAUNCH_ATTEMPTS} browser launches`,
-        )
-      }
-
-      await use(context)
-    } finally {
-      await context?.close()
-      for (const userDataDir of userDataDirs) {
-        fs.rmSync(userDataDir, { recursive: true, force: true })
-      }
+      await resetExtensionState(context, extensionId)
+    } catch {
+      // A browser that cannot be reset is a browser the next tests cannot trust.
+      await sharedBrowser.discard()
+      context = await sharedBrowser.acquire()
     }
+
+    await use(context)
   },
 
   // Expose the extension ID so that tests can open extension pages
-  extensionId: async ({}, use) => {
-    if (!chromeExtensionId) {
-      throw new Error('chromeExtensionId is not set')
-    }
-    await use(chromeExtensionId)
-  },
+  extensionId: [
+    async ({}, use) => {
+      if (!chromeExtensionId) {
+        throw new Error('chromeExtensionId is not set')
+      }
+      await use(chromeExtensionId)
+    },
+    { scope: 'worker' },
+  ],
 
   serviceWorker: async ({ context, extensionId }, use) => {
-    // The context fixture only hands over a browser whose worker it can see.
-    const serviceWorker = findExtensionWorker(context, extensionId)
-    if (!serviceWorker) {
-      throw new Error('Extension service worker stopped before the test could use it')
-    }
-
-    await waitForChromeApis(serviceWorker)
-
-    await use(serviceWorker)
+    await use(await acquireExtensionWorker(context, extensionId))
   },
 
   openSidePanel: async ({ context, extensionId, serviceWorker, fixturePageUrl }, use, testInfo) => {

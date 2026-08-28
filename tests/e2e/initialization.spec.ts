@@ -2,10 +2,15 @@ import { expect, test, TestHelpers } from './fixtures'
 
 /**
  * Scenarios that verify the extension's default state immediately after a fresh
- * install. Because Playwright launches a brand-new Chromium user-data-dir for
- * every test run, the extension's `onInstalled` handler will run each time,
- * giving us deterministic behaviour.
+ * install.
+ *
+ * These are the specs the shared browser cannot serve: `onInstalled` fires once
+ * per profile, so the onboarding tab it opens and the storage it seeds only
+ * exist in a browser the extension has never run in. `shouldIsolateBrowser`
+ * therefore puts this file back on a brand-new user-data-dir per test, which is
+ * what makes `onInstalled` run for each of them.
  */
+test.use({ shouldIsolateBrowser: true })
 
 test('opens onboarding page on first install', async ({ context, extensionId }) => {
   const maybeOnboarding = context
