@@ -10,13 +10,11 @@ import { createRoot, type Root } from 'react-dom/client'
  * flushed before assertions run.
  */
 export interface RenderResult {
-  /** The element the tree was mounted into. */
   container: HTMLElement
   /** Render (or re-render) `ui` into the same root. */
   render: (ui: ReactNode) => Promise<void>
   /** Run `callback` inside `act`, flushing anything it schedules. */
   act: (callback: () => void | Promise<void>) => Promise<void>
-  /** Unmount the tree and detach the container. */
   cleanup: () => Promise<void>
 }
 

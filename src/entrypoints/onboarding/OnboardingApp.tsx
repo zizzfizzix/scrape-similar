@@ -61,7 +61,6 @@ const OnboardingApp: React.FC = () => {
     )
   }, [currentSlide, consentState])
 
-  /** Move one slide in `direction`, recording the move under `event`. */
   const goToAdjacentSlide = (direction: 1 | -1, event: string) => {
     if (consentState === undefined) return
 

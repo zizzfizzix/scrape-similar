@@ -5,11 +5,10 @@
  * Sheets API can be reasoned about (and tested) without any network or OAuth.
  */
 
-/** Grey, bold header row. */
+/** Light grey, as the Sheets API wants colour channels as 0-1 floats. */
 const HEADER_BACKGROUND = { red: 0.95, green: 0.95, blue: 0.95 }
 
 export interface SheetValues {
-  /** Display names written to the header row. */
   headers: string[]
   /** Header row followed by one array of cell strings per scraped row. */
   values: string[][]
@@ -41,12 +40,10 @@ export const buildSheetValues = (
   }
 }
 
-/** Request body that creates an empty spreadsheet titled `filename`. */
 export const buildCreateSpreadsheetBody = (filename: string) => ({
   properties: { title: filename },
 })
 
-/** Request body that appends the header row and all data rows starting at A1. */
 export const buildAppendValuesBody = (values: string[][]) => ({
   range: 'A1',
   majorDimension: 'ROWS' as const,
@@ -87,7 +84,6 @@ export const buildHeaderFormatBody = (sheetId: number, columnCount: number) => (
   ],
 })
 
-/** Sheets API endpoints, all rooted at the v4 spreadsheets collection. */
 export const SHEETS_API = {
   create: () => 'https://sheets.googleapis.com/v4/spreadsheets',
   appendValues: (spreadsheetId: string) =>

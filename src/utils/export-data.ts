@@ -103,7 +103,6 @@ export const rowsToXlsxBuffer = async (
   return workbook.xlsx.writeBuffer() as Promise<ArrayBuffer>
 }
 
-/** Hand `content` to the browser as a file download named `filename`. */
 export const downloadFile = (content: BlobPart, filename: string, mimeType: string): void => {
   const url = URL.createObjectURL(new Blob([content], { type: mimeType }))
   const link = document.createElement('a')

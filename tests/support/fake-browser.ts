@@ -11,7 +11,6 @@ import { fakeBrowser } from 'wxt/testing/fake-browser'
  * in one place instead of at every call site.
  */
 
-/** Spy on a `fakeBrowser` method, replacing its implementation. */
 export const spyOnBrowser = <T extends object>(target: T, method: keyof T & string): MockInstance =>
   vi.spyOn(target as never, method as never) as unknown as MockInstance
 

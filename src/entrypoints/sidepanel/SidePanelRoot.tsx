@@ -13,7 +13,6 @@ import React, { useEffect, useState } from 'react'
 export const SidePanelRoot: React.FC = () => {
   const [debugMode, setDebugMode] = useState(false)
 
-  // On startup, set log level and state from storage
   useEffect(() => {
     storage.getItem<boolean>('local:debugMode').then((val) => {
       setDebugMode(!!val)

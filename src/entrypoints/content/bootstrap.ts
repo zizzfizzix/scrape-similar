@@ -95,7 +95,6 @@ export const trackContextMenuTarget = (state: ContentScriptState, event: MouseEv
   state.lastMouseY = event.clientY
 }
 
-/** Wire up the content script and hand back the state it runs on. */
 export const startContentScript = (ctx: ContentScriptContext): ContentScriptState => {
   applyDebugMode()
 

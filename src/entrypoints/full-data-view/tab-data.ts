@@ -31,7 +31,6 @@ const FALLBACK_CONFIG: ScrapeConfig = {
 export const resolveTabConfig = (state: SidePanelConfig): ScrapeConfig =>
   state.resultProducingConfig || state.currentScrapeConfig || FALLBACK_CONFIG
 
-/** True when the stored state holds at least one scraped row. */
 export const hasScrapedRows = (state: SidePanelConfig | null): boolean =>
   !!state?.scrapeResult?.data && state.scrapeResult.data.length > 0
 
@@ -95,7 +94,6 @@ export const resolveTabSelection = (
   return { tabId: null, data: null }
 }
 
-/** Rows to display, honouring the "show empty rows" toggle. */
 export const visibleRows = (rows: ScrapedRow[], showEmptyRows: boolean): ScrapedRow[] =>
   showEmptyRows ? rows : rows.filter((row) => !row.metadata.isEmpty)
 

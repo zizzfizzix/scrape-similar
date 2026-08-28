@@ -21,7 +21,6 @@ export interface ColumnWidthMetrics {
   maxWidth: number
 }
 
-/** Metrics for the narrow table in the side panel. */
 export const SIDE_PANEL_COLUMN_METRICS: ColumnWidthMetrics = {
   fixedWidths: { rowIndex: 40, actions: 60 },
   unknownWidth: 150,
@@ -32,7 +31,6 @@ export const SIDE_PANEL_COLUMN_METRICS: ColumnWidthMetrics = {
   maxWidth: 300,
 }
 
-/** Metrics for the full-page table, which has room for more. */
 export const FULL_DATA_VIEW_COLUMN_METRICS: ColumnWidthMetrics = {
   fixedWidths: { select: 35, rowIndex: 35, actions: 75 },
   unknownWidth: 200,

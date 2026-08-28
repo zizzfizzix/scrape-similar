@@ -18,7 +18,6 @@ export const withColumnName = (config: ScrapeConfig, index: number, name: string
   return { ...config, columns }
 }
 
-/** Repoint one column at a different selector. */
 export const withColumnSelector = (
   config: ScrapeConfig,
   index: number,
@@ -42,7 +41,6 @@ export const withAddedColumn = (config: ScrapeConfig, name: string): ScrapeConfi
   }
 }
 
-/** Drop the column at `index`. */
 export const withoutColumn = (config: ScrapeConfig, index: number): ScrapeConfig => ({
   ...config,
   columns: config.columns.filter((_, i) => i !== index),
