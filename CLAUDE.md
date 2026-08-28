@@ -32,7 +32,7 @@ pnpm test:e2e           # Playwright E2E. Requires `pnpm build:test` first to pr
 pnpm update:shadcn      # rerun bash scripts/update-shadcn.sh to refresh shadcn-ui components
 ```
 
-A lefthook `pre-commit` hook (`lefthook.yml`) runs `pnpm fmt-check` and `pnpm test:coverage`; both must pass to commit. Hooks are installed by the `prepare` script (`scripts/install-git-hooks.mjs`) on `pnpm install` — pnpm's warning that lefthook's own build script was ignored is harmless, since that script only does the same `lefthook install`. A `post-checkout` hook (`.lefthook/post-checkout/worktree-setup.sh`) bootstraps newly created worktrees (copies `.env` / `.env.test` from the origin checkout, runs `pnpm install`).
+Lefthook hooks (`lefthook.yml`) split the checks by what they are a property of: `pre-commit` runs `pnpm fmt-check` (formatting is part of the diff), and `pre-push` runs `pnpm test:coverage` (a ~40s run, and coverage describes the branch rather than each work-in-progress commit). Hooks are installed by the `prepare` script (`scripts/install-git-hooks.mjs`) on `pnpm install` — pnpm's warning that lefthook's own build script was ignored is harmless, since that script only does the same `lefthook install`. A `post-checkout` hook (`.lefthook/post-checkout/worktree-setup.sh`) bootstraps newly created worktrees (copies `.env` / `.env.test` from the origin checkout, runs `pnpm install`).
 
 **Copy `.env.example` to `.env` before running the test suite locally.** The PostHog tests read `VITE_PUBLIC_POSTHOG_KEY` / `VITE_PUBLIC_POSTHOG_HOST` and fail without them; any non-empty placeholder values work for the unit tests (the ones shipped in `.env.example` are fine), and real project values are only needed to exercise actual analytics. CI supplies these as repository secrets, so the failures show up only on a fresh local clone.
 
@@ -94,7 +94,7 @@ Manifest is generated dynamically by `wxt.config.ts`. CSP allowlists PostHog and
 ## Testing
 
 - **Unit tests**: Vitest with jsdom (`vitest.config.ts`, `vitest.setup.ts` patches `TextEncoder` for jsdom). Tests live in `__tests__/` directories next to the code (`src/utils/__tests__`, `src/components/__tests__`, `src/entrypoints/content/__tests__`, `src/entrypoints/background/listeners/__tests__`). `WxtVitest()` plugin provides `browser.*` and `storage.*` mocks. Tests under `tests/e2e/**` are excluded from the unit run.
-- **Missing `.env` is not a regression**: without a local `.env`, `pnpm test` fails exactly 6 tests — 4 in `src/utils/__tests__/posthog-debug.test.ts` and 2 in `src/utils/__tests__/distinct_id.test.tsx`. That signature means missing local env config, so the fix is `cp .env.example .env` — never `--no-verify` to bypass the pre-commit hook, and never committing the `.env` you just created.
+- **Missing `.env` is not a regression**: without a local `.env`, `pnpm test` fails exactly 6 tests — 4 in `src/utils/__tests__/posthog-debug.test.ts` and 2 in `src/utils/__tests__/distinct_id.test.tsx`. That signature means missing local env config, so the fix is `cp .env.example .env` — never `--no-verify` to bypass the hooks, and never committing the `.env` you just created.
 - **Coverage is a quality gate at 100%**: `vitest.config.ts` sets `coverage.thresholds` to 100% for statements, branches, functions and lines, so `pnpm test:coverage` exits non-zero if a change lowers coverage. The `Unit Tests` workflow runs it on every PR, renders the numbers onto the check page via `scripts/coverage-summary.mjs`, and uploads the HTML report as the `coverage-report` artifact. Excluded from measurement (each with a comment saying why): generated `src/components/ui/**`, type-only modules, and the entrypoint bootstrap files (`src/entrypoints/*/main.tsx`, `background/index.ts`, `content/index.ts`) — these hold `createRoot().render()` / WXT `define*` wiring only, and the E2E suite exercises them.
 - **Keep new logic out of the bootstrap files**, or it becomes untestable and silently unmeasured: put it in a module beside them (`content/bootstrap.ts`, `sidepanel/SidePanelRoot.tsx` are the existing examples) and cover it there.
 - **Don't write a test purely to colour in an unreachable branch.** Several defensive branches are artefacts of `noUncheckedIndexedAccess` and cannot be hit; delete the dead code (a `!` with a comment saying why it is safe) rather than faking coverage of it.
@@ -118,7 +118,7 @@ shadcn-ui components in `src/components/ui/` are generated/managed; custom compo
 ## Git
 
 - Do not stage changes (`git add`) unless explicitly asked.
-- Do not commit unless explicitly asked. The lefthook `pre-commit` hook runs `pnpm fmt-check` and `pnpm test`; if asked to commit, both must pass — fix failures rather than bypassing the hook.
+- Do not commit unless explicitly asked. The lefthook `pre-commit` hook runs `pnpm fmt-check` and the `pre-push` hook runs `pnpm test:coverage`; if asked to commit or push, they must pass — fix failures rather than bypassing the hook.
 
 ## Release flow
 
