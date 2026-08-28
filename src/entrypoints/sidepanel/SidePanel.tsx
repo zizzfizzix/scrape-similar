@@ -458,13 +458,31 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
   // ---------------------------------------------------------------------------
   useEffect(() => {
     if (!targetTabId) return
+    let isSubscribed = true
+    let hasWatchedUpdate = false
     const key = `session:sidepanel_config_${targetTabId}` as const
     const unwatch = storage.watch<SidePanelConfig>(key, (newValue) => {
       if (newValue) {
+        hasWatchedUpdate = true
         handleInitialData({ tabId: targetTabId, config: newValue })
       }
     })
-    return () => unwatch()
+
+    // The tab's state is also read when the tab is resolved, before this watcher
+    // exists. A write landing in that gap - an auto-scrape finishing while the
+    // panel is still starting up, say - would otherwise never reach the UI, so
+    // re-read once the watcher is in place to close it. Anything the watcher has
+    // already delivered is newer than this read, so it wins.
+    storage.getItem<SidePanelConfig>(key).then((stored) => {
+      if (isSubscribed && !hasWatchedUpdate && stored) {
+        handleInitialData({ tabId: targetTabId, config: stored })
+      }
+    })
+
+    return () => {
+      isSubscribed = false
+      unwatch()
+    }
   }, [targetTabId, handleInitialData])
 
   // ---------------------------------------------------------------------------
