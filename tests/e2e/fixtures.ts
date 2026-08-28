@@ -105,7 +105,6 @@ export const DEFAULT_SCRAPE_ROW_COUNT = 10
 /** XPath that is guaranteed not to match anything on the fixture pages. */
 export const NO_MATCH_SELECTOR = '//*[@id="nonexistent_element_for_test"]'
 
-/** Directory holding the fixture HTML pages. */
 const FIXTURE_PAGES_ROOT = path.join(import.meta.dirname, 'fixtures', 'pages')
 
 const HTML_CONTENT_TYPE = 'text/html; charset=utf-8'
@@ -215,9 +214,8 @@ export const TestHelpers = {
   },
 
   /**
-   * Serves the local wikitable fixture in place of the live article the
-   * onboarding demo navigates to, so the demo flow runs offline and against a
-   * table whose rows never shift.
+   * Serves DEMO_TARGET_PAGE in place of the live article the onboarding demo
+   * navigates to.
    *
    * Routed on the context rather than a page: the onboarding tab navigates
    * itself to the demo URL, and the extension keys the demo scrape off that

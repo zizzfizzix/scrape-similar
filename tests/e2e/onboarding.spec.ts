@@ -29,7 +29,6 @@ import { DEMO_TARGET_PAGE_FACTS, DEMO_TARGET_URL, expect, test, TestHelpers } fr
  * DEMO_TARGET_PAGE_FACTS with it.
  */
 
-/** Clicks through the onboarding slides and returns the final slide's Start button. */
 const advanceToStartButton = async (onboardingPage: Page): Promise<Locator> => {
   const nextButton = onboardingPage.getByRole('button', { name: 'Next' })
   const startButton = onboardingPage.getByRole('button', { name: /start/i })
@@ -42,9 +41,8 @@ const advanceToStartButton = async (onboardingPage: Page): Promise<Locator> => {
 }
 
 /**
- * Clicks Start and waits for both halves of the demo: the side panel opening and
- * the onboarding tab landing on the (locally served) demo page. Both listeners
- * are registered before the click, since navigation happens immediately.
+ * Both listeners have to be registered before the click: the side panel opens
+ * and the tab navigates immediately.
  */
 const startDemo = async (
   context: BrowserContext,
@@ -63,11 +61,7 @@ const startDemo = async (
   return sidepanelPage
 }
 
-/**
- * Walks the whole flow: dismiss consent, open onboarding, reach the final slide,
- * hit Start. Returns the onboarding tab (now showing the demo page) and the side
- * panel it opened.
- */
+/** The returned onboarding tab is already showing the demo page. */
 const completeOnboardingAndStartDemo = async (
   context: BrowserContext,
   extensionId: string,
@@ -84,12 +78,10 @@ const completeOnboardingAndStartDemo = async (
   return { onboardingPage, sidepanelPage }
 }
 
-/** Waits for the auto-triggered demo scrape to render its data in the side panel. */
 const waitForDemoData = async (sidepanelPage: Page): Promise<void> => {
   await expect(sidepanelPage.getByRole('heading', { name: /extracted data/i })).toBeVisible()
 }
 
-// Serve the local wikitable fixture at the baked demo URL for every spec here.
 test.beforeEach(async ({ context }) => {
   await TestHelpers.mockDemoTargetPage(context)
 })
@@ -106,10 +98,8 @@ test.describe('Onboarding Flow', () => {
       serviceWorker,
     )
 
-    // Verify the sidepanel opened successfully
     expect(sidepanelPage.isClosed()).toBe(false)
 
-    // Verify the tab landed on the demo target and got the fixture article
     expect(onboardingPage.url()).toBe(DEMO_TARGET_URL)
     await expect(onboardingPage.locator('h1')).toHaveText(
       'List of countries and dependencies by population',
@@ -126,45 +116,37 @@ test.describe('Onboarding Flow', () => {
     extensionId,
     serviceWorker,
   }) => {
-    // Dismiss analytics consent first
     await TestHelpers.dismissAnalyticsConsent(serviceWorker)
 
-    // Open onboarding page
     const onboardingPage = await TestHelpers.openOnboardingPage(context, extensionId)
 
-    // Wait for first slide
     await expect(
       onboardingPage.locator('[data-slot="card-title"]', { hasText: 'Get Started' }),
     ).toBeVisible()
 
     const nextButton = onboardingPage.getByRole('button', { name: 'Next' })
 
-    // Go to second slide
     await nextButton.click()
     await expect(
       onboardingPage.locator('[data-slot="card-title"]', { hasText: 'Pin the Extension' }),
     ).toBeVisible()
 
-    // Go to third slide
     await nextButton.click()
     await expect(
       onboardingPage.locator('[data-slot="card-title"]', { hasText: 'Visual Element Picker' }),
     ).toBeVisible()
 
-    // Now go back to second slide
     const previousButton = onboardingPage.getByRole('button', { name: /previous/i })
     await previousButton.click()
     await expect(
       onboardingPage.locator('[data-slot="card-title"]', { hasText: 'Pin the Extension' }),
     ).toBeVisible()
 
-    // Go back to first slide
     await previousButton.click()
     await expect(
       onboardingPage.locator('[data-slot="card-title"]', { hasText: 'Get Started' }),
     ).toBeVisible()
 
-    // Previous button should not be visible on first slide
     await expect(previousButton).not.toBeVisible()
   })
 })
@@ -181,10 +163,8 @@ test.describe('Onboarding Demo Scrape', () => {
       serviceWorker,
     )
 
-    // Wait for data table to appear in sidepanel (demo scrape should auto-trigger)
     await waitForDemoData(sidepanelPage)
 
-    // Verify data table has content
     const dataTable = sidepanelPage.locator('.data-table-container table').first()
     await expect(dataTable).toBeVisible()
 
@@ -192,7 +172,6 @@ test.describe('Onboarding Demo Scrape', () => {
     const rows = dataTable.locator('tbody tr')
     await expect(rows).toHaveCount(DEMO_TARGET_PAGE_FACTS.scrapedRows)
 
-    // Verify expected columns exist
     const headers = await dataTable.locator('thead th').allTextContents()
     expect(headers).toContain('Rank')
     expect(headers).toContain('Country/Territory')
@@ -200,8 +179,8 @@ test.describe('Onboarding Demo Scrape', () => {
     expect(headers).toContain('Percentage')
     expect(headers).toContain('Date')
 
-    // Verify the first row holds the fixture's first data row. Cells 0 and 1 are
-    // the row-number and actions columns the data table prepends.
+    // Cells 0 and 1 are the row-number and actions columns the data table
+    // prepends.
     const firstRowCells = rows.first().locator('td')
     for (const [index, value] of DEMO_TARGET_PAGE_FACTS.firstRow.entries()) {
       await expect(firstRowCells.nth(index + 2)).toHaveText(value)
@@ -224,12 +203,11 @@ test.describe('Onboarding Demo Scrape', () => {
       serviceWorker,
     )
 
-    // Wait for data table to appear (demo scrape completed)
     await waitForDemoData(sidepanelPage)
 
-    // Look for picker banner, it is in a shadow root, so we use evaluate to check for it
+    // The picker's banner lives in a shadow root, so check the class it puts on
+    // the document element instead.
     const pickerActive = await onboardingPage.evaluate(() => {
-      // Check for the crosshair cursor class on html element
       return document.documentElement.classList.contains('scrape-similar-picker-active')
     })
 
@@ -241,16 +219,15 @@ test.describe('Onboarding Demo Scrape', () => {
     extensionId,
     serviceWorker,
   }) => {
-    // Dismiss analytics consent
     await TestHelpers.dismissAnalyticsConsent(serviceWorker)
 
-    // Open onboarding page and navigate to the last slide
     const onboardingPage = await TestHelpers.openOnboardingPage(context, extensionId)
     const startButton = await advanceToStartButton(onboardingPage)
 
     await onboardingPage.bringToFront()
 
-    // Set up a storage listener in the service worker to capture the config as soon as it's written
+    // The config is cleared as soon as the demo runs, so catch the write itself
+    // rather than reading the key afterwards.
     const configPromise = serviceWorker.evaluate(() => {
       return new Promise<ScrapeConfig>((resolve, reject) => {
         const listener = (
@@ -258,7 +235,6 @@ test.describe('Onboarding Demo Scrape', () => {
           areaName: string,
         ) => {
           if (areaName === 'local') {
-            // Look for any demo_scrape_pending key
             for (const key of Object.keys(changes)) {
               if (key.startsWith('demo_scrape_pending_') && changes[key]?.newValue) {
                 chrome.storage.onChanged.removeListener(listener)
@@ -273,17 +249,14 @@ test.describe('Onboarding Demo Scrape', () => {
       })
     })
 
-    // Click start button to trigger the demo scrape setup
     await startButton.click()
 
-    // Wait for the config to be captured by the storage listener
     const demoConfig = await configPromise
 
     expect(demoConfig).toBeDefined()
     expect(demoConfig.mainSelector).toContain('wikitable')
     expect(demoConfig.columns).toHaveLength(5)
 
-    // Verify column definitions
     const columns = demoConfig.columns
     expect(columns[0]?.name).toBe('Rank')
     expect(columns[1]?.name).toBe('Country/Territory')
@@ -297,16 +270,15 @@ test.describe('Onboarding Demo Scrape', () => {
     extensionId,
     serviceWorker,
   }) => {
-    // Dismiss analytics consent
     await TestHelpers.dismissAnalyticsConsent(serviceWorker)
 
-    // Open onboarding page and navigate to the last slide
     const onboardingPage = await TestHelpers.openOnboardingPage(context, extensionId)
     const startButton = await advanceToStartButton(onboardingPage)
 
     await onboardingPage.bringToFront()
 
-    // Get the tab ID before navigation
+    // The tab is looked up by its onboarding URL, which the demo is about to
+    // replace.
     const tabId = await serviceWorker.evaluate(async (onboardingUrl) => {
       const tabs = await chrome.tabs.query({ url: onboardingUrl })
       return tabs[0]?.id
@@ -314,10 +286,8 @@ test.describe('Onboarding Demo Scrape', () => {
 
     const sidepanelPage = await startDemo(context, extensionId, onboardingPage, startButton)
 
-    // Wait for scrape to complete
     await waitForDemoData(sidepanelPage)
 
-    // Verify demo config was cleaned up from storage after execution
     const demoConfigAfter = await serviceWorker.evaluate(async (tid) => {
       const result = await chrome.storage.local.get(`demo_scrape_pending_${tid}`)
       return result[`demo_scrape_pending_${tid}`]
@@ -337,14 +307,11 @@ test.describe('Onboarding Demo Scrape', () => {
       serviceWorker,
     )
 
-    // Wait for scrape to complete
     await waitForDemoData(sidepanelPage)
 
-    // Verify the main selector is displayed in the sidepanel
     const mainSelectorInput = sidepanelPage.locator('#mainSelector')
     const selectorValue = await mainSelectorInput.inputValue()
 
-    // Should be the XPath selector for the wikitable
     expect(selectorValue).toContain('wikitable')
     expect(selectorValue).toContain('position()')
   })
@@ -360,10 +327,8 @@ test.describe('Onboarding Demo Scrape', () => {
       serviceWorker,
     )
 
-    // Wait for scrape to complete
     await waitForDemoData(sidepanelPage)
 
-    // Verify the match count badge shows the rows the demo scrapes
     const matchCountBadge = sidepanelPage
       .locator('[data-slot="badge"]')
       .filter({ hasText: new RegExp(`^${DEMO_TARGET_PAGE_FACTS.scrapedRows}$`) })
@@ -381,17 +346,13 @@ test.describe('Onboarding Demo Scrape', () => {
       serviceWorker,
     )
 
-    // Wait for scrape to complete
     await waitForDemoData(sidepanelPage)
 
-    // Stub clipboard
     await TestHelpers.stubClipboard(sidepanelPage)
 
-    // Open Export dropdown and click "Copy all to clipboard"
     await sidepanelPage.getByRole('button', { name: /export/i }).click()
     await sidepanelPage.getByRole('menuitem', { name: /copy all to clipboard/i }).click()
 
-    // Verify data was copied
     const copiedText = await TestHelpers.getCopiedText(sidepanelPage)
     expect(copiedText).toBeTruthy()
     expect(copiedText).not.toBeNull()
@@ -401,12 +362,10 @@ test.describe('Onboarding Demo Scrape', () => {
     // One header line plus one line per scraped row
     expect(lines).toHaveLength(DEMO_TARGET_PAGE_FACTS.scrapedRows + 1)
 
-    // TSV format: the demo config's column names, tab separated
     expect(lines[0]).toBe(
       ['Rank', 'Country/Territory', 'Population', 'Percentage', 'Date'].join('\t'),
     )
 
-    // The fixture's first data row, in the same order
     expect(lines[1]).toBe(DEMO_TARGET_PAGE_FACTS.firstRow.join('\t'))
   })
 })
