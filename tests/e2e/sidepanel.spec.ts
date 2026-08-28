@@ -1,9 +1,11 @@
 import fs from 'fs/promises'
 import {
+  DEFAULT_SCRAPE_ROW_COUNT,
   expect,
   FIXTURE_PAGE_COUNTS,
   getFirstWorksheet,
   NO_MATCH_SELECTOR,
+  SCRAPE_TARGET_PAGE,
   test,
   TestHelpers,
 } from './fixtures'
@@ -40,13 +42,14 @@ test.describe('Sidepanel Core Functionality', () => {
     context,
     serviceWorker,
     openSidePanel,
+    fixturePageUrl,
   }) => {
     const sidePanel = await openSidePanel()
 
     await expect(sidePanel).toBeTruthy()
 
     const testPage = await context.newPage()
-    await testPage.goto('https://one.one.one.one/')
+    await testPage.goto(fixturePageUrl(SCRAPE_TARGET_PAGE))
 
     // Dismiss consent modal
     await TestHelpers.dismissAnalyticsConsent(serviceWorker)
@@ -58,30 +61,32 @@ test.describe('Sidepanel Core Functionality', () => {
     openSidePanel,
     serviceWorker,
     context,
+    fixturePageUrl,
   }) => {
     const sidePanel = await openSidePanel()
 
     // Prepare data using shared helper
-    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context)
+    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context, {
+      testPageUrl: fixturePageUrl(SCRAPE_TARGET_PAGE),
+    })
 
     // Verify that data table is visible
     await expect(sidePanel.getByRole('heading', { name: /extracted data/i })).toBeVisible()
 
-    // Verify that we have some data rows
-    const dataRows = sidePanel.locator('tbody tr')
-    const rowCount = await dataRows.count()
-    expect(rowCount).toBeGreaterThan(0)
+    // Verify the fixture's exact row count
+    await expect(sidePanel.locator('tbody tr')).toHaveCount(DEFAULT_SCRAPE_ROW_COUNT)
   })
 
   test('shows error badge for invalid XPath selector', async ({
     context,
     serviceWorker,
     openSidePanel,
+    fixturePageUrl,
   }) => {
     const sidePanel = await openSidePanel()
 
     const testPage = await context.newPage()
-    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+    await testPage.goto(fixturePageUrl(SCRAPE_TARGET_PAGE))
 
     // Dismiss consent modal
     await TestHelpers.dismissAnalyticsConsent(serviceWorker)
@@ -100,43 +105,47 @@ test.describe('Sidepanel Core Functionality', () => {
     context,
     serviceWorker,
     openSidePanel,
+    fixturePageUrl,
   }) => {
     const sidePanel = await openSidePanel()
 
     const testPage = await context.newPage()
-    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+    await testPage.goto(fixturePageUrl(SCRAPE_TARGET_PAGE))
 
     // Dismiss consent modal
     await TestHelpers.dismissAnalyticsConsent(serviceWorker)
 
-    // Provide a valid selector that should match many elements
+    // Provide a valid selector that matches a known number of elements
     const mainSelector = sidePanel.locator('#mainSelector')
     await mainSelector.fill('//p')
     await mainSelector.press('Enter')
 
-    // Expect a badge whose text is a positive integer to appear
-    const countBadge = sidePanel.locator('[data-slot="badge"]').filter({ hasText: /^\d+$/ })
+    // Expect a badge reporting the fixture's exact match count
+    const countBadge = sidePanel
+      .locator('[data-slot="badge"]')
+      .filter({ hasText: new RegExp(`^${FIXTURE_PAGE_COUNTS.p}$`) })
     await expect(countBadge).toBeVisible()
-    const badgeText = await countBadge.textContent()
-    expect(parseInt(badgeText || '0', 10)).toBeGreaterThan(0)
   })
 
   test('resets match count and disables Scrape when the main selector is cleared', async ({
     context,
     serviceWorker,
     openSidePanel,
+    fixturePageUrl,
   }) => {
     const sidePanel = await openSidePanel()
 
     const testPage = await context.newPage()
-    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+    await testPage.goto(fixturePageUrl(SCRAPE_TARGET_PAGE))
     await testPage.bringToFront()
 
     // Dismiss consent modal
     await TestHelpers.dismissAnalyticsConsent(serviceWorker)
 
     const mainSelector = sidePanel.locator('#mainSelector')
-    const countBadge = sidePanel.locator('[data-slot="badge"]').filter({ hasText: /^\d+$/ })
+    const countBadge = sidePanel
+      .locator('[data-slot="badge"]')
+      .filter({ hasText: new RegExp(`^${FIXTURE_PAGE_COUNTS.p}$`) })
     const scrapeBtn = sidePanel.getByRole('button', { name: /^scrape$/i })
 
     // Commit a valid selector by unfocusing the input
@@ -160,12 +169,13 @@ test.describe('Sidepanel Core Functionality', () => {
     context,
     serviceWorker,
     openSidePanel,
+    fixturePageUrl,
   }) => {
     const sidePanel = await openSidePanel()
 
     // Open a real, injectable page so the content script can run.
     const testPage = await context.newPage()
-    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+    await testPage.goto(fixturePageUrl(SCRAPE_TARGET_PAGE))
 
     // Dismiss consent modal
     await TestHelpers.dismissAnalyticsConsent(serviceWorker)
@@ -175,8 +185,10 @@ test.describe('Sidepanel Core Functionality', () => {
     await input.fill('//h2')
     await input.press('Enter')
 
-    // Wait for match-count badge to appear confirming highlight is done.
-    const countBadge = sidePanel.locator('[data-slot="badge"]').filter({ hasText: /^\d+$/ })
+    // Wait for the match-count badge confirming highlight is done.
+    const countBadge = sidePanel
+      .locator('[data-slot="badge"]')
+      .filter({ hasText: new RegExp(`^${FIXTURE_PAGE_COUNTS.h2}$`) })
     await expect(countBadge).toBeVisible()
 
     // Click the Scrape button.
@@ -191,12 +203,13 @@ test.describe('Sidepanel Core Functionality', () => {
     context,
     serviceWorker,
     openSidePanel,
+    fixturePageUrl,
   }) => {
     const sidePanel = await openSidePanel()
 
     // Open a real page
     const testPage = await context.newPage()
-    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+    await testPage.goto(fixturePageUrl(SCRAPE_TARGET_PAGE))
 
     // Bring side-panel to front
     await sidePanel.bringToFront()
@@ -206,7 +219,7 @@ test.describe('Sidepanel Core Functionality', () => {
 
     // Enter selector that matches nothing
     const input = sidePanel.locator('#mainSelector')
-    await input.fill('//*[@id="nonexistent_element_for_test"]')
+    await input.fill(NO_MATCH_SELECTOR)
     await input.press('Enter')
 
     // Wait for highlight badge (will show 0)
@@ -275,12 +288,13 @@ test.describe('Sidepanel Core Functionality', () => {
     context,
     serviceWorker,
     openSidePanel,
+    fixturePageUrl,
   }) => {
     const sidePanel = await openSidePanel()
 
     // Open real page for highlight/scrape logic
     const testPage = await context.newPage()
-    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+    await testPage.goto(fixturePageUrl(SCRAPE_TARGET_PAGE))
 
     // Dismiss consent modal
     await TestHelpers.dismissAnalyticsConsent(serviceWorker)
@@ -292,7 +306,9 @@ test.describe('Sidepanel Core Functionality', () => {
     await mainSelector.press('Enter')
 
     // Wait for valid badge so Save button becomes enabled
-    const countBadge = sidePanel.locator('[data-slot="badge"]').filter({ hasText: /^\d+$/ })
+    const countBadge = sidePanel
+      .locator('[data-slot="badge"]')
+      .filter({ hasText: new RegExp(`^${FIXTURE_PAGE_COUNTS.h2}$`) })
     await expect(countBadge).toBeVisible()
 
     // Open Save Preset drawer
@@ -329,11 +345,14 @@ test.describe('Sidepanel Core Functionality', () => {
     context,
     serviceWorker,
     openSidePanel,
+    fixturePageUrl,
   }) => {
     const sidePanel = await openSidePanel()
 
     // Prepare data using shared helper
-    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context)
+    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context, {
+      testPageUrl: fixturePageUrl(SCRAPE_TARGET_PAGE),
+    })
 
     // Open Export dropdown
     await sidePanel.getByRole('button', { name: /export/i }).click()
@@ -373,11 +392,14 @@ test.describe('Sidepanel Core Functionality', () => {
     context,
     serviceWorker,
     openSidePanel,
+    fixturePageUrl,
   }) => {
     const sidePanel = await openSidePanel()
 
     // Prepare data using shared helper
-    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context)
+    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context, {
+      testPageUrl: fixturePageUrl(SCRAPE_TARGET_PAGE),
+    })
 
     // Open Export dropdown
     await sidePanel.getByRole('button', { name: /export/i }).click()
@@ -421,12 +443,13 @@ test.describe('Sidepanel Core Functionality', () => {
     context,
     serviceWorker,
     openSidePanel,
+    fixturePageUrl,
   }) => {
     const sidePanel = await openSidePanel()
 
     // Navigate to Wikipedia for testing
     const testPage = await context.newPage()
-    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+    await testPage.goto(fixturePageUrl(SCRAPE_TARGET_PAGE))
 
     // Dismiss consent modal
     await TestHelpers.dismissAnalyticsConsent(serviceWorker)
@@ -436,9 +459,10 @@ test.describe('Sidepanel Core Functionality', () => {
     const linksPresetOption = sidePanel.getByRole('option', { name: /internal.*relative.*links/i })
     await linksPresetOption.click()
 
-    // Wait for valid badge after preset loads
-    const countBadge = sidePanel.locator('[data-slot="badge"]').filter({ hasText: /^\d+$/ })
-    await expect(countBadge).toBeVisible()
+    // Wait for the badge reporting the preset's match count on the fixture
+    const badgeWithCount = (count: number) =>
+      sidePanel.locator('[data-slot="badge"]').filter({ hasText: new RegExp(`^${count}$`) })
+    await expect(badgeWithCount(FIXTURE_PAGE_COUNTS.internalLinks)).toBeVisible()
 
     // Perform initial scrape to establish baseline
     const scrapeBtn = sidePanel.getByRole('button', { name: /^scrape$/i })
@@ -460,7 +484,7 @@ test.describe('Sidepanel Core Functionality', () => {
     await headingsPresetOption.click()
 
     // Wait for new badge
-    await expect(countBadge).toBeVisible()
+    await expect(badgeWithCount(FIXTURE_PAGE_COUNTS.headings)).toBeVisible()
 
     // Verify rescrape indicator appears when config differs from scraped data
     // (button should now contain refresh icon before "Scrape" text)
@@ -493,7 +517,7 @@ test.describe('Sidepanel Core Functionality', () => {
     await mainSelector.press('Enter')
 
     // Wait for badge
-    await expect(countBadge).toBeVisible()
+    await expect(badgeWithCount(FIXTURE_PAGE_COUNTS.h2)).toBeVisible()
 
     // Rescrape indicator should appear
     await expect(rescrapeIcon).toBeVisible()
@@ -529,10 +553,13 @@ test.describe('Sidepanel Core Functionality', () => {
     openSidePanel,
     serviceWorker,
     context,
+    fixturePageUrl,
   }) => {
     const sidePanel = await openSidePanel()
 
-    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context)
+    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context, {
+      testPageUrl: fixturePageUrl(SCRAPE_TARGET_PAGE),
+    })
     await TestHelpers.stubClipboard(sidePanel)
 
     // Click the first "Copy this row" button (ensure it is enabled)
@@ -551,20 +578,23 @@ test.describe('Sidepanel Core Functionality', () => {
     openSidePanel,
     serviceWorker,
     context,
+    fixturePageUrl,
   }) => {
     const sidePanel = await openSidePanel()
 
-    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context)
+    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context, {
+      testPageUrl: fixturePageUrl(SCRAPE_TARGET_PAGE),
+    })
     await TestHelpers.stubClipboard(sidePanel)
 
     // Open Export dropdown and click "Copy to clipboard" option
     await sidePanel.getByRole('button', { name: /export/i }).click()
     await sidePanel.getByRole('menuitem', { name: /copy all to clipboard/i }).click()
 
-    // Verify clipboard capture contains multiple lines
+    // Verify clipboard capture holds the header plus every fixture row
     const text = await TestHelpers.getCopiedText(sidePanel)
     expect(text).not.toBeNull()
-    expect(text!.split('\n').length).toBeGreaterThan(1) // header + at least one data line
+    expect(text!.split('\n').length).toBe(DEFAULT_SCRAPE_ROW_COUNT + 1)
   })
 })
 
@@ -573,12 +603,13 @@ test.describe('Visual Picker Integration', () => {
     openSidePanel,
     context,
     serviceWorker,
+    fixturePageUrl,
   }) => {
     await TestHelpers.dismissAnalyticsConsent(serviceWorker)
     const sidePanel = await openSidePanel()
 
     const testPage = await context.newPage()
-    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+    await testPage.goto(fixturePageUrl(SCRAPE_TARGET_PAGE))
     await testPage.bringToFront()
 
     // Check for crosshair button
@@ -590,12 +621,13 @@ test.describe('Visual Picker Integration', () => {
     openSidePanel,
     context,
     serviceWorker,
+    fixturePageUrl,
   }) => {
     await TestHelpers.dismissAnalyticsConsent(serviceWorker)
     const sidePanel = await openSidePanel()
 
     const testPage = await context.newPage()
-    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+    await testPage.goto(fixturePageUrl(SCRAPE_TARGET_PAGE))
     await testPage.bringToFront()
 
     // Click crosshair button to enable picker
@@ -623,12 +655,13 @@ test.describe('Visual Picker Integration', () => {
     openSidePanel,
     context,
     serviceWorker,
+    fixturePageUrl,
   }) => {
     await TestHelpers.dismissAnalyticsConsent(serviceWorker)
     const sidePanel = await openSidePanel()
 
     const testPage = await context.newPage()
-    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+    await testPage.goto(fixturePageUrl(SCRAPE_TARGET_PAGE))
     await testPage.bringToFront()
 
     // Initially should show "open" label

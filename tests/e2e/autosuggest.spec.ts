@@ -1,16 +1,17 @@
-import { expect, test, TestHelpers } from './fixtures'
+import { expect, FIXTURE_PAGE_COUNTS, SCRAPE_TARGET_PAGE, test, TestHelpers } from './fixtures'
 
 test.describe('Main selector autosuggest', () => {
   test('opens on focus and filters by typing; clears to show all', async ({
     openSidePanel,
     context,
     serviceWorker,
+    fixturePageUrl,
   }) => {
     await TestHelpers.dismissAnalyticsConsent(serviceWorker)
     const sidePanel = await openSidePanel()
 
     const testPage = await context.newPage()
-    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+    await testPage.goto(fixturePageUrl(SCRAPE_TARGET_PAGE))
     await testPage.bringToFront()
 
     const input = sidePanel.locator('#mainSelector')
@@ -33,12 +34,13 @@ test.describe('Main selector autosuggest', () => {
     openSidePanel,
     context,
     serviceWorker,
+    fixturePageUrl,
   }) => {
     await TestHelpers.dismissAnalyticsConsent(serviceWorker)
     const sidePanel = await openSidePanel()
 
     const testPage = await context.newPage()
-    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+    await testPage.goto(fixturePageUrl(SCRAPE_TARGET_PAGE))
     await testPage.bringToFront()
 
     const input = sidePanel.locator('#mainSelector')
@@ -48,8 +50,10 @@ test.describe('Main selector autosuggest', () => {
     // Initially no selection, Enter should submit (validate+scrape)
     await input.press('Enter')
 
-    // Badge shown for validation
-    const countBadge = sidePanel.locator('[data-slot="badge"]').filter({ hasText: /^\d+$/ })
+    // Badge shows the fixture page's exact match count for //h2
+    const countBadge = sidePanel
+      .locator('[data-slot="badge"]')
+      .filter({ hasText: new RegExp(`^${FIXTURE_PAGE_COUNTS.h2}$`) })
     await expect(countBadge).toBeVisible()
 
     // Open again and navigate with arrows
@@ -62,12 +66,13 @@ test.describe('Main selector autosuggest', () => {
     openSidePanel,
     serviceWorker,
     context,
+    fixturePageUrl,
   }) => {
     await TestHelpers.dismissAnalyticsConsent(serviceWorker)
     const sidePanel = await openSidePanel()
 
     const testPage = await context.newPage()
-    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+    await testPage.goto(fixturePageUrl(SCRAPE_TARGET_PAGE))
     await testPage.bringToFront()
 
     const input = sidePanel.locator('#mainSelector')
@@ -98,20 +103,23 @@ test.describe('Main selector autosuggest', () => {
     openSidePanel,
     context,
     serviceWorker,
+    fixturePageUrl,
   }) => {
     await TestHelpers.dismissAnalyticsConsent(serviceWorker)
     const sidePanel = await openSidePanel()
 
     const testPage = await context.newPage()
-    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+    await testPage.goto(fixturePageUrl(SCRAPE_TARGET_PAGE))
     await testPage.bringToFront()
 
     const input = sidePanel.locator('#mainSelector')
     await input.fill('//h2')
     await input.press('Enter') // validate + badge
 
-    // Wait for numeric badge to ensure selector is committed and valid
-    const countBadge = sidePanel.locator('[data-slot="badge"]').filter({ hasText: /^\d+$/ })
+    // Wait for the match-count badge to ensure the selector is committed and valid
+    const countBadge = sidePanel
+      .locator('[data-slot="badge"]')
+      .filter({ hasText: new RegExp(`^${FIXTURE_PAGE_COUNTS.h2}$`) })
     await expect(countBadge).toBeVisible()
 
     // Ensure at least one column exists so Save is enabled
@@ -149,12 +157,13 @@ test.describe('Main selector autosuggest', () => {
     openSidePanel,
     context,
     serviceWorker,
+    fixturePageUrl,
   }) => {
     await TestHelpers.dismissAnalyticsConsent(serviceWorker)
     const sidePanel = await openSidePanel()
 
     const testPage = await context.newPage()
-    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+    await testPage.goto(fixturePageUrl(SCRAPE_TARGET_PAGE))
     await testPage.bringToFront()
 
     const input = sidePanel.locator('#mainSelector')
@@ -179,12 +188,13 @@ test.describe('Main selector autosuggest', () => {
     openSidePanel,
     context,
     serviceWorker,
+    fixturePageUrl,
   }) => {
     await TestHelpers.dismissAnalyticsConsent(serviceWorker)
     const sidePanel = await openSidePanel()
 
     const testPage = await context.newPage()
-    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+    await testPage.goto(fixturePageUrl(SCRAPE_TARGET_PAGE))
     await testPage.bringToFront()
 
     const input = sidePanel.locator('#mainSelector')
@@ -204,12 +214,13 @@ test.describe('Main selector autosuggest', () => {
     openSidePanel,
     context,
     serviceWorker,
+    fixturePageUrl,
   }) => {
     await TestHelpers.dismissAnalyticsConsent(serviceWorker)
     const sidePanel = await openSidePanel()
 
     const testPage = await context.newPage()
-    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+    await testPage.goto(fixturePageUrl(SCRAPE_TARGET_PAGE))
     await testPage.bringToFront()
 
     const input = sidePanel.locator('#mainSelector')
@@ -228,25 +239,36 @@ test.describe('Main selector autosuggest', () => {
     openSidePanel,
     context,
     serviceWorker,
+    fixturePageUrl,
   }) => {
     await TestHelpers.dismissAnalyticsConsent(serviceWorker)
     const sidePanel = await openSidePanel()
 
     const testPage = await context.newPage()
-    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+    await testPage.goto(fixturePageUrl(SCRAPE_TARGET_PAGE))
     await testPage.bringToFront()
 
     const input = sidePanel.locator('#mainSelector')
-    const countBadge = sidePanel.locator('[data-slot="badge"]').filter({ hasText: /^\d+$/ })
+    const badgeWithCount = (count: number) =>
+      sidePanel.locator('[data-slot="badge"]').filter({ hasText: new RegExp(`^${count}$`) })
     const dropdown = sidePanel.locator('[data-slot="command-list"]')
     const removeButtons = sidePanel.locator('[aria-label="Remove recent selector"]')
 
-    // Enter MORE than 5 selectors to test the cap
-    const selectors = ['//h1', '//h2', '//h3', '//p', '//ul', '//li', '//a']
-    for (const sel of selectors) {
+    // Enter MORE than 5 selectors to test the cap. Every match count differs, so
+    // waiting for the badge really does wait for the new selector's validation.
+    const selectors: Array<[selector: string, matches: number]> = [
+      ['//h1', FIXTURE_PAGE_COUNTS.h1],
+      ['//h2', FIXTURE_PAGE_COUNTS.h2],
+      ['//tbody/tr', FIXTURE_PAGE_COUNTS.tbodyTr],
+      ['//p', FIXTURE_PAGE_COUNTS.p],
+      ['//li', FIXTURE_PAGE_COUNTS.li],
+      ['//a', FIXTURE_PAGE_COUNTS.a],
+      ['//span', FIXTURE_PAGE_COUNTS.span],
+    ]
+    for (const [sel, matches] of selectors) {
       await input.fill(sel)
       await input.press('Enter')
-      await expect(countBadge).toBeVisible()
+      await expect(badgeWithCount(matches)).toBeVisible()
       // Click outside to trigger blur and save recent
       await sidePanel.getByRole('heading', { name: /configuration/i }).click()
       await expect(dropdown).toBeHidden()
@@ -277,29 +299,32 @@ test.describe('Main selector autosuggest', () => {
     openSidePanel,
     context,
     serviceWorker,
+    fixturePageUrl,
   }) => {
     await TestHelpers.dismissAnalyticsConsent(serviceWorker)
     const sidePanel = await openSidePanel()
 
     const testPage = await context.newPage()
-    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+    await testPage.goto(fixturePageUrl(SCRAPE_TARGET_PAGE))
     await testPage.bringToFront()
 
     const input = sidePanel.locator('#mainSelector')
-    const countBadge = sidePanel.locator('[data-slot="badge"]').filter({ hasText: /^\d+$/ })
+    const badgeWithCount = (count: number) =>
+      sidePanel.locator('[data-slot="badge"]').filter({ hasText: new RegExp(`^${count}$`) })
     const dropdown = sidePanel.locator('[data-slot="command-list"]')
     const removeButtons = sidePanel.locator('[aria-label="Remove recent selector"]')
 
-    // Enter two distinct selectors to create recents
-    await input.fill('//h1')
+    // Enter two distinct selectors to create recents. Their match counts differ,
+    // so each badge wait really does wait for that selector's validation.
+    await input.fill('//h2')
     await input.press('Enter')
-    await expect(countBadge).toBeVisible()
+    await expect(badgeWithCount(FIXTURE_PAGE_COUNTS.h2)).toBeVisible()
     await sidePanel.getByRole('heading', { name: /configuration/i }).click()
     await expect(dropdown).toBeHidden()
 
     await input.fill('//article')
     await input.press('Enter')
-    await expect(countBadge).toBeVisible()
+    await expect(badgeWithCount(FIXTURE_PAGE_COUNTS.article)).toBeVisible()
     await sidePanel.getByRole('heading', { name: /configuration/i }).click()
     await expect(dropdown).toBeHidden()
 
@@ -336,12 +361,13 @@ test.describe('Main selector autosuggest', () => {
     openSidePanel,
     context,
     serviceWorker,
+    fixturePageUrl,
   }) => {
     await TestHelpers.dismissAnalyticsConsent(serviceWorker)
     const sidePanel = await openSidePanel()
 
     const testPage = await context.newPage()
-    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+    await testPage.goto(fixturePageUrl(SCRAPE_TARGET_PAGE))
     await testPage.bringToFront()
 
     const input = sidePanel.locator('#mainSelector')
@@ -369,12 +395,13 @@ test.describe('Main selector autosuggest', () => {
     openSidePanel,
     context,
     serviceWorker,
+    fixturePageUrl,
   }) => {
     await TestHelpers.dismissAnalyticsConsent(serviceWorker)
     const sidePanel = await openSidePanel()
 
     const testPage = await context.newPage()
-    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+    await testPage.goto(fixturePageUrl(SCRAPE_TARGET_PAGE))
     await testPage.bringToFront()
 
     // Verify default state has 1 column (Text)
@@ -388,9 +415,10 @@ test.describe('Main selector autosuggest', () => {
     await expect(columnNames.nth(0)).toHaveValue('Text')
     await expect(columnNames.nth(1)).toHaveValue('Column 2')
 
-    // Enter a selector to create a recent entry (use real selectors that exist on Wikipedia)
+    // Enter a selector to create a recent entry (selectors that match on the fixture page)
     const input = sidePanel.locator('#mainSelector')
-    const countBadge = sidePanel.locator('[data-slot="badge"]').filter({ hasText: /^\d+$/ })
+    const badgeWithCount = (count: number) =>
+      sidePanel.locator('[data-slot="badge"]').filter({ hasText: new RegExp(`^${count}$`) })
     const dropdown = sidePanel.locator('[data-slot="command-list"]')
     const removeButtons = sidePanel.locator('[aria-label="Remove recent selector"]')
 
@@ -398,7 +426,7 @@ test.describe('Main selector autosuggest', () => {
     await input.fill('//ul')
     await input.press('Enter')
     // Wait for selector to be committed (badge shows match count)
-    await expect(countBadge).toBeVisible()
+    await expect(badgeWithCount(FIXTURE_PAGE_COUNTS.ul)).toBeVisible()
 
     // Click outside to ensure blur handler completes before next selector
     await sidePanel.getByRole('heading', { name: /configuration/i }).click()
@@ -416,7 +444,7 @@ test.describe('Main selector autosuggest', () => {
     // Second selector - will be first in recents (most recent)
     await input.fill('//p')
     await input.press('Enter')
-    await expect(countBadge).toBeVisible()
+    await expect(badgeWithCount(FIXTURE_PAGE_COUNTS.p)).toBeVisible()
 
     // Click outside to ensure blur handler completes
     await sidePanel.getByRole('heading', { name: /configuration/i }).click()
@@ -454,12 +482,13 @@ test.describe('Main selector autosuggest', () => {
     openSidePanel,
     context,
     serviceWorker,
+    fixturePageUrl,
   }) => {
     await TestHelpers.dismissAnalyticsConsent(serviceWorker)
     const sidePanel = await openSidePanel()
 
     const testPage = await context.newPage()
-    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+    await testPage.goto(fixturePageUrl(SCRAPE_TARGET_PAGE))
     await testPage.bringToFront()
 
     const input = sidePanel.locator('#mainSelector')
@@ -498,12 +527,13 @@ test.describe('Main selector autosuggest', () => {
     openSidePanel,
     context,
     serviceWorker,
+    fixturePageUrl,
   }) => {
     await TestHelpers.dismissAnalyticsConsent(serviceWorker)
     const sidePanel = await openSidePanel()
 
     const testPage = await context.newPage()
-    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+    await testPage.goto(fixturePageUrl(SCRAPE_TARGET_PAGE))
     await testPage.bringToFront()
 
     const input = sidePanel.locator('#mainSelector')
@@ -547,19 +577,22 @@ test.describe('Main selector autosuggest', () => {
     openSidePanel,
     context,
     serviceWorker,
+    fixturePageUrl,
   }) => {
     await TestHelpers.dismissAnalyticsConsent(serviceWorker)
     const sidePanel = await openSidePanel()
 
     const testPage = await context.newPage()
-    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+    await testPage.goto(fixturePageUrl(SCRAPE_TARGET_PAGE))
     await testPage.bringToFront()
 
     const input = sidePanel.locator('#mainSelector')
     await input.focus()
     await input.fill('//h2')
 
-    const countBadge = sidePanel.locator('[data-slot="badge"]').filter({ hasText: /^\d+$/ })
+    const countBadge = sidePanel
+      .locator('[data-slot="badge"]')
+      .filter({ hasText: new RegExp(`^${FIXTURE_PAGE_COUNTS.h2}$`) })
     await expect(countBadge).toHaveCount(0)
 
     await sidePanel.getByRole('heading', { name: /configuration/i }).click()
@@ -571,12 +604,13 @@ test.describe('Main selector autosuggest', () => {
     openSidePanel,
     context,
     serviceWorker,
+    fixturePageUrl,
   }) => {
     await TestHelpers.dismissAnalyticsConsent(serviceWorker)
     const sidePanel = await openSidePanel()
 
     const testPage = await context.newPage()
-    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+    await testPage.goto(fixturePageUrl(SCRAPE_TARGET_PAGE))
     await testPage.bringToFront()
 
     const input = sidePanel.locator('#mainSelector')
@@ -592,12 +626,13 @@ test.describe('Main selector autosuggest', () => {
     openSidePanel,
     context,
     serviceWorker,
+    fixturePageUrl,
   }) => {
     await TestHelpers.dismissAnalyticsConsent(serviceWorker)
     const sidePanel = await openSidePanel()
 
     const testPage = await context.newPage()
-    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+    await testPage.goto(fixturePageUrl(SCRAPE_TARGET_PAGE))
     await testPage.bringToFront()
 
     const input = sidePanel.locator('#mainSelector')
@@ -616,12 +651,13 @@ test.describe('Main selector autosuggest', () => {
     openSidePanel,
     context,
     serviceWorker,
+    fixturePageUrl,
   }) => {
     await TestHelpers.dismissAnalyticsConsent(serviceWorker)
     const sidePanel = await openSidePanel()
 
     const testPage = await context.newPage()
-    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+    await testPage.goto(fixturePageUrl(SCRAPE_TARGET_PAGE))
     await testPage.bringToFront()
 
     const input = sidePanel.locator('#mainSelector')
@@ -658,12 +694,13 @@ test.describe('Main selector autosuggest', () => {
     openSidePanel,
     context,
     serviceWorker,
+    fixturePageUrl,
   }) => {
     await TestHelpers.dismissAnalyticsConsent(serviceWorker)
     const sidePanel = await openSidePanel()
 
     const testPage = await context.newPage()
-    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+    await testPage.goto(fixturePageUrl(SCRAPE_TARGET_PAGE))
     await testPage.bringToFront()
 
     const input = sidePanel.locator('#mainSelector')
@@ -679,12 +716,13 @@ test.describe('Main selector autosuggest', () => {
     openSidePanel,
     context,
     serviceWorker,
+    fixturePageUrl,
   }) => {
     await TestHelpers.dismissAnalyticsConsent(serviceWorker)
     const sidePanel = await openSidePanel()
 
     const testPage = await context.newPage()
-    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+    await testPage.goto(fixturePageUrl(SCRAPE_TARGET_PAGE))
     await testPage.bringToFront()
 
     const input = sidePanel.locator('#mainSelector')
@@ -702,12 +740,13 @@ test.describe('Main selector autosuggest', () => {
     openSidePanel,
     context,
     serviceWorker,
+    fixturePageUrl,
   }) => {
     await TestHelpers.dismissAnalyticsConsent(serviceWorker)
     const sidePanel = await openSidePanel()
 
     const testPage = await context.newPage()
-    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+    await testPage.goto(fixturePageUrl(SCRAPE_TARGET_PAGE))
     await testPage.bringToFront()
 
     const [newPage] = await Promise.all([
@@ -721,12 +760,13 @@ test.describe('Main selector autosuggest', () => {
     openSidePanel,
     context,
     serviceWorker,
+    fixturePageUrl,
   }) => {
     await TestHelpers.dismissAnalyticsConsent(serviceWorker)
     const sidePanel = await openSidePanel()
 
     const testPage = await context.newPage()
-    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+    await testPage.goto(fixturePageUrl(SCRAPE_TARGET_PAGE))
     await testPage.bringToFront()
 
     const input = sidePanel.locator('#mainSelector')

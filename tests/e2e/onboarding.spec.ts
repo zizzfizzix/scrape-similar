@@ -2,7 +2,33 @@ import type { ScrapeConfig } from '@/utils/types'
 import { expect, test, TestHelpers } from './fixtures'
 
 /**
- * Onboarding flow tests
+ * Onboarding flow tests.
+ *
+ * These are the only specs still driven against a live site. The demo scrape
+ * target is baked into the extension rather than into the tests:
+ *
+ *   - `src/entrypoints/onboarding/OnboardingApp.tsx` navigates to a hard-coded
+ *     Wikipedia URL (already branched on `isTest`)
+ *   - `src/entrypoints/background/services/demo-scrape.ts` uses a
+ *     `wikitable`-specific selector and column set in test mode
+ *   - `src/entrypoints/background/listeners/tabs.ts` only fires the pending demo
+ *     scrape on a `wikipedia.org/wiki/` URL
+ *
+ * The extension is built before Playwright starts, so it cannot learn the
+ * ephemeral port the fixture server picks per worker (see `fixtures.ts`). Note
+ * that this rules out baking a fixture URL in at build time on its own: a single
+ * baked constant would have to point at a host:port every one of the 20 workers
+ * serves, so build-time injection also forces one shared server on a fixed port.
+ *
+ * 7 of the 9 tests below need network; `can navigate backwards through
+ * onboarding slides` and `stores demo scrape config correctly before navigation`
+ * already pass offline.
+ *
+ * Picking a fix is tracked in issue #258, which lays out the options and their
+ * costs. The cheapest one that works - verified by prototype - needs no
+ * extension source change at all: intercept the hard-coded demo URL with
+ * `context.route` and fulfil it from a local `wikitable`-shaped fixture, the way
+ * `column-delete.spec.ts` already mocks its table page.
  */
 
 test.describe('Onboarding Flow', () => {

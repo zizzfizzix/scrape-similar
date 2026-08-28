@@ -2,19 +2,50 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>Scrape Similar E2E fixture</title>
+    <title>Scrape Similar fixture: Directory</title>
   </head>
   <body>
-    <h1>Scrape Similar E2E fixture</h1>
-
     <!--
-      Deterministic scrape target. Counts asserted by the E2E suite:
-        //span            -> 24 (12 rows x 2 spans)
-        //li              -> 12
-        //*[@id="nonexistent_element_for_test"] -> 0
-      Keep those in sync with tests/e2e/fixtures.ts (FIXTURE_PAGE_COUNTS)
+      Deterministic scrape target for the E2E suite. Every count the specs assert
+      lives in FIXTURE_PAGE_COUNTS in tests/e2e/fixtures.ts - keep the two in sync
       when editing this file.
+
+        //a                                     -> 13 (12 in the nav + 1 in the footer)
+        //a[relative href]                      -> 12 (the nav links)
+        //span                                  -> 24 (12 list rows x 2 spans)
+        //li                                    -> 12
+        //p                                     -> 4
+        //h1                                    -> 1
+        //h2                                    -> 2
+        //h3                                    -> 2
+        //h1 | //h2 | //h3 | //h4 | //h5 | //h6 -> 5
+        //div[@class]                           -> 1 (empty of text: drives the empty-rows toggle)
+        //*[@id="nonexistent_element_for_test"] -> 0
     -->
+    <h1>Scrape Similar fixture: Directory</h1>
+
+    <nav id="docs-nav">
+      <a href="/introduction">Introduction</a>
+      <a href="/history">History</a>
+      <a href="/architecture">Architecture</a>
+      <a href="/installation">Installation</a>
+      <a href="/configuration">Configuration</a>
+      <a href="/selectors">Selectors</a>
+      <a href="/exporting">Exporting</a>
+      <a href="/troubleshooting">Troubleshooting</a>
+      <a href="/changelog">Changelog</a>
+      <a href="/roadmap">Roadmap</a>
+      <a href="#glossary">Glossary</a>
+      <a href="#credits">Credits</a>
+    </nav>
+
+    <h2 id="overview">Overview</h2>
+    <p>This page is served from disk by the E2E fixture server, so its contents never change.</p>
+    <p>Specs assert exact match counts against it instead of matching a wildcard.</p>
+
+    <h3 id="pioneers">Pioneers</h3>
+    <p>Twelve entries, each carrying a name and a birth year in its own span.</p>
+
     <ul id="items">
       <li><span class="name">Ada Lovelace</span><span class="year">1815</span></li>
       <li><span class="name">Alan Turing</span><span class="year">1912</span></li>
@@ -29,5 +60,53 @@
       <li><span class="name">Jean Bartik</span><span class="year">1924</span></li>
       <li><span class="name">Mary Kenneth Keller</span><span class="year">1913</span></li>
     </ul>
+
+    <h2 id="releases">Releases</h2>
+    <table id="releases-table">
+      <thead>
+        <tr>
+          <th>Version</th>
+          <th>Codename</th>
+          <th>Date</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1.0</td>
+          <td>Alpha</td>
+          <td>2021-01-01</td>
+        </tr>
+        <tr>
+          <td>2.0</td>
+          <td>Bravo</td>
+          <td>2022-02-02</td>
+        </tr>
+        <tr>
+          <td>3.0</td>
+          <td>Charlie</td>
+          <td>2023-03-03</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <article id="notes">
+      <h3>Notes</h3>
+      <p>Kept free of scripts and remote assets so the page renders identically offline.</p>
+    </article>
+
+    <!-- Text-free on purpose: scraping it yields an empty row. -->
+    <div class="media">
+      <img
+        src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+        alt="Transparent pixel"
+        title="Transparent pixel"
+        width="1"
+        height="1"
+      />
+    </div>
+
+    <footer id="page-footer">
+      <a href="https://example.com/external" rel="nofollow" target="_blank">External example</a>
+    </footer>
   </body>
 </html>

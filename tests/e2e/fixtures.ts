@@ -15,14 +15,65 @@ import path from 'path'
 import { v7 as uuidv7 } from 'uuid'
 const { chromeExtensionId } = pkg
 
+/** Fixture page served as the default scrape target. */
+export const SCRAPE_TARGET_PAGE = 'scrape-target.html'
+
 /**
- * Element counts of tests/e2e/fixtures/pages/scrape-target.html.
+ * Second scrape target, for specs that need two tabs holding distinct data.
+ * Its title shares no words with SCRAPE_TARGET_PAGE's.
+ */
+export const ALT_SCRAPE_TARGET_PAGE = 'scrape-target-alt.html'
+
+/**
+ * Transition page openSidePanel() uses to trigger the side panel. Deliberately
+ * distinct from every scrape target: the tab is looked up by URL through
+ * chrome.tabs.query, which would be ambiguous if a spec had opened a page at
+ * the same URL.
+ */
+export const BLANK_PAGE = 'blank.html'
+
+/**
+ * Match counts of tests/e2e/fixtures/pages/scrape-target.html.
  * Keep in sync when editing that file.
  */
 export const FIXTURE_PAGE_COUNTS = {
+  /** `//a` */
+  a: 13,
+  /** `//span` */
   span: 24,
+  /** `//li` */
   li: 12,
+  /** `//p` */
+  p: 4,
+  /** `//h1` */
+  h1: 1,
+  /** `//h2` */
+  h2: 2,
+  /** `//h3` */
+  h3: 2,
+  /** `//ul` */
+  ul: 1,
+  /** `//article` */
+  article: 1,
+  /** `//tbody/tr` */
+  tbodyTr: 3,
+  /** `//h2 | //h3` */
+  h2h3: 4,
+  /** `//h1 | //h2 | //h3 | //h4 | //h5 | //h6` (the Headings system preset) */
+  headings: 5,
+  /** `//a[starts-with(@href, "/") or ...]` (the Internal links system preset) */
+  internalLinks: 12,
+  /** `//div[@class] | //h2` - the div holds no text, so it scrapes to an empty row */
+  divWithClassOrH2: 3,
+  /** ...of which this many scrape to a non-empty row */
+  divWithClassOrH2NonEmpty: 2,
 } as const
+
+/** Default scrape target selector of TestHelpers.prepareSidepanelWithData. */
+export const DEFAULT_SCRAPE_SELECTOR = '(//a)[position() <= 10]'
+
+/** Rows DEFAULT_SCRAPE_SELECTOR yields on either scrape target. */
+export const DEFAULT_SCRAPE_ROW_COUNT = 10
 
 /** XPath that is guaranteed not to match anything on the fixture pages. */
 export const NO_MATCH_SELECTOR = '//*[@id="nonexistent_element_for_test"]'
@@ -189,14 +240,18 @@ export const TestHelpers = {
     serviceWorker: Worker,
     context: BrowserContext,
     options: {
-      testPageUrl?: string
+      /** Fixture page to scrape - resolve it with the `fixturePageUrl` fixture. */
+      testPageUrl: string
+      /** Override together with `expectedMatchCount`, so the two stay consistent. */
       selector?: string
+      expectedMatchCount?: number
       dismissConsent?: boolean
-    } = {},
+    },
   ): Promise<Page> {
     const {
-      testPageUrl = 'https://en.wikipedia.org/wiki/Playwright_(software)',
-      selector = '(//a)[position() <= 10]',
+      testPageUrl,
+      selector = DEFAULT_SCRAPE_SELECTOR,
+      expectedMatchCount = DEFAULT_SCRAPE_ROW_COUNT,
       dismissConsent = true,
     } = options
 
@@ -220,8 +275,11 @@ export const TestHelpers = {
       .getByRole('button', { name: /auto-generate configuration from selector/i })
       .click()
 
-    // Wait for selector validation
-    const countBadge = sidePanel.locator('[data-slot="badge"]').filter({ hasText: /^\d+$/ })
+    // Wait for selector validation. The fixture pages are static, so the badge
+    // must report the exact match count rather than any number.
+    const countBadge = sidePanel
+      .locator('[data-slot="badge"]')
+      .filter({ hasText: new RegExp(`^${expectedMatchCount}$`) })
     await base.expect(countBadge).toBeVisible()
 
     // Perform scrape
@@ -376,9 +434,9 @@ export const test = base.extend<
     await use(serviceWorker)
   },
 
-  openSidePanel: async ({ context, extensionId, serviceWorker }, use, testInfo) => {
-    const open = async (transitionUrl: string = 'https://one.one.one.one/') => {
-      // Navigate to any page (default is a simple Cloudflare IP resolver page).
+  openSidePanel: async ({ context, extensionId, serviceWorker, fixturePageUrl }, use, testInfo) => {
+    const open = async (transitionUrl: string = fixturePageUrl(BLANK_PAGE)) => {
+      // Navigate to any injectable page (default is the blank local fixture).
       const page = await context.newPage()
       await page.goto(transitionUrl)
 

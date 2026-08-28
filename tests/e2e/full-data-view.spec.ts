@@ -1,5 +1,14 @@
 import type { SidePanelConfig } from '@/utils/types'
-import { expect, getFirstWorksheet, test, TestHelpers } from './fixtures'
+import {
+  ALT_SCRAPE_TARGET_PAGE,
+  DEFAULT_SCRAPE_ROW_COUNT,
+  expect,
+  FIXTURE_PAGE_COUNTS,
+  getFirstWorksheet,
+  SCRAPE_TARGET_PAGE,
+  test,
+  TestHelpers,
+} from './fixtures'
 
 /**
  * End-to-end tests for the Full Data View feature.
@@ -12,9 +21,12 @@ test.describe('Full Data View', () => {
     openSidePanel,
     serviceWorker,
     context,
+    fixturePageUrl,
   }) => {
     const sidePanel = await openSidePanel()
-    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context)
+    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context, {
+      testPageUrl: fixturePageUrl(SCRAPE_TARGET_PAGE),
+    })
 
     // Set up listener for sidepanel close BEFORE clicking the button to avoid race condition
     const sidePanelClosePromise = sidePanel.waitForEvent('close')
@@ -27,11 +39,9 @@ test.describe('Full Data View', () => {
     await expect(fullDataViewPage.getByRole('button', { name: /back to tab/i })).toBeVisible()
     await expect(fullDataViewPage.getByRole('button', { name: /export/i })).toBeVisible()
 
-    // Verify data table is present with extracted data
+    // Verify data table is present with the fixture's exact row count
     await expect(fullDataViewPage.locator('table')).toBeVisible()
-    const rows = fullDataViewPage.locator('tbody tr')
-    const rowCount = await rows.count()
-    expect(rowCount).toBeGreaterThanOrEqual(1)
+    await expect(fullDataViewPage.locator('tbody tr')).toHaveCount(DEFAULT_SCRAPE_ROW_COUNT)
 
     // Verify sidepanel closes after opening full view
     await sidePanelClosePromise
@@ -60,22 +70,25 @@ test.describe('Full Data View', () => {
     serviceWorker,
     context,
     extensionId,
+    fixturePageUrl,
   }) => {
     // Prepare first tab with data
     const sidePanel = await openSidePanel()
-    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context)
-
-    // Scrape data on the second tab (Web scraping page)
     await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context, {
-      testPageUrl: 'https://en.wikipedia.org/wiki/Web_scraping',
+      testPageUrl: fixturePageUrl(SCRAPE_TARGET_PAGE),
+    })
+
+    // Scrape data on a second tab, holding the other fixture page
+    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context, {
+      testPageUrl: fixturePageUrl(ALT_SCRAPE_TARGET_PAGE),
     })
 
     // Now we should have data from both tabs stored
-    // Open full data view from second tab (should show Web scraping data)
+    // Open full data view from second tab (should show the Archive fixture's data)
     const fullDataViewPage = await TestHelpers.openFullDataView(sidePanel, context)
 
-    // Verify tab selector shows the current tab (Web scraping)
-    const tabSelector = fullDataViewPage.getByRole('button').filter({ hasText: /Web scraping/i })
+    // Verify tab selector shows the current tab (Archive)
+    const tabSelector = fullDataViewPage.getByRole('button').filter({ hasText: /archive/i })
     await expect(tabSelector).toBeVisible()
 
     // Click tab selector to open dropdown
@@ -83,28 +96,27 @@ test.describe('Full Data View', () => {
 
     // Verify both tabs are available in the dropdown
     await expect(
-      fullDataViewPage.getByRole('option').filter({ hasText: /Playwright/i }),
+      fullDataViewPage.getByRole('option').filter({ hasText: /directory/i }),
     ).toBeVisible()
-    await expect(
-      fullDataViewPage.getByRole('option').filter({ hasText: /Web scraping/i }),
-    ).toBeVisible()
+    await expect(fullDataViewPage.getByRole('option').filter({ hasText: /archive/i })).toBeVisible()
 
     // Switch to first tab data
     await fullDataViewPage
       .getByRole('option')
-      .filter({ hasText: /Playwright/i })
+      .filter({ hasText: /directory/i })
       .click()
 
     // Verify URL updated with new tab ID
     expect(fullDataViewPage.url()).toMatch(/tabId=\d+/)
 
-    // Verify page title updated to show Playwright data
-    await expect(fullDataViewPage).toHaveTitle(/Playwright.*Extracted Data/)
+    // Verify page title updated to show the Directory fixture's data
+    await expect(fullDataViewPage).toHaveTitle(/Directory.*Extracted Data/)
 
-    // Verify the data actually changed by checking table content
-    // The Playwright page should have different headings than Web scraping page
-    const tableRows = fullDataViewPage.locator('table tbody tr')
-    await expect(tableRows.first()).toBeVisible()
+    // Verify the data actually changed: the Directory fixture links differ from
+    // the Archive fixture's
+    await expect(
+      fullDataViewPage.getByRole('cell', { name: 'Troubleshooting', exact: true }),
+    ).toBeVisible()
   })
 
   test('handles back to tab functionality and reopens sidepanel', async ({
@@ -112,9 +124,12 @@ test.describe('Full Data View', () => {
     serviceWorker,
     context,
     extensionId,
+    fixturePageUrl,
   }) => {
     const sidePanel = await openSidePanel()
-    const testPage = await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context)
+    const testPage = await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context, {
+      testPageUrl: fixturePageUrl(SCRAPE_TARGET_PAGE),
+    })
 
     // Set up listener for the first sidepanel to close BEFORE opening full data view
     const sidePanelClosePromise = sidePanel.waitForEvent('close')
@@ -156,24 +171,27 @@ test.describe('Full Data View', () => {
     serviceWorker,
     context,
     extensionId,
+    fixturePageUrl,
   }) => {
     const sidePanel = await openSidePanel()
-    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context)
+    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context, {
+      testPageUrl: fixturePageUrl(SCRAPE_TARGET_PAGE),
+    })
 
     // Open full data view
     const fullDataViewPage = await TestHelpers.openFullDataView(sidePanel, context)
 
-    const initialRowCount = await fullDataViewPage.getByRole('row').count()
-    expect(initialRowCount).toBeGreaterThanOrEqual(1)
+    // Header row plus one row per scraped link
+    const initialRowCount = DEFAULT_SCRAPE_ROW_COUNT + 1
+    await expect(fullDataViewPage.getByRole('row')).toHaveCount(initialRowCount)
 
-    // Perform search
+    // Search for a term only one fixture link carries
     const searchInput = fullDataViewPage.getByPlaceholder(/search all columns/i)
     await expect(searchInput).toBeVisible()
     await searchInput.fill('History')
 
-    // Verify search filters results
-    const filteredRowCount = await fullDataViewPage.getByRole('row').count()
-    expect(filteredRowCount).toBeLessThanOrEqual(initialRowCount)
+    // Verify search filters down to the header plus that single row
+    await expect(fullDataViewPage.getByRole('row')).toHaveCount(2)
 
     // Verify filtered row count is displayed
     await expect(fullDataViewPage.getByText(/filtered rows/i)).toBeVisible()
@@ -187,9 +205,12 @@ test.describe('Full Data View', () => {
     openSidePanel,
     serviceWorker,
     context,
+    fixturePageUrl,
   }) => {
     const sidePanel = await openSidePanel()
-    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context)
+    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context, {
+      testPageUrl: fixturePageUrl(SCRAPE_TARGET_PAGE),
+    })
 
     // Open full data view
     const fullDataViewPage = await TestHelpers.openFullDataView(sidePanel, context)
@@ -235,19 +256,21 @@ test.describe('Full Data View', () => {
     openSidePanel,
     serviceWorker,
     context,
+    fixturePageUrl,
   }) => {
     const sidePanel = await openSidePanel()
+    const scrapedRowCount = 20
     await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context, {
-      selector: '(//span)[position() <= 20]',
+      testPageUrl: fixturePageUrl(SCRAPE_TARGET_PAGE),
+      selector: `(//span)[position() <= ${scrapedRowCount}]`,
+      expectedMatchCount: scrapedRowCount,
     })
 
     // Open full data view
     const fullDataViewPage = await TestHelpers.openFullDataView(sidePanel, context)
 
-    // Wait for data to load
-    const tableRows = await fullDataViewPage.getByRole('row').count()
-    expect(tableRows).toBeGreaterThan(10)
-    expect(tableRows).toBeLessThanOrEqual(20)
+    // Header row plus every scraped span; the default page size of 20 fits them all
+    await expect(fullDataViewPage.getByRole('row')).toHaveCount(scrapedRowCount + 1)
 
     // Change page size to a smaller value to ensure pagination appears
     const pageSizeButton = fullDataViewPage.getByRole('button').filter({ hasText: /^20$/ })
@@ -260,37 +283,36 @@ test.describe('Full Data View', () => {
     // Verify page size changed
     await expect(fullDataViewPage.getByRole('button').filter({ hasText: /^10$/ })).toBeVisible()
 
-    // Check if pagination controls appear (only if there are more than 10 rows)
-    const totalRows = await fullDataViewPage.getByRole('row').count()
-    if (totalRows > 10) {
-      // Verify pagination controls
-      await expect(fullDataViewPage.getByRole('button', { name: /next/i })).toBeVisible()
-      await expect(fullDataViewPage.getByText(/page 1 of/i)).toBeVisible()
+    // 20 rows across pages of 10, so the controls must appear
+    await expect(fullDataViewPage.getByRole('row')).toHaveCount(11)
+    await expect(fullDataViewPage.getByRole('button', { name: /next/i })).toBeVisible()
+    await expect(fullDataViewPage.getByText('Page 1 of 2')).toBeVisible()
 
-      // Test navigation
-      await fullDataViewPage.getByRole('button', { name: /next/i }).click()
-      await expect(fullDataViewPage.getByText(/page 2 of/i)).toBeVisible()
+    // Test navigation
+    await fullDataViewPage.getByRole('button', { name: /next/i }).click()
+    await expect(fullDataViewPage.getByText('Page 2 of 2')).toBeVisible()
 
-      // Go back to page 1
-      await fullDataViewPage.getByRole('button', { name: /previous/i }).click()
-      await expect(fullDataViewPage.getByText(/page 1 of/i)).toBeVisible()
-    }
+    // Go back to page 1
+    await fullDataViewPage.getByRole('button', { name: /previous/i }).click()
+    await expect(fullDataViewPage.getByText('Page 1 of 2')).toBeVisible()
   })
 
   test('supports row selection and bulk operations', async ({
     openSidePanel,
     serviceWorker,
     context,
+    fixturePageUrl,
   }) => {
     const sidePanel = await openSidePanel()
-    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context)
+    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context, {
+      testPageUrl: fixturePageUrl(SCRAPE_TARGET_PAGE),
+    })
 
     // Open full data view
     const fullDataViewPage = await TestHelpers.openFullDataView(sidePanel, context)
 
     // Wait for data to load
-    const tableRows = await fullDataViewPage.getByRole('row').count()
-    expect(tableRows).toBeGreaterThanOrEqual(1)
+    await expect(fullDataViewPage.getByRole('row')).toHaveCount(DEFAULT_SCRAPE_ROW_COUNT + 1)
 
     // Select individual row
     await fullDataViewPage
@@ -299,14 +321,20 @@ test.describe('Full Data View', () => {
       .click()
 
     // Verify selection counter appears
-    await expect(fullDataViewPage.getByText(/1 of \d+ rows selected/i)).toBeVisible()
+    await expect(
+      fullDataViewPage.getByText(`1 of ${DEFAULT_SCRAPE_ROW_COUNT} rows selected`),
+    ).toBeVisible()
 
     // Test select all
     const selectAllCheckbox = fullDataViewPage.getByRole('checkbox', { name: 'Select all' })
     await selectAllCheckbox.click()
 
     // Verify all rows selected message
-    await expect(fullDataViewPage.getByText(/\d+ of \d+ rows selected/i)).toBeVisible()
+    await expect(
+      fullDataViewPage.getByText(
+        `${DEFAULT_SCRAPE_ROW_COUNT} of ${DEFAULT_SCRAPE_ROW_COUNT} rows selected`,
+      ),
+    ).toBeVisible()
 
     // Deselect all
     await selectAllCheckbox.click()
@@ -319,16 +347,18 @@ test.describe('Full Data View', () => {
     openSidePanel,
     serviceWorker,
     context,
+    fixturePageUrl,
   }) => {
     const sidePanel = await openSidePanel()
-    const testPage = await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context)
+    const testPage = await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context, {
+      testPageUrl: fixturePageUrl(SCRAPE_TARGET_PAGE),
+    })
 
     // Open full data view
     const fullDataViewPage = await TestHelpers.openFullDataView(sidePanel, context)
 
     // Wait for data to load
-    const tableRows = await fullDataViewPage.getByRole('row').count()
-    expect(tableRows).toBeGreaterThanOrEqual(1)
+    await expect(fullDataViewPage.getByRole('row')).toHaveCount(DEFAULT_SCRAPE_ROW_COUNT + 1)
 
     // Click highlight button on first row
     const firstRowHighlightButton = fullDataViewPage
@@ -344,9 +374,16 @@ test.describe('Full Data View', () => {
     await expect(testPage).toBeTruthy()
   })
 
-  test('supports row copying functionality', async ({ openSidePanel, serviceWorker, context }) => {
+  test('supports row copying functionality', async ({
+    openSidePanel,
+    serviceWorker,
+    context,
+    fixturePageUrl,
+  }) => {
     const sidePanel = await openSidePanel()
-    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context)
+    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context, {
+      testPageUrl: fixturePageUrl(SCRAPE_TARGET_PAGE),
+    })
 
     // Open full data view
     const fullDataViewPage = await TestHelpers.openFullDataView(sidePanel, context)
@@ -361,8 +398,7 @@ test.describe('Full Data View', () => {
     })
 
     // Wait for data to load
-    const tableRows = await fullDataViewPage.getByRole('row').count()
-    expect(tableRows).toBeGreaterThanOrEqual(1)
+    await expect(fullDataViewPage.getByRole('row')).toHaveCount(DEFAULT_SCRAPE_ROW_COUNT + 1)
 
     // Click copy button on first row
     const firstRowCopyButton = fullDataViewPage
@@ -385,9 +421,12 @@ test.describe('Full Data View', () => {
     openSidePanel,
     serviceWorker,
     context,
+    fixturePageUrl,
   }) => {
     const sidePanel = await openSidePanel()
-    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context)
+    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context, {
+      testPageUrl: fixturePageUrl(SCRAPE_TARGET_PAGE),
+    })
 
     // Open full data view
     const fullDataViewPage = await TestHelpers.openFullDataView(sidePanel, context)
@@ -411,15 +450,22 @@ test.describe('Full Data View', () => {
     // Verify success toast appears
     await expect(fullDataViewPage.getByText(/copied.*to clipboard/i)).toBeVisible()
 
-    // Verify clipboard capture contains multiple lines
+    // Verify clipboard capture holds the header plus every fixture row
     const text = await fullDataViewPage.evaluate(() => (window as any).__copied)
     expect(text).not.toBeNull()
-    expect(text.split('\n').length).toBeGreaterThan(1) // header + at least one data line
+    expect(text.split('\n').length).toBe(DEFAULT_SCRAPE_ROW_COUNT + 1)
   })
 
-  test('supports export functionality', async ({ openSidePanel, serviceWorker, context }) => {
+  test('supports export functionality', async ({
+    openSidePanel,
+    serviceWorker,
+    context,
+    fixturePageUrl,
+  }) => {
     const sidePanel = await openSidePanel()
-    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context)
+    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context, {
+      testPageUrl: fixturePageUrl(SCRAPE_TARGET_PAGE),
+    })
 
     // Open full data view
     const fullDataViewPage = await TestHelpers.openFullDataView(sidePanel, context)
@@ -471,9 +517,12 @@ test.describe('Full Data View', () => {
     openSidePanel,
     serviceWorker,
     context,
+    fixturePageUrl,
   }) => {
     const sidePanel = await openSidePanel()
-    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context)
+    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context, {
+      testPageUrl: fixturePageUrl(SCRAPE_TARGET_PAGE),
+    })
 
     // Open full data view
     const fullDataViewPage = await TestHelpers.openFullDataView(sidePanel, context)
@@ -518,9 +567,12 @@ test.describe('Full Data View', () => {
     openSidePanel,
     serviceWorker,
     context,
+    fixturePageUrl,
   }) => {
     const sidePanel = await openSidePanel()
-    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context)
+    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context, {
+      testPageUrl: fixturePageUrl(SCRAPE_TARGET_PAGE),
+    })
 
     // Open full data view
     const fullDataViewPage = await TestHelpers.openFullDataView(sidePanel, context)
@@ -554,9 +606,12 @@ test.describe('Full Data View', () => {
     openSidePanel,
     serviceWorker,
     context,
+    fixturePageUrl,
   }) => {
     const sidePanel = await openSidePanel()
-    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context)
+    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context, {
+      testPageUrl: fixturePageUrl(SCRAPE_TARGET_PAGE),
+    })
 
     // Open full data view
     const fullDataViewPage = await TestHelpers.openFullDataView(sidePanel, context)
@@ -602,20 +657,21 @@ test.describe('Full Data View', () => {
     openSidePanel,
     serviceWorker,
     context,
+    fixturePageUrl,
   }) => {
     const sidePanel = await openSidePanel()
 
     // Dismiss consent modal
     await TestHelpers.dismissAnalyticsConsent(serviceWorker)
 
-    // Navigate to a page and use a selector that will produce some empty results
+    // Navigate to a page and use a selector that produces exactly one empty result
     const testPage = await context.newPage()
-    await testPage.goto('https://en.wikipedia.org/wiki/Playwright_(software)')
+    await testPage.goto(fixturePageUrl(SCRAPE_TARGET_PAGE))
     await testPage.bringToFront()
 
-    // Use a selector that matches some elements but may have empty text
+    // The fixture page's only classed div holds no text, so it scrapes to an empty row
     const mainSelector = sidePanel.locator('#mainSelector')
-    await mainSelector.fill('//p | //h2')
+    await mainSelector.fill('//div[@class] | //h2')
     await mainSelector.press('Enter')
 
     // Auto-generate configuration
@@ -630,43 +686,41 @@ test.describe('Full Data View', () => {
     // Open full data view
     const fullDataViewPage = await TestHelpers.openFullDataView(sidePanel, context)
 
-    // Check if show empty rows toggle is present
+    // The empty row means the toggle has to be offered
     const showEmptyRowsSwitch = fullDataViewPage.getByRole('switch', { name: /show.*empty rows/i })
+    await expect(showEmptyRowsSwitch).toBeVisible()
 
-    // If empty rows exist, toggle should be visible
-    if (await showEmptyRowsSwitch.isVisible()) {
-      // Test toggling empty rows
-      const initialRowCount = await fullDataViewPage.getByRole('row').count()
+    // Header row plus only the rows carrying data
+    const rowsWithData = FIXTURE_PAGE_COUNTS.divWithClassOrH2NonEmpty + 1
+    const allRows = FIXTURE_PAGE_COUNTS.divWithClassOrH2 + 1
+    await expect(fullDataViewPage.getByRole('row')).toHaveCount(rowsWithData)
 
-      // Toggle on to show empty rows
-      await showEmptyRowsSwitch.click()
+    // Toggle on to show the empty row too
+    await showEmptyRowsSwitch.click()
+    await expect(fullDataViewPage.getByRole('row')).toHaveCount(allRows)
 
-      // Should show more rows (including empty ones)
-      const newRowCount = await fullDataViewPage.getByRole('row').count()
-      expect(newRowCount).toBeGreaterThanOrEqual(initialRowCount)
-
-      // Toggle off to hide empty rows
-      await showEmptyRowsSwitch.click()
-
-      // Should return to original count
-      await expect(fullDataViewPage.getByRole('row')).toHaveCount(initialRowCount)
-    }
+    // Toggle off to hide it again
+    await showEmptyRowsSwitch.click()
+    await expect(fullDataViewPage.getByRole('row')).toHaveCount(rowsWithData)
   })
 
   test('updates in real-time when data changes in original tab', async ({
     openSidePanel,
     serviceWorker,
     context,
+    fixturePageUrl,
   }) => {
     const sidePanel = await openSidePanel()
-    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context)
+    await TestHelpers.prepareSidepanelWithData(sidePanel, serviceWorker, context, {
+      testPageUrl: fixturePageUrl(SCRAPE_TARGET_PAGE),
+    })
 
     // Open full data view
     const fullDataViewPage = await TestHelpers.openFullDataView(sidePanel, context)
 
-    // Get initial row count
-    const initialRowCount = await fullDataViewPage.getByRole('row').count()
-    expect(initialRowCount).toBeGreaterThan(0)
+    // Header row plus one row per scraped link
+    const initialRowCount = DEFAULT_SCRAPE_ROW_COUNT + 1
+    await expect(fullDataViewPage.getByRole('row')).toHaveCount(initialRowCount)
 
     // Get the current tab ID from the full data view URL
     const currentUrl = fullDataViewPage.url()
