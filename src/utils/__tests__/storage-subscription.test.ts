@@ -7,8 +7,8 @@ interface StoredValue {
 
 /**
  * Stand-in for one storage key whose read resolution and change notifications
- * are driven by the test, so the ordering `subscribeWithBackfill` has to survive
- * can be reproduced exactly.
+ * the test drives by hand, so the orderings `subscribeWithBackfill` has to
+ * survive can be reproduced exactly.
  */
 const makeSource = () => {
   let notify: ((value: StoredValue | null) => void) | undefined
@@ -30,13 +30,11 @@ const makeSource = () => {
         })
       },
     },
-    /** Which primitive was reached first while setting the subscription up. */
     setupOrder,
-    /** Fires a change notification, the way a write from another context would. */
     write: (value: StoredValue | null) => notify?.(value),
-    /** Resolves the pending backfill read with `value`. */
     finishRead: async (value: StoredValue | null) => {
       resolveRead?.(value)
+      // Let the subscription's continuation on that read run.
       await vi.waitFor(() => {})
     },
     unwatch,
@@ -59,9 +57,7 @@ describe('subscribeWithBackfill', () => {
 
     subscribeWithBackfill(source, vi.fn())
 
-    // This order is the whole point: reading first and subscribing afterwards
-    // drops every write that lands in between, which is what the side panel
-    // used to do across two effects.
+    // Reading first is what the side panel used to do, across two effects.
     expect(setupOrder).toEqual(['watch', 'read'])
   })
 
@@ -75,7 +71,7 @@ describe('subscribeWithBackfill', () => {
     expect(onValue).toHaveBeenCalledExactlyOnceWith({ label: 'written during setup' })
 
     // The read was issued before that write, so it can still resolve with the
-    // older value - which must not replace what the watcher already delivered.
+    // older value.
     await finishRead({ label: 'stale' })
 
     expect(onValue).toHaveBeenCalledExactlyOnceWith({ label: 'written during setup' })
@@ -115,8 +111,6 @@ describe('subscribeWithBackfill', () => {
     const unsubscribe = subscribeWithBackfill(source, onValue)
     unsubscribe()
 
-    // Both halves have to stay quiet: the read that was already in flight when
-    // the subscriber went away, and any notification still reaching the watcher.
     await finishRead({ label: 'stored' })
     write({ label: 'late update' })
 

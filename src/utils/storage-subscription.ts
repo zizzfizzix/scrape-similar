@@ -1,8 +1,6 @@
-/** The two storage primitives `subscribeWithBackfill` needs for one key. */
 export interface StorageSubscriptionSource<T> {
-  /** Registers a change listener synchronously and returns its unsubscribe. */
+  /** Must register the listener synchronously; returns its unsubscribe. */
   watch: (onChange: (value: T | null) => void) => () => void
-  /** Reads the key's current value. */
   read: () => Promise<T | null>
 }
 
@@ -12,14 +10,11 @@ export interface StorageSubscriptionSource<T> {
  * Reading a key before subscribing to it loses every write that lands in
  * between: the read has happened and the listener does not exist yet. Doing it
  * the other way round closes that gap - the listener covers everything written
- * from now on, the read everything written before it - which matters wherever a
- * value can be written by another context while the reader is still starting up.
+ * from now on, the read everything written before it - which matters wherever
+ * another context can write the value while the reader is still starting up.
  *
- * A value the listener has already delivered is newer than the backfill read, so
- * it wins even if the read resolves later. Absent values are not delivered, and
- * nothing is delivered after unsubscribing.
- *
- * @returns Unsubscribe function.
+ * A value the listener has already delivered is newer than the backfill read,
+ * so it wins even if the read resolves later.
  */
 export const subscribeWithBackfill = <T>(
   { watch, read }: StorageSubscriptionSource<T>,

@@ -460,10 +460,9 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
     if (!targetTabId) return
     const key = `session:sidepanel_config_${targetTabId}` as const
 
-    // The tab's state is also read when the tab is resolved, before this watcher
-    // exists. Backfilling from storage once the watcher is in place picks up
-    // anything written in that gap - an auto-scrape finishing while the panel is
-    // still starting up, say - which would otherwise never reach the UI.
+    // The tab's state is also read when the tab resolves, before this watcher
+    // exists; the backfill picks up whatever landed in that gap - an auto-scrape
+    // finishing while the panel is still starting up, say.
     return subscribeWithBackfill<SidePanelConfig>(
       {
         watch: (onChange) => storage.watch<SidePanelConfig>(key, onChange),
