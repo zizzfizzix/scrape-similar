@@ -389,14 +389,30 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
     mainSelectorInputRef.current?.focus()
   }
 
+  /**
+   * Pending blur commit. The blur handler waits before acting so a click on a
+   * suggestion still lands, which means the input can be focused again - or the
+   * form gone - by the time it fires. Holding the timer lets those cases cancel
+   * it instead of letting a stale blur act on a state that has moved on.
+   */
+  const blurCommitTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+  useEffect(() => () => clearTimeout(blurCommitTimerRef.current), [])
+
   // Handle main selector focus
   const handleMainSelectorFocus = () => {
+    // Focus is back, so a blur still waiting out its delay no longer applies.
+    // Drawers and dialogs restore focus to their trigger when they close, which
+    // blurs the textarea; the user clicks straight back in and keeps typing, and
+    // without this the pending timer closes the suggestions under them.
+    clearTimeout(blurCommitTimerRef.current)
     setIsAutosuggestOpen(true)
   }
 
   // Handle main selector blur with delay to allow for clicks
   const handleMainSelectorBlur = () => {
-    setTimeout(() => {
+    clearTimeout(blurCommitTimerRef.current)
+    blurCommitTimerRef.current = setTimeout(() => {
       // Don't commit if we're selecting from autosuggest (mousedown was triggered)
       if (isSelectingFromAutosuggestRef.current) {
         isSelectingFromAutosuggestRef.current = false
@@ -407,13 +423,6 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
       const active = document.activeElement as HTMLElement | null
       const movedIntoDropdown = !!(active && autosuggestRef.current?.contains(active))
       if (movedIntoDropdown) return
-
-      // The input can regain focus before this fires - a drawer or dialog
-      // restoring focus to its trigger blurs the textarea, and the user clicks
-      // straight back into it. Closing the suggestions then yanks them away
-      // while they are typing, so treat a refocused input as still active.
-      const isBackInMainSelector = active === mainSelectorInputRef.current
-      if (isBackInMainSelector) return
 
       setIsAutosuggestOpen(false)
       commitMainSelector(mainSelectorDraft)

@@ -84,13 +84,11 @@ test.describe('Main selector autosuggest', () => {
     await sidePanel.getByRole('heading', { name: /configuration/i }).click()
     await expect(dropdown).toBeHidden()
 
-    // Open again - retry if blur handler's 150ms timer causes a race
-    await expect(async () => {
-      await input.blur() // Ensure input is not focused before clicking
-      await input.click()
-      await input.fill('')
-      await expect(dropdown).toBeVisible({ timeout: 500 })
-    }).toPass({ timeout: 5_000 })
+    // Open again. Refocusing cancels the blur handler's pending 150ms timer, so
+    // this no longer needs a retry to survive that race.
+    await input.click()
+    await input.fill('')
+    await expect(dropdown).toBeVisible()
     // Try clicking the remove control if exists
     const removeButton = sidePanel.locator('[aria-label="Remove recent selector"]').first()
     if (await removeButton.isVisible()) {
