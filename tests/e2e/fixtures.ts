@@ -224,6 +224,41 @@ const hasVisibleExtensionWorker = async (context: BrowserContext, extensionId: s
 }
 
 /**
+ * Recovers a service worker Playwright never attached to.
+ *
+ * Chrome can create the extension's worker before Playwright attaches to that
+ * target, and Playwright then never exposes it for the rest of the session
+ * however alive the worker is - it keeps running and answering messages while
+ * `context.serviceWorkers()` stays empty, so every helper that drives the worker
+ * handle hangs until the test times out. It shows up under CPU load, which is
+ * why it reads as flakiness. See microsoft/playwright#39075.
+ *
+ * `chrome.runtime.reload()` does not help: it produces no new target either.
+ * Stopping the worker through CDP does, because the restart happens while
+ * Playwright is definitely attached.
+ */
+const restartExtensionWorker = async (context: BrowserContext, extensionId: string) => {
+  const page = await context.newPage()
+  try {
+    const cdp = await context.newCDPSession(page)
+    await cdp.send('ServiceWorker.enable')
+    await cdp.send('ServiceWorker.stopAllWorkers')
+    await cdp.detach()
+
+    // Loading an extension page and messaging the runtime starts it back up.
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+    await page.evaluate(
+      (type) => chrome.runtime.sendMessage({ type }),
+      MESSAGE_TYPES.GET_DEBUG_MODE,
+    )
+  } catch {
+    // Recovery is best effort - the caller relaunches the browser if it failed.
+  } finally {
+    await page.close().catch(() => {})
+  }
+}
+
+/**
  * Returns the first worksheet of a workbook read back from an export, failing
  * the test if the workbook turned out to be empty.
  */
@@ -500,19 +535,23 @@ export const test = base.extend<
       })
     }
 
-    // Chrome starts the extension's service worker while the context comes up,
-    // and under load Playwright sometimes never attaches to that target. The
-    // worker keeps running and answering messages, but stays invisible for the
-    // rest of the session - reloading the extension does not produce a new one
-    // either - so every helper that drives the worker handle would hang until
-    // the test times out. Such a context is unusable: throw it away and relaunch.
+    // Recover from, and as a last resort discard, a context whose extension
+    // service worker Playwright failed to attach to - see restartExtensionWorker.
     let context: BrowserContext | undefined
     try {
       for (let attempt = 1; attempt <= CONTEXT_LAUNCH_ATTEMPTS && !context; attempt++) {
         const candidate = await launch()
-        if (await hasVisibleExtensionWorker(candidate, extensionId)) {
+
+        let isWorkerVisible = await hasVisibleExtensionWorker(candidate, extensionId)
+        if (!isWorkerVisible) {
+          await restartExtensionWorker(candidate, extensionId)
+          isWorkerVisible = await hasVisibleExtensionWorker(candidate, extensionId)
+        }
+
+        if (isWorkerVisible) {
           context = candidate
         } else {
+          // Even a restarted worker stayed invisible; the context is unusable.
           await candidate.close()
         }
       }
