@@ -102,6 +102,11 @@ export const DEFAULT_SCRAPE_SELECTOR = '(//a)[position() <= 10]'
 /** Rows DEFAULT_SCRAPE_SELECTOR yields on either scrape target. */
 export const DEFAULT_SCRAPE_ROW_COUNT = 10
 
+/** Kept well under the test timeout, so a lost target leaves room for a retry. */
+const SIDE_PANEL_ATTACH_TIMEOUT = 7_000
+
+const SIDE_PANEL_OPEN_ATTEMPTS = 2
+
 /** XPath that is guaranteed not to match anything on the fixture pages. */
 export const NO_MATCH_SELECTOR = '//*[@id="nonexistent_element_for_test"]'
 
@@ -179,6 +184,66 @@ async function waitForChromeApis(worker: Worker, timeout = 5000) {
     await new Promise((r) => setTimeout(r, 50))
   }
   throw new Error('chrome.* APIs never became available')
+}
+
+const EXTENSION_WORKER_TIMEOUT = 10_000
+
+const CONTEXT_LAUNCH_ATTEMPTS = 3
+
+const findExtensionWorker = (context: BrowserContext, extensionId: string) =>
+  context.serviceWorkers().find((worker) => worker.url().includes(extensionId))
+
+const hasVisibleExtensionWorker = async (context: BrowserContext, extensionId: string) => {
+  if (findExtensionWorker(context, extensionId)) return true
+
+  const started = context.waitForEvent('serviceworker', {
+    predicate: (worker) => worker.url().includes(extensionId),
+    timeout: EXTENSION_WORKER_TIMEOUT,
+  })
+  // Handled so a timed-out wait cannot surface as an unhandled rejection.
+  started.catch(() => {})
+
+  try {
+    await started
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Recovers a service worker Playwright never attached to.
+ *
+ * Chrome can create the extension's worker before Playwright attaches to that
+ * target, and Playwright then never exposes it for the rest of the session
+ * however alive the worker is - it keeps running and answering messages while
+ * `context.serviceWorkers()` stays empty, so every helper that drives the worker
+ * handle hangs until the test times out. It shows up under CPU load, which is
+ * why it reads as flakiness. See microsoft/playwright#39075.
+ *
+ * `chrome.runtime.reload()` does not help: it produces no new target either.
+ * Stopping the worker through CDP does, because the restart happens while
+ * Playwright is definitely attached.
+ */
+const restartExtensionWorker = async (context: BrowserContext, extensionId: string) => {
+  const page = await context.newPage()
+  try {
+    const cdp = await context.newCDPSession(page)
+    await cdp.send('ServiceWorker.enable')
+    await cdp.send('ServiceWorker.stopAllWorkers')
+    await cdp.detach()
+
+    // Loading an extension page and messaging the runtime starts it back up.
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+    await page.evaluate(
+      (type) => chrome.runtime.sendMessage({ type }),
+      MESSAGE_TYPES.GET_DEBUG_MODE,
+    )
+  } catch {
+    // Recovery is best effort - the caller relaunches the browser if it failed.
+  } finally {
+    await page.close().catch(() => {})
+  }
 }
 
 /**
@@ -433,7 +498,7 @@ export const test = base.extend<
   },
 
   // Launch a persistent context with the built extension loaded.
-  context: async ({}, use) => {
+  context: async ({ extensionId }, use) => {
     const buildTypeSuffix = (env = 'production') => {
       if (env === 'test') return '-test'
       if (env === 'development') return '-dev'
@@ -441,23 +506,56 @@ export const test = base.extend<
     }
 
     const extensionPath = `${process.cwd()}/.output/chrome-mv3${buildTypeSuffix(process.env.NODE_ENV)}`
-    // Use different user data dir for each test run to parallelize tests.
-    const userDataDir = `${process.cwd()}/.browser/${uuidv7()}`
 
     // Allow Playwright to attach to Chrome side-panel targets (workaround for
     // https://github.com/microsoft/playwright/issues/26693).
     process.env.PW_CHROMIUM_ATTACH_TO_OTHER = '1'
 
-    const context = await chromium.launchPersistentContext(userDataDir, {
-      channel: 'chromium',
-      headless: !!process.env.CI,
-      args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`],
-    })
+    // Use different user data dir for each launch to parallelize tests.
+    const userDataDirs: string[] = []
+    const launch = async () => {
+      const userDataDir = `${process.cwd()}/.browser/${uuidv7()}`
+      userDataDirs.push(userDataDir)
+      return await chromium.launchPersistentContext(userDataDir, {
+        channel: 'chromium',
+        headless: !!process.env.CI,
+        args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`],
+      })
+    }
 
-    await use(context)
-    await context.close()
-    // Cleanup user data dir after each test run.
-    fs.rmSync(userDataDir, { recursive: true })
+    // Recover from, and as a last resort discard, a context whose extension
+    // service worker Playwright failed to attach to - see restartExtensionWorker.
+    let context: BrowserContext | undefined
+    try {
+      for (let attempt = 1; attempt <= CONTEXT_LAUNCH_ATTEMPTS && !context; attempt++) {
+        const candidate = await launch()
+
+        let isWorkerVisible = await hasVisibleExtensionWorker(candidate, extensionId)
+        if (!isWorkerVisible) {
+          await restartExtensionWorker(candidate, extensionId)
+          isWorkerVisible = await hasVisibleExtensionWorker(candidate, extensionId)
+        }
+
+        if (isWorkerVisible) {
+          context = candidate
+        } else {
+          await candidate.close()
+        }
+      }
+
+      if (!context) {
+        throw new Error(
+          `Extension service worker never became visible after ${CONTEXT_LAUNCH_ATTEMPTS} browser launches`,
+        )
+      }
+
+      await use(context)
+    } finally {
+      await context?.close()
+      for (const userDataDir of userDataDirs) {
+        fs.rmSync(userDataDir, { recursive: true, force: true })
+      }
+    }
   },
 
   // Expose the extension ID so that tests can open extension pages
@@ -469,11 +567,10 @@ export const test = base.extend<
   },
 
   serviceWorker: async ({ context, extensionId }, use) => {
-    let [serviceWorker] = context.serviceWorkers()
+    // The context fixture only hands over a browser whose worker it can see.
+    const serviceWorker = findExtensionWorker(context, extensionId)
     if (!serviceWorker) {
-      serviceWorker = await context.waitForEvent('serviceworker', {
-        predicate: (w) => w.url().includes(extensionId),
-      })
+      throw new Error('Extension service worker stopped before the test could use it')
     }
 
     await waitForChromeApis(serviceWorker)
@@ -482,12 +579,49 @@ export const test = base.extend<
   },
 
   openSidePanel: async ({ context, extensionId, serviceWorker, fixturePageUrl }, use, testInfo) => {
-    const open = async (transitionUrl: string = fixturePageUrl(BLANK_PAGE)) => {
-      // Navigate to any injectable page (default is the blank local fixture).
-      const page = await context.newPage()
-      await page.goto(transitionUrl)
+    const sidePanelUrlPrefix = `chrome-extension://${extensionId}/sidepanel.html`
 
-      // Inject a button into the page that, when clicked, sends the trigger message.
+    /**
+     * The side panel is window-global: once open it stays open across tab
+     * switches, so a later call can hand back the page that is already attached
+     * instead of paying for another open + attach round-trip. Re-triggering an
+     * open panel would emit no `page` event at all, leaving the wait below to
+     * time out.
+     */
+    const findOpenSidePanel = () => {
+      const open = context
+        .pages()
+        .filter((page) => !page.isClosed() && page.url().startsWith(sidePanelUrlPrefix))
+      // Prefer the most recently created: closing the transition tab can leave
+      // a torn-down panel document listed for a moment after its replacement.
+      return open[open.length - 1]
+    }
+
+    /** Mounted, so a document on its way out is never handed to a test. */
+    const waitForMountedSidePanel = async () => {
+      const deadline = Date.now() + SIDE_PANEL_ATTACH_TIMEOUT
+      while (Date.now() < deadline) {
+        const candidate = findOpenSidePanel()
+        const isMounted = await candidate
+          ?.evaluate(() => !!document.getElementById('app')?.childElementCount)
+          .catch(() => false)
+        if (candidate && isMounted) return candidate
+        await new Promise((resolve) => setTimeout(resolve, 50))
+      }
+      throw new Error('Side panel never mounted')
+    }
+
+    const resizeSidePanel = async (sidePanel: Page) => {
+      // Due to PW_CHROMIUM_ATTACH_TO_OTHER=1 sidepanel inherits the viewport of other pages,
+      // the viewport size is reset to the default 360px wide and the height from the config.
+      await sidePanel.setViewportSize({
+        width: 360,
+        height: testInfo.project.use.viewport?.height ?? 720,
+      })
+      return sidePanel
+    }
+
+    const injectTriggerButton = async (tabUrl: string) => {
       await serviceWorker.evaluate(
         async (arg) => {
           const { tabUrl, MESSAGE_TYPES } = arg
@@ -515,27 +649,64 @@ export const test = base.extend<
             args: [MESSAGE_TYPES],
           })
         },
-        { tabUrl: page.url(), MESSAGE_TYPES },
+        { tabUrl, MESSAGE_TYPES },
       )
+    }
 
-      // Get a handle for the sidepanel when it appears.
-      const sidePanelPage = context.waitForEvent('page', {
-        predicate: (p) => p.url().startsWith(`chrome-extension://${extensionId}/sidepanel.html`),
-      })
+    const triggerSidePanel = async (transitionUrl: string) => {
+      const page = await context.newPage()
+      try {
+        await page.goto(transitionUrl)
+        await injectTriggerButton(page.url())
 
-      // Click the injected button to trigger the sidepanel opening.
-      await page.click('#openSidePanelBtn')
+        // Subscribe before clicking, so the target cannot attach in between.
+        const sidePanelPage = context.waitForEvent('page', {
+          predicate: (p) => p.url().startsWith(sidePanelUrlPrefix),
+          timeout: SIDE_PANEL_ATTACH_TIMEOUT,
+        })
+        // Handled so a failed attempt cannot surface as an unhandled rejection.
+        sidePanelPage.catch(() => {})
 
-      // Close the transition page.
-      await page.close()
+        await page.click('#openSidePanelBtn')
 
-      // Wait for the sidepanel to appear and return it.
-      return await sidePanelPage.then((p) => {
-        // Due to PW_CHROMIUM_ATTACH_TO_OTHER=1 sidepanel inherits the viewport of other pages,
-        // the viewport size is reset to the default 360px wide and the height from the config..
-        p.setViewportSize({ width: 360, height: testInfo.project.use.viewport?.height ?? 720 })
-        return p
-      })
+        // Wait for the sidepanel to appear *before* closing the transition page:
+        // the background opens the panel for `sender.tab`, so a tab that is
+        // already gone makes chrome.sidePanel.open() throw and no panel ever
+        // shows up. That race is what made every side-panel spec flaky under load.
+        await sidePanelPage
+      } finally {
+        // It may already be gone if the context is tearing down, which must
+        // not mask the original failure.
+        await page.close().catch(() => {})
+      }
+
+      // Re-acquire only now. Closing the transition tab makes Chrome tear the
+      // panel document down and build a new one for the next active tab, so the
+      // handle from the open above can point at a document that is about to die
+      // - a test driving it waits out its timeout on a panel that never renders.
+      return await waitForMountedSidePanel()
+    }
+
+    const open = async (transitionUrl: string = fixturePageUrl(BLANK_PAGE)) => {
+      let lastError: unknown
+      for (let attempt = 1; attempt <= SIDE_PANEL_OPEN_ATTEMPTS; attempt++) {
+        try {
+          // A panel that is already attached needs no second open - including
+          // one that attached late, while the previous attempt was unwinding.
+          const alreadyOpen = findOpenSidePanel()
+          return await resizeSidePanel(
+            alreadyOpen ? await waitForMountedSidePanel() : await triggerSidePanel(transitionUrl),
+          )
+        } catch (error) {
+          lastError = error
+        }
+      }
+
+      throw new Error(
+        `Side panel never attached after ${SIDE_PANEL_OPEN_ATTEMPTS} attempts: ${
+          lastError instanceof Error ? lastError.message : String(lastError)
+        }`,
+      )
     }
 
     await use(open)

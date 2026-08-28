@@ -84,19 +84,48 @@ test.describe('Main selector autosuggest', () => {
     await sidePanel.getByRole('heading', { name: /configuration/i }).click()
     await expect(dropdown).toBeHidden()
 
-    // Open again - retry if blur handler's 150ms timer causes a race
-    await expect(async () => {
-      await input.blur() // Ensure input is not focused before clicking
-      await input.click()
-      await input.fill('')
-      await expect(dropdown).toBeVisible({ timeout: 500 })
-    }).toPass({ timeout: 5_000 })
+    // Open again. Refocusing cancels the blur handler's pending 150ms timer, so
+    // this no longer needs a retry to survive that race.
+    await input.click()
+    await input.fill('')
+    await expect(dropdown).toBeVisible()
     // Try clicking the remove control if exists
     const removeButton = sidePanel.locator('[aria-label="Remove recent selector"]').first()
     if (await removeButton.isVisible()) {
       await removeButton.click()
       await expect(dropdown).toBeVisible()
     }
+  })
+
+  test('refocusing the main selector keeps the autosuggest open past a pending blur', async ({
+    openSidePanel,
+    serviceWorker,
+    context,
+    fixturePageUrl,
+  }) => {
+    await TestHelpers.dismissAnalyticsConsent(serviceWorker)
+    const sidePanel = await openSidePanel()
+
+    const testPage = await context.newPage()
+    await testPage.goto(fixturePageUrl(SCRAPE_TARGET_PAGE))
+    await testPage.bringToFront()
+
+    const input = sidePanel.locator('#mainSelector')
+    const dropdown = sidePanel.locator('[data-slot="command-list"]')
+
+    await input.focus()
+    await expect(dropdown).toBeVisible()
+
+    // Blur and refocus, the way a closing drawer restores focus to its trigger
+    // before the user clicks straight back into the input. The blur handler's
+    // 150ms timer is still pending at this point.
+    await input.blur()
+    await input.focus()
+
+    // Once that timer fires it has to leave the suggestions alone: the input is
+    // focused again, and closing the dropdown would yank them away mid-typing.
+    await sidePanel.waitForTimeout(400)
+    await expect(dropdown).toBeVisible()
   })
 
   test('save preset then Load shows it; autosuggest does not duplicate it from recents', async ({

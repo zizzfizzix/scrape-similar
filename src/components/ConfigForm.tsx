@@ -389,14 +389,29 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
     mainSelectorInputRef.current?.focus()
   }
 
+  /**
+   * The blur handler defers so a click on a suggestion still lands, which means
+   * the input can be focused again - or the form gone - by the time it fires.
+   * Holding the timer lets those cases cancel a blur that no longer applies.
+   */
+  const blurCommitTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+  useEffect(() => () => clearTimeout(blurCommitTimerRef.current), [])
+
   // Handle main selector focus
   const handleMainSelectorFocus = () => {
+    // Focus is back, so a blur still waiting out its delay no longer applies.
+    // Drawers and dialogs restore focus to their trigger when they close, which
+    // blurs the textarea; the user clicks straight back in and keeps typing, and
+    // without this the pending timer closes the suggestions under them.
+    clearTimeout(blurCommitTimerRef.current)
     setIsAutosuggestOpen(true)
   }
 
   // Handle main selector blur with delay to allow for clicks
   const handleMainSelectorBlur = () => {
-    setTimeout(() => {
+    clearTimeout(blurCommitTimerRef.current)
+    blurCommitTimerRef.current = setTimeout(() => {
       // Don't commit if we're selecting from autosuggest (mousedown was triggered)
       if (isSelectingFromAutosuggestRef.current) {
         isSelectingFromAutosuggestRef.current = false
