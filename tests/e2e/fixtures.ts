@@ -33,6 +33,33 @@ export const ALT_SCRAPE_TARGET_PAGE = 'scrape-target-alt.html'
 export const BLANK_PAGE = 'blank.html'
 
 /**
+ * The page the onboarding demo navigates to at the end of the flow. It is baked
+ * into the extension (`OnboardingApp.tsx`, `isTest` branch), so the specs cannot
+ * point it at the fixture server's per-worker ephemeral port - they serve
+ * DEMO_TARGET_PAGE at this URL instead, see TestHelpers.mockDemoTargetPage.
+ */
+export const DEMO_TARGET_URL =
+  'https://en.wikipedia.org/wiki/List_of_countries_and_dependencies_by_population'
+
+/** Local stand-in for the live article at DEMO_TARGET_URL. */
+export const DEMO_TARGET_PAGE = 'wikitable-demo.html'
+
+/**
+ * Facts about tests/e2e/fixtures/pages/wikitable-demo.html the onboarding demo
+ * assertions rely on. Keep in sync when editing that file.
+ */
+export const DEMO_TARGET_PAGE_FACTS = {
+  /** Data rows in the `wikitable`, excluding its header row. */
+  tableRows: 12,
+  /** Rows the baked demo config selects: `position() > 1 and position() <= 11`. */
+  scrapedRows: 10,
+  /** Cells of the first scraped row, in the demo config's column order. */
+  firstRow: ['1', 'India', '1,450,935,791', '17.8%', '1 Jul 2024'],
+  /** Country link text of the last scraped row - row 11 must stay out of range. */
+  lastScrapedCountry: 'Ethiopia',
+} as const
+
+/**
  * Match counts of tests/e2e/fixtures/pages/scrape-target.html.
  * Keep in sync when editing that file.
  */
@@ -78,8 +105,12 @@ export const DEFAULT_SCRAPE_ROW_COUNT = 10
 /** XPath that is guaranteed not to match anything on the fixture pages. */
 export const NO_MATCH_SELECTOR = '//*[@id="nonexistent_element_for_test"]'
 
+const FIXTURE_PAGES_ROOT = path.join(import.meta.dirname, 'fixtures', 'pages')
+
+const HTML_CONTENT_TYPE = 'text/html; charset=utf-8'
+
 const CONTENT_TYPES: Record<string, string> = {
-  '.html': 'text/html; charset=utf-8',
+  '.html': HTML_CONTENT_TYPE,
   '.css': 'text/css; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
 }
@@ -96,13 +127,11 @@ const CONTENT_TYPES: Record<string, string> = {
  * top-level only; nested directories are not served).
  */
 const startFixturePagesServer = async () => {
-  const root = path.join(import.meta.dirname, 'fixtures', 'pages')
-
   const servableFiles = new Map<string, string>(
     fs
-      .readdirSync(root, { withFileTypes: true })
+      .readdirSync(FIXTURE_PAGES_ROOT, { withFileTypes: true })
       .filter((entry) => entry.isFile())
-      .map((entry) => [`/${entry.name}`, path.join(root, entry.name)]),
+      .map((entry) => [`/${entry.name}`, path.join(FIXTURE_PAGES_ROOT, entry.name)]),
   )
 
   const server = http.createServer((req, res) => {
@@ -182,6 +211,24 @@ export const TestHelpers = {
     const page = await context.newPage()
     await page.goto(`chrome-extension://${extensionId}/options.html`)
     return page
+  },
+
+  /**
+   * Serves DEMO_TARGET_PAGE in place of the live article the onboarding demo
+   * navigates to.
+   *
+   * Routed on the context rather than a page: the onboarding tab navigates
+   * itself to the demo URL, and the extension keys the demo scrape off that
+   * URL, so the fixture has to answer for the real address.
+   */
+  async mockDemoTargetPage(context: BrowserContext): Promise<void> {
+    await context.route(DEMO_TARGET_URL, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: HTML_CONTENT_TYPE,
+        body: fs.readFileSync(path.join(FIXTURE_PAGES_ROOT, DEMO_TARGET_PAGE), 'utf8'),
+      }),
+    )
   },
 
   /**

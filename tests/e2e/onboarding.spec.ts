@@ -1,11 +1,11 @@
 import type { ScrapeConfig } from '@/utils/types'
-import { expect, test, TestHelpers } from './fixtures'
+import type { BrowserContext, Locator, Page, Worker } from '@playwright/test'
+import { DEMO_TARGET_PAGE_FACTS, DEMO_TARGET_URL, expect, test, TestHelpers } from './fixtures'
 
 /**
- * Onboarding flow tests.
+ * Onboarding flow tests, including the demo scrape the final slide kicks off.
  *
- * These are the only specs still driven against a live site. The demo scrape
- * target is baked into the extension rather than into the tests:
+ * The demo target is baked into the extension rather than into the tests:
  *
  *   - `src/entrypoints/onboarding/OnboardingApp.tsx` navigates to a hard-coded
  *     Wikipedia URL (already branched on `isTest`)
@@ -15,59 +15,100 @@ import { expect, test, TestHelpers } from './fixtures'
  *     scrape on a `wikipedia.org/wiki/` URL
  *
  * The extension is built before Playwright starts, so it cannot learn the
- * ephemeral port the fixture server picks per worker (see `fixtures.ts`). Note
- * that this rules out baking a fixture URL in at build time on its own: a single
- * baked constant would have to point at a host:port every one of the 20 workers
- * serves, so build-time injection also forces one shared server on a fixed port.
+ * ephemeral port the fixture server picks per worker (see `fixtures.ts`). The
+ * demo therefore keeps navigating to the real article URL, and the specs answer
+ * for that URL locally instead: `TestHelpers.mockDemoTargetPage` routes it to
+ * `tests/e2e/fixtures/pages/wikitable-demo.html`, which mirrors the shape the
+ * baked demo config expects. That keeps the whole suite offline and off
+ * Wikipedia's markup (issue #258), with no extension source change - and the
+ * fixture's fixed rows let these specs assert exact counts and cell values, the
+ * way the fixture-server specs do.
  *
- * 7 of the 9 tests below need network; `can navigate backwards through
- * onboarding slides` and `stores demo scrape config correctly before navigation`
- * already pass offline.
- *
- * Picking a fix is tracked in issue #258, which lays out the options and their
- * costs. The cheapest one that works - verified by prototype - needs no
- * extension source change at all: intercept the hard-coded demo URL with
- * `context.route` and fulfil it from a local `wikitable`-shaped fixture, the way
- * `column-delete.spec.ts` already mocks its table page.
+ * Because the mock has to mirror whatever the extension hard-codes, changing the
+ * demo target in source means updating the fixture page and
+ * DEMO_TARGET_PAGE_FACTS with it.
  */
 
+const advanceToStartButton = async (onboardingPage: Page): Promise<Locator> => {
+  const nextButton = onboardingPage.getByRole('button', { name: 'Next' })
+  const startButton = onboardingPage.getByRole('button', { name: /start/i })
+
+  while (!(await startButton.isVisible())) {
+    await nextButton.click()
+  }
+
+  return startButton
+}
+
+/**
+ * Both listeners have to be registered before the click: the side panel opens
+ * and the tab navigates immediately.
+ */
+const startDemo = async (
+  context: BrowserContext,
+  extensionId: string,
+  onboardingPage: Page,
+  startButton: Locator,
+): Promise<Page> => {
+  const navigationPromise = onboardingPage.waitForURL(DEMO_TARGET_URL)
+  const sidepanelPromise = context.waitForEvent('page', {
+    predicate: (p) => p.url().startsWith(`chrome-extension://${extensionId}/sidepanel.html`),
+  })
+
+  await startButton.click()
+
+  const [sidepanelPage] = await Promise.all([sidepanelPromise, navigationPromise])
+  return sidepanelPage
+}
+
+/** The returned onboarding tab is already showing the demo page. */
+const completeOnboardingAndStartDemo = async (
+  context: BrowserContext,
+  extensionId: string,
+  serviceWorker: Worker,
+): Promise<{ onboardingPage: Page; sidepanelPage: Page }> => {
+  await TestHelpers.dismissAnalyticsConsent(serviceWorker)
+
+  const onboardingPage = await TestHelpers.openOnboardingPage(context, extensionId)
+  const startButton = await advanceToStartButton(onboardingPage)
+  await onboardingPage.bringToFront()
+
+  const sidepanelPage = await startDemo(context, extensionId, onboardingPage, startButton)
+
+  return { onboardingPage, sidepanelPage }
+}
+
+const waitForDemoData = async (sidepanelPage: Page): Promise<void> => {
+  await expect(sidepanelPage.getByRole('heading', { name: /extracted data/i })).toBeVisible()
+}
+
+test.beforeEach(async ({ context }) => {
+  await TestHelpers.mockDemoTargetPage(context)
+})
+
 test.describe('Onboarding Flow', () => {
-  test('completes onboarding flow and opens sidepanel with Wikipedia navigation', async ({
+  test('completes onboarding flow and opens sidepanel with demo page navigation', async ({
     context,
     extensionId,
     serviceWorker,
   }) => {
-    // Dismiss analytics consent first
-    await TestHelpers.dismissAnalyticsConsent(serviceWorker)
+    const { onboardingPage, sidepanelPage } = await completeOnboardingAndStartDemo(
+      context,
+      extensionId,
+      serviceWorker,
+    )
 
-    // Open onboarding page
-    const onboardingPage = await TestHelpers.openOnboardingPage(context, extensionId)
-
-    // Wait for onboarding to load
-    const nextButton = onboardingPage.getByRole('button', { name: 'Next' })
-    await expect(nextButton).toBeVisible()
-
-    // Navigate through slides until we reach the final slide with "Start" button
-    let startButton = onboardingPage.getByRole('button', { name: /start/i })
-
-    while (!(await startButton.isVisible())) {
-      await nextButton.click()
-    }
-
-    // Trigger sidepanel and wiki page opening
-    const [sidepanelPage] = await Promise.all([
-      context.waitForEvent('page', {
-        predicate: (p) => p.url().startsWith(`chrome-extension://${extensionId}/sidepanel.html`),
-      }),
-      onboardingPage.waitForURL(/https:\/\/en\.wikipedia\.org\/wiki\//),
-      startButton.click(),
-    ])
-
-    // Verify the sidepanel opened successfully
     expect(sidepanelPage.isClosed()).toBe(false)
 
-    // Verify the Wikipedia page loaded (should have redirected from Special:Random to actual article)
-    expect(onboardingPage.url()).not.toMatch(/Special:Random/) // Should have redirected to actual article
+    expect(onboardingPage.url()).toBe(DEMO_TARGET_URL)
+    await expect(onboardingPage.locator('h1')).toHaveText(
+      'List of countries and dependencies by population',
+    )
+
+    // Guards DEMO_TARGET_PAGE_FACTS against edits to the fixture page
+    await expect(onboardingPage.locator('table.wikitable tbody tr:has(td)')).toHaveCount(
+      DEMO_TARGET_PAGE_FACTS.tableRows,
+    )
   })
 
   test('can navigate backwards through onboarding slides', async ({
@@ -75,45 +116,37 @@ test.describe('Onboarding Flow', () => {
     extensionId,
     serviceWorker,
   }) => {
-    // Dismiss analytics consent first
     await TestHelpers.dismissAnalyticsConsent(serviceWorker)
 
-    // Open onboarding page
     const onboardingPage = await TestHelpers.openOnboardingPage(context, extensionId)
 
-    // Wait for first slide
     await expect(
       onboardingPage.locator('[data-slot="card-title"]', { hasText: 'Get Started' }),
     ).toBeVisible()
 
     const nextButton = onboardingPage.getByRole('button', { name: 'Next' })
 
-    // Go to second slide
     await nextButton.click()
     await expect(
       onboardingPage.locator('[data-slot="card-title"]', { hasText: 'Pin the Extension' }),
     ).toBeVisible()
 
-    // Go to third slide
     await nextButton.click()
     await expect(
       onboardingPage.locator('[data-slot="card-title"]', { hasText: 'Visual Element Picker' }),
     ).toBeVisible()
 
-    // Now go back to second slide
     const previousButton = onboardingPage.getByRole('button', { name: /previous/i })
     await previousButton.click()
     await expect(
       onboardingPage.locator('[data-slot="card-title"]', { hasText: 'Pin the Extension' }),
     ).toBeVisible()
 
-    // Go back to first slide
     await previousButton.click()
     await expect(
       onboardingPage.locator('[data-slot="card-title"]', { hasText: 'Get Started' }),
     ).toBeVisible()
 
-    // Previous button should not be visible on first slide
     await expect(previousButton).not.toBeVisible()
   })
 })
@@ -124,62 +157,39 @@ test.describe('Onboarding Demo Scrape', () => {
     extensionId,
     serviceWorker,
   }) => {
-    // Dismiss analytics consent
-    await TestHelpers.dismissAnalyticsConsent(serviceWorker)
-
-    // Open onboarding page
-    const onboardingPage = await TestHelpers.openOnboardingPage(context, extensionId)
-
-    // Navigate to the last slide
-    const nextButton = onboardingPage.getByRole('button', { name: 'Next' })
-    const startButton = onboardingPage.getByRole('button', { name: /start/i })
-
-    while (!(await startButton.isVisible())) {
-      await nextButton.click()
-    }
-
-    await onboardingPage.bringToFront()
-
-    // Set up navigation listener before clicking (navigation happens immediately)
-    const navigationPromise = onboardingPage.waitForURL(
-      'https://en.wikipedia.org/wiki/List_of_countries_and_dependencies_by_population',
+    const { sidepanelPage } = await completeOnboardingAndStartDemo(
+      context,
+      extensionId,
+      serviceWorker,
     )
-    const sidepanelPromise = context.waitForEvent('page', {
-      predicate: (p) => p.url().startsWith(`chrome-extension://${extensionId}/sidepanel.html`),
-    })
 
-    // Click start button to trigger demo
-    await startButton.click()
+    await waitForDemoData(sidepanelPage)
 
-    // Wait for both sidepanel and navigation to complete
-    const [sidepanelPage] = await Promise.all([sidepanelPromise, navigationPromise])
-
-    // Wait for data table to appear in sidepanel (demo scrape should auto-trigger)
-    await expect(sidepanelPage.getByRole('heading', { name: /extracted data/i })).toBeVisible()
-
-    // Verify data table has content
-    const dataTable = sidepanelPage.locator('table')
+    const dataTable = sidepanelPage.locator('.data-table-container table').first()
     await expect(dataTable).toBeVisible()
 
-    // Verify table has rows (should have at least 10 rows based on the demo config)
+    // The demo config caps the selector at the table's first 10 data rows
     const rows = dataTable.locator('tbody tr')
-    const rowCount = await rows.count()
-    expect(rowCount).toBeGreaterThanOrEqual(10)
+    await expect(rows).toHaveCount(DEMO_TARGET_PAGE_FACTS.scrapedRows)
 
-    // Verify expected columns exist
-    const headerCells = dataTable.locator('thead th')
-    const headers = await headerCells.allTextContents()
+    const headers = await dataTable.locator('thead th').allTextContents()
     expect(headers).toContain('Rank')
     expect(headers).toContain('Country/Territory')
     expect(headers).toContain('Population')
     expect(headers).toContain('Percentage')
     expect(headers).toContain('Date')
 
-    // Verify first row has data
+    // Cells 0 and 1 are the row-number and actions columns the data table
+    // prepends.
     const firstRowCells = rows.first().locator('td')
-    const firstRowData = await firstRowCells.allTextContents()
-    expect(firstRowData.length).toBeGreaterThan(0)
-    expect(firstRowData[0]).toBeTruthy() // Rank should have a value
+    for (const [index, value] of DEMO_TARGET_PAGE_FACTS.firstRow.entries()) {
+      await expect(firstRowCells.nth(index + 2)).toHaveText(value)
+    }
+
+    // The 11th data row must stay out of range
+    await expect(rows.last().locator('td').nth(3)).toHaveText(
+      DEMO_TARGET_PAGE_FACTS.lastScrapedCountry,
+    )
   })
 
   test('enables visual picker mode after demo scrape completes', async ({
@@ -187,38 +197,17 @@ test.describe('Onboarding Demo Scrape', () => {
     extensionId,
     serviceWorker,
   }) => {
-    // Dismiss analytics consent
-    await TestHelpers.dismissAnalyticsConsent(serviceWorker)
-
-    // Open onboarding page
-    const onboardingPage = await TestHelpers.openOnboardingPage(context, extensionId)
-
-    // Navigate to the last slide and start demo
-    const nextButton = onboardingPage.getByRole('button', { name: 'Next' })
-    const startButton = onboardingPage.getByRole('button', { name: /start/i })
-
-    while (!(await startButton.isVisible())) {
-      await nextButton.click()
-    }
-
-    await onboardingPage.bringToFront()
-
-    const navigationPromise = onboardingPage.waitForURL(
-      'https://en.wikipedia.org/wiki/List_of_countries_and_dependencies_by_population',
+    const { onboardingPage, sidepanelPage } = await completeOnboardingAndStartDemo(
+      context,
+      extensionId,
+      serviceWorker,
     )
-    const sidepanelPromise = context.waitForEvent('page', {
-      predicate: (p) => p.url().startsWith(`chrome-extension://${extensionId}/sidepanel.html`),
-    })
 
-    await startButton.click()
-    const [sidepanelPage] = await Promise.all([sidepanelPromise, navigationPromise])
+    await waitForDemoData(sidepanelPage)
 
-    // Wait for data table to appear (demo scrape completed)
-    await expect(sidepanelPage.getByRole('heading', { name: /extracted data/i })).toBeVisible()
-
-    // Look for picker banner, it is in a shadow root, so we use evaluate to check for it
+    // The picker's banner lives in a shadow root, so check the class it puts on
+    // the document element instead.
     const pickerActive = await onboardingPage.evaluate(() => {
-      // Check for the crosshair cursor class on html element
       return document.documentElement.classList.contains('scrape-similar-picker-active')
     })
 
@@ -230,23 +219,15 @@ test.describe('Onboarding Demo Scrape', () => {
     extensionId,
     serviceWorker,
   }) => {
-    // Dismiss analytics consent
     await TestHelpers.dismissAnalyticsConsent(serviceWorker)
 
-    // Open onboarding page
     const onboardingPage = await TestHelpers.openOnboardingPage(context, extensionId)
-
-    // Navigate to the last slide
-    const nextButton = onboardingPage.getByRole('button', { name: 'Next' })
-    const startButton = onboardingPage.getByRole('button', { name: /start/i })
-
-    while (!(await startButton.isVisible())) {
-      await nextButton.click()
-    }
+    const startButton = await advanceToStartButton(onboardingPage)
 
     await onboardingPage.bringToFront()
 
-    // Set up a storage listener in the service worker to capture the config as soon as it's written
+    // The config is cleared as soon as the demo runs, so catch the write itself
+    // rather than reading the key afterwards.
     const configPromise = serviceWorker.evaluate(() => {
       return new Promise<ScrapeConfig>((resolve, reject) => {
         const listener = (
@@ -254,7 +235,6 @@ test.describe('Onboarding Demo Scrape', () => {
           areaName: string,
         ) => {
           if (areaName === 'local') {
-            // Look for any demo_scrape_pending key
             for (const key of Object.keys(changes)) {
               if (key.startsWith('demo_scrape_pending_') && changes[key]?.newValue) {
                 chrome.storage.onChanged.removeListener(listener)
@@ -269,17 +249,14 @@ test.describe('Onboarding Demo Scrape', () => {
       })
     })
 
-    // Click start button to trigger the demo scrape setup
     await startButton.click()
 
-    // Wait for the config to be captured by the storage listener
     const demoConfig = await configPromise
 
     expect(demoConfig).toBeDefined()
     expect(demoConfig.mainSelector).toContain('wikitable')
     expect(demoConfig.columns).toHaveLength(5)
 
-    // Verify column definitions
     const columns = demoConfig.columns
     expect(columns[0]?.name).toBe('Rank')
     expect(columns[1]?.name).toBe('Country/Territory')
@@ -293,46 +270,24 @@ test.describe('Onboarding Demo Scrape', () => {
     extensionId,
     serviceWorker,
   }) => {
-    // Dismiss analytics consent
     await TestHelpers.dismissAnalyticsConsent(serviceWorker)
 
-    // Open onboarding page
     const onboardingPage = await TestHelpers.openOnboardingPage(context, extensionId)
-
-    // Navigate to the last slide
-    const nextButton = onboardingPage.getByRole('button', { name: 'Next' })
-    const startButton = onboardingPage.getByRole('button', { name: /start/i })
-
-    while (!(await startButton.isVisible())) {
-      await nextButton.click()
-    }
+    const startButton = await advanceToStartButton(onboardingPage)
 
     await onboardingPage.bringToFront()
 
-    // Get the tab ID before navigation
+    // The tab is looked up by its onboarding URL, which the demo is about to
+    // replace.
     const tabId = await serviceWorker.evaluate(async (onboardingUrl) => {
       const tabs = await chrome.tabs.query({ url: onboardingUrl })
       return tabs[0]?.id
     }, onboardingPage.url())
 
-    // Set up listeners before clicking
-    const navigationPromise = onboardingPage.waitForURL(
-      'https://en.wikipedia.org/wiki/List_of_countries_and_dependencies_by_population',
-    )
-    const sidepanelPromise = context.waitForEvent('page', {
-      predicate: (p) => p.url().startsWith(`chrome-extension://${extensionId}/sidepanel.html`),
-    })
+    const sidepanelPage = await startDemo(context, extensionId, onboardingPage, startButton)
 
-    // Click start button
-    await startButton.click()
+    await waitForDemoData(sidepanelPage)
 
-    // Wait for both to complete
-    const [sidepanelPage] = await Promise.all([sidepanelPromise, navigationPromise])
-
-    // Wait for scrape to complete
-    await expect(sidepanelPage.getByRole('heading', { name: /extracted data/i })).toBeVisible()
-
-    // Verify demo config was cleaned up from storage after execution
     const demoConfigAfter = await serviceWorker.evaluate(async (tid) => {
       const result = await chrome.storage.local.get(`demo_scrape_pending_${tid}`)
       return result[`demo_scrape_pending_${tid}`]
@@ -341,49 +296,22 @@ test.describe('Onboarding Demo Scrape', () => {
     expect(demoConfigAfter).toBeUndefined()
   })
 
-  test('demo scrape uses correct XPath selector for Wikipedia table', async ({
+  test('demo scrape uses correct XPath selector for the demo table', async ({
     context,
     extensionId,
     serviceWorker,
   }) => {
-    // Dismiss analytics consent
-    await TestHelpers.dismissAnalyticsConsent(serviceWorker)
-
-    // Open onboarding page
-    const onboardingPage = await TestHelpers.openOnboardingPage(context, extensionId)
-
-    // Navigate to the last slide
-    const nextButton = onboardingPage.getByRole('button', { name: 'Next' })
-    const startButton = onboardingPage.getByRole('button', { name: /start/i })
-
-    while (!(await startButton.isVisible())) {
-      await nextButton.click()
-    }
-
-    await onboardingPage.bringToFront()
-
-    // Set up listeners before clicking
-    const navigationPromise = onboardingPage.waitForURL(
-      'https://en.wikipedia.org/wiki/List_of_countries_and_dependencies_by_population',
+    const { sidepanelPage } = await completeOnboardingAndStartDemo(
+      context,
+      extensionId,
+      serviceWorker,
     )
-    const sidepanelPromise = context.waitForEvent('page', {
-      predicate: (p) => p.url().startsWith(`chrome-extension://${extensionId}/sidepanel.html`),
-    })
 
-    // Click start button
-    await startButton.click()
+    await waitForDemoData(sidepanelPage)
 
-    // Wait for both to complete
-    const [sidepanelPage] = await Promise.all([sidepanelPromise, navigationPromise])
-
-    // Wait for scrape to complete
-    await expect(sidepanelPage.getByRole('heading', { name: /extracted data/i })).toBeVisible()
-
-    // Verify the main selector is displayed in the sidepanel
     const mainSelectorInput = sidepanelPage.locator('#mainSelector')
     const selectorValue = await mainSelectorInput.inputValue()
 
-    // Should be the XPath selector for the Wikipedia table
     expect(selectorValue).toContain('wikitable')
     expect(selectorValue).toContain('position()')
   })
@@ -393,41 +321,17 @@ test.describe('Onboarding Demo Scrape', () => {
     extensionId,
     serviceWorker,
   }) => {
-    // Dismiss analytics consent
-    await TestHelpers.dismissAnalyticsConsent(serviceWorker)
-
-    // Open onboarding page
-    const onboardingPage = await TestHelpers.openOnboardingPage(context, extensionId)
-
-    // Navigate to the last slide
-    const nextButton = onboardingPage.getByRole('button', { name: 'Next' })
-    const startButton = onboardingPage.getByRole('button', { name: /start/i })
-
-    while (!(await startButton.isVisible())) {
-      await nextButton.click()
-    }
-
-    await onboardingPage.bringToFront()
-
-    // Set up listeners before clicking
-    const navigationPromise = onboardingPage.waitForURL(
-      'https://en.wikipedia.org/wiki/List_of_countries_and_dependencies_by_population',
+    const { sidepanelPage } = await completeOnboardingAndStartDemo(
+      context,
+      extensionId,
+      serviceWorker,
     )
-    const sidepanelPromise = context.waitForEvent('page', {
-      predicate: (p) => p.url().startsWith(`chrome-extension://${extensionId}/sidepanel.html`),
-    })
 
-    // Click start button
-    await startButton.click()
+    await waitForDemoData(sidepanelPage)
 
-    // Wait for both to complete
-    const [sidepanelPage] = await Promise.all([sidepanelPromise, navigationPromise])
-
-    // Wait for scrape to complete
-    await expect(sidepanelPage.getByRole('heading', { name: /extracted data/i })).toBeVisible()
-
-    // Verify the match count badge shows 10 (the demo scrapes top 10 rows)
-    const matchCountBadge = sidepanelPage.locator('[data-slot="badge"]').filter({ hasText: /^10$/ })
+    const matchCountBadge = sidepanelPage
+      .locator('[data-slot="badge"]')
+      .filter({ hasText: new RegExp(`^${DEMO_TARGET_PAGE_FACTS.scrapedRows}$`) })
     await expect(matchCountBadge).toBeVisible()
   })
 
@@ -436,61 +340,32 @@ test.describe('Onboarding Demo Scrape', () => {
     extensionId,
     serviceWorker,
   }) => {
-    // Dismiss analytics consent
-    await TestHelpers.dismissAnalyticsConsent(serviceWorker)
-
-    // Open onboarding page
-    const onboardingPage = await TestHelpers.openOnboardingPage(context, extensionId)
-
-    // Navigate to the last slide
-    const nextButton = onboardingPage.getByRole('button', { name: 'Next' })
-    const startButton = onboardingPage.getByRole('button', { name: /start/i })
-
-    while (!(await startButton.isVisible())) {
-      await nextButton.click()
-    }
-
-    await onboardingPage.bringToFront()
-
-    // Set up listeners before clicking
-    const navigationPromise = onboardingPage.waitForURL(
-      'https://en.wikipedia.org/wiki/List_of_countries_and_dependencies_by_population',
+    const { sidepanelPage } = await completeOnboardingAndStartDemo(
+      context,
+      extensionId,
+      serviceWorker,
     )
-    const sidepanelPromise = context.waitForEvent('page', {
-      predicate: (p) => p.url().startsWith(`chrome-extension://${extensionId}/sidepanel.html`),
-    })
 
-    // Click start button
-    await startButton.click()
+    await waitForDemoData(sidepanelPage)
 
-    // Wait for both to complete
-    const [sidepanelPage] = await Promise.all([sidepanelPromise, navigationPromise])
-
-    // Wait for scrape to complete
-    await expect(sidepanelPage.getByRole('heading', { name: /extracted data/i })).toBeVisible()
-
-    // Stub clipboard
     await TestHelpers.stubClipboard(sidepanelPage)
 
-    // Open Export dropdown and click "Copy all to clipboard"
     await sidepanelPage.getByRole('button', { name: /export/i }).click()
     await sidepanelPage.getByRole('menuitem', { name: /copy all to clipboard/i }).click()
 
-    // Verify data was copied
     const copiedText = await TestHelpers.getCopiedText(sidepanelPage)
     expect(copiedText).toBeTruthy()
     expect(copiedText).not.toBeNull()
 
-    // Verify column headers are present
-    expect(copiedText!).toContain('Rank')
-    expect(copiedText!).toContain('Country/Territory')
-    expect(copiedText!).toContain('Population')
-
-    // Verify TSV format (tab-separated)
-    expect(copiedText!).toContain('\t')
-
-    // Verify it includes multiple rows (not just headers)
     const lines = copiedText!.split('\n').filter((line) => line.trim())
-    expect(lines.length).toBeGreaterThan(1) // Headers + at least one data row
+
+    // One header line plus one line per scraped row
+    expect(lines).toHaveLength(DEMO_TARGET_PAGE_FACTS.scrapedRows + 1)
+
+    expect(lines[0]).toBe(
+      ['Rank', 'Country/Territory', 'Population', 'Percentage', 'Date'].join('\t'),
+    )
+
+    expect(lines[1]).toBe(DEMO_TARGET_PAGE_FACTS.firstRow.join('\t'))
   })
 })
