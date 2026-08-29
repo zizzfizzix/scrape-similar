@@ -69,10 +69,18 @@ export const getPostHogBackground = async (): Promise<PostHog | null> => {
       // Retrieve or generate the device ID from shared storage **before** initializing PostHog
       const distinctId: DistinctId = await getOrCreateDistinctId()
 
+      // Awaited here rather than inline in the `debug:` option below, where it
+      // would only run when `isDevOrTest` is false: V8 attributes everything
+      // after such an `await` to the branch that reached it, so the rest of this
+      // function gets counted as if it only ran on that branch. That is what
+      // reported the watcher below as never skipped (#272). `coverage-hazards.ts`
+      // keeps the shape from coming back.
+      const isDebugModeEnabled = !!(await storage.getItem<boolean>('local:debugMode'))
+
       // Initialize PostHog instance
       const posthogInstance = new PostHog()
       posthogInstance.init(apiKey, {
-        debug: isDevOrTest || !!(await storage.getItem<boolean>('local:debugMode')),
+        debug: isDevOrTest || isDebugModeEnabled,
         // Supply our own distinct_id to ensure consistent distinct_id across extension contexts
         bootstrap: {
           distinctID: distinctId.toString(),
@@ -102,9 +110,7 @@ export const getPostHogBackground = async (): Promise<PostHog | null> => {
       })
 
       // React to debugMode changes in production to keep config in sync
-      if (isDevOrTest) {
-        log.debug('Debug logging is forced on in dev/test builds; not following storage')
-      } else {
+      if (!isDevOrTest) {
         storage.watch<boolean>('local:debugMode', (val) => {
           posthogInstance.set_config({ debug: !!val })
         })

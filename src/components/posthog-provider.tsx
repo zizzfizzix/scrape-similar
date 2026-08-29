@@ -79,10 +79,15 @@ async function initializePostHog(): Promise<void> {
       // Retrieve or generate the device ID from shared storage **before** initializing PostHog
       const distinctId = await getOrCreateDistinctId()
 
+      // Awaited on its own line, not inside the `debug:` short-circuit below: an
+      // `await` only one branch reaches miscounts the rest of the function —
+      // see `coverage-hazards.ts` (#272).
+      const isDebugModeEnabled = !!(await storage.getItem<boolean>('local:debugMode'))
+
       // Initialize PostHog instance
       const posthogInstance = new PostHog()
       posthogInstance.init(apiKey, {
-        debug: isDevOrTest || !!(await storage.getItem<boolean>('local:debugMode')),
+        debug: isDevOrTest || isDebugModeEnabled,
         // Supply our own distinct_id to ensure consistent distinct_id across extension contexts
         bootstrap: {
           distinctID: distinctId.toString(),
