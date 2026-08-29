@@ -334,6 +334,25 @@ describe('FullDataViewApp', () => {
       expect(toastMocks.toast.error).toHaveBeenCalledWith(expect.stringContaining('content script'))
     })
 
+    it('says nothing when the highlight lands', async () => {
+      spyOnBrowser(fakeBrowser.tabs, 'update').mockResolvedValue({} as never)
+      spyOnBrowser(fakeBrowser.tabs, 'sendMessage').mockImplementation(
+        (_tabId: number, _message: unknown, callback?: (response: unknown) => void) => {
+          callback?.({ success: true })
+          return Promise.resolve({ success: true })
+        },
+      )
+      await openSingleTab()
+      await renderLoaded()
+
+      await view!.act(async () => {
+        allButtons('Highlight this element')[0]!.click()
+        await flush()
+      })
+
+      expect(toastMocks.toast.error).not.toHaveBeenCalled()
+    })
+
     it('reports a tab it could not activate', async () => {
       spyOnBrowser(fakeBrowser.tabs, 'update').mockRejectedValue(new Error('no such tab'))
       await openSingleTab()
@@ -406,6 +425,22 @@ describe('FullDataViewApp', () => {
         selection_type: 'select_individual',
         is_empty_row: false,
         total_selected: 1,
+      })
+    })
+
+    it('records a row being unpicked', async () => {
+      await openSingleTab()
+      await renderLoaded()
+      const checkbox = allButtons('Select row')[0]!
+
+      await view!.act(() => checkbox.click())
+      trackEvent.mockClear()
+      await view!.act(() => checkbox.click())
+
+      expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.FULL_DATA_VIEW_ROW_SELECTION, {
+        selection_type: 'deselect_individual',
+        is_empty_row: false,
+        total_selected: 0,
       })
     })
 
@@ -502,6 +537,37 @@ describe('FullDataViewApp', () => {
     })
   })
 
+  it('names the columns from the config when the scrape recorded no order', async () => {
+    await openTabs([
+      {
+        id: 1,
+        title: 'Populations',
+        url: 'https://example.com/pop',
+        state: { scrapeResult: { data: rows, columnOrder: [] }, resultProducingConfig: config },
+      },
+    ])
+
+    await renderLoaded()
+
+    expect(headers()).toEqual(['', '#', 'Actions', 'Rank', 'Country'])
+  })
+
+  it('highlights the resize handle while a column is being dragged', async () => {
+    await openSingleTab()
+    await renderLoaded()
+    const handle = querySelector<HTMLElement>(view!.container, '.cursor-col-resize')
+
+    expect(handle.className).toContain('opacity-0')
+
+    await view!.act(() => {
+      handle.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: 0 }))
+    })
+
+    expect(querySelector<HTMLElement>(view!.container, '.cursor-col-resize').className).toContain(
+      'bg-primary opacity-100',
+    )
+  })
+
   describe('switching tabs', () => {
     it('shows the data of the tab picked from the list', async () => {
       await openTabs([
@@ -528,6 +594,36 @@ describe('FullDataViewApp', () => {
       expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.FULL_DATA_VIEW_TAB_SWITCH, {
         total_tabs_available: 2,
       })
+    })
+
+    it('narrows the list by title or address, and to nothing when neither matches', async () => {
+      await openTabs([
+        { id: 1, title: 'First', url: 'https://example.com/alpha', state: state() },
+        {
+          id: 2,
+          title: 'Second',
+          url: 'https://example.com/beta',
+          state: state([row({ Rank: '9', Country: 'Peru' })]),
+        },
+      ])
+      await renderLoaded()
+      await openRadixTrigger(byText('First'))
+      const search = querySelector<HTMLInputElement>(
+        document.body,
+        'input[placeholder="Search tabs..."]',
+      )
+      const options = () => [...document.querySelectorAll('[cmdk-item]')].length
+
+      // Matches the second tab's address but neither title.
+      await view!.act(() => setInputValue(search, 'beta'))
+      expect(options()).toBe(1)
+
+      // Matches the first tab's title but neither address.
+      await view!.act(() => setInputValue(search, 'First'))
+      expect(options()).toBe(1)
+
+      await view!.act(() => setInputValue(search, 'nothing at all'))
+      expect(options()).toBe(0)
     })
   })
 
@@ -568,6 +664,23 @@ describe('FullDataViewApp', () => {
       })
 
       expect(remove).toHaveBeenCalledWith(99)
+    })
+
+    it('leaves itself open when the browser reports no current tab', async () => {
+      spyOnBrowser(fakeBrowser.tabs, 'update').mockResolvedValue({} as never)
+      spyOnBrowser(fakeBrowser.sidePanel, 'open').mockResolvedValue(undefined as never)
+      spyOnBrowser(fakeBrowser.tabs, 'getCurrent').mockResolvedValue(undefined as never)
+      const remove = spyOnBrowser(fakeBrowser.tabs, 'remove').mockResolvedValue(undefined as never)
+      await openSingleTab()
+      await renderLoaded()
+
+      await view!.act(async () => {
+        byText('Back to Tab').click()
+        await flush()
+      })
+
+      expect(remove).not.toHaveBeenCalled()
+      expect(toastMocks.toast.error).not.toHaveBeenCalled()
     })
 
     it('reports a tab it could not go back to', async () => {

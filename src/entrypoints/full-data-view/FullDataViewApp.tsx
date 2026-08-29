@@ -128,36 +128,26 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
   const [tabSearch, setTabSearch] = useState('')
 
   // Load data from storage
-  const loadTabsData = useCallback(
-    async (preserveCurrentSelection = false) => {
-      try {
-        setLoading(true)
-        setError(null)
+  const loadTabsData = useCallback(async () => {
+    try {
+      setLoading(true)
+      setError(null)
 
-        const tabsWithData = await collectTabsWithData(await browser.tabs.query({}), (tabId) =>
-          storage.getItem<SidePanelConfig>(`session:sidepanel_config_${tabId}`),
-        )
+      const tabsWithData = await collectTabsWithData(await browser.tabs.query({}), (tabId) =>
+        storage.getItem<SidePanelConfig>(`session:sidepanel_config_${tabId}`),
+      )
 
-        setAllTabsData(tabsWithData)
+      setAllTabsData(tabsWithData)
 
-        if (preserveCurrentSelection) {
-          // Keep whichever tab is showing, but pick up its newer data.
-          const currentData = tabsWithData.find((data) => data.tabId === currentTabId)
-          if (currentData) setCurrentTabData(currentData)
-          return
-        }
-
-        const selection = resolveTabSelection(tabsWithData, currentTabId)
-        setCurrentTabId(selection.tabId)
-        setCurrentTabData(selection.data)
-      } catch (err) {
-        setError('Failed to load tab data: ' + (err as Error).message)
-      } finally {
-        setLoading(false)
-      }
-    },
-    [currentTabId],
-  )
+      const selection = resolveTabSelection(tabsWithData, currentTabId)
+      setCurrentTabId(selection.tabId)
+      setCurrentTabData(selection.data)
+    } catch (err) {
+      setError('Failed to load tab data: ' + (err as Error).message)
+    } finally {
+      setLoading(false)
+    }
+  }, [currentTabId])
 
   // Load data on mount
   useEffect(() => {
@@ -206,7 +196,8 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
       trackEvent(ANALYTICS_EVENTS.FULL_DATA_VIEW_SEARCH, {
         search_term_length: globalFilter.length,
         filtered_rows: table.getFilteredRowModel().rows.length,
-        total_rows: currentTabData?.scrapeResult.data.length || 0,
+        // A search can only be typed from the main view, which has a tab.
+        total_rows: currentTabData!.scrapeResult.data.length,
       })
     }, 1000) // Debounce for 1 second
 
@@ -270,27 +261,15 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
               newTabs = [...prev, updatedTabData]
             }
 
-            const [firstTab] = newTabs
-            // If there's no current tab selected and this is the first/only tab, select it
+            // If there's no current tab selected and this is the first/only tab, select it.
+            // This update either replaces an entry or appends one, so an empty
+            // `prev` can only ever become a list of one.
             if (currentTabId === null && newTabs.length === 1) {
               setCurrentTabId(updatedTabData.tabId)
               setCurrentTabData(updatedTabData)
               // Update URL
               const newUrl = new URL(window.location.href)
               newUrl.searchParams.set('tabId', updatedTabData.tabId.toString())
-              window.history.replaceState({}, '', newUrl.toString())
-            } else if (
-              currentTabId === null &&
-              firstTab &&
-              newTabs.length > 1 &&
-              prev.length === 0
-            ) {
-              // If we had no tabs before and now have multiple, select the first one
-              setCurrentTabId(firstTab.tabId)
-              setCurrentTabData(firstTab)
-              // Update URL
-              const newUrl = new URL(window.location.href)
-              newUrl.searchParams.set('tabId', firstTab.tabId.toString())
               window.history.replaceState({}, '', newUrl.toString())
             }
 
@@ -359,57 +338,57 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
     }
   }, [currentTabId])
 
-  // Handle tab switching
+  // Handle tab switching. Only the tab list calls this, with an id it read
+  // straight out of `allTabsData`.
   const handleTabSwitch = (tabId: number) => {
-    const tabData = allTabsData.find((data) => data.tabId === tabId)
-    if (tabData) {
-      setCurrentTabId(tabId)
-      setCurrentTabData(tabData)
-      // Update URL
-      const newUrl = new URL(window.location.href)
-      newUrl.searchParams.set('tabId', tabId.toString())
-      window.history.replaceState({}, '', newUrl.toString())
-      // Reset pagination, filters, row selection, and column sizing
-      setPagination({ pageIndex: 0, pageSize: 20 })
-      setGlobalFilter('')
-      setSorting([])
-      setColumnFilters([])
-      setRowSelection({})
-      setColumnSizing({})
+    const tabData = allTabsData.find((data) => data.tabId === tabId)!
 
-      // Track tab switch
-      trackEvent(ANALYTICS_EVENTS.FULL_DATA_VIEW_TAB_SWITCH, {
-        total_tabs_available: allTabsData.length,
-      })
-    }
+    setCurrentTabId(tabId)
+    setCurrentTabData(tabData)
+    // Update URL
+    const newUrl = new URL(window.location.href)
+    newUrl.searchParams.set('tabId', tabId.toString())
+    window.history.replaceState({}, '', newUrl.toString())
+    // Reset pagination, filters, row selection, and column sizing
+    setPagination({ pageIndex: 0, pageSize: 20 })
+    setGlobalFilter('')
+    setSorting([])
+    setColumnFilters([])
+    setRowSelection({})
+    setColumnSizing({})
+
+    // Track tab switch
+    trackEvent(ANALYTICS_EVENTS.FULL_DATA_VIEW_TAB_SWITCH, {
+      total_tabs_available: allTabsData.length,
+    })
   }
 
-  // Handle going back to original tab
+  // Handle going back to original tab. The header this button sits in only
+  // renders once at least one tab has data, and a tab is only ever deselected
+  // by the same change that empties that list.
   const handleBackToTab = async () => {
-    if (currentTabId) {
+    try {
+      // Track the back to tab action
+      trackEvent(ANALYTICS_EVENTS.FULL_DATA_VIEW_BACK_TO_TAB)
+
+      await browser.tabs.update(currentTabId!, { active: true })
+
+      // Reopen the sidepanel for the original tab
       try {
-        // Track the back to tab action
-        trackEvent(ANALYTICS_EVENTS.FULL_DATA_VIEW_BACK_TO_TAB)
-
-        await browser.tabs.update(currentTabId, { active: true })
-
-        // Reopen the sidepanel for the original tab
-        try {
-          await browser.sidePanel.open({ tabId: currentTabId })
-          log.debug(`Sidepanel reopened for tab ${currentTabId}`)
-        } catch (sidePanelError) {
-          log.warn('Failed to reopen sidepanel:', sidePanelError)
-          // Don't show error to user as this is not critical
-        }
-
-        // Close this tab
-        const currentTab = await browser.tabs.getCurrent()
-        if (currentTab?.id) {
-          await browser.tabs.remove(currentTab.id)
-        }
-      } catch (err) {
-        toast.error('Failed to switch back to tab')
+        await browser.sidePanel.open({ tabId: currentTabId! })
+        log.debug(`Sidepanel reopened for tab ${currentTabId}`)
+      } catch (sidePanelError) {
+        log.warn('Failed to reopen sidepanel:', sidePanelError)
+        // Don't show error to user as this is not critical
       }
+
+      // Close this tab
+      const currentTab = await browser.tabs.getCurrent()
+      if (currentTab?.id) {
+        await browser.tabs.remove(currentTab.id)
+      }
+    } catch (err) {
+      toast.error('Failed to switch back to tab')
     }
   }
 
@@ -737,6 +716,10 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
     )
   }
 
+  // Past the guards above there is always a tab on show: the selection and the
+  // list of tabs with data are only ever set together.
+  const shownTab = currentTabData!
+
   // Main view
   return (
     <TooltipProvider>
@@ -764,17 +747,15 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
                       <div className="flex items-center justify-between w-full">
                         <div className="flex flex-col items-start min-w-0 flex-1">
                           <div className="font-semibold truncate max-w-md ph_hidden">
-                            {currentTabData?.tabTitle || 'Select Tab'}
+                            {shownTab.tabTitle}
                           </div>
                           <div className="text-xs text-muted-foreground truncate max-w-md ph_hidden">
-                            {currentTabData?.tabUrl || ''}
+                            {shownTab.tabUrl}
                           </div>
                         </div>
-                        {currentTabData && (
-                          <div className="text-xs text-muted-foreground ml-2 shrink-0">
-                            {currentTabData.scrapeResult.data.length} rows
-                          </div>
-                        )}
+                        <div className="text-xs text-muted-foreground ml-2 shrink-0">
+                          {shownTab.scrapeResult.data.length} rows
+                        </div>
                       </div>
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
@@ -782,13 +763,11 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
                   <PopoverContent className="p-0 w-[33.6rem]" align="center">
                     <Command
                       filter={(value, search) => {
-                        const tabData = allTabsData.find((tab) => tab.tabId.toString() === value)
-                        if (!tabData) return 0
+                        // cmdk only ever filters values this list rendered.
+                        const tabData = allTabsData.find((tab) => tab.tabId.toString() === value)!
                         const searchTerm = search.toLowerCase()
-                        const titleMatch = (tabData.tabTitle || '')
-                          .toLowerCase()
-                          .includes(searchTerm)
-                        const urlMatch = (tabData.tabUrl || '').toLowerCase().includes(searchTerm)
+                        const titleMatch = tabData.tabTitle.toLowerCase().includes(searchTerm)
+                        const urlMatch = tabData.tabUrl.toLowerCase().includes(searchTerm)
                         return titleMatch || urlMatch ? 1 : 0
                       }}
                     >
@@ -814,7 +793,7 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
                           >
                             <div className="flex flex-col items-start min-w-0 flex-1">
                               <div className="font-medium truncate w-full ph_hidden">
-                                {tabData.tabTitle || 'Unknown Title'}
+                                {tabData.tabTitle}
                               </div>
                               <div className="text-xs text-muted-foreground truncate w-full ph_hidden">
                                 {tabData.tabUrl}
@@ -832,19 +811,17 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
 
                 <div className="flex items-center justify-end">
                   {/* Export buttons */}
-                  {currentTabData && (
-                    <ExportButtons
-                      scrapeResult={currentTabData.scrapeResult}
-                      config={currentTabData.config}
-                      showEmptyRows={showEmptyRows}
-                      selectedRows={table
-                        .getFilteredSelectedRowModel()
-                        .rows.map((row) => row.original)}
-                      filename={`${currentTabData.tabTitle || 'Data Export'} - ${new Date().toISOString().split('T')[0]}`}
-                      size="sm"
-                      variant="outline"
-                    />
-                  )}
+                  <ExportButtons
+                    scrapeResult={shownTab.scrapeResult}
+                    config={shownTab.config}
+                    showEmptyRows={showEmptyRows}
+                    selectedRows={table
+                      .getFilteredSelectedRowModel()
+                      .rows.map((row) => row.original)}
+                    filename={`${shownTab.tabTitle} - ${new Date().toISOString().split('T')[0]}`}
+                    size="sm"
+                    variant="outline"
+                  />
                 </div>
               </div>
             </div>
@@ -852,240 +829,227 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
 
           {/* Main content */}
           <main className="flex-1 overflow-y-auto container mx-auto px-4 py-6">
-            {currentTabData && (
-              <>
-                {/* Controls */}
-                <div className="grid grid-cols-[1fr_auto_1fr] items-center mb-6">
-                  {/* Left: Row selection info */}
-                  {table.getFilteredSelectedRowModel().rows.length > 0 && (
-                    <div className="col-span-1 justify-self-start">
-                      <div className="text-sm text-muted-foreground">
-                        {table.getFilteredSelectedRowModel().rows.length} of{' '}
-                        {table.getFilteredRowModel().rows.length} rows selected
-                      </div>
+            {/* Controls */}
+            <div className="grid grid-cols-[1fr_auto_1fr] items-center mb-6">
+              {/* Left: Row selection info */}
+              {table.getFilteredSelectedRowModel().rows.length > 0 && (
+                <div className="col-span-1 justify-self-start">
+                  <div className="text-sm text-muted-foreground">
+                    {table.getFilteredSelectedRowModel().rows.length} of{' '}
+                    {table.getFilteredRowModel().rows.length} rows selected
+                  </div>
+                </div>
+              )}
+
+              {/* Center: Global search */}
+              <div className="col-start-2 justify-self-center">
+                <div className="relative">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search all columns..."
+                    value={globalFilter}
+                    onChange={(e) => setGlobalFilter(e.target.value)}
+                    className="pl-8 w-64 ph_hidden"
+                  />
+                </div>
+              </div>
+
+              {/* Right: Row controls and info */}
+              <div className="col-start-3 grid grid-cols-[1fr_auto_1fr] items-center">
+                {/* Show empty rows control - only show if there are empty rows AND no global filter is active */}
+                {shownTab.scrapeResult.data.filter((r) => r.metadata.isEmpty).length > 0 &&
+                  !globalFilter && (
+                    <div className="col-start-2 flex items-center gap-2">
+                      <Switch
+                        id="show-empty-rows"
+                        checked={showEmptyRows}
+                        onCheckedChange={setShowEmptyRows}
+                      />
+                      <label
+                        htmlFor="show-empty-rows"
+                        className="text-sm font-medium whitespace-nowrap"
+                      >
+                        Show {shownTab.scrapeResult.data.filter((r) => r.metadata.isEmpty).length}{' '}
+                        empty rows
+                      </label>
                     </div>
                   )}
 
-                  {/* Center: Global search */}
-                  <div className="col-start-2 justify-self-center">
-                    <div className="relative">
-                      <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        placeholder="Search all columns..."
-                        value={globalFilter}
-                        onChange={(e) => setGlobalFilter(e.target.value)}
-                        className="pl-8 w-64 ph_hidden"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Right: Row controls and info */}
-                  <div className="col-start-3 grid grid-cols-[1fr_auto_1fr] items-center">
-                    {/* Show empty rows control - only show if there are empty rows AND no global filter is active */}
-                    {currentTabData.scrapeResult.data.filter((r) => r.metadata.isEmpty).length >
-                      0 &&
-                      !globalFilter && (
-                        <div className="col-start-2 flex items-center gap-2">
-                          <Switch
-                            id="show-empty-rows"
-                            checked={showEmptyRows}
-                            onCheckedChange={setShowEmptyRows}
-                          />
-                          <label
-                            htmlFor="show-empty-rows"
-                            className="text-sm font-medium whitespace-nowrap"
-                          >
-                            Show{' '}
-                            {
-                              currentTabData.scrapeResult.data.filter((r) => r.metadata.isEmpty)
-                                .length
-                            }{' '}
-                            empty rows
-                          </label>
-                        </div>
-                      )}
-
-                    {/* Row count info */}
-                    <div className="col-start-3 text-sm text-muted-foreground text-right">
-                      {globalFilter
-                        ? `${table.getFilteredRowModel().rows.length} filtered rows`
-                        : showEmptyRows
-                          ? `${table.getFilteredRowModel().rows.length} total rows`
-                          : `${table.getFilteredRowModel().rows.length} rows with data`}
-                    </div>
-                  </div>
+                {/* Row count info */}
+                <div className="col-start-3 text-sm text-muted-foreground text-right">
+                  {globalFilter
+                    ? `${table.getFilteredRowModel().rows.length} filtered rows`
+                    : showEmptyRows
+                      ? `${table.getFilteredRowModel().rows.length} total rows`
+                      : `${table.getFilteredRowModel().rows.length} rows with data`}
                 </div>
+              </div>
+            </div>
 
-                {/* Data table */}
-                <div className="border rounded-lg overflow-auto">
-                  <Table
-                    key={currentTabData?.tabId || 'no-tab'}
-                    className="w-full table-fixed"
-                    style={{
-                      width: table.getCenterTotalSize(),
-                    }}
-                  >
-                    <TableHeader>
-                      {table.getHeaderGroups().map((headerGroup) => (
-                        <TableRow key={headerGroup.id}>
-                          {headerGroup.headers.map((header) => (
-                            <TableHead
-                              key={header.id}
-                              style={{
-                                width: `${header.getSize()}px`,
-                                position: 'relative',
-                              }}
-                              className={
-                                header.id === 'select'
-                                  ? 'px-3'
-                                  : header.id === 'rowIndex' || header.id === 'actions'
-                                    ? ''
-                                    : 'cursor-pointer select-none ph_hidden'
-                              }
-                              onClick={
-                                header.column.getCanSort()
-                                  ? header.column.getToggleSortingHandler()
-                                  : undefined
-                              }
-                            >
-                              <div className="flex items-center gap-2">
-                                {header.isPlaceholder
-                                  ? null
-                                  : flexRender(header.column.columnDef.header, header.getContext())}
-                                {header.column.getCanSort() && (
-                                  <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-                                )}
-                              </div>
-                              {/* Column resize handle */}
-                              {header.column.getCanResize() && (
-                                <div
-                                  onMouseDown={header.getResizeHandler()}
-                                  onTouchStart={header.getResizeHandler()}
-                                  className={`absolute top-0 right-0 h-full w-1 bg-border cursor-col-resize select-none touch-none hover:bg-primary/50 ${
-                                    header.column.getIsResizing()
-                                      ? 'bg-primary opacity-100'
-                                      : 'opacity-0 hover:opacity-100'
-                                  }`}
-                                />
-                              )}
-                            </TableHead>
-                          ))}
-                        </TableRow>
+            {/* Data table */}
+            <div className="border rounded-lg overflow-auto">
+              <Table
+                key={shownTab.tabId}
+                className="w-full table-fixed"
+                style={{
+                  width: table.getCenterTotalSize(),
+                }}
+              >
+                <TableHeader>
+                  {table.getHeaderGroups().map((headerGroup) => (
+                    <TableRow key={headerGroup.id}>
+                      {headerGroup.headers.map((header) => (
+                        <TableHead
+                          key={header.id}
+                          style={{
+                            width: `${header.getSize()}px`,
+                            position: 'relative',
+                          }}
+                          className={
+                            header.id === 'select'
+                              ? 'px-3'
+                              : header.id === 'rowIndex' || header.id === 'actions'
+                                ? ''
+                                : 'cursor-pointer select-none ph_hidden'
+                          }
+                          onClick={
+                            header.column.getCanSort()
+                              ? header.column.getToggleSortingHandler()
+                              : undefined
+                          }
+                        >
+                          <div className="flex items-center gap-2">
+                            {flexRender(header.column.columnDef.header, header.getContext())}
+                            {header.column.getCanSort() && (
+                              <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+                            )}
+                          </div>
+                          {/* Column resize handle */}
+                          {header.column.getCanResize() && (
+                            <div
+                              onMouseDown={header.getResizeHandler()}
+                              onTouchStart={header.getResizeHandler()}
+                              className={`absolute top-0 right-0 h-full w-1 bg-border cursor-col-resize select-none touch-none hover:bg-primary/50 ${
+                                header.column.getIsResizing()
+                                  ? 'bg-primary opacity-100'
+                                  : 'opacity-0 hover:opacity-100'
+                              }`}
+                            />
+                          )}
+                        </TableHead>
                       ))}
-                    </TableHeader>
-                    <TableBody>
-                      {table.getRowModel().rows.length === 0 ? (
-                        <TableRow>
+                    </TableRow>
+                  ))}
+                </TableHeader>
+                <TableBody>
+                  {table.getRowModel().rows.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={columns.length}
+                        className="text-center text-muted-foreground h-24"
+                      >
+                        No data found
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    table.getRowModel().rows.map((row) => (
+                      <TableRow
+                        key={row.id}
+                        className={row.original.metadata.isEmpty ? 'opacity-60 bg-muted/30' : ''}
+                      >
+                        {row.getVisibleCells().map((cell) => (
                           <TableCell
-                            colSpan={columns.length}
-                            className="text-center text-muted-foreground h-24"
-                          >
-                            No data found
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        table.getRowModel().rows.map((row) => (
-                          <TableRow
-                            key={row.id}
+                            key={cell.id}
+                            style={{
+                              width: `${cell.column.getSize()}px`,
+                            }}
                             className={
-                              row.original.metadata.isEmpty ? 'opacity-60 bg-muted/30' : ''
+                              cell.column.id === 'select'
+                                ? 'px-3'
+                                : cell.column.id === 'rowIndex' || cell.column.id === 'actions'
+                                  ? 'px-2'
+                                  : 'px-3 ph_hidden'
                             }
                           >
-                            {row.getVisibleCells().map((cell) => (
-                              <TableCell
-                                key={cell.id}
-                                style={{
-                                  width: `${cell.column.getSize()}px`,
-                                }}
-                                className={
-                                  cell.column.id === 'select'
-                                    ? 'px-3'
-                                    : cell.column.id === 'rowIndex' || cell.column.id === 'actions'
-                                      ? 'px-2'
-                                      : 'px-3 ph_hidden'
-                                }
-                              >
-                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                              </TableCell>
-                            ))}
-                          </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-
-                {/* Pagination controls */}
-                <div className="grid grid-cols-[1fr_auto_1fr] items-center mt-4">
-                  {/* Left: Rows per page selector - always visible */}
-                  <div className="col-span-1 flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">Rows per page:</span>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="sm" className="w-auto px-3">
-                          {table.state.pagination.pageSize}
-                          <ChevronDown className="ml-2 h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent>
-                        <DropdownMenuRadioGroup
-                          value={table.state.pagination.pageSize.toString()}
-                          onValueChange={(value) => {
-                            const previousPageSize = table.state.pagination.pageSize
-                            const newPageSize = parseInt(value)
-                            table.setPageSize(newPageSize)
-
-                            // Track page size change
-                            trackEvent(ANALYTICS_EVENTS.FULL_DATA_VIEW_PAGE_SIZE_CHANGE, {
-                              previous_page_size: previousPageSize,
-                              new_page_size: newPageSize,
-                              total_rows: table.getFilteredRowModel().rows.length,
-                            })
-                          }}
-                        >
-                          <DropdownMenuRadioItem value="10">10</DropdownMenuRadioItem>
-                          <DropdownMenuRadioItem value="20">20</DropdownMenuRadioItem>
-                          <DropdownMenuRadioItem value="50">50</DropdownMenuRadioItem>
-                          <DropdownMenuRadioItem value="100">100</DropdownMenuRadioItem>
-                          <DropdownMenuRadioItem value="500">500</DropdownMenuRadioItem>
-                          <DropdownMenuRadioItem value="1000">1000</DropdownMenuRadioItem>
-                        </DropdownMenuRadioGroup>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-
-                  {/* Center: Navigation controls - only show if there are more rows than the current page size */}
-                  {table.getFilteredRowModel().rows.length > table.state.pagination.pageSize && (
-                    <div className="col-span-1 flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => table.previousPage()}
-                        disabled={!table.getCanPreviousPage()}
-                        aria-label="Previous page"
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                      </Button>
-
-                      {/* Page info */}
-                      <span className="text-sm text-muted-foreground px-2">
-                        Page {table.state.pagination.pageIndex + 1} of {table.getPageCount()}
-                      </span>
-
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => table.nextPage()}
-                        disabled={!table.getCanNextPage()}
-                        aria-label="Next page"
-                      >
-                        <ChevronRight className="h-4 w-4" />
-                      </Button>
-                    </div>
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))
                   )}
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* Pagination controls */}
+            <div className="grid grid-cols-[1fr_auto_1fr] items-center mt-4">
+              {/* Left: Rows per page selector - always visible */}
+              <div className="col-span-1 flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Rows per page:</span>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="w-auto px-3">
+                      {table.state.pagination.pageSize}
+                      <ChevronDown className="ml-2 h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuRadioGroup
+                      value={table.state.pagination.pageSize.toString()}
+                      onValueChange={(value) => {
+                        const previousPageSize = table.state.pagination.pageSize
+                        const newPageSize = parseInt(value)
+                        table.setPageSize(newPageSize)
+
+                        // Track page size change
+                        trackEvent(ANALYTICS_EVENTS.FULL_DATA_VIEW_PAGE_SIZE_CHANGE, {
+                          previous_page_size: previousPageSize,
+                          new_page_size: newPageSize,
+                          total_rows: table.getFilteredRowModel().rows.length,
+                        })
+                      }}
+                    >
+                      <DropdownMenuRadioItem value="10">10</DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="20">20</DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="50">50</DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="100">100</DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="500">500</DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="1000">1000</DropdownMenuRadioItem>
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+
+              {/* Center: Navigation controls - only show if there are more rows than the current page size */}
+              {table.getFilteredRowModel().rows.length > table.state.pagination.pageSize && (
+                <div className="col-span-1 flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => table.previousPage()}
+                    disabled={!table.getCanPreviousPage()}
+                    aria-label="Previous page"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+
+                  {/* Page info */}
+                  <span className="text-sm text-muted-foreground px-2">
+                    Page {table.state.pagination.pageIndex + 1} of {table.getPageCount()}
+                  </span>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => table.nextPage()}
+                    disabled={!table.getCanNextPage()}
+                    aria-label="Next page"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
                 </div>
-              </>
-            )}
+              )}
+            </div>
           </main>
         </ConsentWrapper>
         <Footer />
