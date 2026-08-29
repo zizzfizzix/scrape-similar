@@ -1,16 +1,10 @@
 import '@/assets/tailwind.css'
 import FullDataViewApp from '@/entrypoints/full-data-view/FullDataViewApp'
-import React from 'react'
-import ReactDOM from 'react-dom/client'
+import { ExtensionPageRoot, mountExtensionPage } from '@/components/extension-page'
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <ThemeProvider>
-      <ConsentProvider>
-        <PostHogWrapper>
-          <FullDataViewApp />
-        </PostHogWrapper>
-      </ConsentProvider>
-    </ThemeProvider>
-  </React.StrictMode>,
+mountExtensionPage(
+  'root',
+  <ExtensionPageRoot>
+    <FullDataViewApp />
+  </ExtensionPageRoot>,
 )

@@ -28,8 +28,23 @@ interface SettingsProps {
   ref?: React.Ref<{ unlockDebugMode: () => void }>
 }
 
-type ImportConfirmState =
-  { open: false } | { open: true; presets: Preset[]; skippedSystemCount: number }
+/**
+ * The confirmation dialog's contents outlive its `open` flag, so this is a flat
+ * shape rather than a discriminated union: the confirm handler runs only from
+ * inside the open dialog, and would otherwise need a re-narrowing guard that
+ * can never fire.
+ */
+interface ImportConfirmState {
+  open: boolean
+  presets: Preset[]
+  skippedSystemCount: number
+}
+
+const CLOSED_IMPORT_CONFIRM: ImportConfirmState = {
+  open: false,
+  presets: [],
+  skippedSystemCount: 0,
+}
 
 export const Settings = React.memo(
   ({
@@ -41,7 +56,7 @@ export const Settings = React.memo(
     ref,
   }: SettingsProps) => {
     const [showDebugRow, setShowDebugRow] = useState(debugMode)
-    const [importConfirm, setImportConfirm] = useState<ImportConfirmState>({ open: false })
+    const [importConfirm, setImportConfirm] = useState<ImportConfirmState>(CLOSED_IMPORT_CONFIRM)
     const fileInputRef = useRef<HTMLInputElement>(null)
     const { loading: consentLoading, state: consentState, setConsent } = useConsent()
     const clickCountRef = useRef(0)
@@ -92,10 +107,10 @@ export const Settings = React.memo(
       if (clickCountRef.current >= HIDDEN_UNLOCK_CLICKS) {
         setShowDebugRow(true)
         clickCountRef.current = 0
-        if (timerRef.current) {
-          clearTimeout(timerRef.current)
-          timerRef.current = null
-        }
+        // The first click of a run always arms this timer, so reaching the
+        // unlock threshold means there is one to clear.
+        clearTimeout(timerRef.current!)
+        timerRef.current = null
 
         // Save debug unlock state to storage
         storage.setItem('local:debugUnlocked', true)
@@ -180,7 +195,6 @@ export const Settings = React.memo(
     }, [])
 
     const handleImportConfirm = useCallback(async () => {
-      if (!importConfirm.open) return
       const { presets, skippedSystemCount } = importConfirm
       try {
         const ok = await setPresets(presets)
@@ -189,7 +203,7 @@ export const Settings = React.memo(
           success: true,
           presetCount: presets.length,
         })
-        setImportConfirm({ open: false })
+        setImportConfirm(CLOSED_IMPORT_CONFIRM)
         toast.success(describeImportSuccess(presets.length, skippedSystemCount))
         onPresetsImported?.()
       } catch (error) {
@@ -203,7 +217,7 @@ export const Settings = React.memo(
     }, [importConfirm, onPresetsImported])
 
     const handleImportCancel = useCallback(() => {
-      setImportConfirm({ open: false })
+      setImportConfirm(CLOSED_IMPORT_CONFIRM)
     }, [])
 
     const handleAnalyticsToggle = (checked: boolean) => {
@@ -307,13 +321,13 @@ export const Settings = React.memo(
         </div>
         <ResponsiveDialog.Root
           open={importConfirm.open}
-          onOpenChange={(open) => !open && setImportConfirm({ open: false })}
+          onOpenChange={(open) => !open && setImportConfirm(CLOSED_IMPORT_CONFIRM)}
         >
           <ResponsiveDialog.Content showCloseButton>
             <ResponsiveDialog.Header>
               <ResponsiveDialog.Title>Import user presets</ResponsiveDialog.Title>
               <ResponsiveDialog.Description>
-                {importConfirm.open && importConfirm.skippedSystemCount > 0 && (
+                {importConfirm.skippedSystemCount > 0 && (
                   <span className="block mb-2">
                     {importConfirm.skippedSystemCount} preset(s) were skipped because they match
                     system presets and cannot be imported.

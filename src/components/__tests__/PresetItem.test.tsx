@@ -3,10 +3,11 @@ import PresetItem from '@/components/PresetItem'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { SYSTEM_PRESETS } from '@/utils/system_presets'
 import type { Preset } from '@/utils/types'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { querySelector, renderComponent, type RenderResult } from '@@/tests/support/react'
+import { render as renderComponent, type RenderResult } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { describe, expect, it, vi } from 'vitest'
 
-let view: RenderResult | undefined
+let view: RenderResult
 
 const userPreset = (overrides: Partial<Preset> = {}): Preset => ({
   id: 'user-1',
@@ -34,34 +35,28 @@ const render = (overrides: Partial<PresetItemProps> = {}) => {
   )
 }
 
-const row = () => querySelector(view!.container, ':scope > div')
-const nameLabel = () => querySelector(view!.container, 'span.font-medium')
-const selectorLabel = () => querySelector(view!.container, 'span.font-mono')
-const actionButton = () => querySelector<HTMLButtonElement>(view!.container, 'button')
-
-afterEach(async () => {
-  await view?.cleanup()
-  view = undefined
-  document.body.innerHTML = ''
-})
+const row = () => view.container.querySelector<HTMLElement>(':scope > div')!
+const nameLabel = () => view.container.querySelector<HTMLElement>('span.font-medium')!
+const selectorLabel = () => view.container.querySelector<HTMLElement>('span.font-mono')!
+const actionButton = () => view.container.querySelector<HTMLButtonElement>('button')!
 
 describe('PresetItem', () => {
   it('shows the preset name and selector', async () => {
-    view = await render()
+    view = render()
 
     expect(view.container.textContent).toContain('My links')
     expect(view.container.textContent).toContain('//a')
   })
 
   it('hides the selector when asked', async () => {
-    view = await render({ showXPath: false })
+    view = render({ showXPath: false })
 
     expect(view.container.querySelector('span.font-mono')).toBeNull()
   })
 
   it('truncates a very long selector', async () => {
     const longSelector = `//${'a'.repeat(200)}`
-    view = await render({
+    view = render({
       preset: userPreset({ config: { mainSelector: longSelector, columns: [] } }),
     })
 
@@ -72,7 +67,7 @@ describe('PresetItem', () => {
 
   it('leaves a selector at the limit intact', async () => {
     const selector = 'a'.repeat(100)
-    view = await render({ preset: userPreset({ config: { mainSelector: selector, columns: [] } }) })
+    view = render({ preset: userPreset({ config: { mainSelector: selector, columns: [] } }) })
 
     expect(selectorLabel().textContent).toBe(selector)
   })
@@ -80,9 +75,9 @@ describe('PresetItem', () => {
   it('selects the preset when the row is clicked', async () => {
     const onSelect = vi.fn()
     const preset = userPreset()
-    view = await render({ preset, onSelect })
+    view = render({ preset, onSelect })
 
-    await view.act(() => row().click())
+    await userEvent.click(row())
 
     expect(onSelect).toHaveBeenCalledWith(preset)
   })
@@ -91,83 +86,83 @@ describe('PresetItem', () => {
     const onSelect = vi.fn()
     const onDelete = vi.fn()
     const preset = userPreset()
-    view = await render({ preset, onSelect, onDelete })
+    view = render({ preset, onSelect, onDelete })
 
-    await view.act(() => actionButton().click())
+    await userEvent.click(actionButton())
 
     expect(onDelete).toHaveBeenCalledWith(preset)
     expect(onSelect).not.toHaveBeenCalled()
   })
 
   it('offers to delete a user preset', async () => {
-    view = await render()
+    view = render()
 
     expect(actionButton().getAttribute('aria-label')).toBe('Delete preset "My links"')
   })
 
   it('offers to hide a system preset rather than delete it', async () => {
-    view = await render({ preset: systemPreset })
+    view = render({ preset: systemPreset })
 
     expect(actionButton().getAttribute('aria-label')).toBe(`Hide preset "${systemPreset.name}"`)
   })
 
   it('badges a system preset', async () => {
-    view = await render({ preset: systemPreset })
+    view = render({ preset: systemPreset })
 
     expect(view.container.textContent).toContain('System')
   })
 
   it('does not badge a user preset', async () => {
-    view = await render()
+    view = render()
 
     expect(view.container.textContent).not.toContain('System')
   })
 
   it('redacts a user preset’s name and selector from analytics', async () => {
-    view = await render()
+    view = render()
 
     expect(nameLabel().className).toContain('ph_hidden')
     expect(selectorLabel().className).toContain('ph_hidden')
   })
 
   it('leaves a system preset’s name visible to analytics', async () => {
-    view = await render({ preset: systemPreset })
+    view = render({ preset: systemPreset })
 
     expect(nameLabel().className).not.toContain('ph_hidden')
   })
 
   it('marks the selected preset', async () => {
-    view = await render({ isSelected: true })
+    view = render({ isSelected: true })
 
     expect(view.container.querySelector('svg.lucide-check')).not.toBeNull()
   })
 
   it('leaves an unselected preset unmarked', async () => {
-    view = await render()
+    view = render()
 
     expect(view.container.querySelector('svg.lucide-check')).toBeNull()
   })
 
   it('applies an extra class', async () => {
-    view = await render({ className: 'highlighted' })
+    view = render({ className: 'highlighted' })
 
     expect(row().className).toContain('highlighted')
   })
 
   it('exposes its position for keyboard navigation when given one', async () => {
-    view = await render({ 'data-index': 3 })
+    view = render({ 'data-index': 3 })
 
     expect(row().getAttribute('data-autosuggest-index')).toBe('3')
   })
 
   it('omits the position attribute when no index is given', async () => {
-    view = await render()
+    view = render()
 
     expect(row().hasAttribute('data-autosuggest-index')).toBe(false)
   })
 
   it('keeps a zero index, which is falsy but meaningful', async () => {
-    view = await render({ 'data-index': 0 })
+    view = render({ 'data-index': 0 })
 
     expect(row().getAttribute('data-autosuggest-index')).toBe('0')
   })

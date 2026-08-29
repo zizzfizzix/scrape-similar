@@ -66,50 +66,41 @@ const FullDataViewControls: React.FC<{
   currentTabUrl: string
   currentTabId: number | null
 }> = ({ currentTabUrl, currentTabId }) => {
-  // Handle going back to the original tab and close the full-data-view tab
+  // Handle going back to the original tab and close the full-data-view tab.
+  // `parseFullDataViewTabId` reports a URL it cannot read as `null` rather than
+  // throwing, so the only failures worth catching are the tab calls below.
   const handleBackToTab = async () => {
+    // Parse the full data view URL to get the original tabId
+    const tabId = parseFullDataViewTabId(currentTabUrl)
+
+    if (tabId === null) {
+      toast.error('No target tab ID found')
+      log.error('No tabId parameter found in URL:', currentTabUrl)
+      return
+    }
+
+    // Validate that the tab exists before trying to switch to it
     try {
-      // Parse the full data view URL to get the original tabId
-      const tabId = parseFullDataViewTabId(currentTabUrl)
+      await browser.tabs.get(tabId)
+      log.debug(`Tab ${tabId} exists, switching to it`)
 
-      if (tabId !== null) {
-        // Validate that the tab exists before trying to switch to it
-        try {
-          await browser.tabs.get(tabId)
-          log.debug(`Tab ${tabId} exists, switching to it`)
+      // Switch to the original tab
+      await browser.tabs.update(tabId, { active: true })
+      log.debug(`Switched back to tab ${tabId}`)
 
-          // Switch to the original tab
-          await browser.tabs.update(tabId, { active: true })
-          log.debug(`Switched back to tab ${tabId}`)
-
-          // Close the current full-data-view tab (currentTabId is the full-data-view tab)
-          if (currentTabId) {
-            await browser.tabs.remove(currentTabId)
-            log.debug(`Closed full-data-view tab ${currentTabId}`)
-          }
-        } catch (tabError) {
-          toast.error('Target tab does not exist')
-          log.error(`Tab ${tabId} does not exist:`, tabError)
-        }
-      } else {
-        toast.error('No target tab ID found')
-        log.error('No tabId parameter found in URL:', currentTabUrl)
-      }
-    } catch (err) {
-      toast.error('Failed to switch back to tab')
-      log.error('Error switching to tab:', err)
+      // Close the current full-data-view tab. This view only renders for a tab
+      // the panel resolved, so its id is always known here.
+      await browser.tabs.remove(currentTabId!)
+      log.debug(`Closed full-data-view tab ${currentTabId}`)
+    } catch (tabError) {
+      toast.error('Target tab does not exist')
+      log.error(`Tab ${tabId} does not exist:`, tabError)
     }
   }
 
   // Handle closing the sidepanel
-  const handleCloseSidePanel = async () => {
-    try {
-      // Close the sidepanel by closing the current window
-      window.close()
-    } catch (err) {
-      toast.error('Failed to close sidepanel')
-      log.error('Error closing sidepanel:', err)
-    }
+  const handleCloseSidePanel = () => {
+    window.close()
   }
 
   return (
@@ -264,7 +255,9 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
     }
 
     log.debug(`Processing data for tab ${payload.tabId}:`, payload.config)
-    const storedState = payload.config || {} // Default to empty object
+    // Every caller either reads a stored object or builds a default one, and
+    // `subscribeWithBackfill` drops a cleared key, so this is never nullish.
+    const storedState = payload.config
     const {
       scrapeResult,
       resultProducingConfig,
@@ -301,18 +294,10 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
 
   // Initialize: load presets, listen for messages, AND listen for tab activation
   useEffect(() => {
-    // Load presets (system + user, respecting status)
-    const loadPresets = async () => {
-      try {
-        const loadedPresets = await getAllPresets()
-        setPresets(loadedPresets)
-      } catch (error) {
-        log.error('Error loading presets:', error)
-        setPresets([])
-      }
-    }
-
-    loadPresets()
+    // Load presets (system + user, respecting status). `getAllPresets` reports
+    // its own storage failures and falls back to an empty list, so there is no
+    // rejection to catch.
+    getAllPresets().then(setPresets)
 
     // Listen for tab activation
     const tabActivationListener = (activeInfo: { tabId: number; previousTabId?: number }) => {
@@ -467,24 +452,21 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
         // Successful scrape – remember the config used to produce current results
         if (response?.success === true) {
           setResultProducingConfig(configAtScrapeTime)
-          // Also save to storage so it persists
-          if (targetTabId !== null) {
-            saveSidePanelState(targetTabId, { resultProducingConfig: configAtScrapeTime })
-          }
+          // Also save to storage so it persists. `handleScrape` returns early
+          // without a tab id, so there is always one by the time this replies.
+          saveSidePanelState(targetTabId, { resultProducingConfig: configAtScrapeTime })
           // Persist recent main selector (local only) if it is not a preset selector
+          // `getAllPresets` and `pushRecentMainSelector` both report their own
+          // storage failures and resolve, so there is nothing to catch here.
           ;(async () => {
             const selectorUsed = (configAtScrapeTime.mainSelector || '').trim()
             if (!selectorUsed) return
-            try {
-              const allPresets = await getAllPresets()
-              const isPresetSelector = allPresets.some(
-                (p) => (p.config.mainSelector || '').trim() === selectorUsed,
-              )
-              if (!isPresetSelector) {
-                await pushRecentMainSelector(selectorUsed)
-              }
-            } catch (err) {
-              // Non-fatal: ignore errors when saving recent selectors
+            const allPresets = await getAllPresets()
+            const isPresetSelector = allPresets.some(
+              (p) => (p.config.mainSelector || '').trim() === selectorUsed,
+            )
+            if (!isPresetSelector) {
+              await pushRecentMainSelector(selectorUsed)
             }
           })()
         }
@@ -539,12 +521,13 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
     )
   }
 
-  // Handle row highlight request (separately to avoid updating main selector state)
+  // Handle row highlight request (separately to avoid updating main selector state).
+  // Only the results table calls this, and results only exist once a tab has
+  // been resolved and its stored state read, so the id is always known here.
   const handleRowHighlight = (selector: string) => {
     setContentScriptCommsError(null)
-    if (!targetTabId) return
     browser.tabs.sendMessage(
-      targetTabId,
+      targetTabId!,
       {
         type: MESSAGE_TYPES.HIGHLIGHT_ROW_ELEMENT,
         payload: { selector },
@@ -604,23 +587,21 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
       config,
       createdAt: Date.now(),
     }
-    try {
-      const success = await savePreset(preset)
-      if (success) {
-        const updatedPresets = await getAllPresets()
-        setPresets(updatedPresets)
-        log.debug('Preset saved successfully and UI updated')
+    // `savePreset` reports its own storage failures as `false`, so a rejection
+    // is not something that can reach here.
+    const success = await savePreset(preset)
+    if (success) {
+      const updatedPresets = await getAllPresets()
+      setPresets(updatedPresets)
+      log.debug('Preset saved successfully and UI updated')
 
-        // Track preset saved event
-        trackEvent(ANALYTICS_EVENTS.PRESET_SAVE, {
-          type: 'user',
-          columns_count: config.columns.length,
-        })
-      } else {
-        log.error('Failed to save preset')
-      }
-    } catch (error) {
-      log.error('Error saving preset:', error)
+      // Track preset saved event
+      trackEvent(ANALYTICS_EVENTS.PRESET_SAVE, {
+        type: 'user',
+        columns_count: config.columns.length,
+      })
+    } else {
+      log.error('Failed to save preset')
     }
   }
 
@@ -644,31 +625,28 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
       })
       return
     }
-    // Otherwise, delete user preset as before
-    try {
-      const success = await deletePreset(preset.id)
-      if (success) {
-        const updatedPresets = await getAllPresets()
-        setPresets(updatedPresets)
-        toast.success(
-          <>
-            Preset "<span className="ph_hidden">{preset.name}</span>" deleted
-          </>,
-        )
+    // Otherwise, delete user preset as before. `deletePreset` reports a storage
+    // failure as `false` rather than rejecting.
+    const success = await deletePreset(preset.id)
+    if (success) {
+      const updatedPresets = await getAllPresets()
+      setPresets(updatedPresets)
+      toast.success(
+        <>
+          Preset "<span className="ph_hidden">{preset.name}</span>" deleted
+        </>,
+      )
 
-        // Track preset deleted event
-        trackEvent(ANALYTICS_EVENTS.PRESET_DELETION, {
-          type: 'user',
-        })
-      } else {
-        toast.error(
-          <>
-            Error, preset "<span className="ph_hidden">{preset.name}</span>" couldn't be deleted
-          </>,
-        )
-      }
-    } catch (error) {
-      log.error('Error deleting preset:', error)
+      // Track preset deleted event
+      trackEvent(ANALYTICS_EVENTS.PRESET_DELETION, {
+        type: 'user',
+      })
+    } else {
+      toast.error(
+        <>
+          Error, preset "<span className="ph_hidden">{preset.name}</span>" couldn't be deleted
+        </>,
+      )
     }
   }
 
@@ -768,7 +746,9 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
                   />
                 </div>
                 <DataTable
-                  data={scrapeResult.data || []}
+                  // The block above only renders once `scrapeResult.data` has
+                  // rows, so there is nothing to fall back to.
+                  data={scrapeResult.data}
                   onRowHighlight={handleRowHighlight}
                   config={resultProducingConfig || config}
                   columnOrder={scrapeResult.columnOrder}

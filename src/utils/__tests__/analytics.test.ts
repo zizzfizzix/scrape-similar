@@ -1,3 +1,4 @@
+import log from 'loglevel'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
@@ -27,6 +28,18 @@ describe('analytics utilities', () => {
       const queue = await storage.getItem<(typeof event)[]>(QUEUE_KEY)
       expect(queue).toHaveLength(1)
       expect(queue?.[0]).toMatchObject(event)
+    })
+
+    it('logs and swallows a write failure', async () => {
+      const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
+      const failure = new Error('quota exceeded')
+      vi.spyOn(storage, 'setItem').mockRejectedValueOnce(failure)
+
+      await expect(
+        queueEvent({ name: 'test_event', props: {}, timestamp: Date.now() }),
+      ).resolves.toBeUndefined()
+
+      expect(errorSpy).toHaveBeenCalledWith('Failed to queue event:', failure)
     })
 
     it('drops the oldest events when exceeding MAX_QUEUED_EVENTS', async () => {

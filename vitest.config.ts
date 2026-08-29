@@ -23,15 +23,15 @@ export default defineConfig({
       reportsDirectory: './coverage',
       include: ['src/**/*.{ts,tsx}'],
       exclude: COVERAGE_EXCLUSIONS,
-      // Baselined to what the suite actually covers, to ratchet upward as gaps
-      // close — never down to accommodate a regression. These read low against
-      // the 100% this project used to claim only because that number was
-      // measured over a quarter of the codebase; see #268.
+      // 100% of every measured file, and this time the measurement covers the
+      // whole codebase rather than the quarter of it #268 was hiding. Never
+      // lower these to accommodate a regression; the gap they used to leave was
+      // closed file by file in #266.
       thresholds: {
-        statements: 90,
-        branches: 86,
-        functions: 89,
-        lines: 90,
+        statements: 100,
+        branches: 100,
+        functions: 100,
+        lines: 100,
       },
     },
   },

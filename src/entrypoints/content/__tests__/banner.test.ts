@@ -101,6 +101,20 @@ describe('adjustFixedElementsForBanner', () => {
     }) as typeof window.getComputedStyle)
   }
 
+  it('skips nodes that are not HTML elements', () => {
+    document.body.innerHTML = '<header id="h"></header>'
+    const header = document.querySelector<HTMLElement>('#h')!
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+    document.body.append(svg)
+    withComputedStyle(new Map([[header, { position: 'fixed', top: '0px' }]]))
+
+    adjustFixedElementsForBanner(50, state)
+
+    // The SVG is walked past without being measured or moved.
+    expect(state.originalFixedElementTops.has(svg as unknown as HTMLElement)).toBe(false)
+    expect(header.style.getPropertyValue('top')).toBe('50px')
+  })
+
   it('pushes a fixed header down by the banner height', () => {
     document.body.innerHTML = '<header id="h"></header>'
     const header = document.querySelector<HTMLElement>('#h')!

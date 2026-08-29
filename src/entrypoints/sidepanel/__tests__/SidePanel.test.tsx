@@ -15,17 +15,19 @@ import {
   type SidePanelConfig,
 } from '@/utils/types'
 import { chromeExtensionId } from '@@/package.json' with { type: 'json' }
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
 import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
 import {
-  openRadixTrigger,
-  querySelector,
-  renderComponent,
-  setInputValue,
   type RenderResult,
-} from '@@/tests/support/react'
+  act,
+  fireEvent,
+  render as renderComponent,
+  screen,
+  waitFor,
+} from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 
 const trackEvent = vi.hoisted(() => vi.fn())
 vi.mock('@/utils/analytics', async (importOriginal) => ({
@@ -39,7 +41,7 @@ vi.mock('sonner', async (importOriginal) => ({
   toast: toastMocks.toast,
 }))
 
-let view: RenderResult | undefined
+let view: RenderResult
 
 const row = (data: Record<string, string>, isEmpty = false, originalIndex = 0): ScrapedRow => ({
   data,
@@ -77,8 +79,9 @@ const contentScriptReplies = (response: unknown, lastError?: { message?: string 
     },
   )
 
-const render = (props: Partial<Parameters<typeof SidePanel>[0]> = {}) =>
-  renderComponent(
+/** Render, and let mount-time storage reads settle before asserting. */
+const render = async (props: Partial<Parameters<typeof SidePanel>[0]> = {}) => {
+  const rendered = renderComponent(
     <ConsentProvider>
       <ThemeProvider>
         <TooltipProvider>
@@ -87,11 +90,14 @@ const render = (props: Partial<Parameters<typeof SidePanel>[0]> = {}) =>
       </ThemeProvider>
     </ConsentProvider>,
   )
+  await act(async () => {})
+  return rendered
+}
 
 const mainSelectorInput = () =>
-  querySelector<HTMLTextAreaElement>(view!.container, 'textarea#mainSelector')
+  view.container.querySelector<HTMLTextAreaElement>('textarea#mainSelector')!
 const byText = (text: string): HTMLButtonElement => {
-  const found = [...view!.container.querySelectorAll('button')].find(
+  const found = [...view.container.querySelectorAll('button')].find(
     (candidate) => candidate.textContent?.trim() === text,
   )
   if (!found) throw new Error(`No button labelled "${text}"`)
@@ -109,12 +115,6 @@ beforeEach(async () => {
   await attachToTab()
 })
 
-afterEach(async () => {
-  await view?.cleanup()
-  view = undefined
-  document.body.innerHTML = ''
-})
-
 describe('SidePanel', () => {
   it('shows the config form for a scrapable page', async () => {
     view = await render()
@@ -126,7 +126,7 @@ describe('SidePanel', () => {
   it('shows the footer with settings', async () => {
     view = await render()
 
-    expect(querySelector(view.container, 'button[aria-label="Settings"]')).toBeTruthy()
+    expect(view.container.querySelector('button[aria-label="Settings"]')).toBeTruthy()
   })
 
   it('restores the stored config for the tab', async () => {
@@ -168,7 +168,7 @@ describe('SidePanel', () => {
 
       view = await render()
 
-      expect(querySelector(view.container, 'button[aria-label="Settings"]')).toBeTruthy()
+      expect(view.container.querySelector('button[aria-label="Settings"]')).toBeTruthy()
     })
 
     it('offers a way back when the tab is the full data view', async () => {
@@ -192,7 +192,7 @@ describe('SidePanel', () => {
       const remove = spyOnBrowser(fakeBrowser.tabs, 'remove').mockResolvedValue(undefined as never)
       view = await render()
 
-      await view.act(async () => {
+      await act(async () => {
         byText('Compact View').click()
         await Promise.resolve()
       })
@@ -207,7 +207,7 @@ describe('SidePanel', () => {
       spyOnBrowser(fakeBrowser.tabs, 'get').mockRejectedValue(new Error('No tab with id 9'))
       view = await render()
 
-      await view.act(async () => {
+      await act(async () => {
         byText('Compact View').click()
         await Promise.resolve()
       })
@@ -219,7 +219,7 @@ describe('SidePanel', () => {
       await attachToFullDataView('')
       view = await render()
 
-      await view.act(async () => {
+      await act(async () => {
         byText('Compact View').click()
         await Promise.resolve()
       })
@@ -232,7 +232,7 @@ describe('SidePanel', () => {
       const close = vi.spyOn(window, 'close').mockImplementation(() => {})
       view = await render()
 
-      await view.act(() => byText('Hide Sidepanel').click())
+      await userEvent.click(byText('Hide Sidepanel'))
 
       expect(close).toHaveBeenCalled()
     })
@@ -250,7 +250,7 @@ describe('SidePanel', () => {
       })
       view = await render()
 
-      await view.act(async () => {
+      await act(async () => {
         byText('Scrape').click()
         await Promise.resolve()
       })
@@ -280,7 +280,7 @@ describe('SidePanel', () => {
       contentScriptReplies(undefined, { message: 'Receiving end does not exist' })
       view = await render()
 
-      await view.act(async () => {
+      await act(async () => {
         byText('Scrape').click()
         await Promise.resolve()
       })
@@ -295,7 +295,7 @@ describe('SidePanel', () => {
       contentScriptReplies({ error: 'Invalid XPath' })
       view = await render()
 
-      await view.act(async () => {
+      await act(async () => {
         byText('Scrape').click()
         await Promise.resolve()
       })
@@ -312,8 +312,8 @@ describe('SidePanel', () => {
       )
       view = await render()
 
-      await view.act(() => setInputValue(mainSelectorInput(), '//li'))
-      await view.act(async () => {
+      fireEvent.change(mainSelectorInput(), { target: { value: '//li' } })
+      await act(async () => {
         mainSelectorInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
         await new Promise((resolve) => setTimeout(resolve, 200))
       })
@@ -339,8 +339,8 @@ describe('SidePanel', () => {
       )
       view = await render()
 
-      await view.act(() => setInputValue(mainSelectorInput(), '//[['))
-      await view.act(async () => {
+      fireEvent.change(mainSelectorInput(), { target: { value: '//[[' } })
+      await act(async () => {
         mainSelectorInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
         await new Promise((resolve) => setTimeout(resolve, 200))
       })
@@ -357,7 +357,7 @@ describe('SidePanel', () => {
 
   describe('presets', () => {
     /** The Load combobox is a Radix popover, portalled to the body. */
-    const openPresetList = () => view!.act(() => openRadixTrigger(byText('Load')))
+    const openPresetList = () => userEvent.click(byText('Load'))
 
     it('loads the presets on mount', async () => {
       view = await render()
@@ -374,14 +374,14 @@ describe('SidePanel', () => {
       const hideButton = [...document.querySelectorAll('button')].find((candidate) =>
         candidate.getAttribute('aria-label')?.startsWith('Hide preset'),
       )
-      await view.act(async () => {
+      await act(async () => {
         hideButton!.click()
         await Promise.resolve()
       })
       const confirm = [...document.querySelectorAll('button')].find(
         (candidate) => candidate.textContent === 'Hide',
       )
-      await view.act(async () => {
+      await act(async () => {
         confirm!.click()
         await Promise.resolve()
       })
@@ -402,22 +402,25 @@ describe('SidePanel', () => {
       })
       view = await render()
 
-      await view.act(async () => {
-        openRadixTrigger(
-          querySelector<HTMLButtonElement>(view!.container, 'button[aria-label="Settings"]'),
-        )
-        await Promise.resolve()
-      })
-      const resetButton = [...document.querySelectorAll('button')].find(
-        (candidate) => candidate.textContent === 'Reset',
+      await userEvent.click(
+        view.container.querySelector<HTMLButtonElement>('button[aria-label="Settings"]')!,
       )
-      await view.act(async () => {
-        resetButton!.click()
-        await Promise.resolve()
+
+      // The drawer locks pointer events on the body while it is open, which
+      // user-event refuses to click through, so dispatch the click directly.
+      const resetButton = await waitFor(() => {
+        const found = [...document.querySelectorAll<HTMLButtonElement>('button')].find(
+          (candidate) => candidate.textContent === 'Reset',
+        )
+        if (!found) throw new Error('No Reset button rendered')
+        return found
       })
+      fireEvent.click(resetButton)
 
       // The side panel clears every disable rather than removing the map.
-      expect(await storage.getItem(`sync:${SYSTEM_PRESET_STATUS_KEY}`)).toEqual({})
+      await waitFor(async () =>
+        expect(await storage.getItem(`sync:${SYSTEM_PRESET_STATUS_KEY}`)).toEqual({}),
+      )
       expect(toastMocks.toast.success).toHaveBeenCalledWith('System presets have been reset')
     })
   })

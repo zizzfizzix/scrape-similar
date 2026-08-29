@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 import { ANALYTICS_CONSENT_STORAGE_KEY } from '@/utils/consent'
 import log from 'loglevel'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
-import { querySelector, renderComponent, type RenderResult } from '@@/tests/support/react'
+import { type RenderResult, act, render as renderComponent } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 
 // `isDevOrTest` is a build-time constant; the log level only follows the debug
 // flag in production builds, so it needs a mutable mock to be reachable.
@@ -26,15 +27,16 @@ const { ConsentProvider } = await import('@/components/consent-provider')
 const { ThemeProvider } = await import('@/components/theme-provider')
 const { TooltipProvider } = await import('@/components/ui/tooltip')
 
-let view: RenderResult | undefined
+let view: RenderResult
 
 const consentKey = `sync:${ANALYTICS_CONSENT_STORAGE_KEY}` as const
 
 /** Give storage watchers a macrotask to fire. */
 const flushWatchers = () => new Promise((resolve) => setTimeout(resolve, 0))
 
-const render = () =>
-  renderComponent(
+/** Render, and let the consent gate's storage read settle before asserting. */
+const render = async () => {
+  const rendered = renderComponent(
     <ConsentProvider>
       <ThemeProvider>
         <TooltipProvider>
@@ -43,9 +45,12 @@ const render = () =>
       </ThemeProvider>
     </ConsentProvider>,
   )
+  await act(async () => {})
+  return rendered
+}
 
 const debugSwitch = () => {
-  const switches = [...view!.container.querySelectorAll<HTMLElement>('[role="switch"]')]
+  const switches = [...view.container.querySelectorAll<HTMLElement>('[role="switch"]')]
   const found = switches.at(-1)
   if (!found) throw new Error('No debug switch rendered')
   return found
@@ -56,12 +61,6 @@ beforeEach(async () => {
   modeFlags.isDevOrTest = false
   // The options page is behind the consent gate.
   await storage.setItem(consentKey, true)
-})
-
-afterEach(async () => {
-  await view?.cleanup()
-  view = undefined
-  document.body.innerHTML = ''
 })
 
 describe('OptionsApp', () => {
@@ -75,7 +74,7 @@ describe('OptionsApp', () => {
   it('shows a footer crediting the author', async () => {
     view = await render()
 
-    expect(querySelector(view.container, 'footer')).toBeTruthy()
+    expect(view.container.querySelector('footer')).toBeTruthy()
   })
 
   it('asks for a consent decision before showing anything else', async () => {
@@ -105,17 +104,17 @@ describe('OptionsApp', () => {
     await storage.setItem('local:debugMode', true)
     view = await render()
 
-    await view.act(() => debugSwitch().click())
+    await userEvent.click(debugSwitch())
 
     expect(await storage.getItem('local:debugMode')).toBe(false)
   })
 
   it('unlocks the hidden settings after five title clicks', async () => {
     view = await render()
-    const title = querySelector<HTMLHeadingElement>(view.container, 'h1')
+    const title = view.container.querySelector<HTMLHeadingElement>('h1')!
 
     for (let i = 0; i < 5; i++) {
-      await view.act(() => title.click())
+      await userEvent.click(title)
     }
 
     expect(view.container.textContent).toContain('Debug mode')
@@ -151,7 +150,7 @@ describe('OptionsApp', () => {
     view = await render()
     const setLevel = vi.spyOn(log, 'setLevel').mockImplementation(() => {})
 
-    await view.act(async () => {
+    await act(async () => {
       await storage.setItem('local:debugMode', true)
       await flushWatchers()
     })
@@ -165,7 +164,7 @@ describe('OptionsApp', () => {
     view = await render()
     const setLevel = vi.spyOn(log, 'setLevel').mockImplementation(() => {})
 
-    await view.act(async () => {
+    await act(async () => {
       await storage.setItem('local:debugMode', true)
       await flushWatchers()
     })
@@ -175,10 +174,7 @@ describe('OptionsApp', () => {
 
   it('stops listening once unmounted', async () => {
     view = await render()
-    const { cleanup } = view
-    view = undefined
-
-    await cleanup()
+    view.unmount()
 
     await expect(storage.setItem('local:debugMode', true)).resolves.toBeUndefined()
   })

@@ -53,23 +53,22 @@ const OnboardingApp: React.FC = () => {
   // Track card views when slide changes (after consent decision)
   useEffect(() => {
     if (consentState === undefined) return
-    const currentSlideData = slides[currentSlide]
-    if (!currentSlideData) return
+    // `currentSlide` only ever moves between valid indices, so the lookup below
+    // is an artefact of `noUncheckedIndexedAccess` rather than a real case.
+    const currentSlideData = slides[currentSlide]!
     trackEvent(
       ANALYTICS_EVENTS.ONBOARDING_CARD_VIEW,
       buildSlideViewProperties(currentSlide, currentSlideData, slides.length),
     )
   }, [currentSlide, consentState])
 
+  // Only reachable from the Previous/Next buttons, which render solely once
+  // consent is decided and solely when there is a slide in that direction — so
+  // `nextSlideIndex` returns an index here, and both lookups are in range.
   const goToAdjacentSlide = (direction: 1 | -1, event: string) => {
-    if (consentState === undefined) return
-
-    const targetSlide = nextSlideIndex(currentSlide, slides.length, direction)
-    if (targetSlide === null) return
-
-    const fromSlideData = slides[currentSlide]
-    const toSlideData = slides[targetSlide]
-    if (!fromSlideData || !toSlideData) return
+    const targetSlide = nextSlideIndex(currentSlide, slides.length, direction)!
+    const fromSlideData = slides[currentSlide]!
+    const toSlideData = slides[targetSlide]!
 
     setCurrentSlide(targetSlide)
     trackEvent(

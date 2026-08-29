@@ -23,16 +23,12 @@ export const applySidePanelDataUpdates = async (
     if (updates.currentScrapeConfig) {
       const prevConfig = current.currentScrapeConfig || ({} as ScrapeConfig)
       const incoming = updates.currentScrapeConfig
-      // If mainSelector changed, we keep existing columns from prev unless incoming explicitly provides columns
-      const selectorChanged =
-        typeof incoming.mainSelector === 'string' &&
-        incoming.mainSelector !== prevConfig.mainSelector
+      // A write that omits `columns` keeps the ones already stored, whether or
+      // not it also changes `mainSelector`.
       const shouldUseIncomingColumns = Array.isArray(incoming.columns)
       const mergedColumns = shouldUseIncomingColumns
         ? (incoming.columns as ColumnDefinition[])
-        : selectorChanged
-          ? prevConfig.columns || []
-          : prevConfig.columns || []
+        : prevConfig.columns || []
 
       const merged: ScrapeConfig = {
         ...prevConfig,
