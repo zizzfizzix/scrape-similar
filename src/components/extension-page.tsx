@@ -8,9 +8,6 @@ import { createRoot, type Root } from 'react-dom/client'
  * Split out of the `main.tsx` entrypoints so the provider stack the pages share
  * — and the case where the page's root element is missing — can be exercised
  * without a real extension page. The entrypoints keep only the call.
- *
- * Lives here rather than beside them because WXT treats every file directly
- * under `src/entrypoints/` as an entrypoint and demands a default export.
  */
 
 /**

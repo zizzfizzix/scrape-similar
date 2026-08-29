@@ -57,7 +57,7 @@ export const TYPE_ONLY_EXCLUSIONS = ['src/entrypoints/background/types.ts']
  * moved instead of the argument. What the background worker starts now lives in
  * `background/bootstrap.ts`, and finding a page's root element and wrapping it
  * in the shared providers now lives in `components/extension-page.tsx`; both are
- * measured. What is left is 10-19 lines per file of `define*` wrapper, log
+ * measured. What is left is 10-17 lines per file of `define*` wrapper, log
  * level and provider nesting, with no branch in any of them.
  *
  * And "the E2E suite covers it" is specific: each page is loaded by a spec
@@ -80,7 +80,7 @@ export const BOOTSTRAP_EXCLUSIONS = [
  *
  * Ratcheted from 60 down to 25 once the orchestration these files used to hold
  * moved into `background/bootstrap.ts` and `components/extension-page.tsx`: the
- * longest of them is now 19 lines, so 25 leaves room for a provider or an
+ * longest of them is now 17 lines, so 25 leaves room for a provider or an
  * import without leaving room for logic.
  */
 export const BOOTSTRAP_LINE_BUDGET = 25
