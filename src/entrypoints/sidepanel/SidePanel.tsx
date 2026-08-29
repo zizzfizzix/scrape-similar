@@ -421,15 +421,18 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
   }, [contentScriptCommsError])
 
   // Handle scrape request
+  // The button only scrapes a selector the page has already matched, and that
+  // match comes from the content script, so a tab is always attached by here
+  // and the selector is never blank.
   const handleScrape = () => {
     setShowPresets(false)
     setContentScriptCommsError(null)
-    if (!targetTabId) return
+    const tabId = targetTabId!
     setIsScraping(true)
     // Capture the exact config used for this scrape
     const configAtScrapeTime = config
     browser.tabs.sendMessage(
-      targetTabId,
+      tabId,
       {
         type: MESSAGE_TYPES.START_SCRAPE,
         payload: config,
@@ -452,18 +455,15 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
         // Successful scrape – remember the config used to produce current results
         if (response?.success === true) {
           setResultProducingConfig(configAtScrapeTime)
-          // Also save to storage so it persists. `handleScrape` returns early
-          // without a tab id, so there is always one by the time this replies.
-          saveSidePanelState(targetTabId, { resultProducingConfig: configAtScrapeTime })
+          saveSidePanelState(tabId, { resultProducingConfig: configAtScrapeTime })
           // Persist recent main selector (local only) if it is not a preset selector
           // `getAllPresets` and `pushRecentMainSelector` both report their own
           // storage failures and resolve, so there is nothing to catch here.
           ;(async () => {
-            const selectorUsed = (configAtScrapeTime.mainSelector || '').trim()
-            if (!selectorUsed) return
+            const selectorUsed = configAtScrapeTime.mainSelector.trim()
             const allPresets = await getAllPresets()
             const isPresetSelector = allPresets.some(
-              (p) => (p.config.mainSelector || '').trim() === selectorUsed,
+              (p) => p.config.mainSelector.trim() === selectorUsed,
             )
             if (!isPresetSelector) {
               await pushRecentMainSelector(selectorUsed)

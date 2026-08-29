@@ -269,6 +269,71 @@ describe('ConfigForm', () => {
       expect(byText('Validate selector')).toBeTruthy()
     })
 
+    describe('once the selector has been edited', () => {
+      /**
+       * Press the action button the way a pointer does: the press blurs the
+       * textarea, whose commit is deferred, before the click lands.
+       */
+      const pressActionButton = async (label: string) => {
+        fireEvent.focusOut(mainSelectorInput())
+        await act(async () => {
+          byText(label).click()
+          await Promise.resolve()
+        })
+      }
+
+      const editSelector = async (value: string) => {
+        await act(() => {
+          mainSelectorInput().focus()
+          fireEvent.change(mainSelectorInput(), { target: { value } })
+        })
+      }
+
+      /** Outlast the 150ms defer, so a commit the press failed to cancel lands. */
+      const letTheBlurCommitFallDue = () =>
+        act(async () => {
+          await new Promise((resolve) => setTimeout(resolve, 200))
+        })
+
+      it('validates the edited selector instead of scraping the old one', async () => {
+        // #271: the press scraped the selector the field held before the edit.
+        const onScrape = vi.fn()
+        const onHighlight = vi.fn()
+        const onChange = vi.fn()
+        view = await render({ onScrape, onHighlight, onChange })
+        await editSelector('//li')
+
+        await pressActionButton('Validate selector')
+
+        expect(onScrape).not.toHaveBeenCalled()
+        expect(onHighlight).toHaveBeenCalledWith('//li')
+        expect(onChange).toHaveBeenCalledWith({ ...config, mainSelector: '//li' })
+        expect(trackEvent).not.toHaveBeenCalledWith(ANALYTICS_EVENTS.SCRAPE_BUTTON_PRESS)
+      })
+
+      it('pre-empts the deferred blur commit rather than validating twice', async () => {
+        const onHighlight = vi.fn()
+        view = await render({ onHighlight })
+        await editSelector('//li')
+
+        await pressActionButton('Validate selector')
+        await letTheBlurCommitFallDue()
+
+        expect(onHighlight).toHaveBeenCalledTimes(1)
+      })
+
+      it('scrapes once the edit has been committed', async () => {
+        const onScrape = vi.fn()
+        view = await render({ onScrape, config: { ...config, mainSelector: '//li' } })
+        await editSelector('//li')
+
+        await pressActionButton('Scrape')
+
+        expect(onScrape).toHaveBeenCalled()
+        expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.SCRAPE_BUTTON_PRESS)
+      })
+    })
+
     it('is disabled while a scrape is running', async () => {
       view = await render({ isLoading: true })
 

@@ -284,6 +284,51 @@ test.describe('Sidepanel Core Functionality', () => {
     ).toBeVisible()
   })
 
+  test('pressing "Validate selector" validates the edit instead of scraping', async ({
+    context,
+    serviceWorker,
+    openSidePanel,
+    fixturePageUrl,
+  }) => {
+    // #271, driven with a real pointer because the bug lived in the ordering of
+    // the blur the press causes against the click itself.
+    const pageUrl = fixturePageUrl(SCRAPE_TARGET_PAGE)
+    const sidePanel = await openSidePanel(pageUrl)
+
+    const testPage = await context.newPage()
+    await testPage.goto(pageUrl)
+
+    await sidePanel.bringToFront()
+
+    await TestHelpers.dismissAnalyticsConsent(serviceWorker)
+
+    const input = sidePanel.locator('#mainSelector')
+    await input.fill('//h2')
+    await input.press('Enter')
+    await expect(
+      sidePanel
+        .locator('[data-slot="badge"]')
+        .filter({ hasText: new RegExp(`^${FIXTURE_PAGE_COUNTS.h2}$`) }),
+    ).toBeVisible()
+
+    await input.click()
+    await input.fill('//span')
+    await sidePanel.getByRole('button', { name: /validate selector/i }).click()
+
+    await expect(
+      sidePanel
+        .locator('[data-slot="badge"]')
+        .filter({ hasText: new RegExp(`^${FIXTURE_PAGE_COUNTS.span}$`) }),
+    ).toBeVisible()
+    // Sampled with non-retrying assertions so a table that appears and is then
+    // cleared cannot be waited away.
+    const resultsHeading = sidePanel.getByRole('heading', { name: /extracted data/i })
+    for (let i = 0; i < 10; i++) {
+      expect(await resultsHeading.count(), 'validating a selector scraped the page').toBe(0)
+      await sidePanel.waitForTimeout(150)
+    }
+  })
+
   test('can save preset and reload it via Load combobox', async ({
     context,
     serviceWorker,

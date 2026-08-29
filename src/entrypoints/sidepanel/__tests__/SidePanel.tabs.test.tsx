@@ -10,6 +10,7 @@ import { SYSTEM_PRESETS } from '@/utils/system_presets'
 import {
   MESSAGE_TYPES,
   SYSTEM_PRESET_STATUS_KEY,
+  type Message,
   type Preset,
   type ScrapeConfig,
   type SidePanelConfig,
@@ -282,7 +283,7 @@ describe('without a tab to talk to', () => {
     expect(sendMessage).not.toHaveBeenCalled()
   })
 
-  it('does not try to scrape, highlight or open the picker', async () => {
+  it('does not try to highlight or open the picker', async () => {
     const sendMessage = contentScriptReplies({ success: true })
     view = await render()
 
@@ -292,14 +293,14 @@ describe('without a tab to talk to', () => {
         .click(),
     )
     fireEvent.change(mainSelectorInput(), { target: { value: '//td' } })
-    // The button offers to validate the draft, which would normally scrape.
+    // Both the button press and the deferred blur below commit the draft, which
+    // would normally ask the page for a highlight.
     await act(async () => {
       ;[...view.container.querySelectorAll('button')]
         .find((candidate) => candidate.textContent?.trim() === 'Validate selector')!
         .click()
       await Promise.resolve()
     })
-    // Committing the draft would normally ask for a highlight.
     await act(async () => {
       mainSelectorInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
       await new Promise((resolve) => setTimeout(resolve, 200))
@@ -440,13 +441,14 @@ describe('remembering the selector a scrape used', () => {
 
   /** Press the main action button, whatever it currently reads. */
   const scrape = async (response: unknown, label = 'Scrape') => {
-    contentScriptReplies(response)
+    const sendMessage = contentScriptReplies(response)
     await act(async () => {
       ;[...view.container.querySelectorAll('button')]
         .find((candidate) => candidate.textContent?.trim() === label)!
         .click()
       await Promise.resolve()
     })
+    return sendMessage
   }
 
   const scraped = { data: { data: [], columnOrder: ['Rank'] }, success: true }
@@ -479,18 +481,29 @@ describe('remembering the selector a scrape used', () => {
     await waitFor(async () => expect(await getRecentMainSelectors()).toEqual([]))
   })
 
-  it('remembers nothing when the scrape ran on a blank selector', async () => {
-    await attachToTab(PAGE_URL, { currentScrapeConfig: { ...config, mainSelector: '' } })
+  it('validates an edited selector instead of scraping the committed one', async () => {
+    // #271: the press fired a scrape carrying the pre-edit selector, replacing
+    // the results table with rows for a selector the user had moved away from.
+    await withValidatedSelector()
     view = await render()
-    // With an uncommitted draft the button is offered as "Validate selector",
-    // and the scrape still runs against the blank committed config.
+    await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
     await act(() => {
       mainSelectorInput().focus()
-      fireEvent.change(mainSelectorInput(), { target: { value: '//td' } })
+      fireEvent.change(mainSelectorInput(), { target: { value: '//li' } })
     })
 
-    await scrape(scraped, 'Validate selector')
+    const sendMessage = await scrape(scraped, 'Validate selector')
+    // Outlast the 150ms blur defer, so a commit the press failed to cancel lands.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 200))
+    })
 
+    expect(
+      sendMessage.mock.calls.map(([, message]) => [
+        (message as Message).type,
+        (message as Message).payload,
+      ]),
+    ).toEqual([[MESSAGE_TYPES.HIGHLIGHT_ELEMENTS, { selector: '//li' }]])
     await waitFor(async () => expect(await getRecentMainSelectors()).toEqual([]))
   })
 
