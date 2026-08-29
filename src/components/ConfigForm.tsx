@@ -104,9 +104,6 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
   rescrapeAdvised = false,
   pickerModeActive = false,
 }) => {
-  // Local state for adding a new column
-  const [newColumnName, setNewColumnName] = useState('')
-
   const columnsListRef = useRef<HTMLDivElement>(null)
   const prevColumnsCount = useRef(config.columns.length)
   const [shouldScrollToEnd, setShouldScrollToEnd] = useState(false)
@@ -190,12 +187,12 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
 
   useEffect(() => {
     if (shouldScrollToEnd && config.columns.length > prevColumnsCount.current) {
-      if (columnsListRef.current) {
-        columnsListRef.current.scrollTo({
-          left: columnsListRef.current.scrollWidth,
-          behavior: 'smooth',
-        })
-      }
+      // The strip is rendered unconditionally, so the ref is always attached by
+      // the time an added column can schedule this.
+      columnsListRef.current!.scrollTo({
+        left: columnsListRef.current!.scrollWidth,
+        behavior: 'smooth',
+      })
       setShouldScrollToEnd(false)
     }
     prevColumnsCount.current = config.columns.length
@@ -233,16 +230,14 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
     return () => clearTimeout(timeout)
   }, [lastScrapeRowCount])
 
+  // Both adornment wrappers are rendered unconditionally, so their refs are
+  // attached before any of these effects can run.
   useEffect(() => {
-    if (endAdornmentRef.current) {
-      setEndAdornmentWidth(endAdornmentRef.current.offsetWidth)
-    }
+    setEndAdornmentWidth(endAdornmentRef.current!.offsetWidth)
   }, [highlightError, highlightMatchCount])
 
   useEffect(() => {
-    if (beginAdornmentRef.current) {
-      setBeginAdornmentWidth(beginAdornmentRef.current.offsetWidth)
-    }
+    setBeginAdornmentWidth(beginAdornmentRef.current!.offsetWidth)
   }, [])
 
   // Commit the draft main selector to parent state and trigger highlight
@@ -266,14 +261,6 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
     onChange(withColumnSelector(config, index, value))
   }
 
-  // Add a new column
-  const addColumn = () => {
-    if (!newColumnName.trim()) return
-
-    onChange(withAddedColumn(config, newColumnName))
-    setNewColumnName('')
-  }
-
   // Remove a column
   const removeColumn = (index: number) => {
     trackEvent(ANALYTICS_EVENTS.REMOVE_COLUMN_BUTTON_PRESS)
@@ -281,20 +268,20 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
     onChange(withoutColumn(config, index))
   }
 
-  // Handler to guess config from selector
+  /**
+   * Guess the columns for the current selector.
+   *
+   * The button is disabled until the selector is non-blank, committed and
+   * validated, so the draft agrees with the config by the time this runs.
+   */
   const handleGuessConfig = async () => {
-    const selector = (mainSelectorDraft || config.mainSelector).trim()
-    if (!selector) return
+    const selector = mainSelectorDraft.trim()
 
     // Track auto-generate config button press
     trackEvent(ANALYTICS_EVENTS.AUTO_GENERATE_CONFIG_BUTTON_PRESS)
 
     setGuessButtonState('generating')
     try {
-      // Ensure the committed config matches the selector we're about to use
-      if (selector !== config.mainSelector) {
-        commitMainSelector(selector)
-      }
       browser.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         const tab = tabs[0]
         if (!tab?.id) {
@@ -325,9 +312,9 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
     }
   }
 
-  // Save Preset handler
+  // Save Preset handler. Both the Save button and the Enter shortcut in the
+  // name field require a non-blank name, so there is nothing to re-check here.
   const handleSavePreset = async () => {
-    if (!presetName.trim()) return
     setIsSaving(true)
     await onSavePreset(presetName.trim())
     setIsSaving(false)
@@ -492,7 +479,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
           setCmdkSelectedId(combinedSuggestionValues[0])
           ensureVisible(0)
         })
-      } else if (filteredPresetsForAutosuggest.length > 0) {
+      } else if (combinedSuggestionValues.length > 0) {
         setSelectedAutosuggestIndex((prev) => {
           const next = nextSuggestionIndex(prev, combinedSuggestionValues.length, 1)
           setCmdkSelectedId(combinedSuggestionValues[next])
@@ -514,7 +501,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
           setCmdkSelectedId(combinedSuggestionValues[last])
           ensureVisible(last)
         })
-      } else if (filteredPresetsForAutosuggest.length > 0) {
+      } else if (combinedSuggestionValues.length > 0) {
         setSelectedAutosuggestIndex((prev) => {
           const next = nextSuggestionIndex(prev, combinedSuggestionValues.length, -1)
           setCmdkSelectedId(combinedSuggestionValues[next])
@@ -1078,11 +1065,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                   onClick={() => {
                     trackEvent(ANALYTICS_EVENTS.ADD_COLUMN_BUTTON_PRESS)
 
-                    const defaultName = `Column ${config.columns.length + 1}`
-                    onChange({
-                      ...config,
-                      columns: [...config.columns, { name: defaultName, selector: '.' }],
-                    })
+                    onChange(withAddedColumn(config, `Column ${config.columns.length + 1}`))
                     setShouldScrollToEnd(true)
                   }}
                   aria-label="Add column"

@@ -3,15 +3,21 @@ import ConfigForm from '@/components/ConfigForm'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ANALYTICS_EVENTS } from '@/utils/analytics'
 import { setRecentMainSelectors, userPresetsStorage } from '@/utils/storage'
+import { SYSTEM_PRESETS } from '@/utils/system_presets'
 import { SYSTEM_PRESET_STATUS_KEY, type Preset, type ScrapeConfig } from '@/utils/types'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
 import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
+import { useState } from 'react'
 import {
+  openRadixTrigger,
   querySelector,
   renderComponent,
   setInputValue,
+  stubOffsetWidth,
+  stubScrolling,
+  waitFor,
   type RenderResult,
 } from '@@/tests/support/react'
 
@@ -69,6 +75,12 @@ const render = (overrides: Partial<ConfigFormProps> = {}) =>
     </TooltipProvider>,
   )
 
+/** A ConfigForm whose parent actually applies the config it reports. */
+const ControlledConfigForm = () => {
+  const [current, setCurrent] = useState(config)
+  return <ConfigForm {...baseProps()} config={current} onChange={setCurrent} />
+}
+
 const mainSelectorInput = () =>
   querySelector<HTMLTextAreaElement>(view!.container, 'textarea#mainSelector')
 const columnNameInputs = () => [
@@ -93,6 +105,9 @@ const byText = (text: string): HTMLButtonElement => {
 beforeEach(async () => {
   fakeBrowser.reset()
   setLastError(undefined)
+  stubScrolling()
+  // jsdom measures everything as 0; restore that between tests that stub it.
+  stubOffsetWidth(0)
   await userPresetsStorage.setValue([])
 })
 
@@ -351,6 +366,26 @@ describe('ConfigForm', () => {
   })
 
   describe('auto-generating the config', () => {
+    /** Reply to the guess request with `response`. */
+    const contentScriptReplies = (response: unknown) =>
+      spyOnBrowser(fakeBrowser.tabs, 'sendMessage').mockImplementation(
+        (_tabId: number, _message: unknown, callback?: (r: unknown) => void) => {
+          callback?.(response)
+          return Promise.resolve(response)
+        },
+      )
+
+    /** Report `tabs` as the current window's active tabs. */
+    const activeTabs = (tabs: Browser.tabs.Tab[]) =>
+      spyOnBrowser(fakeBrowser.tabs, 'query').mockImplementation(
+        (_query: unknown, callback?: (found: Browser.tabs.Tab[]) => void) => {
+          callback?.(tabs)
+          return Promise.resolve(tabs)
+        },
+      )
+
+    const guessButton = () => button('Auto-generate configuration from selector')
+
     it('asks the content script to guess from the current selector', async () => {
       const sendMessage = spyOnBrowser(fakeBrowser.tabs, 'sendMessage').mockImplementation(
         (_tabId: number, _message: unknown, callback?: (r: unknown) => void) => {
@@ -379,13 +414,163 @@ describe('ConfigForm', () => {
       expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.AUTO_GENERATE_CONFIG_BUTTON_PRESS)
     })
 
-    it('does nothing without a selector to guess from', async () => {
+    it('is not offered without a selector to guess from', async () => {
       const query = spyOnBrowser(fakeBrowser.tabs, 'query')
       view = await render({ config: { ...config, mainSelector: '' } })
 
-      await view.act(() => button('Auto-generate configuration from selector').click())
+      expect(guessButton().disabled).toBe(true)
+      await view.act(() => guessButton().click())
 
       expect(query).not.toHaveBeenCalled()
+    })
+
+    it('is not offered while the selector is still uncommitted', async () => {
+      view = await render()
+
+      await view.act(() => setInputValue(mainSelectorInput(), '//td'))
+
+      expect(guessButton().disabled).toBe(true)
+    })
+
+    it('shows the success state and settles back to idle', async () => {
+      vi.useFakeTimers()
+      contentScriptReplies({ success: true })
+      activeTabs([{ id: 4 } as Browser.tabs.Tab])
+      view = await render()
+
+      await view.act(async () => {
+        guessButton().click()
+        await Promise.resolve()
+      })
+
+      expect(guessButton().querySelector('.lucide-check')).not.toBeNull()
+
+      await view.act(() => {
+        vi.advanceTimersByTime(1500)
+      })
+
+      expect(guessButton().querySelector('.lucide-wand')).not.toBeNull()
+      vi.useRealTimers()
+    })
+
+    it('shows the failure state when the content script refuses', async () => {
+      contentScriptReplies({ success: false })
+      activeTabs([{ id: 4 } as Browser.tabs.Tab])
+      view = await render()
+
+      await view.act(async () => {
+        guessButton().click()
+        await Promise.resolve()
+      })
+
+      expect(guessButton().querySelector('.lucide-x')).not.toBeNull()
+    })
+
+    it('shows the failure state when there is no active tab', async () => {
+      const sendMessage = spyOnBrowser(fakeBrowser.tabs, 'sendMessage')
+      activeTabs([])
+      view = await render()
+
+      await view.act(async () => {
+        guessButton().click()
+        await Promise.resolve()
+      })
+
+      expect(sendMessage).not.toHaveBeenCalled()
+      expect(guessButton().querySelector('.lucide-x')).not.toBeNull()
+    })
+
+    it('shows the failure state when the query itself throws', async () => {
+      spyOnBrowser(fakeBrowser.tabs, 'query').mockImplementation(() => {
+        throw new Error('no tabs permission')
+      })
+      view = await render()
+
+      await view.act(async () => {
+        guessButton().click()
+        await Promise.resolve()
+      })
+
+      expect(guessButton().querySelector('.lucide-x')).not.toBeNull()
+    })
+
+    it('spins and stays disabled while the guess is in flight', async () => {
+      let release: (() => void) | undefined
+      spyOnBrowser(fakeBrowser.tabs, 'query').mockImplementation(
+        (_query: unknown, callback?: (found: Browser.tabs.Tab[]) => void) => {
+          release = () => callback?.([])
+          return new Promise(() => {})
+        },
+      )
+      view = await render()
+
+      await view.act(async () => {
+        guessButton().click()
+        await Promise.resolve()
+      })
+
+      expect(guessButton().querySelector('.lucide-loader-circle')).not.toBeNull()
+      expect(guessButton().disabled).toBe(true)
+
+      await view.act(() => release!())
+    })
+
+    it('settles a failed guess back to idle', async () => {
+      vi.useFakeTimers()
+      contentScriptReplies({ success: false })
+      activeTabs([{ id: 4 } as Browser.tabs.Tab])
+      view = await render()
+
+      await view.act(async () => {
+        guessButton().click()
+        await Promise.resolve()
+      })
+      expect(guessButton().querySelector('.lucide-x')).not.toBeNull()
+
+      await view.act(() => {
+        vi.advanceTimersByTime(1500)
+      })
+
+      expect(guessButton().querySelector('.lucide-wand')).not.toBeNull()
+      vi.useRealTimers()
+    })
+
+    it('settles back to idle after there was no tab', async () => {
+      vi.useFakeTimers()
+      activeTabs([])
+      view = await render()
+
+      await view.act(async () => {
+        guessButton().click()
+        await Promise.resolve()
+      })
+
+      await view.act(() => {
+        vi.advanceTimersByTime(1500)
+      })
+
+      expect(guessButton().querySelector('.lucide-wand')).not.toBeNull()
+      vi.useRealTimers()
+    })
+
+    it('settles back to idle after the query threw', async () => {
+      vi.useFakeTimers()
+      spyOnBrowser(fakeBrowser.tabs, 'query').mockImplementation(() => {
+        throw new Error('no tabs permission')
+      })
+      view = await render()
+
+      await view.act(async () => {
+        guessButton().click()
+        await Promise.resolve()
+      })
+
+      await view.act(() => {
+        vi.advanceTimersByTime(1500)
+      })
+
+      expect(guessButton().querySelector('.lucide-wand')).not.toBeNull()
+      vi.useRealTimers()
     })
   })
 
@@ -436,6 +621,246 @@ describe('ConfigForm', () => {
       expect(view.container.textContent).toContain('All links')
       expect(view.container.textContent).not.toContain('Table rows')
     })
+
+    describe('saving one', () => {
+      /** Open the Save drawer and return its name field. */
+      const openSaveDrawer = async () => {
+        await view!.act(() => openRadixTrigger(byText('Save')))
+        return querySelector<HTMLInputElement>(document.body, 'input[placeholder="Preset name"]')
+      }
+
+      const drawerButton = (label: string) =>
+        [...document.querySelectorAll<HTMLButtonElement>('[data-slot="drawer-content"] button')]
+          .filter((candidate) => candidate.textContent?.trim() === label)
+          .at(-1)!
+
+      it('will not save without a name', async () => {
+        view = await render()
+
+        await openSaveDrawer()
+
+        expect(drawerButton('Save').disabled).toBe(true)
+      })
+
+      it('saves under the typed name, closes the drawer and says so', async () => {
+        const onSavePreset = vi.fn()
+        view = await render({ onSavePreset })
+        const nameField = await openSaveDrawer()
+
+        await view.act(() => setInputValue(nameField, 'My preset'))
+        await view.act(async () => {
+          drawerButton('Save').click()
+          await Promise.resolve()
+        })
+
+        expect(onSavePreset).toHaveBeenCalledWith('My preset')
+        await waitFor(() => expect(toastMocks.toast.success).toHaveBeenCalled())
+      })
+
+      it('saves on Enter in the name field', async () => {
+        const onSavePreset = vi.fn()
+        view = await render({ onSavePreset })
+        const nameField = await openSaveDrawer()
+        await view.act(() => setInputValue(nameField, 'From the keyboard'))
+
+        await view.act(async () => {
+          nameField.dispatchEvent(
+            new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+          )
+          await Promise.resolve()
+        })
+
+        expect(onSavePreset).toHaveBeenCalledWith('From the keyboard')
+      })
+
+      it('ignores Enter while the name is blank', async () => {
+        const onSavePreset = vi.fn()
+        view = await render({ onSavePreset })
+        const nameField = await openSaveDrawer()
+
+        await view.act(() => {
+          nameField.dispatchEvent(
+            new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+          )
+        })
+
+        expect(onSavePreset).not.toHaveBeenCalled()
+      })
+    })
+
+    describe('loading one', () => {
+      /** Open the Load popover and return the preset rows inside it. */
+      const openLoadPopover = async () => {
+        await view!.act(() => openRadixTrigger(byText('Load')))
+        return () => [...document.querySelectorAll<HTMLElement>('[cmdk-item]')]
+      }
+
+      it('loads the preset the user picks', async () => {
+        const onLoadPreset = vi.fn()
+        view = await render({ presets, onLoadPreset })
+        const rows = await openLoadPopover()
+
+        await view.act(() =>
+          rows()
+            .find((row) => row.textContent?.includes('All links'))!
+            .click(),
+        )
+
+        expect(onLoadPreset).toHaveBeenCalledWith(presets[1])
+      })
+
+      it('narrows the list by the search term', async () => {
+        view = await render({ presets })
+        await openLoadPopover()
+        const search = querySelector<HTMLInputElement>(
+          document.body,
+          'input[placeholder="Search presets..."]',
+        )
+
+        await view.act(() => setInputValue(search, 'links'))
+
+        await waitFor(() => {
+          expect(document.body.textContent).toContain('All links')
+          expect(document.body.textContent).not.toContain('Table rows')
+        })
+      })
+
+      it('says so when nothing is saved yet', async () => {
+        view = await render({ presets: [] })
+
+        await openLoadPopover()
+
+        expect(document.body.textContent).toContain('No presets saved')
+      })
+    })
+
+    describe('deleting one', () => {
+      // `isSystemPreset` matches on id, so borrow a real built-in one.
+      const systemPreset: Preset = {
+        ...preset(SYSTEM_PRESETS[0]!.id, 'Built in', '//table'),
+      }
+
+      const deleteButtonFor = async (name: string) => {
+        await view!.act(() => openRadixTrigger(byText('Load')))
+        const row = [...document.querySelectorAll<HTMLElement>('[cmdk-item]')].find((candidate) =>
+          candidate.textContent?.includes(name),
+        )!
+        return querySelector<HTMLButtonElement>(row, 'button')
+      }
+
+      const drawerText = () =>
+        document.querySelector<HTMLElement>('[data-slot="drawer-content"]')?.textContent ?? ''
+
+      /** The drawer stays mounted while it animates out, so read its state. */
+      const openDrawer = () =>
+        document.querySelector('[data-slot="drawer-content"][data-state="open"]')
+
+      it('asks for confirmation before deleting a user preset', async () => {
+        view = await render({ presets })
+
+        const remove = await deleteButtonFor('All links')
+        await view.act(() => remove.click())
+
+        expect(drawerText()).toContain('Delete Preset')
+        expect(drawerText()).toContain('This action cannot be undone.')
+      })
+
+      it('offers to hide a system preset instead of deleting it', async () => {
+        view = await render({ presets: [systemPreset] })
+
+        const remove = await deleteButtonFor('Built in')
+        await view.act(() => remove.click())
+
+        expect(drawerText()).toContain('Hide Preset')
+        expect(drawerText()).not.toContain('This action cannot be undone.')
+      })
+
+      it('deletes once confirmed', async () => {
+        const onDeletePreset = vi.fn()
+        view = await render({ presets, onDeletePreset })
+        const remove = await deleteButtonFor('All links')
+        await view.act(() => remove.click())
+
+        await view.act(() =>
+          [...document.querySelectorAll<HTMLButtonElement>('button')]
+            .find((candidate) => candidate.textContent?.trim() === 'Delete')!
+            .click(),
+        )
+
+        expect(onDeletePreset).toHaveBeenCalledWith(presets[1])
+        expect(openDrawer()).toBeNull()
+      })
+
+      it('ignores a second confirm while the drawer is closing', async () => {
+        const onDeletePreset = vi.fn()
+        view = await render({ presets, onDeletePreset })
+        const remove = await deleteButtonFor('All links')
+        await view.act(() => remove.click())
+        const confirm = [...document.querySelectorAll<HTMLButtonElement>('button')].find(
+          (candidate) => candidate.textContent?.trim() === 'Delete',
+        )!
+
+        await view.act(() => confirm.click())
+        // The drawer animates out, so the button is still clickable for a beat.
+        await view.act(() => confirm.click())
+
+        expect(onDeletePreset).toHaveBeenCalledTimes(1)
+      })
+
+      it('leaves the preset alone when cancelled', async () => {
+        const onDeletePreset = vi.fn()
+        view = await render({ presets, onDeletePreset })
+        const remove = await deleteButtonFor('All links')
+        await view.act(() => remove.click())
+
+        await view.act(() =>
+          [...document.querySelectorAll<HTMLButtonElement>('button')]
+            .find((candidate) => candidate.textContent?.trim() === 'Cancel')!
+            .click(),
+        )
+
+        expect(onDeletePreset).not.toHaveBeenCalled()
+        expect(openDrawer()).toBeNull()
+      })
+    })
+  })
+
+  it('opens the XPath reference in a new tab', async () => {
+    const open = vi.fn()
+    vi.stubGlobal('open', open)
+    view = await render()
+
+    await view.act(() => button('Open XPath reference').click())
+
+    expect(open).toHaveBeenCalledWith(
+      'https://www.stylusstudio.com/docs/v62/d_xpath15.html',
+      '_blank',
+      'noopener,noreferrer',
+    )
+    vi.unstubAllGlobals()
+  })
+
+  it('insets the selector field by the width of its adornments', async () => {
+    stubOffsetWidth(40)
+    view = await render()
+
+    expect(mainSelectorInput().style.paddingRight).toBe('42px')
+    expect(mainSelectorInput().style.paddingLeft).toBe('42px')
+  })
+
+  it('scrolls the columns strip to the newly added column', async () => {
+    const scrollTo = vi.fn()
+    view = await renderComponent(
+      <TooltipProvider>
+        <ControlledConfigForm />
+      </TooltipProvider>,
+    )
+    const strip = querySelector<HTMLElement>(view.container, '.grid.grid-flow-col')
+    strip.scrollTo = scrollTo as unknown as HTMLElement['scrollTo']
+
+    await view.act(() => button('Add column').click())
+
+    expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ behavior: 'smooth' }))
   })
 
   it('respects a hidden system preset', async () => {

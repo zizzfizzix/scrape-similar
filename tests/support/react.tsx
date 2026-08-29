@@ -92,6 +92,58 @@ export const openRadixTrigger = (trigger: HTMLElement): void => {
 }
 
 /**
+ * Wait for `assertion` to stop throwing.
+ *
+ * The components under test schedule work through `requestAnimationFrame`,
+ * `setTimeout` and callback-style `browser.*` APIs, so an assertion often needs
+ * a few macrotasks before it can hold. Each attempt runs inside `act` so React
+ * flushes whatever the previous one scheduled.
+ */
+export const waitFor = async (
+  assertion: () => void | Promise<void>,
+  { timeout = 1000, interval = 10 }: { timeout?: number; interval?: number } = {},
+): Promise<void> => {
+  const deadline = Date.now() + timeout
+  let lastError: unknown
+  for (;;) {
+    try {
+      await act(async () => {
+        await assertion()
+      })
+      return
+    } catch (error) {
+      lastError = error
+      if (Date.now() >= deadline) throw lastError
+      await new Promise((resolve) => setTimeout(resolve, interval))
+    }
+  }
+}
+
+/**
+ * Stub the layout methods jsdom leaves unimplemented.
+ *
+ * `scrollIntoView` and `scrollTo` throw rather than no-op, and the autosuggest
+ * and the columns strip both call them while keeping the selection in view.
+ */
+export const stubScrolling = (): void => {
+  Element.prototype.scrollIntoView ??= function scrollIntoView() {}
+  Element.prototype.scrollTo ??= function scrollTo() {}
+}
+
+/**
+ * Report a fixed `offsetWidth` for every element.
+ *
+ * jsdom has no layout engine, so every element measures 0 and code that sizes
+ * itself off a rendered child never sees a width.
+ */
+export const stubOffsetWidth = (width: number): void => {
+  Object.defineProperty(HTMLElement.prototype, 'offsetWidth', {
+    configurable: true,
+    get: () => width,
+  })
+}
+
+/**
  * Find a portalled Radix item by its visible label.
  *
  * Menu, dialog and drawer content is rendered into `document.body`, outside the
