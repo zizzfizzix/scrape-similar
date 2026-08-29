@@ -53,13 +53,17 @@ export const TYPE_ONLY_EXCLUSIONS = ['src/entrypoints/background/types.ts']
  * holds them to a line budget so it cannot drift back in unmeasured.
  *
  * Re-argued at 100%: this is the only group left resting on judgement, so the
- * claim was checked rather than repeated. Every one of these files is provider
- * nesting plus a `render`/`define*` call — the longest, `background/index.ts`,
- * is 52 lines of which 9 are its doc comment and the rest are `setup*()` calls
- * into measured modules. And "the E2E suite covers it" is specific: each page
- * is loaded by a spec named after it (`tests/e2e/full-data-view.spec.ts`,
- * `onboarding.spec.ts`, `options.spec.ts`, `sidepanel.spec.ts`), and the
- * background worker and content script run for every spec in the suite.
+ * claim was checked rather than repeated — and where it did not hold, the code
+ * moved instead of the argument. What the background worker starts now lives in
+ * `background/bootstrap.ts`, and finding a page's root element and wrapping it
+ * in the shared providers now lives in `components/extension-page.tsx`; both are
+ * measured. What is left is 10-19 lines per file of `define*` wrapper, log
+ * level and provider nesting, with no branch in any of them.
+ *
+ * And "the E2E suite covers it" is specific: each page is loaded by a spec
+ * named after it (`tests/e2e/full-data-view.spec.ts`, `onboarding.spec.ts`,
+ * `options.spec.ts`, `sidepanel.spec.ts`), and the background worker and
+ * content script run for every spec in the suite.
  */
 export const BOOTSTRAP_EXCLUSIONS = [
   'src/entrypoints/full-data-view/main.tsx',
@@ -74,11 +78,12 @@ export const BOOTSTRAP_EXCLUSIONS = [
  * A bootstrap file this long is still plausibly just wiring. Past it, assume
  * logic has accumulated and move it to a module that coverage measures.
  *
- * Deliberately not ratcheted down to today's longest file (52 lines): the
- * budget is here to catch logic drifting back in, and a background worker that
- * grows one more `setup*()` call has not drifted anywhere.
+ * Ratcheted from 60 down to 25 once the orchestration these files used to hold
+ * moved into `background/bootstrap.ts` and `components/extension-page.tsx`: the
+ * longest of them is now 19 lines, so 25 leaves room for a provider or an
+ * import without leaving room for logic.
  */
-export const BOOTSTRAP_LINE_BUDGET = 60
+export const BOOTSTRAP_LINE_BUDGET = 25
 
 export const COVERAGE_EXCLUSIONS = [
   ...GENERATED_EXCLUSIONS,
