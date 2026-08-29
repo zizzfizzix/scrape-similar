@@ -47,9 +47,8 @@ for (const metric of METRICS) {
   console.log(`| ${label} | ${covered} | ${count} | ${formatPct(pct)} |`)
 }
 
-// The thresholds are a floor, not the target: every file short of full
-// coverage is where the remaining work is, so list them all rather than only
-// the ones dragging the total under the gate.
+// The thresholds are a floor, not the target, so this lists every file short of
+// full coverage rather than only the ones dragging the total under the gate.
 const incomplete = Object.entries(files)
   .map(([file, metrics]) => ({
     file: path.relative(process.cwd(), file),
@@ -58,8 +57,6 @@ const incomplete = Object.entries(files)
     metrics,
   }))
   .filter(({ misses }) => misses.length > 0)
-  // Biggest gaps first: this table is the ratchet's worklist, and the files
-  // holding the most uncovered lines are where the next tests pay off.
   .sort((a, b) => b.uncoveredLines - a.uncoveredLines || a.file.localeCompare(b.file))
 
 if (incomplete.length === 0) {

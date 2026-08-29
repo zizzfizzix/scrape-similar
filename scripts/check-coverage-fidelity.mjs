@@ -10,11 +10,6 @@
  * modules into a single statement, and coverage reported 100% over a quarter of
  * the codebase.
  *
- * The exclusion list has `src/__tests__/coverage-exclusions.test.ts` to make
- * shrinking it deliberate. This script is the same idea for the far larger,
- * silent hiding place: it fails the run when the instrumentation stops seeing
- * the code, whether or not the percentages look fine.
- *
  * Run by `pnpm test:coverage` after Vitest writes `coverage-summary.json`.
  */
 
@@ -25,11 +20,9 @@ import { WxtVitest } from 'wxt/testing/vitest-plugin'
 const repoRoot = process.cwd()
 const SUMMARY_PATH = path.resolve(repoRoot, 'coverage/coverage-summary.json')
 
-/**
- * A module that exercises the auto-imports WXT injects, so the transform under
- * test actually rewrites it. The path need not exist — plugins only match it
- * against their include filter.
- */
+// The probe has to use auto-imported globals or the transform leaves it alone
+// and there is no map to inspect. The path need not exist; plugins only match
+// it against their include filter.
 const PROBE_ID = path.join(repoRoot, 'src/__auto-import-sourcemap-probe__.ts')
 const PROBE_CODE = [
   `export const tabId = () => browser.runtime.id`,
@@ -58,7 +51,6 @@ const failures = []
 
 const fail = (message) => failures.push(message)
 
-/** Count `,`-separated segments across the `;`-separated lines of a mappings string. */
 const measureMappings = (mappings) => {
   const mapped = mappings.split(';').filter((line) => line.length > 0)
   const segments = mapped.reduce((sum, line) => sum + line.split(',').length, 0)
@@ -67,9 +59,9 @@ const measureMappings = (mappings) => {
 }
 
 /**
- * Every plugin Vitest loads for this project gets the probe. Whichever ones
- * rewrite it must hand back a column-resolution map, since the last low-
- * resolution map in the chain is the one that decides the final fidelity.
+ * Probes every plugin rather than `unimport` by name: the last low-resolution
+ * map in the chain is the one that decides the final fidelity, so any plugin
+ * that rewrites the module can be the one that breaks coverage.
  */
 const checkTransformSourcemaps = async () => {
   const plugins = (await WxtVitest()).flat().filter(Boolean)
@@ -123,7 +115,6 @@ const checkTransformSourcemaps = async () => {
   }
 }
 
-/** Compare what coverage measured against how much source there is to measure. */
 const checkMeasuredVolume = async () => {
   let summary
   try {
