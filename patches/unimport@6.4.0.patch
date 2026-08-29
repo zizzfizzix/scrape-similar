@@ -1,0 +1,13 @@
+diff --git a/dist/unplugin.mjs b/dist/unplugin.mjs
+index b8917097130b2f003c3b8c7c377b804fb8fd772f..e4c7dc199d483b0ff2e9fee51d601fe7d41e33eb 100644
+--- a/dist/unplugin.mjs
++++ b/dist/unplugin.mjs
+@@ -48,7 +48,7 @@ const unplugin = createUnplugin((options = {}) => {
+         return;
+       return {
+         code: s.toString(),
+-        map: s.generateMap()
++        map: s.generateMap({ hires: 'boundary', source: id })
+       };
+     },
+     async buildStart() {

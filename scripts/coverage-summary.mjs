@@ -3,9 +3,11 @@
  * Render the v8 coverage summary as Markdown.
  *
  * The gate itself is the `coverage.thresholds` block in `vitest.config.ts`:
- * `pnpm test:coverage` exits non-zero when coverage drops below it. This script
- * only makes the numbers readable, so a failing run says which files regressed
- * without anyone opening the raw log.
+ * `pnpm test:coverage` exits non-zero when coverage drops below it, and
+ * `scripts/check-coverage-fidelity.mjs` catches the case that block cannot see —
+ * the measured code itself shrinking. This script only makes the numbers
+ * readable, so a failing run says which files regressed without anyone opening
+ * the raw log.
  *
  * Writes to stdout; the CI job appends it to `$GITHUB_STEP_SUMMARY`.
  */
@@ -45,16 +47,17 @@ for (const metric of METRICS) {
   console.log(`| ${label} | ${covered} | ${count} | ${formatPct(pct)} |`)
 }
 
-// Anything short of full coverage is what a reviewer needs to look at, since
-// the project gates on 100%.
+// The thresholds are a floor, not the target, so this lists every file short of
+// full coverage rather than only the ones dragging the total under the gate.
 const incomplete = Object.entries(files)
   .map(([file, metrics]) => ({
     file: path.relative(process.cwd(), file),
     misses: METRICS.filter((metric) => metrics[metric].pct < 100),
+    uncoveredLines: metrics.lines.total - metrics.lines.covered,
     metrics,
   }))
   .filter(({ misses }) => misses.length > 0)
-  .sort((a, b) => a.file.localeCompare(b.file))
+  .sort((a, b) => b.uncoveredLines - a.uncoveredLines || a.file.localeCompare(b.file))
 
 if (incomplete.length === 0) {
   console.log('\nEvery included file is fully covered.')
@@ -65,11 +68,11 @@ if (incomplete.length === 0) {
 // limit, and the first rows are enough to start from.
 const MAX_ROWS = 40
 console.log(`\n### Files below 100% (${incomplete.length})\n`)
-console.log('| File | Statements | Branches | Functions | Lines |')
-console.log('| --- | ---: | ---: | ---: | ---: |')
-for (const { file, metrics } of incomplete.slice(0, MAX_ROWS)) {
+console.log('| File | Uncovered lines | Statements | Branches | Functions | Lines |')
+console.log('| --- | ---: | ---: | ---: | ---: | ---: |')
+for (const { file, uncoveredLines, metrics } of incomplete.slice(0, MAX_ROWS)) {
   const cells = METRICS.map((metric) => formatPct(metrics[metric].pct))
-  console.log(`| \`${file}\` | ${cells.join(' | ')} |`)
+  console.log(`| \`${file}\` | ${uncoveredLines} | ${cells.join(' | ')} |`)
 }
 if (incomplete.length > MAX_ROWS) {
   console.log(`\n…and ${incomplete.length - MAX_ROWS} more. See the \`coverage-report\` artifact.`)

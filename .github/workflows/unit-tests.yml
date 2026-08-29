@@ -41,7 +41,9 @@ jobs:
         run: pnpm fmt-check
 
       # Enforces the `coverage.thresholds` block in `vitest.config.ts`: the run
-      # exits non-zero if coverage drops below it, so a PR cannot lower it.
+      # exits non-zero if coverage drops below it, so a PR cannot lower it. It
+      # then runs `scripts/check-coverage-fidelity.mjs`, which catches what a
+      # ratio gate cannot — code dropping out of instrumentation entirely.
       - name: Run unit tests with coverage
         run: pnpm test:coverage
 

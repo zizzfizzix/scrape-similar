@@ -20,7 +20,7 @@
     "postinstall": "wxt prepare",
     "prepare": "node scripts/install-git-hooks.mjs",
     "test": "vitest --run",
-    "test:coverage": "vitest --run --coverage",
+    "test:coverage": "vitest --run --coverage && node scripts/check-coverage-fidelity.mjs",
     "test:e2e": "playwright test",
     "update:shadcn": "bash scripts/update-shadcn.sh"
   },
