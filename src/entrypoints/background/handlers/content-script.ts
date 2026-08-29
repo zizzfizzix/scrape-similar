@@ -7,12 +7,9 @@ import { handleExportToSheets } from './sheets-export'
  * Handle GET_MY_TAB_ID message - return tab ID to content script
  */
 const handleGetTabId: MessageHandler = (message, sender, sendResponse) => {
-  const tabId = sender.tab?.id
-  if (!tabId) {
-    log.error('No tab ID available for GET_MY_TAB_ID request')
-    sendResponse({ success: false, error: 'No tab ID available' })
-    return
-  }
+  // `handleContentScriptMessage` refuses a sender without a tab id before it
+  // reaches any handler, so there is always one here.
+  const tabId = sender.tab!.id!
   log.debug(`Content script in tab ${tabId} requested its own tab ID`)
   sendResponse({ success: true, tabId })
 }
@@ -47,17 +44,18 @@ const handleGetDebugMode: MessageHandler = async (message, sender, sendResponse)
  * Handle OPEN_SIDEPANEL message from content script
  */
 const handleOpenSidepanel: MessageHandler = async (message, sender, sendResponse) => {
-  const tabId = sender.tab?.id
+  // Guaranteed by `handleContentScriptMessage`, same as in `handleGetTabId`.
+  const tab = sender.tab!
+  const tabId = tab.id!
   log.debug(`Content script in tab ${tabId} requested to open sidepanel`)
   try {
-    const options: Partial<Browser.sidePanel.OpenOptions> = {}
-    if (sender.tab?.id) options.tabId = sender.tab.id
-    if (sender.tab?.windowId) options.windowId = sender.tab.windowId
+    const options: Partial<Browser.sidePanel.OpenOptions> = { tabId }
+    // A tab reported by a content script may still predate its window being
+    // known, in which case the side panel opens against the active window.
+    if (tab.windowId) options.windowId = tab.windowId
 
     await browser.sidePanel.open(options as Browser.sidePanel.OpenOptions)
-    log.debug(
-      `Sidepanel opened for ${sender.tab?.id ? `tab ${sender.tab.id}` : 'current active tab'}`,
-    )
+    log.debug(`Sidepanel opened for tab ${tabId}`)
     sendResponse({ success: true })
   } catch (error) {
     log.error(`Error opening sidepanel:`, error)

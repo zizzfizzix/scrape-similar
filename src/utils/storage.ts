@@ -26,7 +26,7 @@ export const userPresetsStorage = storage.defineItem<Preset[]>(
 // Get presets from storage
 export const getPresets = async (): Promise<Preset[]> => {
   try {
-    return (await userPresetsStorage.getValue()) ?? []
+    return await userPresetsStorage.getValue()
   } catch (error) {
     log.error('Error getting presets from storage:', error)
     return []
@@ -82,12 +82,9 @@ export const setPresets = async (presets: Preset[]): Promise<boolean> => {
 }
 
 // Initialize storage with default values. With defineItem fallback, empty is handled; no-op for compatibility.
+// `getPresets` swallows its own failures, so there is nothing here left to catch.
 export const initializeStorage = async (): Promise<void> => {
-  try {
-    await getPresets()
-  } catch (error) {
-    log.error('Error initializing storage:', error)
-  }
+  await getPresets()
 }
 
 // Get system preset status map from storage
@@ -140,25 +137,20 @@ export const setRecentMainSelectors = async (selectors: string[]): Promise<void>
   }
 }
 
+// Both helpers this calls report their own storage failures and resolve, so a
+// `catch` here could never run.
 export const pushRecentMainSelector = async (selector: string): Promise<void> => {
-  try {
-    const current = await getRecentMainSelectors()
-    const sanitized = selector.trim()
-    if (!sanitized) return
-    const withoutDup = current.filter((s) => s !== sanitized)
-    const updated = [sanitized, ...withoutDup].slice(0, 5)
-    await setRecentMainSelectors(updated)
-  } catch (error) {
-    log.error('Error pushing recent main selector:', error)
-  }
+  const current = await getRecentMainSelectors()
+  const sanitized = selector.trim()
+  if (!sanitized) return
+  const withoutDup = current.filter((s) => s !== sanitized)
+  const updated = [sanitized, ...withoutDup].slice(0, 5)
+  await setRecentMainSelectors(updated)
 }
 
+// Unreachable `catch` for the same reason as `pushRecentMainSelector`.
 export const removeRecentMainSelector = async (selector: string): Promise<void> => {
-  try {
-    const current = await getRecentMainSelectors()
-    const updated = current.filter((s) => s !== selector)
-    await setRecentMainSelectors(updated)
-  } catch (error) {
-    log.error('Error removing recent main selector:', error)
-  }
+  const current = await getRecentMainSelectors()
+  const updated = current.filter((s) => s !== selector)
+  await setRecentMainSelectors(updated)
 }

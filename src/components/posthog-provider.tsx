@@ -138,12 +138,12 @@ export const PostHogWrapper: React.FC<PostHogWrapperProps> = ({ children }) => {
   useEffect(() => {
     if (loading) return
 
-    if (consentState === true && !isPostHogInitialized()) {
+    if (consentState === true) {
+      // `initializePostHog` is a no-op once an instance exists, so there is no
+      // second check to keep in step here.
       initializePostHog()
-    } else if (consentState === false) {
-      resetPostHogUI()
-    } else if (consentState === undefined) {
-      // undecided – ensure PostHog is reset
+    } else {
+      // Declined or still undecided – ensure PostHog is reset.
       resetPostHogUI()
     }
 
@@ -165,9 +165,8 @@ export const PostHogWrapper: React.FC<PostHogWrapperProps> = ({ children }) => {
       }
     })
 
-    return () => {
-      if (unwatch) unwatch()
-    }
+    // `storage.watch` always hands back an unsubscribe function.
+    return unwatch
   }, [])
 
   return <>{children}</>

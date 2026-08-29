@@ -102,7 +102,9 @@ export const getPostHogBackground = async (): Promise<PostHog | null> => {
       })
 
       // React to debugMode changes in production to keep config in sync
-      if (!isDevOrTest) {
+      if (isDevOrTest) {
+        log.debug('Debug logging is forced on in dev/test builds; not following storage')
+      } else {
         storage.watch<boolean>('local:debugMode', (val) => {
           posthogInstance.set_config({ debug: !!val })
         })

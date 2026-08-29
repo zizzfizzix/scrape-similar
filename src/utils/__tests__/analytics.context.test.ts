@@ -1,3 +1,4 @@
+import log from 'loglevel'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { browser } from 'wxt/browser'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
@@ -106,5 +107,66 @@ describe('trackEvent – context specific behaviour', () => {
 
     const [, capturedProps] = captureSpy.mock.calls[0] ?? []
     expect(capturedProps.extension_context).toBe('custom_context')
+  })
+
+  it('warns instead of capturing when the background PostHog is unavailable', async () => {
+    currentContext = contextDetection.EXTENSION_CONTEXTS.BACKGROUND
+    const warnSpy = vi.spyOn(log, 'warn').mockImplementation(() => {})
+    vi.spyOn(posthogBg, 'getPostHogBackground').mockResolvedValue(null)
+
+    await trackEvent(EVENT_NAME)
+
+    expect(warnSpy).toHaveBeenCalledWith('PostHog not available in background context')
+    // Consent is granted, so the event is dropped rather than queued for later.
+    expect(await getQueuedEvent()).toBeUndefined()
+  })
+
+  it('swallows a send failure from content-script context', async () => {
+    currentContext = contextDetection.EXTENSION_CONTEXTS.CONTENT_SCRIPT
+    const debugSpy = vi.spyOn(log, 'debug').mockImplementation(() => {})
+    const failure = new Error('receiving end does not exist')
+    vi.spyOn(browser.runtime, 'sendMessage').mockImplementation(() => {
+      throw failure
+    })
+
+    await expect(trackEvent(EVENT_NAME)).resolves.toBeUndefined()
+
+    expect(debugSpy).toHaveBeenCalledWith(
+      'Failed to send tracking message from content script:',
+      failure,
+    )
+  })
+
+  it('reports "N/A" for the URL when an unknown context has no window', async () => {
+    currentContext = 'martian_context'
+    const warnSpy = vi.spyOn(log, 'warn').mockImplementation(() => {})
+    ;(globalThis as any).window = undefined
+
+    await trackEvent(EVENT_NAME)
+
+    const [, details] = warnSpy.mock.calls[0] as any[]
+    expect(details).toMatchObject({ context: 'martian_context', hasWindow: false, url: 'N/A' })
+  })
+
+  it('reports the page URL for an unknown context that has a window', async () => {
+    currentContext = 'martian_context'
+    const warnSpy = vi.spyOn(log, 'warn').mockImplementation(() => {})
+    ;(globalThis as any).window = { location: { href: 'https://example.com/page' } }
+
+    await trackEvent(EVENT_NAME)
+
+    const [, details] = warnSpy.mock.calls[0] as any[]
+    expect(details).toMatchObject({ hasWindow: true, url: 'https://example.com/page' })
+  })
+
+  it('logs and swallows a failure raised before the context switch', async () => {
+    currentContext = contextDetection.EXTENSION_CONTEXTS.BACKGROUND
+    const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
+    const failure = new Error('storage unavailable')
+    vi.spyOn(consent, 'getConsentState').mockRejectedValue(failure)
+
+    await expect(trackEvent(EVENT_NAME)).resolves.toBeUndefined()
+
+    expect(errorSpy).toHaveBeenCalledWith('Error tracking event:', failure)
   })
 })

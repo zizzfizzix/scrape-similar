@@ -99,10 +99,6 @@ export function ThemeProvider({
   )
 }
 
-export const useTheme = () => {
-  const context = useContext(ThemeProviderContext)
-
-  if (context === undefined) throw new Error('useTheme must be used within a ThemeProvider')
-
-  return context
-}
+// The context carries `initialState` as its default, so a consumer outside a
+// provider reads the system theme and a no-op setter rather than throwing.
+export const useTheme = () => useContext(ThemeProviderContext)

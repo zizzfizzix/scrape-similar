@@ -52,13 +52,15 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
 
+  /** Cancel the pending "export never replied" timer, if one is armed. */
+  const clearExportTimeout = () => {
+    clearTimeout(timeoutRef.current ?? undefined)
+    timeoutRef.current = null
+  }
+
   // Cleanup timeout on unmount
   useEffect(() => {
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current)
-      }
-    }
+    return clearExportTimeout
   }, [])
 
   const exportFilename = filename || defaultExportFilename(new Date())
@@ -98,9 +100,7 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({
     log.debug('🔥 ExportButtons: Sending message:', messagePayload)
 
     // Clear any existing timeout
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current)
-    }
+    clearExportTimeout()
 
     // Reset the button if the background never replies (e.g. the service worker
     // was torn down mid-export).
@@ -117,10 +117,7 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({
 
     browser.runtime.sendMessage(messagePayload, (response) => {
       // Clear the timeout since we got a response
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current)
-        timeoutRef.current = null
-      }
+      clearExportTimeout()
 
       log.debug('🔥 ExportButtons: Received response:', response)
 
@@ -258,8 +255,10 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({
         </DropdownMenuItem>
         <DropdownMenuItem
           onSelect={(e) => {
+            // Keep the menu open so the in-progress state stays visible; the
+            // `disabled` flag below is what stops a second export.
             e.preventDefault()
-            if (!isExporting) handleGoogleSheetsExport()
+            handleGoogleSheetsExport()
           }}
           disabled={isExporting}
         >

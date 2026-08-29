@@ -371,4 +371,29 @@ describe('showPickerContextMenu', () => {
     expect(state.pickerContextMenuOpen).toBe(false)
     expect(state.pickerContextMenuUi).toBeNull()
   })
+
+  it('leaves the crosshair off when the mount fails during picker mode', async () => {
+    vi.spyOn(log, 'warn').mockImplementation(() => {})
+    shadowRoot.createShadowRootUi.mockRejectedValue(new Error('no document'))
+    // The teardown restores the crosshair when picker mode is still on, and the
+    // failure path deliberately passes a no-op for that.
+    state.pickerModeActive = true
+
+    await show()
+
+    expect(document.documentElement.style.cursor).toBe('')
+  })
+
+  it('changes level when the page is scrolled over the open menu', async () => {
+    stubShadowRootUi()
+    await show()
+    await vi.waitFor(() => expect(state.pickerContextMenuApi).toBe(menuApi))
+
+    document.dispatchEvent(
+      new WheelEvent('wheel', { deltaY: 1000, bubbles: true, cancelable: true }),
+    )
+
+    expect(onLevelChange).toHaveBeenCalledWith(0, 'scroll')
+    expect(menuApi.updateLevel).toHaveBeenCalledWith(0)
+  })
 })

@@ -307,9 +307,7 @@ const DataTable: React.FC<DataTableProps> = ({
                   }}
                   className={header.id === 'rowIndex' || header.id === 'actions' ? '' : 'ph_hidden'}
                 >
-                  {header.isPlaceholder
-                    ? null
-                    : flexRender(header.column.columnDef.header, header.getContext())}
+                  {flexRender(header.column.columnDef.header, header.getContext())}
                   {/* Column resize handle */}
                   {header.column.getCanResize() && (
                     <div

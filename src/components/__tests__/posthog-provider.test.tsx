@@ -45,6 +45,7 @@ vi.mock('@/utils/modeTest', () => ({
   },
 }))
 
+const consent = await import('@/utils/consent')
 const { PostHogWrapper, resetPostHogUI } = await import('@/components/posthog-provider')
 const { ConsentProvider } = await import('@/components/consent-provider')
 
@@ -151,6 +152,64 @@ describe('PostHogWrapper', () => {
     })
 
     expect(posthogMock.instances).toHaveLength(1)
+  })
+
+  it('shares one initialization between wrappers mounted together', async () => {
+    await storage.setItem(consentKey, true)
+    view = await renderComponent(
+      <ConsentProvider>
+        <PostHogWrapper>
+          <p>first</p>
+        </PostHogWrapper>
+        <PostHogWrapper>
+          <p>second</p>
+        </PostHogWrapper>
+      </ConsentProvider>,
+    )
+    await view.act(async () => {})
+
+    expect(posthogMock.instances).toHaveLength(1)
+  })
+
+  it('leaves the existing instance alone for a wrapper mounted later', async () => {
+    await storage.setItem(consentKey, true)
+    const tree = (withSecond: boolean) => (
+      <ConsentProvider>
+        <PostHogWrapper>
+          <p>first</p>
+        </PostHogWrapper>
+        {withSecond && (
+          <PostHogWrapper>
+            <p>second</p>
+          </PostHogWrapper>
+        )}
+      </ConsentProvider>
+    )
+    view = await renderComponent(tree(false))
+    await view.act(async () => {})
+    const first = exposedInstance()
+
+    // The second wrapper mounts against an instance that already exists.
+    await view.render(tree(true))
+    await view.act(async () => {})
+
+    expect(posthogMock.instances).toHaveLength(1)
+    expect(exposedInstance()).toBe(first)
+  })
+
+  it('stops short of initialising when consent is withdrawn mid-flight', async () => {
+    const debugSpy = vi.spyOn(log, 'debug').mockImplementation(() => {})
+    // The provider reads consent once for its own state; the initializer reads
+    // it again, and by then the user has revoked it.
+    vi.spyOn(consent, 'getConsentState').mockResolvedValueOnce(true).mockResolvedValue(undefined)
+
+    view = await render()
+    await view.act(async () => {})
+
+    expect(posthogMock.instances).toHaveLength(0)
+    expect(debugSpy).toHaveBeenCalledWith(
+      'User has not given consent – PostHog will not be initialized (UI context).',
+    )
   })
 
   it('withdraws the instance when consent is revoked', async () => {

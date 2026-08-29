@@ -297,6 +297,29 @@ describe('Settings', () => {
       expect(errorSpy).toHaveBeenCalledWith('Error importing presets:', expect.any(Error))
     })
 
+    it('falls back to a generic reason when the caller throws a non-Error', async () => {
+      const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
+      view = await render({
+        onPresetsImported: () => {
+          throw 'callback exploded'
+        },
+      })
+      await chooseFile(validFile)
+
+      await view.act(() => {
+        const confirmButton = [...document.querySelectorAll('button')].find(
+          (candidate) => candidate.textContent === 'Import' && candidate.closest('[role="dialog"]'),
+        )
+        confirmButton!.click()
+      })
+
+      expect(errorSpy).toHaveBeenCalledWith('Error importing presets:', 'callback exploded')
+      expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.PRESET_IMPORT, {
+        success: false,
+        reason: 'Import failed',
+      })
+    })
+
     it('notes skipped system presets in the confirmation', async () => {
       const { SYSTEM_PRESETS } = await import('@/utils/system_presets')
       view = await render()

@@ -400,6 +400,57 @@ describe('ExportButtons', () => {
       expect(toastMocks.toast.error).toHaveBeenCalledWith('No data to export')
       expect(sendMessage).not.toHaveBeenCalled()
     })
+
+    it('handles a reply that arrives after the timeout already fired', async () => {
+      vi.useFakeTimers()
+      let reply: ((response: unknown) => void) | undefined
+      spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockImplementation(
+        (_message: unknown, callback?: (r: unknown) => void) => {
+          reply = callback
+          return new Promise(() => {})
+        },
+      )
+      view = await render()
+
+      await choose('Export all to Google Sheets')
+      await view.act(() => {
+        vi.advanceTimersByTime(SHEETS_EXPORT_TIMEOUT_MS)
+      })
+      toastMocks.toast.error.mockClear()
+
+      await view.act(() => reply!({ success: true, url: 'https://docs.google.com/late' }))
+
+      expect(toastMocks.toast.success).toHaveBeenCalledWith(
+        'Exported to Google Sheets',
+        expect.anything(),
+      )
+      vi.useRealTimers()
+    })
+
+    it('cancels a pending timeout when unmounted mid-export', async () => {
+      vi.useFakeTimers()
+      spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockImplementation(
+        () => new Promise(() => {}),
+      )
+      view = await render()
+      await choose('Export all to Google Sheets')
+
+      const { cleanup } = view
+      view = undefined
+      await cleanup()
+
+      await vi.advanceTimersByTimeAsync(SHEETS_EXPORT_TIMEOUT_MS)
+      expect(toastMocks.toast.error).not.toHaveBeenCalledWith('Export timed out - please try again')
+      vi.useRealTimers()
+    })
+  })
+
+  it('exports no columns when the scrape reported no column order', async () => {
+    view = await render({ scrapeResult: { data: [filled] } as ScrapeResult })
+
+    await choose('Copy all to clipboard')
+
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith('')
   })
 
   it('passes size, variant and class through to the trigger', async () => {

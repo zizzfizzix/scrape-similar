@@ -166,6 +166,33 @@ describe('DataTable', () => {
     expect(view.container.textContent).toContain('No data')
   })
 
+  it('truncates a very long value in the cell', async () => {
+    const long = 'x'.repeat(150)
+    view = await render({ data: [row({ Rank: '1', Country: long })] })
+
+    const cell = [...view.container.querySelectorAll('tbody td')].find((td) =>
+      td.textContent?.startsWith('xxx'),
+    )!
+    expect(cell.textContent).toBe(`${'x'.repeat(100)}...`)
+    // The full value stays available as the cell's tooltip.
+    expect(cell.querySelector('[title]')?.getAttribute('title')).toBe(long)
+  })
+
+  it('highlights the resize handle while a column is being dragged', async () => {
+    view = await render()
+    const handle = querySelector<HTMLElement>(view.container, '.cursor-col-resize')
+
+    expect(handle.className).toContain('opacity-0')
+
+    await view.act(() => {
+      handle.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: 0 }))
+    })
+
+    expect(querySelector<HTMLElement>(view.container, '.cursor-col-resize').className).toContain(
+      'bg-primary opacity-100',
+    )
+  })
+
   describe('highlighting a row', () => {
     it('asks for the row at its original position', async () => {
       const onRowHighlight = vi.fn()
@@ -288,6 +315,13 @@ describe('DataTable', () => {
 
       expect(button('Next page').disabled).toBe(true)
       expect(bodyRows()).toHaveLength(5)
+    })
+
+    it('reserves the control space when the data exactly fills a page', async () => {
+      view = await render({ data: manyRows(10) })
+
+      expect(view.container.querySelector('button[aria-label="Next page"]')).toBeNull()
+      expect(view.container.querySelector('[aria-hidden="true"].h-8')).not.toBeNull()
     })
 
     it('hides the controls when everything fits on one page', async () => {
