@@ -1,12 +1,16 @@
 /**
  * Files left out of unit-test coverage measurement.
  *
- * `src/**` is otherwise gated at 100% (see `coverage.thresholds` in
- * `vitest.config.ts`), which makes this list the only place uncovered code can
- * hide: adding an entry silently shrinks the denominator instead of failing a
- * check. So each group below carries the reason it is exempt, and
- * `src/__tests__/coverage-exclusions.test.ts` asserts the list is exactly what
- * gets applied — widening it means editing that test too, in the same diff.
+ * Everything here shrinks the denominator the `coverage.thresholds` block in
+ * `vitest.config.ts` is measured against, so an entry added quietly makes the
+ * gate easier instead of failing a check. Each group below therefore carries
+ * the reason it is exempt, and `src/__tests__/coverage-exclusions.test.ts`
+ * asserts the list is exactly what gets applied — widening it means editing
+ * that test too, in the same diff.
+ *
+ * This list is not the only way the denominator can shrink: a build-chain bug
+ * can hide code from instrumentation with no entry to review at all (#268).
+ * `scripts/check-coverage-fidelity.mjs` covers that side.
  */
 
 /**

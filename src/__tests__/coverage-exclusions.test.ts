@@ -10,9 +10,12 @@ import {
 } from '@@/coverage-exclusions'
 
 /**
- * The coverage exclusion list is the one place uncovered code can hide, since
- * `src/**` is otherwise gated at 100%. These tests make widening it deliberate
- * and keep each exemption's stated reason true.
+ * Every entry on the coverage exclusion list drops code out of the measured
+ * total, so the list is a way to make the gate easier without lowering it.
+ * These tests make widening it deliberate and keep each exemption's stated
+ * reason true. (The other way the measured total can shrink — instrumentation
+ * silently losing whole modules — is guarded by
+ * `scripts/check-coverage-fidelity.mjs`.)
  */
 
 const repoRoot = path.resolve(import.meta.dirname, '../..')

@@ -23,11 +23,18 @@ export default defineConfig({
       reportsDirectory: './coverage',
       include: ['src/**/*.{ts,tsx}'],
       exclude: COVERAGE_EXCLUSIONS,
+      // Baselined to what the suite actually covers, and meant to ratchet
+      // upward as gaps close — never down to accommodate a regression. These
+      // read low against the 100% this project used to claim because that
+      // number was measured over a quarter of the codebase; see #268.
+      //
+      // A ratio gate cannot notice the denominator shrinking, so
+      // `scripts/check-coverage-fidelity.mjs` guards that separately.
       thresholds: {
-        statements: 100,
-        branches: 100,
-        functions: 100,
-        lines: 100,
+        statements: 90,
+        branches: 86,
+        functions: 89,
+        lines: 90,
       },
     },
   },

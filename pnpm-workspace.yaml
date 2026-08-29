@@ -2,3 +2,18 @@
 # (10080 minutes). Gives the ecosystem time to yank compromised or broken
 # releases before they can land here.
 minimumReleaseAge: 10080
+
+# `unimport/unplugin` returns `s.generateMap()`, which defaults to
+# `hires: false` — a line-level sourcemap with no column mappings. The plugin is
+# `enforce: 'post'`, so that low-resolution map is the last one in the chain and
+# every module it rewrites loses column fidelity. Istanbul then collapses whole
+# files into a single statement, and coverage measures a fraction of the code
+# while still reporting 100%. See https://github.com/zizzfizzix/scrape-similar/issues/268
+#
+# The patch is the one line WXT itself used to pass (wxt-dev/wxt#381) before
+# wxt-dev/wxt#1412 replaced that plugin with the untuned upstream one. Drop it
+# once either https://github.com/unjs/unimport/issues/562 or
+# https://github.com/wxt-dev/wxt/issues/2604 ships; the version pin makes an
+# unpatched upgrade fail the install rather than silently shrink coverage again.
+patchedDependencies:
+  unimport@6.4.0: patches/unimport@6.4.0.patch
