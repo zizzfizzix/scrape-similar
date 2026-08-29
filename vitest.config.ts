@@ -28,10 +28,10 @@ export default defineConfig({
       // the 100% this project used to claim only because that number was
       // measured over a quarter of the codebase; see #268.
       thresholds: {
-        statements: 95,
-        branches: 92,
-        functions: 96,
-        lines: 95,
+        statements: 97,
+        branches: 96,
+        functions: 98,
+        lines: 98,
       },
     },
   },
