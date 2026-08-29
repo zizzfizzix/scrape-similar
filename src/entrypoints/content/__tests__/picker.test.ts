@@ -576,6 +576,18 @@ describe('handlePickerClick', () => {
     expect(errorSpy).toHaveBeenCalledWith('Error in picker click handler:', expect.any(Error))
   })
 
+  it('names the failure generically when the background gives no reason', async () => {
+    const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
+    sendMessage = backgroundReplies({ success: false })
+
+    await click().result
+
+    expect(errorSpy).toHaveBeenCalledWith(
+      'Error in picker click handler:',
+      expect.objectContaining({ message: 'Failed to save config' }),
+    )
+  })
+
   it('gives up when the background cannot be reached', async () => {
     const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
     sendMessage = backgroundReplies(undefined, { message: 'port closed' })
