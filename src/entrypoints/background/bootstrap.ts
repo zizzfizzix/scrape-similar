@@ -22,16 +22,11 @@ import { initializeDebugMode } from '@/entrypoints/background/services/debug-mod
  * `defineBackground` wrapper, which needs a real extension context.
  */
 export const startBackground = (): void => {
-  // Initialize debug mode and set up watchers
+  // Debug mode first, so everything below logs at the level the user chose.
   initializeDebugMode()
-
-  // Initialize analytics queue and consent watchers
   initializeAnalyticsQueue()
-
-  // Initialize uninstall URL and watcher
   initializeUninstallUrl()
 
-  // Set up event listeners
   setupInstallListener()
   setupStartupListener()
   setupTabRemovedListener()
@@ -40,6 +35,6 @@ export const startBackground = (): void => {
   setupContextMenuListener()
   setupCommandsListener()
 
-  // Set up message routing
+  // Last, so every handler it routes to is registered.
   setupMessageListener()
 }

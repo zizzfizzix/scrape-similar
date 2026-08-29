@@ -3,19 +3,15 @@ import React, { type ReactNode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 
 /**
- * Putting an extension page on screen.
- *
  * Split out of the `main.tsx` entrypoints so the provider stack the pages share
- * — and the case where the page's root element is missing — can be exercised
+ * — and the case where a page's root element is missing — can be exercised
  * without a real extension page. The entrypoints keep only the call.
  */
 
 /**
- * The providers every full extension page is wrapped in.
- *
- * The side panel composes its own: `SidePanelRoot` supplies the theme, so
- * nesting a second `ThemeProvider` above it would give two of them a claim on
- * the document's theme classes.
+ * The side panel deliberately does not use this: `SidePanelRoot` supplies its
+ * own theme, and nesting a second `ThemeProvider` above it would give two of
+ * them a claim on the document's theme classes.
  */
 export const ExtensionPageRoot: React.FC<{ children: ReactNode }> = ({ children }) => (
   <React.StrictMode>
@@ -28,8 +24,6 @@ export const ExtensionPageRoot: React.FC<{ children: ReactNode }> = ({ children 
 )
 
 /**
- * Render `ui` into the element with id `rootElementId`.
- *
  * Reports a missing root rather than throwing: an extension page whose HTML has
  * drifted should leave a diagnosable log, not an unhandled error in a context
  * with no console anyone is watching.

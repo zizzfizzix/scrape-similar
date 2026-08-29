@@ -120,6 +120,9 @@ shadcn-ui components in `src/components/ui/` are generated/managed; custom compo
 
 ## Code conventions
 
+- **Only write a comment that says something the code cannot.** A comment earns its place by explaining _why_ — a constraint that is not visible locally, a reason an obvious-looking alternative is wrong, a decision someone would otherwise undo. Delete anything that restates the line below it: `// Set default log level` above `log.setDefaultLevel('error')`, `// Initialize debug mode` above `initializeDebugMode()`, a JSDoc line that repeats the function's own name. Those are noise that goes stale silently, and they train readers to skim past the comments that matter. This applies to comments you are moving or copying as much as to new ones — do not carry a redundant comment across during a refactor.
+  - Worth keeping, as examples from this repo: why a `catch` was deleted rather than tested (the callee already reports failure in its return value); why `defineBackground` is called with a body rather than a reference (WXT strips the body when it reads the config); why a test drives Radix with `fireEvent` rather than `user-event` (fake timers); why a `!` is safe (the router refuses a sender without a tab id before any handler runs).
+  - The same test applies to a name: if a comment is needed to explain _what_ something does, prefer renaming it.
 - **TypeScript everywhere**, functional components + hooks; no classes. Prefer `interface` over `type` for object shapes that may be extended. Avoid `enum` — use a const object with `as const` plus a derived union type (the `MESSAGE_TYPES` pattern).
 - **Named exports** for components and functions (no default exports for components).
 - Variable naming: use auxiliary verbs for booleans (`isX`, `hasX`, `shouldX`).

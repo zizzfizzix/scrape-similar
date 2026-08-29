@@ -371,7 +371,6 @@ describe('ConfigForm', () => {
         },
       )
 
-    /** Report `tabs` as the current window's active tabs. */
     const activeTabs = (tabs: Browser.tabs.Tab[]) =>
       spyOnBrowser(fakeBrowser.tabs, 'query').mockImplementation(
         (_query: unknown, callback?: (found: Browser.tabs.Tab[]) => void) => {
@@ -619,7 +618,6 @@ describe('ConfigForm', () => {
     })
 
     describe('saving one', () => {
-      /** Open the Save drawer and return its name field. */
       const openSaveDrawer = async () => {
         await userEvent.click(byText('Save'))
         return document.body.querySelector<HTMLInputElement>('input[placeholder="Preset name"]')!
@@ -685,7 +683,6 @@ describe('ConfigForm', () => {
     })
 
     describe('loading one', () => {
-      /** Open the Load popover and return the preset rows inside it. */
       const openLoadPopover = async () => {
         await userEvent.click(byText('Load'))
         return () => [...document.querySelectorAll<HTMLElement>('[cmdk-item]')]

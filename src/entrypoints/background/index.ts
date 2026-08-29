@@ -8,7 +8,6 @@
 import { startBackground } from '@/entrypoints/background/bootstrap'
 import log from 'loglevel'
 
-// Set default log level
 log.setDefaultLevel('error')
 
 export default defineBackground(() => {

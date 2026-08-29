@@ -115,7 +115,6 @@ const renderLoaded = async () => {
 
 const text = () => view.container.textContent ?? ''
 
-/** The tab id the page's URL currently names. */
 const urlTabId = () => new URL(window.location.href).searchParams.get('tabId')
 
 /** Write `next` for `tabId`, and let the watcher react. */

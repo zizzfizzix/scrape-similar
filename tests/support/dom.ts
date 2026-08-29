@@ -8,8 +8,6 @@
  */
 
 /**
- * Report a fixed `offsetWidth` for every element.
- *
  * jsdom has no layout engine, so every element measures 0 and code that sizes
  * itself off a rendered child never sees a width. Pass 0 to restore jsdom's own
  * behaviour between tests.

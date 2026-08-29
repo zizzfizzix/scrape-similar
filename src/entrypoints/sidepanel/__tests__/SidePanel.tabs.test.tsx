@@ -115,7 +115,6 @@ const render = async () => {
 const mainSelectorInput = () =>
   view.container.querySelector<HTMLTextAreaElement>('textarea#mainSelector')!
 
-/** Tell the panel the browser switched to `tabId`. */
 const activateTab = (tabId: number) =>
   act(async () => {
     await fakeBrowser.tabs.onActivated.trigger({ tabId, windowId: 1 })
@@ -556,7 +555,6 @@ describe('presets', () => {
       candidate.textContent?.includes(name),
     )
 
-  /** Wait until `name` shows up in the preset list. */
   const waitForPreset = async (name: string) => {
     await openPresetList()
     await waitFor(() => expect(presetRow(name)).toBeDefined())
@@ -567,7 +565,6 @@ describe('presets', () => {
     await userEvent.click(presetRow(name)!)
   }
 
-  /** Open the Save drawer, name the preset and confirm. */
   const savePresetNamed = async (name: string) => {
     await userEvent.click(byLabel('Save'))
     const nameField = document.body.querySelector<HTMLInputElement>(
@@ -583,7 +580,6 @@ describe('presets', () => {
     })
   }
 
-  /** Open the Load popover, ask to remove `name`, and confirm. */
   const deletePresetNamed = async (name: string) => {
     await waitForPreset(name)
     await userEvent.click(presetRow(name)!.querySelector<HTMLButtonElement>('button')!)

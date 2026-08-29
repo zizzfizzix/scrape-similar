@@ -80,7 +80,6 @@ const render = async (overrides: Partial<ConfigFormProps> = {}) => {
 const mainSelectorInput = () =>
   view.container.querySelector<HTMLTextAreaElement>('textarea#mainSelector')!
 
-/** Every suggestion row currently rendered in the dropdown. */
 const suggestionItems = () => [...view.container.querySelectorAll<HTMLElement>('[cmdk-item]')]
 
 /** The id cmdk considers selected, as the dropdown reports it. */
