@@ -15,12 +15,12 @@ import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
 import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
 import {
-  openRadixTrigger,
-  querySelector,
-  renderComponent,
-  setInputValue,
   type RenderResult,
-} from '@@/tests/support/react'
+  act,
+  fireEvent,
+  render as renderComponent,
+} from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 
 const trackEvent = vi.hoisted(() => vi.fn())
 vi.mock('@/utils/analytics', async (importOriginal) => ({
@@ -34,7 +34,7 @@ vi.mock('sonner', async (importOriginal) => ({
   toast: toastMocks.toast,
 }))
 
-let view: RenderResult | undefined
+let view: RenderResult
 
 const consentKey = `sync:${ANALYTICS_CONSENT_STORAGE_KEY}` as const
 
@@ -81,19 +81,23 @@ const openTabs = async (
 const openSingleTab = (data: ScrapedRow[] = rows) =>
   openTabs([{ id: 1, title: 'Populations', url: 'https://example.com/pop', state: state(data) }])
 
-const render = () =>
-  renderComponent(
+/** Render, and let mount-time storage reads settle before asserting. */
+const render = async () => {
+  const rendered = renderComponent(
     <ConsentProvider>
       <ThemeProvider>
         <FullDataViewApp />
       </ThemeProvider>
     </ConsentProvider>,
   )
+  await act(async () => {})
+  return rendered
+}
 
 /** Render and let the mount-time tab scan settle. */
 const renderLoaded = async () => {
   view = await render()
-  await view.act(async () => {
+  await act(async () => {
     await flush()
   })
   return view
@@ -102,17 +106,16 @@ const renderLoaded = async () => {
 /** Give storage watchers and awaited effects a macrotask to run. */
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0))
 
-const text = () => view!.container.textContent ?? ''
-const bodyRows = () => [...view!.container.querySelectorAll('tbody tr')]
-const headers = () =>
-  [...view!.container.querySelectorAll('th')].map((th) => th.textContent?.trim())
+const text = () => view.container.textContent ?? ''
+const bodyRows = () => [...view.container.querySelectorAll('tbody tr')]
+const headers = () => [...view.container.querySelectorAll('th')].map((th) => th.textContent?.trim())
 const button = (label: string) =>
-  querySelector<HTMLButtonElement>(view!.container, `button[aria-label="${label}"]`)
+  view.container.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)!
 const allButtons = (label: string) => [
-  ...view!.container.querySelectorAll<HTMLButtonElement>(`button[aria-label="${label}"]`),
+  ...view.container.querySelectorAll<HTMLButtonElement>(`button[aria-label="${label}"]`),
 ]
 const byText = (label: string): HTMLButtonElement => {
-  const found = [...view!.container.querySelectorAll('button')].find((candidate) =>
+  const found = [...view.container.querySelectorAll('button')].find((candidate) =>
     candidate.textContent?.trim().startsWith(label),
   )
   if (!found) throw new Error(`No button starting with "${label}"`)
@@ -131,10 +134,7 @@ beforeEach(async () => {
 })
 
 afterEach(async () => {
-  await view?.cleanup()
-  view = undefined
   vi.unstubAllGlobals()
-  document.body.innerHTML = ''
 })
 
 describe('FullDataViewApp', () => {
@@ -152,7 +152,7 @@ describe('FullDataViewApp', () => {
     expect(text()).toContain('Failed to load tab data: tabs unavailable')
 
     await openSingleTab()
-    await view!.act(async () => {
+    await act(async () => {
       byText('Retry').click()
       await flush()
     })
@@ -218,7 +218,7 @@ describe('FullDataViewApp', () => {
     await renderLoaded()
     expect(text()).toContain('Show 1 empty rows')
 
-    await view!.act(() => querySelector<HTMLElement>(view!.container, '#show-empty-rows').click())
+    await act(() => view.container.querySelector<HTMLElement>('#show-empty-rows')!.click())
 
     expect(bodyRows()).toHaveLength(3)
     expect(text()).toContain('3 total rows')
@@ -229,19 +229,19 @@ describe('FullDataViewApp', () => {
 
     await renderLoaded()
 
-    expect(view!.container.querySelector('#show-empty-rows')).toBeNull()
+    expect(view.container.querySelector('#show-empty-rows')).toBeNull()
     expect(text()).toContain('1 rows with data')
   })
 
   describe('searching', () => {
     const search = () =>
-      querySelector<HTMLInputElement>(view!.container, 'input[placeholder="Search all columns..."]')
+      view.container.querySelector<HTMLInputElement>('input[placeholder="Search all columns..."]')!
 
     it('narrows the table to the matching rows', async () => {
       await openSingleTab()
       await renderLoaded()
 
-      await view!.act(() => setInputValue(search(), 'Poland'))
+      fireEvent.change(search(), { target: { value: 'Poland' } })
 
       expect(bodyRows()).toHaveLength(1)
       expect(text()).toContain('1 filtered rows')
@@ -251,7 +251,7 @@ describe('FullDataViewApp', () => {
       await openSingleTab()
       await renderLoaded()
 
-      await view!.act(() => setInputValue(search(), 'Peru'))
+      fireEvent.change(search(), { target: { value: 'Peru' } })
 
       expect(text()).toContain('No data found')
     })
@@ -259,11 +259,11 @@ describe('FullDataViewApp', () => {
     it('drops the empty rows again, since they never match', async () => {
       await openSingleTab()
       await renderLoaded()
-      await view!.act(() => querySelector<HTMLElement>(view!.container, '#show-empty-rows').click())
+      await act(() => view.container.querySelector<HTMLElement>('#show-empty-rows')!.click())
 
-      await view!.act(() => setInputValue(search(), 'Poland'))
+      fireEvent.change(search(), { target: { value: 'Poland' } })
 
-      expect(view!.container.querySelector('#show-empty-rows')).toBeNull()
+      expect(view.container.querySelector('#show-empty-rows')).toBeNull()
     })
 
     it('records the search once the typing stops', async () => {
@@ -271,12 +271,12 @@ describe('FullDataViewApp', () => {
       try {
         await openSingleTab()
         view = await render()
-        await view.act(async () => {
+        await act(async () => {
           await vi.advanceTimersByTimeAsync(0)
         })
-        await view.act(() => setInputValue(search(), 'Poland'))
+        fireEvent.change(search(), { target: { value: 'Poland' } })
 
-        await view.act(async () => {
+        await act(async () => {
           await vi.advanceTimersByTimeAsync(1000)
         })
 
@@ -300,7 +300,7 @@ describe('FullDataViewApp', () => {
       await openSingleTab()
       await renderLoaded()
 
-      await view!.act(async () => {
+      await act(async () => {
         allButtons('Highlight this element')[1]!.click()
         await flush()
       })
@@ -326,7 +326,7 @@ describe('FullDataViewApp', () => {
       await openSingleTab()
       await renderLoaded()
 
-      await view!.act(async () => {
+      await act(async () => {
         allButtons('Highlight this element')[0]!.click()
         await flush()
       })
@@ -345,7 +345,7 @@ describe('FullDataViewApp', () => {
       await openSingleTab()
       await renderLoaded()
 
-      await view!.act(async () => {
+      await act(async () => {
         allButtons('Highlight this element')[0]!.click()
         await flush()
       })
@@ -358,7 +358,7 @@ describe('FullDataViewApp', () => {
       await openSingleTab()
       await renderLoaded()
 
-      await view!.act(async () => {
+      await act(async () => {
         allButtons('Highlight this element')[0]!.click()
         await flush()
       })
@@ -370,7 +370,7 @@ describe('FullDataViewApp', () => {
       await openSingleTab()
       await renderLoaded()
 
-      await view!.act(async () => {
+      await act(async () => {
         allButtons('Copy this row')[0]!.click()
         await flush()
       })
@@ -389,7 +389,7 @@ describe('FullDataViewApp', () => {
       await openSingleTab()
       await renderLoaded()
 
-      await view!.act(async () => {
+      await act(async () => {
         allButtons('Copy this row')[0]!.click()
         await flush()
       })
@@ -401,7 +401,7 @@ describe('FullDataViewApp', () => {
     it('offers no controls for an empty row', async () => {
       await openSingleTab()
       await renderLoaded()
-      await view!.act(() => querySelector<HTMLElement>(view!.container, '#show-empty-rows').click())
+      await act(() => view.container.querySelector<HTMLElement>('#show-empty-rows')!.click())
 
       const controls = [...bodyRows()[2]!.querySelectorAll('td')[2]!.querySelectorAll('button')]
       expect(controls).toHaveLength(2)
@@ -411,14 +411,14 @@ describe('FullDataViewApp', () => {
 
   describe('selecting rows', () => {
     const checkboxes = () => [
-      ...view!.container.querySelectorAll<HTMLElement>('button[role="checkbox"]'),
+      ...view.container.querySelectorAll<HTMLElement>('button[role="checkbox"]'),
     ]
 
     it('reports how many of the filtered rows are picked', async () => {
       await openSingleTab()
       await renderLoaded()
 
-      await view!.act(() => checkboxes()[1]!.click())
+      await userEvent.click(checkboxes()[1]!)
 
       expect(text()).toContain('1 of 2 rows selected')
       expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.FULL_DATA_VIEW_ROW_SELECTION, {
@@ -433,9 +433,9 @@ describe('FullDataViewApp', () => {
       await renderLoaded()
       const checkbox = allButtons('Select row')[0]!
 
-      await view!.act(() => checkbox.click())
+      await userEvent.click(checkbox)
       trackEvent.mockClear()
-      await view!.act(() => checkbox.click())
+      await userEvent.click(checkbox)
 
       expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.FULL_DATA_VIEW_ROW_SELECTION, {
         selection_type: 'deselect_individual',
@@ -448,10 +448,10 @@ describe('FullDataViewApp', () => {
       await openSingleTab()
       await renderLoaded()
 
-      await view!.act(() => checkboxes()[0]!.click())
+      await userEvent.click(checkboxes()[0]!)
       expect(text()).toContain('2 of 2 rows selected')
 
-      await view!.act(() => checkboxes()[0]!.click())
+      await userEvent.click(checkboxes()[0]!)
 
       expect(text()).not.toContain('rows selected')
       expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.FULL_DATA_VIEW_ROW_SELECTION, {
@@ -467,14 +467,14 @@ describe('FullDataViewApp', () => {
       await openSingleTab()
       await renderLoaded()
 
-      const countryHeader = [...view!.container.querySelectorAll<HTMLElement>('th')].find((th) =>
+      const countryHeader = [...view.container.querySelectorAll<HTMLElement>('th')].find((th) =>
         th.textContent?.startsWith('Country'),
       )!
-      await view!.act(() => countryHeader.click())
+      await userEvent.click(countryHeader)
 
       expect(bodyRows()[0]?.textContent).toContain('Poland')
 
-      await view!.act(() => countryHeader.click())
+      await userEvent.click(countryHeader)
 
       expect(bodyRows()[0]?.textContent).toContain('Spain')
     })
@@ -499,10 +499,10 @@ describe('FullDataViewApp', () => {
       await openSingleTab(manyRows(45))
       await renderLoaded()
 
-      await view!.act(() => button('Next page').click())
+      await userEvent.click(button('Next page'))
       expect(text()).toContain('Page 2 of 3')
 
-      await view!.act(() => button('Previous page').click())
+      await userEvent.click(button('Previous page'))
 
       expect(text()).toContain('Page 1 of 3')
       expect(button('Previous page').disabled).toBe(true)
@@ -513,15 +513,15 @@ describe('FullDataViewApp', () => {
 
       await renderLoaded()
 
-      expect(view!.container.querySelector('button[aria-label="Next page"]')).toBeNull()
+      expect(view.container.querySelector('button[aria-label="Next page"]')).toBeNull()
     })
 
     it('changes how many rows a page holds', async () => {
       await openSingleTab(manyRows(45))
       await renderLoaded()
 
-      await openRadixTrigger(byText('20'))
-      await view!.act(() => {
+      await userEvent.click(byText('20'))
+      await act(() => {
         const option = [...document.querySelectorAll<HTMLElement>('[role="menuitemradio"]')].find(
           (item) => item.textContent === '50',
         )
@@ -555,15 +555,15 @@ describe('FullDataViewApp', () => {
   it('highlights the resize handle while a column is being dragged', async () => {
     await openSingleTab()
     await renderLoaded()
-    const handle = querySelector<HTMLElement>(view!.container, '.cursor-col-resize')
+    const handle = view.container.querySelector<HTMLElement>('.cursor-col-resize')!
 
     expect(handle.className).toContain('opacity-0')
 
-    await view!.act(() => {
+    await act(() => {
       handle.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: 0 }))
     })
 
-    expect(querySelector<HTMLElement>(view!.container, '.cursor-col-resize').className).toContain(
+    expect(view.container.querySelector<HTMLElement>('.cursor-col-resize')!.className).toContain(
       'bg-primary opacity-100',
     )
   })
@@ -581,8 +581,8 @@ describe('FullDataViewApp', () => {
       ])
       await renderLoaded()
 
-      await openRadixTrigger(byText('First'))
-      await view!.act(() => {
+      await userEvent.click(byText('First'))
+      await act(() => {
         const option = [...document.querySelectorAll<HTMLElement>('[cmdk-item]')].find((item) =>
           item.textContent?.includes('Second'),
         )
@@ -607,22 +607,21 @@ describe('FullDataViewApp', () => {
         },
       ])
       await renderLoaded()
-      await openRadixTrigger(byText('First'))
-      const search = querySelector<HTMLInputElement>(
-        document.body,
+      await userEvent.click(byText('First'))
+      const search = document.body.querySelector<HTMLInputElement>(
         'input[placeholder="Search tabs..."]',
-      )
+      )!
       const options = () => [...document.querySelectorAll('[cmdk-item]')].length
 
       // Matches the second tab's address but neither title.
-      await view!.act(() => setInputValue(search, 'beta'))
+      fireEvent.change(search, { target: { value: 'beta' } })
       expect(options()).toBe(1)
 
       // Matches the first tab's title but neither address.
-      await view!.act(() => setInputValue(search, 'First'))
+      fireEvent.change(search, { target: { value: 'First' } })
       expect(options()).toBe(1)
 
-      await view!.act(() => setInputValue(search, 'nothing at all'))
+      fireEvent.change(search, { target: { value: 'nothing at all' } })
       expect(options()).toBe(0)
     })
   })
@@ -638,7 +637,7 @@ describe('FullDataViewApp', () => {
       await openSingleTab()
       await renderLoaded()
 
-      await view!.act(async () => {
+      await act(async () => {
         byText('Back to Tab').click()
         await flush()
       })
@@ -658,7 +657,7 @@ describe('FullDataViewApp', () => {
       await openSingleTab()
       await renderLoaded()
 
-      await view!.act(async () => {
+      await act(async () => {
         byText('Back to Tab').click()
         await flush()
       })
@@ -674,7 +673,7 @@ describe('FullDataViewApp', () => {
       await openSingleTab()
       await renderLoaded()
 
-      await view!.act(async () => {
+      await act(async () => {
         byText('Back to Tab').click()
         await flush()
       })
@@ -688,7 +687,7 @@ describe('FullDataViewApp', () => {
       await openSingleTab()
       await renderLoaded()
 
-      await view!.act(async () => {
+      await act(async () => {
         byText('Back to Tab').click()
         await flush()
       })

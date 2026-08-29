@@ -2,7 +2,7 @@
 import log from 'loglevel'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
-import { renderComponent, type RenderResult } from '@@/tests/support/react'
+import { type RenderResult, act, render as renderComponent } from '@testing-library/react'
 
 /**
  * The PostHog API key and host are read from `import.meta.env` at call time but
@@ -58,18 +58,18 @@ const loadProvider = async ({
   return { PostHogWrapper, ConsentProvider }
 }
 
-let view: RenderResult | undefined
+let view: RenderResult
 
 const render = async (scenario?: Scenario) => {
   const { PostHogWrapper, ConsentProvider } = await loadProvider(scenario)
-  view = await renderComponent(
+  view = renderComponent(
     <ConsentProvider>
       <PostHogWrapper>
         <p>The app</p>
       </PostHogWrapper>
     </ConsentProvider>,
   )
-  await view.act(async () => {})
+  await act(async () => {})
   return view
 }
 
@@ -79,9 +79,6 @@ beforeEach(() => {
 })
 
 afterEach(async () => {
-  await view?.cleanup()
-  view = undefined
-  document.body.innerHTML = ''
   delete (window as { __scrape_similar_posthog?: unknown }).__scrape_similar_posthog
   vi.unstubAllEnvs()
   vi.resetModules()

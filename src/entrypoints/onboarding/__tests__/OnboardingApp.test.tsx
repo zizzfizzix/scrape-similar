@@ -6,7 +6,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
 import { spyOnBrowser } from '@@/tests/support/fake-browser'
-import { renderComponent, type RenderResult } from '@@/tests/support/react'
+import { type RenderResult, act, render as renderComponent } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 
 const trackEvent = vi.hoisted(() => vi.fn())
 vi.mock('@/utils/analytics', async (importOriginal) => ({
@@ -39,13 +40,14 @@ const { ConsentProvider } = await import('@/components/consent-provider')
 const { ThemeProvider } = await import('@/components/theme-provider')
 const { TooltipProvider } = await import('@/components/ui/tooltip')
 
-let view: RenderResult | undefined
+let view: RenderResult
 let replace: ReturnType<typeof vi.fn>
 
 const consentKey = `sync:${ANALYTICS_CONSENT_STORAGE_KEY}` as const
 
-const render = () =>
-  renderComponent(
+/** Render, and let mount-time storage reads settle before asserting. */
+const render = async () => {
+  const rendered = renderComponent(
     <ConsentProvider>
       <ThemeProvider>
         <TooltipProvider>
@@ -54,9 +56,12 @@ const render = () =>
       </ThemeProvider>
     </ConsentProvider>,
   )
+  await act(async () => {})
+  return rendered
+}
 
 const byText = (text: string): HTMLButtonElement => {
-  const found = [...view!.container.querySelectorAll('button')].find((candidate) =>
+  const found = [...view.container.querySelectorAll('button')].find((candidate) =>
     candidate.textContent?.trim().startsWith(text),
   )
   if (!found) throw new Error(`No button starting with "${text}"`)
@@ -64,11 +69,11 @@ const byText = (text: string): HTMLButtonElement => {
 }
 
 const hasButton = (text: string) =>
-  [...view!.container.querySelectorAll('button')].some((candidate) =>
+  [...view.container.querySelectorAll('button')].some((candidate) =>
     candidate.textContent?.trim().startsWith(text),
   )
 
-const press = (text: string) => view!.act(() => byText(text).click())
+const press = (text: string) => act(() => byText(text).click())
 
 /** Step forward until the last slide's Start button appears. */
 const goToLastSlide = async () => {
@@ -85,10 +90,7 @@ beforeEach(async () => {
 })
 
 afterEach(async () => {
-  await view?.cleanup()
-  view = undefined
   vi.unstubAllGlobals()
-  document.body.innerHTML = ''
 })
 
 describe('OnboardingApp', () => {
@@ -220,7 +222,7 @@ describe('OnboardingApp', () => {
       view = await render()
       await goToLastSlide()
 
-      await view.act(async () => {
+      await act(async () => {
         byText('Start').click()
         await Promise.resolve()
         await Promise.resolve()
@@ -241,7 +243,7 @@ describe('OnboardingApp', () => {
       view = await render()
       await goToLastSlide()
 
-      await view.act(async () => {
+      await act(async () => {
         byText('Start').click()
         await Promise.resolve()
         await Promise.resolve()
@@ -258,7 +260,7 @@ describe('OnboardingApp', () => {
       view = await render()
       await goToLastSlide()
 
-      await view.act(async () => {
+      await act(async () => {
         byText('Start').click()
         await Promise.resolve()
         await Promise.resolve()
@@ -277,7 +279,7 @@ describe('OnboardingApp', () => {
       view = await render()
       await goToLastSlide()
 
-      await view.act(async () => {
+      await act(async () => {
         byText('Start').click()
         await Promise.resolve()
         await Promise.resolve()
@@ -291,7 +293,7 @@ describe('OnboardingApp', () => {
       view = await render()
       await goToLastSlide()
 
-      await view.act(async () => {
+      await act(async () => {
         byText('Start').click()
         await Promise.resolve()
         await Promise.resolve()

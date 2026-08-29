@@ -1,3 +1,7 @@
+// React Testing Library's DOM matchers (`toBeInTheDocument`, `toHaveValue`,
+// `toBeDisabled`, ...), registered for every test file.
+import '@testing-library/jest-dom/vitest'
+
 // JSDom + Vitest don't play well with each other. Long story short - default
 // TextEncoder produces Uint8Array objects that are _different_ from the global
 // Uint8Array objects, so some functions that compare their types explode.
@@ -69,6 +73,9 @@ if (typeof window !== 'undefined') {
   Element.prototype.setPointerCapture ??= () => {}
   Element.prototype.releasePointerCapture ??= () => {}
   Element.prototype.scrollIntoView ??= () => {}
+  // The autosuggest and the columns strip both scroll their selection into
+  // view; jsdom has no layout engine, so these throw rather than no-op.
+  Element.prototype.scrollTo ??= () => {}
 
   if (typeof window.ResizeObserver !== 'function') {
     window.ResizeObserver = class {

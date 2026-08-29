@@ -5,21 +5,20 @@ import { ANALYTICS_EVENTS } from '@/utils/analytics'
 import { setRecentMainSelectors, userPresetsStorage } from '@/utils/storage'
 import { SYSTEM_PRESETS } from '@/utils/system_presets'
 import { SYSTEM_PRESET_STATUS_KEY, type Preset, type ScrapeConfig } from '@/utils/types'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
 import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
 import { useState } from 'react'
 import {
-  openRadixTrigger,
-  querySelector,
-  renderComponent,
-  setInputValue,
-  stubOffsetWidth,
-  stubScrolling,
-  waitFor,
   type RenderResult,
-} from '@@/tests/support/react'
+  act,
+  fireEvent,
+  render as renderComponent,
+  waitFor,
+} from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { stubOffsetWidth } from '@@/tests/support/dom'
 
 const trackEvent = vi.hoisted(() => vi.fn())
 vi.mock('@/utils/analytics', async (importOriginal) => ({
@@ -30,7 +29,7 @@ vi.mock('@/utils/analytics', async (importOriginal) => ({
 const toastMocks = vi.hoisted(() => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 vi.mock('sonner', () => toastMocks)
 
-let view: RenderResult | undefined
+let view: RenderResult
 
 const preset = (id: string, name: string, mainSelector: string): Preset => ({
   id,
@@ -68,12 +67,16 @@ const baseProps = (): ConfigFormProps => ({
   highlightMatchCount: 3,
 })
 
-const render = (overrides: Partial<ConfigFormProps> = {}) =>
-  renderComponent(
+/** Render, and let mount-time storage reads settle before asserting. */
+const render = async (overrides: Partial<ConfigFormProps> = {}) => {
+  const rendered = renderComponent(
     <TooltipProvider>
       <ConfigForm {...baseProps()} {...overrides} />
     </TooltipProvider>,
   )
+  await act(async () => {})
+  return rendered
+}
 
 /** A ConfigForm whose parent actually applies the config it reports. */
 const ControlledConfigForm = () => {
@@ -82,20 +85,20 @@ const ControlledConfigForm = () => {
 }
 
 const mainSelectorInput = () =>
-  querySelector<HTMLTextAreaElement>(view!.container, 'textarea#mainSelector')
+  view.container.querySelector<HTMLTextAreaElement>('textarea#mainSelector')!
 const columnNameInputs = () => [
-  ...view!.container.querySelectorAll<HTMLInputElement>('input[placeholder="Column name"]'),
+  ...view.container.querySelectorAll<HTMLInputElement>('input[placeholder="Column name"]'),
 ]
 const columnSelectorInputs = () => [
-  ...view!.container.querySelectorAll<HTMLInputElement>('input[placeholder="Selector"]'),
+  ...view.container.querySelectorAll<HTMLInputElement>('input[placeholder="Selector"]'),
 ]
 const button = (label: string) =>
-  querySelector<HTMLButtonElement>(view!.container, `button[aria-label="${label}"]`)
+  view.container.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)!
 const allButtons = (label: string) => [
-  ...view!.container.querySelectorAll<HTMLButtonElement>(`button[aria-label="${label}"]`),
+  ...view.container.querySelectorAll<HTMLButtonElement>(`button[aria-label="${label}"]`),
 ]
 const byText = (text: string): HTMLButtonElement => {
-  const found = [...view!.container.querySelectorAll('button')].find(
+  const found = [...view.container.querySelectorAll('button')].find(
     (candidate) => candidate.textContent?.trim() === text,
   )
   if (!found) throw new Error(`No button labelled "${text}"`)
@@ -105,16 +108,9 @@ const byText = (text: string): HTMLButtonElement => {
 beforeEach(async () => {
   fakeBrowser.reset()
   setLastError(undefined)
-  stubScrolling()
   // jsdom measures everything as 0; restore that between tests that stub it.
   stubOffsetWidth(0)
   await userPresetsStorage.setValue([])
-})
-
-afterEach(async () => {
-  await view?.cleanup()
-  view = undefined
-  document.body.innerHTML = ''
 })
 
 describe('ConfigForm', () => {
@@ -144,7 +140,7 @@ describe('ConfigForm', () => {
       const onChange = vi.fn()
       view = await render({ onChange })
 
-      await view.act(() => setInputValue(mainSelectorInput(), '//li'))
+      fireEvent.change(mainSelectorInput(), { target: { value: '//li' } })
 
       expect(onChange).not.toHaveBeenCalled()
       expect(mainSelectorInput().value).toBe('//li')
@@ -153,7 +149,7 @@ describe('ConfigForm', () => {
     it('collapses pasted line breaks into spaces', async () => {
       view = await render()
 
-      await view.act(() => setInputValue(mainSelectorInput(), '//table\n//tr'))
+      fireEvent.change(mainSelectorInput(), { target: { value: '//table\n//tr' } })
 
       expect(mainSelectorInput().value).toBe('//table //tr')
     })
@@ -164,8 +160,8 @@ describe('ConfigForm', () => {
       const onHighlight = vi.fn()
       view = await render({ onChange, onHighlight })
 
-      await view.act(() => setInputValue(mainSelectorInput(), '//li'))
-      await view.act(() => {
+      fireEvent.change(mainSelectorInput(), { target: { value: '//li' } })
+      await act(() => {
         // React delivers onBlur from the bubbling focusout event.
         mainSelectorInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
         vi.advanceTimersByTime(200)
@@ -181,8 +177,8 @@ describe('ConfigForm', () => {
       const onHighlight = vi.fn()
       view = await render({ onHighlight })
 
-      await view.act(() => setInputValue(mainSelectorInput(), '   '))
-      await view.act(() => {
+      fireEvent.change(mainSelectorInput(), { target: { value: '   ' } })
+      await act(() => {
         // React delivers onBlur from the bubbling focusout event.
         mainSelectorInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
         vi.advanceTimersByTime(200)
@@ -195,7 +191,7 @@ describe('ConfigForm', () => {
     it('follows a selector changed by its parent', async () => {
       view = await render()
 
-      await view.render(
+      view.rerender(
         <TooltipProvider>
           <ConfigForm {...baseProps()} config={{ ...config, mainSelector: '//section' }} />
         </TooltipProvider>,
@@ -210,7 +206,7 @@ describe('ConfigForm', () => {
       const onChange = vi.fn()
       view = await render({ onChange })
 
-      await view.act(() => setInputValue(columnNameInputs()[0]!, 'Position'))
+      fireEvent.change(columnNameInputs()[0]!, { target: { value: 'Position' } })
 
       expect(onChange).toHaveBeenCalledWith({
         ...config,
@@ -222,7 +218,7 @@ describe('ConfigForm', () => {
       const onChange = vi.fn()
       view = await render({ onChange })
 
-      await view.act(() => setInputValue(columnSelectorInputs()[1]!, '@data-country'))
+      fireEvent.change(columnSelectorInputs()[1]!, { target: { value: '@data-country' } })
 
       expect(onChange).toHaveBeenCalledWith({
         ...config,
@@ -234,7 +230,7 @@ describe('ConfigForm', () => {
       const onChange = vi.fn()
       view = await render({ onChange })
 
-      await view.act(() => button('Add column').click())
+      await userEvent.click(button('Add column'))
 
       expect(onChange).toHaveBeenCalledWith({
         ...config,
@@ -247,7 +243,7 @@ describe('ConfigForm', () => {
       const onChange = vi.fn()
       view = await render({ onChange })
 
-      await view.act(() => allButtons('Remove column')[0]!.click())
+      await userEvent.click(allButtons('Remove column')[0]!)
 
       expect(onChange).toHaveBeenCalledWith({ ...config, columns: [config.columns[1]] })
       expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.REMOVE_COLUMN_BUTTON_PRESS)
@@ -259,7 +255,7 @@ describe('ConfigForm', () => {
       const onScrape = vi.fn()
       view = await render({ onScrape })
 
-      await view.act(() => byText('Scrape').click())
+      await userEvent.click(byText('Scrape'))
 
       expect(onScrape).toHaveBeenCalled()
       expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.SCRAPE_BUTTON_PRESS)
@@ -268,7 +264,7 @@ describe('ConfigForm', () => {
     it('offers to validate instead while the selector is unsaved', async () => {
       view = await render()
 
-      await view.act(() => setInputValue(mainSelectorInput(), '//li'))
+      fireEvent.change(mainSelectorInput(), { target: { value: '//li' } })
 
       expect(byText('Validate selector')).toBeTruthy()
     })
@@ -308,7 +304,7 @@ describe('ConfigForm', () => {
       const onClearLastScrapeRowCount = vi.fn()
       view = await render({ lastScrapeRowCount: 0, onClearLastScrapeRowCount })
 
-      await view.act(() => {
+      await act(() => {
         vi.advanceTimersByTime(2000)
       })
 
@@ -331,7 +327,7 @@ describe('ConfigForm', () => {
       const onPickerMode = vi.fn()
       view = await render({ onPickerMode })
 
-      await view.act(() => button('Open visual picker').click())
+      await userEvent.click(button('Open visual picker'))
 
       expect(onPickerMode).toHaveBeenCalled()
     })
@@ -360,7 +356,7 @@ describe('ConfigForm', () => {
     it('marks a selector that matched nothing', async () => {
       view = await render({ highlightMatchCount: 0 })
 
-      const badge = querySelector(view.container, '[data-slot="badge"]')
+      const badge = view.container.querySelector('[data-slot="badge"]')!
       expect(badge.textContent).toBe('0')
     })
   })
@@ -401,7 +397,7 @@ describe('ConfigForm', () => {
       )
       view = await render()
 
-      await view.act(async () => {
+      await act(async () => {
         button('Auto-generate configuration from selector').click()
         await Promise.resolve()
       })
@@ -419,7 +415,7 @@ describe('ConfigForm', () => {
       view = await render({ config: { ...config, mainSelector: '' } })
 
       expect(guessButton().disabled).toBe(true)
-      await view.act(() => guessButton().click())
+      await userEvent.click(guessButton())
 
       expect(query).not.toHaveBeenCalled()
     })
@@ -427,7 +423,7 @@ describe('ConfigForm', () => {
     it('is not offered while the selector is still uncommitted', async () => {
       view = await render()
 
-      await view.act(() => setInputValue(mainSelectorInput(), '//td'))
+      fireEvent.change(mainSelectorInput(), { target: { value: '//td' } })
 
       expect(guessButton().disabled).toBe(true)
     })
@@ -438,14 +434,14 @@ describe('ConfigForm', () => {
       activeTabs([{ id: 4 } as Browser.tabs.Tab])
       view = await render()
 
-      await view.act(async () => {
+      await act(async () => {
         guessButton().click()
         await Promise.resolve()
       })
 
       expect(guessButton().querySelector('.lucide-check')).not.toBeNull()
 
-      await view.act(() => {
+      await act(() => {
         vi.advanceTimersByTime(1500)
       })
 
@@ -458,7 +454,7 @@ describe('ConfigForm', () => {
       activeTabs([{ id: 4 } as Browser.tabs.Tab])
       view = await render()
 
-      await view.act(async () => {
+      await act(async () => {
         guessButton().click()
         await Promise.resolve()
       })
@@ -471,7 +467,7 @@ describe('ConfigForm', () => {
       activeTabs([])
       view = await render()
 
-      await view.act(async () => {
+      await act(async () => {
         guessButton().click()
         await Promise.resolve()
       })
@@ -486,7 +482,7 @@ describe('ConfigForm', () => {
       })
       view = await render()
 
-      await view.act(async () => {
+      await act(async () => {
         guessButton().click()
         await Promise.resolve()
       })
@@ -504,7 +500,7 @@ describe('ConfigForm', () => {
       )
       view = await render()
 
-      await view.act(async () => {
+      await act(async () => {
         guessButton().click()
         await Promise.resolve()
       })
@@ -512,7 +508,7 @@ describe('ConfigForm', () => {
       expect(guessButton().querySelector('.lucide-loader-circle')).not.toBeNull()
       expect(guessButton().disabled).toBe(true)
 
-      await view.act(() => release!())
+      await act(() => release!())
     })
 
     it('settles a failed guess back to idle', async () => {
@@ -521,13 +517,13 @@ describe('ConfigForm', () => {
       activeTabs([{ id: 4 } as Browser.tabs.Tab])
       view = await render()
 
-      await view.act(async () => {
+      await act(async () => {
         guessButton().click()
         await Promise.resolve()
       })
       expect(guessButton().querySelector('.lucide-x')).not.toBeNull()
 
-      await view.act(() => {
+      await act(() => {
         vi.advanceTimersByTime(1500)
       })
 
@@ -540,12 +536,12 @@ describe('ConfigForm', () => {
       activeTabs([])
       view = await render()
 
-      await view.act(async () => {
+      await act(async () => {
         guessButton().click()
         await Promise.resolve()
       })
 
-      await view.act(() => {
+      await act(() => {
         vi.advanceTimersByTime(1500)
       })
 
@@ -560,12 +556,12 @@ describe('ConfigForm', () => {
       })
       view = await render()
 
-      await view.act(async () => {
+      await act(async () => {
         guessButton().click()
         await Promise.resolve()
       })
 
-      await view.act(() => {
+      await act(() => {
         vi.advanceTimersByTime(1500)
       })
 
@@ -606,7 +602,7 @@ describe('ConfigForm', () => {
       await setRecentMainSelectors(['//span'])
       view = await render({ presets, config: { ...config, mainSelector: '' } })
 
-      await view.act(() => mainSelectorInput().focus())
+      await act(() => mainSelectorInput().focus())
 
       expect(view.container.textContent).toContain('Table rows')
       expect(view.container.textContent).toContain('//span')
@@ -614,9 +610,9 @@ describe('ConfigForm', () => {
 
     it('narrows the suggestions as the user types', async () => {
       view = await render({ presets, config: { ...config, mainSelector: '' } })
-      await view.act(() => mainSelectorInput().focus())
+      await act(() => mainSelectorInput().focus())
 
-      await view.act(() => setInputValue(mainSelectorInput(), 'links'))
+      fireEvent.change(mainSelectorInput(), { target: { value: 'links' } })
 
       expect(view.container.textContent).toContain('All links')
       expect(view.container.textContent).not.toContain('Table rows')
@@ -625,8 +621,8 @@ describe('ConfigForm', () => {
     describe('saving one', () => {
       /** Open the Save drawer and return its name field. */
       const openSaveDrawer = async () => {
-        await view!.act(() => openRadixTrigger(byText('Save')))
-        return querySelector<HTMLInputElement>(document.body, 'input[placeholder="Preset name"]')
+        await userEvent.click(byText('Save'))
+        return document.body.querySelector<HTMLInputElement>('input[placeholder="Preset name"]')!
       }
 
       const drawerButton = (label: string) =>
@@ -647,8 +643,8 @@ describe('ConfigForm', () => {
         view = await render({ onSavePreset })
         const nameField = await openSaveDrawer()
 
-        await view.act(() => setInputValue(nameField, 'My preset'))
-        await view.act(async () => {
+        fireEvent.change(nameField, { target: { value: 'My preset' } })
+        await act(async () => {
           drawerButton('Save').click()
           await Promise.resolve()
         })
@@ -661,9 +657,9 @@ describe('ConfigForm', () => {
         const onSavePreset = vi.fn()
         view = await render({ onSavePreset })
         const nameField = await openSaveDrawer()
-        await view.act(() => setInputValue(nameField, 'From the keyboard'))
+        fireEvent.change(nameField, { target: { value: 'From the keyboard' } })
 
-        await view.act(async () => {
+        await act(async () => {
           nameField.dispatchEvent(
             new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
           )
@@ -678,7 +674,7 @@ describe('ConfigForm', () => {
         view = await render({ onSavePreset })
         const nameField = await openSaveDrawer()
 
-        await view.act(() => {
+        await act(() => {
           nameField.dispatchEvent(
             new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
           )
@@ -691,7 +687,7 @@ describe('ConfigForm', () => {
     describe('loading one', () => {
       /** Open the Load popover and return the preset rows inside it. */
       const openLoadPopover = async () => {
-        await view!.act(() => openRadixTrigger(byText('Load')))
+        await userEvent.click(byText('Load'))
         return () => [...document.querySelectorAll<HTMLElement>('[cmdk-item]')]
       }
 
@@ -700,7 +696,7 @@ describe('ConfigForm', () => {
         view = await render({ presets, onLoadPreset })
         const rows = await openLoadPopover()
 
-        await view.act(() =>
+        await act(() =>
           rows()
             .find((row) => row.textContent?.includes('All links'))!
             .click(),
@@ -712,12 +708,11 @@ describe('ConfigForm', () => {
       it('narrows the list by the search term', async () => {
         view = await render({ presets })
         await openLoadPopover()
-        const search = querySelector<HTMLInputElement>(
-          document.body,
+        const search = document.body.querySelector<HTMLInputElement>(
           'input[placeholder="Search presets..."]',
-        )
+        )!
 
-        await view.act(() => setInputValue(search, 'links'))
+        fireEvent.change(search, { target: { value: 'links' } })
 
         await waitFor(() => {
           expect(document.body.textContent).toContain('All links')
@@ -741,25 +736,25 @@ describe('ConfigForm', () => {
       }
 
       const deleteButtonFor = async (name: string) => {
-        await view!.act(() => openRadixTrigger(byText('Load')))
+        await userEvent.click(byText('Load'))
         const row = [...document.querySelectorAll<HTMLElement>('[cmdk-item]')].find((candidate) =>
           candidate.textContent?.includes(name),
         )!
-        return querySelector<HTMLButtonElement>(row, 'button')
+        return row.querySelector<HTMLButtonElement>('button')!
       }
 
       const drawerText = () =>
-        document.querySelector<HTMLElement>('[data-slot="drawer-content"]')?.textContent ?? ''
+        document.querySelector<HTMLElement>('[data-slot="drawer-content"]')!?.textContent ?? ''
 
       /** The drawer stays mounted while it animates out, so read its state. */
       const openDrawer = () =>
-        document.querySelector('[data-slot="drawer-content"][data-state="open"]')
+        document.querySelector('[data-slot="drawer-content"][data-state="open"]')!
 
       it('asks for confirmation before deleting a user preset', async () => {
         view = await render({ presets })
 
         const remove = await deleteButtonFor('All links')
-        await view.act(() => remove.click())
+        await userEvent.click(remove)
 
         expect(drawerText()).toContain('Delete Preset')
         expect(drawerText()).toContain('This action cannot be undone.')
@@ -769,7 +764,7 @@ describe('ConfigForm', () => {
         view = await render({ presets: [systemPreset] })
 
         const remove = await deleteButtonFor('Built in')
-        await view.act(() => remove.click())
+        await userEvent.click(remove)
 
         expect(drawerText()).toContain('Hide Preset')
         expect(drawerText()).not.toContain('This action cannot be undone.')
@@ -779,9 +774,9 @@ describe('ConfigForm', () => {
         const onDeletePreset = vi.fn()
         view = await render({ presets, onDeletePreset })
         const remove = await deleteButtonFor('All links')
-        await view.act(() => remove.click())
+        await userEvent.click(remove)
 
-        await view.act(() =>
+        await act(() =>
           [...document.querySelectorAll<HTMLButtonElement>('button')]
             .find((candidate) => candidate.textContent?.trim() === 'Delete')!
             .click(),
@@ -795,14 +790,14 @@ describe('ConfigForm', () => {
         const onDeletePreset = vi.fn()
         view = await render({ presets, onDeletePreset })
         const remove = await deleteButtonFor('All links')
-        await view.act(() => remove.click())
+        await userEvent.click(remove)
         const confirm = [...document.querySelectorAll<HTMLButtonElement>('button')].find(
           (candidate) => candidate.textContent?.trim() === 'Delete',
         )!
 
-        await view.act(() => confirm.click())
+        await userEvent.click(confirm)
         // The drawer animates out, so the button is still clickable for a beat.
-        await view.act(() => confirm.click())
+        await userEvent.click(confirm)
 
         expect(onDeletePreset).toHaveBeenCalledTimes(1)
       })
@@ -811,9 +806,9 @@ describe('ConfigForm', () => {
         const onDeletePreset = vi.fn()
         view = await render({ presets, onDeletePreset })
         const remove = await deleteButtonFor('All links')
-        await view.act(() => remove.click())
+        await userEvent.click(remove)
 
-        await view.act(() =>
+        await act(() =>
           [...document.querySelectorAll<HTMLButtonElement>('button')]
             .find((candidate) => candidate.textContent?.trim() === 'Cancel')!
             .click(),
@@ -830,7 +825,7 @@ describe('ConfigForm', () => {
     vi.stubGlobal('open', open)
     view = await render()
 
-    await view.act(() => button('Open XPath reference').click())
+    await userEvent.click(button('Open XPath reference'))
 
     expect(open).toHaveBeenCalledWith(
       'https://www.stylusstudio.com/docs/v62/d_xpath15.html',
@@ -850,15 +845,15 @@ describe('ConfigForm', () => {
 
   it('scrolls the columns strip to the newly added column', async () => {
     const scrollTo = vi.fn()
-    view = await renderComponent(
+    view = renderComponent(
       <TooltipProvider>
         <ControlledConfigForm />
       </TooltipProvider>,
     )
-    const strip = querySelector<HTMLElement>(view.container, '.grid.grid-flow-col')
+    const strip = view.container.querySelector<HTMLElement>('.grid.grid-flow-col')!
     strip.scrollTo = scrollTo as unknown as HTMLElement['scrollTo']
 
-    await view.act(() => button('Add column').click())
+    await userEvent.click(button('Add column'))
 
     expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ behavior: 'smooth' }))
   })

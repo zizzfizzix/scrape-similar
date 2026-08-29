@@ -3,22 +3,21 @@ import {
   mountPickerContextMenuReact,
   PickerContextMenu,
 } from '@/entrypoints/content/ui/PickerContextMenu'
-import { act } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import {
-  querySelector,
-  renderComponent,
-  setInputValue,
   type RenderResult,
-} from '@@/tests/support/react'
+  act,
+  fireEvent,
+  render as renderComponent,
+} from '@testing-library/react'
 
 /** Menu geometry the component clamps against. */
 const MENU_WIDTH = 80
 const MENU_HEIGHT = 208
 const PADDING = 8
 
-let view: RenderResult | undefined
+let view: RenderResult
 
 /** Report a fixed viewport size, which jsdom otherwise fixes at 1024x768. */
 const setViewport = (width: number, height: number) => {
@@ -31,16 +30,10 @@ beforeEach(() => {
   setViewport(1000, 800)
 })
 
-afterEach(async () => {
-  await view?.cleanup()
-  view = undefined
-  document.body.innerHTML = ''
-})
-
 describe('PickerContextMenu', () => {
-  const menu = (container: HTMLElement) => querySelector(container, 'div[style]')
+  const menu = (container: HTMLElement) => container.querySelector('div[style]')!
   const slider = (container: HTMLElement) =>
-    querySelector<HTMLInputElement>(container, 'input[type="range"]')
+    container.querySelector<HTMLInputElement>('input[type="range"]')!
 
   const render = (props: Partial<Parameters<typeof PickerContextMenu>[0]> = {}) =>
     renderComponent(
@@ -55,33 +48,35 @@ describe('PickerContextMenu', () => {
     )
 
   it('positions itself at the pointer', async () => {
-    view = await render()
+    view = render()
 
-    expect(menu(view.container).style.left).toBe('100px')
-    expect(menu(view.container).style.top).toBe('200px')
+    expect((menu(view.container) as HTMLElement).style.left).toBe('100px')
+    expect((menu(view.container) as HTMLElement).style.top).toBe('200px')
   })
 
   it('keeps itself inside the right edge', async () => {
-    view = await render({ x: 995 })
+    view = render({ x: 995 })
 
-    expect(menu(view.container).style.left).toBe(`${1000 - MENU_WIDTH - PADDING}px`)
+    expect((menu(view.container) as HTMLElement).style.left).toBe(
+      `${1000 - MENU_WIDTH - PADDING}px`,
+    )
   })
 
   it('keeps itself inside the bottom edge', async () => {
-    view = await render({ y: 795 })
+    view = render({ y: 795 })
 
-    expect(menu(view.container).style.top).toBe(`${800 - MENU_HEIGHT - PADDING}px`)
+    expect((menu(view.container) as HTMLElement).style.top).toBe(`${800 - MENU_HEIGHT - PADDING}px`)
   })
 
   it('keeps itself inside the top-left corner', async () => {
-    view = await render({ x: -50, y: -50 })
+    view = render({ x: -50, y: -50 })
 
-    expect(menu(view.container).style.left).toBe(`${PADDING}px`)
-    expect(menu(view.container).style.top).toBe(`${PADDING}px`)
+    expect((menu(view.container) as HTMLElement).style.left).toBe(`${PADDING}px`)
+    expect((menu(view.container) as HTMLElement).style.top).toBe(`${PADDING}px`)
   })
 
   it('spans the slider across every level', async () => {
-    view = await render({ levels: 4, currentLevel: 2 })
+    view = render({ levels: 4, currentLevel: 2 })
 
     const input = slider(view.container)
     expect(input.min).toBe('0')
@@ -90,47 +85,47 @@ describe('PickerContextMenu', () => {
   })
 
   it('counts levels from the specific end', async () => {
-    view = await render({ levels: 3, currentLevel: 1 })
+    view = render({ levels: 3, currentLevel: 1 })
 
     expect(view.container.textContent).toContain('Level 2 of 3')
   })
 
   it('labels the two ends of the slider', async () => {
-    view = await render()
+    view = render()
 
     expect(view.container.textContent).toContain('Broad')
     expect(view.container.textContent).toContain('Specific')
   })
 
   it('collapses the slider when there is a single level', async () => {
-    view = await render({ levels: 1, currentLevel: 0 })
+    view = render({ levels: 1, currentLevel: 0 })
 
     expect(slider(view.container).max).toBe('0')
     expect(view.container.textContent).toContain('Level 1 of 1')
   })
 
   it('collapses the slider when there are no levels at all', async () => {
-    view = await render({ levels: 0, currentLevel: 0 })
+    view = render({ levels: 0, currentLevel: 0 })
 
     expect(slider(view.container).max).toBe('0')
   })
 
   it('reports the level the user dragged to', async () => {
     const onChange = vi.fn()
-    view = await render({ onChange })
+    view = render({ onChange })
     const input = slider(view.container)
 
-    await view.act(() => setInputValue(input, '2'))
+    fireEvent.change(input, { target: { value: '2' } })
 
     expect(onChange).toHaveBeenCalledWith(2)
   })
 
   it('suppresses the native context menu over itself', async () => {
-    view = await render()
+    view = render()
     const event = new MouseEvent('contextmenu', { bubbles: true, cancelable: true })
 
-    await view.act(() => {
-      menu(view!.container).dispatchEvent(event)
+    await act(() => {
+      menu(view.container).dispatchEvent(event)
     })
 
     expect(event.defaultPrevented).toBe(true)
@@ -157,8 +152,8 @@ describe('mountPickerContextMenuReact', () => {
     return mounted!
   }
 
-  const menuStyle = () => querySelector(container, 'div[style]').style
-  const slider = () => querySelector<HTMLInputElement>(container, 'input[type="range"]')
+  const menuStyle = () => (container.querySelector('div[style]') as HTMLElement).style
+  const slider = () => container.querySelector<HTMLInputElement>('input[type="range"]')!
 
   beforeEach(() => {
     container = document.createElement('div')
@@ -211,7 +206,7 @@ describe('mountPickerContextMenuReact', () => {
     await mount()
     const input = slider()
 
-    await act(async () => setInputValue(input, '0'))
+    await act(async () => fireEvent.change(input, { target: { value: '0' } }))
 
     expect(onChange).toHaveBeenCalledWith(0)
     expect(slider().value).toBe('0')

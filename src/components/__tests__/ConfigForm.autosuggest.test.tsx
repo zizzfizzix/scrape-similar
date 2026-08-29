@@ -8,18 +8,18 @@ import {
   userPresetsStorage,
 } from '@/utils/storage'
 import type { Preset, ScrapeConfig } from '@/utils/types'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
 import { setLastError } from '@@/tests/support/fake-browser'
 import {
-  querySelector,
-  renderComponent,
-  setInputValue,
-  stubScrolling,
-  waitFor,
   type RenderResult,
-} from '@@/tests/support/react'
+  act,
+  fireEvent,
+  render as renderComponent,
+  waitFor,
+} from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 
 const trackEvent = vi.hoisted(() => vi.fn())
 vi.mock('@/utils/analytics', async (importOriginal) => ({
@@ -30,7 +30,7 @@ vi.mock('@/utils/analytics', async (importOriginal) => ({
 const toastMocks = vi.hoisted(() => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 vi.mock('sonner', () => toastMocks)
 
-let view: RenderResult | undefined
+let view: RenderResult
 
 const preset = (id: string, name: string, mainSelector: string): Preset => ({
   id,
@@ -66,46 +66,44 @@ const baseProps = (): ConfigFormProps => ({
   highlightMatchCount: 3,
 })
 
-const render = (overrides: Partial<ConfigFormProps> = {}) =>
-  renderComponent(
+/** Render, and let mount-time storage reads settle before asserting. */
+const render = async (overrides: Partial<ConfigFormProps> = {}) => {
+  const rendered = renderComponent(
     <TooltipProvider>
       <ConfigForm {...baseProps()} {...overrides} />
     </TooltipProvider>,
   )
+  await act(async () => {})
+  return rendered
+}
 
 const mainSelectorInput = () =>
-  querySelector<HTMLTextAreaElement>(view!.container, 'textarea#mainSelector')
+  view.container.querySelector<HTMLTextAreaElement>('textarea#mainSelector')!
 
 /** Every suggestion row currently rendered in the dropdown. */
-const suggestionItems = () => [...view!.container.querySelectorAll<HTMLElement>('[cmdk-item]')]
+const suggestionItems = () => [...view.container.querySelectorAll<HTMLElement>('[cmdk-item]')]
 
 /** The id cmdk considers selected, as the dropdown reports it. */
 const selectedSuggestion = () =>
-  view!.container.querySelector<HTMLElement>('[cmdk-item][data-selected="true"]')
+  view.container.querySelector<HTMLElement>('[cmdk-item][data-selected="true"]')!
 
 const press = (key: string) =>
-  view!.act(() => {
+  act(() => {
     mainSelectorInput().dispatchEvent(
       new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }),
     )
   })
 
-const focusField = () => view!.act(() => mainSelectorInput().focus())
+const focusField = () => act(() => mainSelectorInput().focus())
 
-const type = (value: string) => view!.act(() => setInputValue(mainSelectorInput(), value))
+const type = (value: string) =>
+  act(() => fireEvent.change(mainSelectorInput(), { target: { value: value } }))
 
 beforeEach(async () => {
   fakeBrowser.reset()
   setLastError(undefined)
-  stubScrolling()
   await userPresetsStorage.setValue([])
   await setRecentMainSelectors([])
-})
-
-afterEach(async () => {
-  await view?.cleanup()
-  view = undefined
-  document.body.innerHTML = ''
 })
 
 describe('the autosuggest dropdown', () => {
@@ -224,7 +222,7 @@ describe('the autosuggest dropdown', () => {
       await focusField()
       expect(suggestionItems()).not.toHaveLength(0)
 
-      await view.act(() => {
+      await act(() => {
         document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
       })
 
@@ -235,7 +233,7 @@ describe('the autosuggest dropdown', () => {
       view = await render({ presets })
       await focusField()
 
-      await view.act(() => {
+      await act(() => {
         suggestionItems()[0]!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
       })
 
@@ -274,7 +272,7 @@ describe('the autosuggest dropdown', () => {
       await focusField()
       expect(suggestionItems()).toHaveLength(1)
 
-      await view.act(async () => {
+      await act(async () => {
         await storage.setItem(`local:${STORAGE_KEYS.RECENT_MAIN_SELECTORS}`, 'not-a-list')
       })
 
@@ -346,7 +344,7 @@ describe('the autosuggest dropdown', () => {
       await focusField()
 
       const row = suggestionItems().find((item) => item.textContent?.includes('Table rows'))!
-      await view.act(() => {
+      await act(() => {
         row.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
         row.click()
       })
@@ -362,7 +360,7 @@ describe('the autosuggest dropdown', () => {
       await type('//sp')
 
       const row = suggestionItems()[0]!
-      await view.act(() => {
+      await act(() => {
         // The pointer goes down on the row before the field loses focus, which
         // is what cancels the blur handler's deferred commit.
         row.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
@@ -384,7 +382,7 @@ describe('the autosuggest dropdown', () => {
       await focusField()
       await type('//h2')
 
-      await view.act(() => mainSelectorInput().blur())
+      await act(() => mainSelectorInput().blur())
       await waitFor(() =>
         expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ mainSelector: '//h2' })),
       )
@@ -396,13 +394,13 @@ describe('the autosuggest dropdown', () => {
       await focusField()
       await type('//t')
 
-      await view.act(() => {
+      await act(() => {
         // cmdk's root carries tabIndex={-1} so it can take focus this way.
-        querySelector<HTMLElement>(view!.container, '[cmdk-root]').focus()
+        view.container.querySelector<HTMLElement>('[cmdk-root]')!.focus()
         mainSelectorInput().blur()
       })
       await new Promise((resolve) => setTimeout(resolve, 200))
-      await view.act(async () => {})
+      await act(async () => {})
 
       expect(suggestionItems()).not.toHaveLength(0)
       expect(onChange).not.toHaveBeenCalled()
@@ -415,14 +413,14 @@ describe('the autosuggest dropdown', () => {
       await focusField()
       await type('//sp')
 
-      await view.act(() => {
+      await act(() => {
         // Pointer down on the row, then the field loses focus — but the click
         // never lands (the pointer moved away before it was released).
         suggestionItems()[0]!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
         mainSelectorInput().blur()
       })
       await new Promise((resolve) => setTimeout(resolve, 200))
-      await view.act(async () => {})
+      await act(async () => {})
 
       expect(onChange).not.toHaveBeenCalled()
     })
@@ -433,10 +431,10 @@ describe('the autosuggest dropdown', () => {
       await focusField()
       await type('//h2')
 
-      await view.act(() => mainSelectorInput().blur())
+      await act(() => mainSelectorInput().blur())
       await focusField()
       await new Promise((resolve) => setTimeout(resolve, 200))
-      await view.act(async () => {})
+      await act(async () => {})
 
       expect(onChange).not.toHaveBeenCalled()
     })
@@ -449,7 +447,7 @@ describe('the autosuggest dropdown', () => {
       await focusField()
 
       const row = suggestionItems().find((item) => item.textContent?.includes('All links'))!
-      await view.act(() => querySelector<HTMLButtonElement>(row, 'button').click())
+      await act(() => row.querySelector<HTMLButtonElement>('button')!.click())
 
       expect(suggestionItems()).toHaveLength(0)
       expect(document.body.textContent).toContain('Delete Preset')
@@ -461,11 +459,10 @@ describe('the autosuggest dropdown', () => {
       await focusField()
       expect(suggestionItems()).toHaveLength(2)
 
-      const remove = querySelector<HTMLButtonElement>(
-        view.container,
+      const remove = view.container.querySelector<HTMLButtonElement>(
         'button[aria-label="Remove recent selector"]',
-      )
-      await view.act(() => remove.click())
+      )!
+      await userEvent.click(remove)
 
       await waitFor(async () => {
         expect(await getRecentMainSelectors()).toEqual(['//em'])

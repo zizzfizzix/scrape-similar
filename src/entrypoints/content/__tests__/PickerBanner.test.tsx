@@ -1,52 +1,46 @@
 // @vitest-environment jsdom
 import { mountPickerBannerReact, PickerBanner } from '@/entrypoints/content/ui/PickerBanner'
-import { act } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
-import { querySelector, renderComponent, type RenderResult } from '@@/tests/support/react'
+import { type RenderResult, act, render as renderComponent } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 
-let view: RenderResult | undefined
+let view: RenderResult
 
 beforeEach(() => {
   fakeBrowser.reset()
 })
 
-afterEach(async () => {
-  await view?.cleanup()
-  view = undefined
-  document.body.innerHTML = ''
-})
-
 describe('PickerBanner', () => {
   it('shows the match count', async () => {
-    view = await renderComponent(<PickerBanner count={12} xpath="//li" onClose={() => {}} />)
+    view = renderComponent(<PickerBanner count={12} xpath="//li" onClose={() => {}} />)
 
     expect(view.container.textContent).toContain('12')
   })
 
   it('shows the current selector in a read-only field', async () => {
-    view = await renderComponent(<PickerBanner count={1} xpath="//li" onClose={() => {}} />)
+    view = renderComponent(<PickerBanner count={1} xpath="//li" onClose={() => {}} />)
 
-    const input = querySelector<HTMLInputElement>(view.container, 'input')
+    const input = view.container.querySelector<HTMLInputElement>('input')!
     expect(input.value).toBe('//li')
     expect(input.readOnly).toBe(true)
     expect(input.disabled).toBe(true)
   })
 
   it('prompts the user when no element is hovered', async () => {
-    view = await renderComponent(<PickerBanner count={0} xpath="" onClose={() => {}} />)
+    view = renderComponent(<PickerBanner count={0} xpath="" onClose={() => {}} />)
 
-    expect(querySelector<HTMLInputElement>(view.container, 'input').placeholder).toBe(
+    expect(view.container.querySelector<HTMLInputElement>('input')!.placeholder).toBe(
       'Hover over the page to select elements',
     )
   })
 
   it('closes the picker when the close button is pressed', async () => {
     const onClose = vi.fn()
-    view = await renderComponent(<PickerBanner count={1} xpath="//li" onClose={onClose} />)
+    view = renderComponent(<PickerBanner count={1} xpath="//li" onClose={onClose} />)
 
-    await view.act(() => {
-      querySelector<HTMLButtonElement>(view!.container, 'button[aria-label="Close picker"]').click()
+    await act(() => {
+      view.container.querySelector<HTMLButtonElement>('button[aria-label="Close picker"]')!.click()
     })
 
     expect(onClose).toHaveBeenCalledTimes(1)
@@ -82,7 +76,7 @@ describe('mountPickerBannerReact', () => {
   it('renders the banner seeded from the current state', async () => {
     await mount({ getState: () => ({ count: 4, xpath: '//tr' }), onClose: () => {} })
 
-    expect(querySelector<HTMLInputElement>(container, 'input').value).toBe('//tr')
+    expect(container.querySelector<HTMLInputElement>('input')!.value).toBe('//tr')
     expect(container.textContent).toContain('4')
   })
 
@@ -99,7 +93,7 @@ describe('mountPickerBannerReact', () => {
       api.setData(9, '//td')
     })
 
-    expect(querySelector<HTMLInputElement>(container, 'input').value).toBe('//td')
+    expect(container.querySelector<HTMLInputElement>('input')!.value).toBe('//td')
     expect(container.textContent).toContain('9')
   })
 
@@ -114,7 +108,7 @@ describe('mountPickerBannerReact', () => {
 
     await act(async () => {})
     mounted = api
-    expect(querySelector<HTMLInputElement>(container, 'input').value).toBe('')
+    expect(container.querySelector<HTMLInputElement>('input')!.value).toBe('')
   })
 
   it('ignores setData after unmounting', async () => {
@@ -130,7 +124,7 @@ describe('mountPickerBannerReact', () => {
     await mount({ getState: () => ({ count: 0, xpath: '' }), onClose })
 
     await act(async () => {
-      querySelector<HTMLButtonElement>(container, 'button[aria-label="Close picker"]').click()
+      container.querySelector<HTMLButtonElement>('button[aria-label="Close picker"]')!.click()
     })
 
     expect(onClose).toHaveBeenCalled()

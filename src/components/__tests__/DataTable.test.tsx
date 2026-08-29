@@ -6,7 +6,8 @@ import type { ScrapeConfig, ScrapedData, ScrapedRow } from '@/utils/types'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { spyOnBrowser } from '@@/tests/support/fake-browser'
-import { querySelector, renderComponent, type RenderResult } from '@@/tests/support/react'
+import { type RenderResult, act, render as renderComponent } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 
 const trackEvent = vi.hoisted(() => vi.fn())
 vi.mock('@/utils/analytics', async (importOriginal) => ({
@@ -17,7 +18,7 @@ vi.mock('@/utils/analytics', async (importOriginal) => ({
 const toastMocks = vi.hoisted(() => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 vi.mock('sonner', () => toastMocks)
 
-let view: RenderResult | undefined
+let view: RenderResult
 
 const row = (data: Record<string, string>, isEmpty = false, originalIndex = 0): ScrapedRow => ({
   data,
@@ -55,12 +56,12 @@ const render = (overrides: Partial<DataTableProps> = {}) => {
   )
 }
 
-const bodyRows = () => [...view!.container.querySelectorAll('tbody tr')]
-const headers = () => [...view!.container.querySelectorAll('th')].map((th) => th.textContent)
+const bodyRows = () => [...view.container.querySelectorAll('tbody tr')]
+const headers = () => [...view.container.querySelectorAll('th')].map((th) => th.textContent)
 const button = (label: string) =>
-  querySelector<HTMLButtonElement>(view!.container, `button[aria-label="${label}"]`)
+  view.container.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)!
 const allButtons = (label: string) => [
-  ...view!.container.querySelectorAll<HTMLButtonElement>(`button[aria-label="${label}"]`),
+  ...view.container.querySelectorAll<HTMLButtonElement>(`button[aria-label="${label}"]`),
 ]
 
 /** Rows of `count` filled records, for exercising pagination. */
@@ -76,83 +77,80 @@ beforeEach(() => {
 })
 
 afterEach(async () => {
-  await view?.cleanup()
-  view = undefined
   vi.unstubAllGlobals()
-  document.body.innerHTML = ''
 })
 
 describe('DataTable', () => {
   it('renders a header per configured column, plus the index and actions', async () => {
-    view = await render()
+    view = render()
 
     expect(headers()).toEqual(['#', 'Actions', 'Rank', 'Country'])
   })
 
   it('honours an explicit column order', async () => {
-    view = await render({ columnOrder: ['Country', 'Rank'] })
+    view = render({ columnOrder: ['Country', 'Rank'] })
 
     expect(headers()).toEqual(['#', 'Actions', 'Country', 'Rank'])
   })
 
   it('falls back to the config order for an empty column order', async () => {
-    view = await render({ columnOrder: [] })
+    view = render({ columnOrder: [] })
 
     expect(headers()).toEqual(['#', 'Actions', 'Rank', 'Country'])
   })
 
   it('hides the empty rows by default', async () => {
-    view = await render()
+    view = render()
 
     expect(bodyRows()).toHaveLength(2)
     expect(view.container.textContent).toContain('2 rows with data')
   })
 
   it('shows the empty rows when asked', async () => {
-    view = await render({ showEmptyRows: true })
+    view = render({ showEmptyRows: true })
 
     expect(bodyRows()).toHaveLength(3)
     expect(view.container.textContent).toContain('3 total rows')
   })
 
   it('offers a toggle counting the empty rows', async () => {
-    view = await render()
+    view = render()
 
     expect(view.container.textContent).toContain('Show 1 empty rows')
   })
 
   it('reports the toggle being flipped', async () => {
     const onShowEmptyRowsChange = vi.fn()
-    view = await render({ onShowEmptyRowsChange })
+    view = render({ onShowEmptyRowsChange })
 
-    await view.act(() => querySelector<HTMLElement>(view!.container, '[role="switch"]').click())
+    await act(() => view.container.querySelector<HTMLElement>('[role="switch"]')!.click())
 
     expect(onShowEmptyRowsChange).toHaveBeenCalledWith(true)
   })
 
   it('omits the toggle when no row is empty', async () => {
-    view = await render({ data: [row({ Rank: '1', Country: 'Poland' })] })
+    view = render({ data: [row({ Rank: '1', Country: 'Poland' })] })
 
     expect(view.container.querySelector('[role="switch"]')).toBeNull()
     expect(view.container.textContent).toContain('1 rows with data')
   })
 
   it('numbers the visible rows from one', async () => {
-    view = await render()
+    view = render()
 
     expect(bodyRows()[0]?.querySelector('td')?.textContent).toBe('1')
     expect(bodyRows()[1]?.querySelector('td')?.textContent).toBe('2')
   })
 
   it('shows the scraped values', async () => {
-    view = await render()
+    view = render()
 
     expect(bodyRows()[0]?.textContent).toContain('Poland')
     expect(bodyRows()[1]?.textContent).toContain('Spain')
   })
 
   it('redacts the scraped values from analytics but not the row controls', async () => {
-    view = await render()
+    view = render()
 
     const cells = [...bodyRows()[0]!.querySelectorAll('td')]
     expect(cells[0]?.className).not.toContain('ph_hidden')
@@ -161,14 +159,14 @@ describe('DataTable', () => {
   })
 
   it('says so when every row is filtered out', async () => {
-    view = await render({ data: [row({ Rank: '', Country: '' }, true)] })
+    view = render({ data: [row({ Rank: '', Country: '' }, true)] })
 
     expect(view.container.textContent).toContain('No data')
   })
 
   it('truncates a very long value in the cell', async () => {
     const long = 'x'.repeat(150)
-    view = await render({ data: [row({ Rank: '1', Country: long })] })
+    view = render({ data: [row({ Rank: '1', Country: long })] })
 
     const cell = [...view.container.querySelectorAll('tbody td')].find((td) =>
       td.textContent?.startsWith('xxx'),
@@ -179,16 +177,16 @@ describe('DataTable', () => {
   })
 
   it('highlights the resize handle while a column is being dragged', async () => {
-    view = await render()
-    const handle = querySelector<HTMLElement>(view.container, '.cursor-col-resize')
+    view = render()
+    const handle = view.container.querySelector<HTMLElement>('.cursor-col-resize')!
 
     expect(handle.className).toContain('opacity-0')
 
-    await view.act(() => {
+    await act(() => {
       handle.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: 0 }))
     })
 
-    expect(querySelector<HTMLElement>(view.container, '.cursor-col-resize').className).toContain(
+    expect(view.container.querySelector<HTMLElement>('.cursor-col-resize')!.className).toContain(
       'bg-primary opacity-100',
     )
   })
@@ -196,27 +194,27 @@ describe('DataTable', () => {
   describe('highlighting a row', () => {
     it('asks for the row at its original position', async () => {
       const onRowHighlight = vi.fn()
-      view = await render({ onRowHighlight })
+      view = render({ onRowHighlight })
 
-      await view.act(() => allButtons('Highlight this element')[1]!.click())
+      await userEvent.click(allButtons('Highlight this element')[1]!)
 
       expect(onRowHighlight).toHaveBeenCalledWith('(//tr)[2]')
     })
 
     it('counts from the original data, not the filtered view', async () => {
       const onRowHighlight = vi.fn()
-      view = await render({
+      view = render({
         onRowHighlight,
         data: [row({ Rank: '', Country: '' }, true), row({ Rank: '1' }, false, 1)],
       })
 
-      await view.act(() => button('Highlight this element').click())
+      await userEvent.click(button('Highlight this element'))
 
       expect(onRowHighlight).toHaveBeenCalledWith('(//tr)[2]')
     })
 
     it('cannot highlight an empty row', async () => {
-      view = await render({ showEmptyRows: true })
+      view = render({ showEmptyRows: true })
 
       const buttons = [...bodyRows()[2]!.querySelectorAll('button')]
       expect(buttons[0]?.disabled).toBe(true)
@@ -226,9 +224,9 @@ describe('DataTable', () => {
 
   describe('copying a row', () => {
     it('copies the row as TSV', async () => {
-      view = await render()
+      view = render()
 
-      await view.act(async () => {
+      await act(async () => {
         allButtons('Copy this row')[0]!.click()
         await Promise.resolve()
       })
@@ -244,9 +242,9 @@ describe('DataTable', () => {
 
     it('reports a clipboard the browser refused', async () => {
       vi.mocked(navigator.clipboard.writeText).mockRejectedValue(new Error('denied'))
-      view = await render()
+      view = render()
 
-      await view.act(async () => {
+      await act(async () => {
         allButtons('Copy this row')[0]!.click()
         await Promise.resolve()
       })
@@ -256,7 +254,7 @@ describe('DataTable', () => {
     })
 
     it('cannot copy an empty row', async () => {
-      view = await render({ showEmptyRows: true })
+      view = render({ showEmptyRows: true })
 
       const buttons = [...bodyRows()[2]!.querySelectorAll('button')]
       expect(buttons[1]?.disabled).toBe(true)
@@ -265,16 +263,16 @@ describe('DataTable', () => {
 
   describe('pagination', () => {
     it('shows only the first page', async () => {
-      view = await render({ data: manyRows(25) })
+      view = render({ data: manyRows(25) })
 
       expect(bodyRows()).toHaveLength(10)
       expect(view.container.textContent).toContain('Page 1 of 3')
     })
 
     it('moves to the next page', async () => {
-      view = await render({ data: manyRows(25) })
+      view = render({ data: manyRows(25) })
 
-      await view.act(() => button('Next page').click())
+      await userEvent.click(button('Next page'))
 
       expect(view.container.textContent).toContain('Page 2 of 3')
       expect(bodyRows()[0]?.textContent).toContain('C10')
@@ -287,10 +285,10 @@ describe('DataTable', () => {
     })
 
     it('moves back to the previous page', async () => {
-      view = await render({ data: manyRows(25) })
-      await view.act(() => button('Next page').click())
+      view = render({ data: manyRows(25) })
+      await userEvent.click(button('Next page'))
 
-      await view.act(() => button('Previous page').click())
+      await userEvent.click(button('Previous page'))
 
       expect(view.container.textContent).toContain('Page 1 of 3')
       expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.PAGINATION_BUTTON_PRESS, {
@@ -302,39 +300,39 @@ describe('DataTable', () => {
     })
 
     it('cannot go back from the first page', async () => {
-      view = await render({ data: manyRows(25) })
+      view = render({ data: manyRows(25) })
 
       expect(button('Previous page').disabled).toBe(true)
     })
 
     it('cannot go past the last page', async () => {
-      view = await render({ data: manyRows(25) })
+      view = render({ data: manyRows(25) })
 
-      await view.act(() => button('Next page').click())
-      await view.act(() => button('Next page').click())
+      await userEvent.click(button('Next page'))
+      await userEvent.click(button('Next page'))
 
       expect(button('Next page').disabled).toBe(true)
       expect(bodyRows()).toHaveLength(5)
     })
 
     it('reserves the control space when the data exactly fills a page', async () => {
-      view = await render({ data: manyRows(10) })
+      view = render({ data: manyRows(10) })
 
       expect(view.container.querySelector('button[aria-label="Next page"]')).toBeNull()
       expect(view.container.querySelector('[aria-hidden="true"].h-8')).not.toBeNull()
     })
 
     it('hides the controls when everything fits on one page', async () => {
-      view = await render()
+      view = render()
 
       expect(view.container.querySelector('button[aria-label="Next page"]')).toBeNull()
     })
 
     it('returns to the first page when the data changes', async () => {
-      view = await render({ data: manyRows(25) })
-      await view.act(() => button('Next page').click())
+      view = render({ data: manyRows(25) })
+      await userEvent.click(button('Next page'))
 
-      await view.render(
+      view.rerender(
         <TooltipProvider>
           <DataTable
             data={manyRows(30)}
@@ -351,7 +349,7 @@ describe('DataTable', () => {
 
   describe('the full data view', () => {
     it('is not offered without a tab to open it for', async () => {
-      view = await render()
+      view = render()
 
       expect(view.container.querySelector('button[aria-label="Open in full view"]')).toBeNull()
     })
@@ -359,9 +357,9 @@ describe('DataTable', () => {
     it('opens a tab for the current page and closes the panel', async () => {
       const create = spyOnBrowser(fakeBrowser.tabs, 'create').mockResolvedValue({} as never)
       const close = vi.spyOn(window, 'close').mockImplementation(() => {})
-      view = await render({ tabId: 7 })
+      view = render({ tabId: 7 })
 
-      await view.act(() => button('Open in full view').click())
+      await userEvent.click(button('Open in full view'))
 
       expect(create).toHaveBeenCalledWith({
         url: fakeBrowser.runtime.getURL('/full-data-view.html?tabId=7' as never),

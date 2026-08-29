@@ -4,12 +4,12 @@ import { ThemeProvider } from '@/components/theme-provider'
 import FullDataViewApp from '@/entrypoints/full-data-view/FullDataViewApp'
 import { ANALYTICS_CONSENT_STORAGE_KEY } from '@/utils/consent'
 import type { ScrapeConfig, ScrapedRow, SidePanelConfig } from '@/utils/types'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import log from 'loglevel'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
 import { spyOnBrowser } from '@@/tests/support/fake-browser'
-import { renderComponent, stubScrolling, waitFor, type RenderResult } from '@@/tests/support/react'
+import { type RenderResult, act, render as renderComponent, waitFor } from '@testing-library/react'
 
 // `isDevOrTest` is a build-time constant; the debug-level watcher only does
 // anything in production builds, so it needs a mutable mock to be reachable.
@@ -37,7 +37,7 @@ vi.mock('sonner', async (importOriginal) => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }))
 
-let view: RenderResult | undefined
+let view: RenderResult
 
 const consentKey = `sync:${ANALYTICS_CONSENT_STORAGE_KEY}` as const
 
@@ -89,34 +89,38 @@ const openTabs = async (tabs: TabSpec[]) => {
   }
 }
 
-const render = () =>
-  renderComponent(
+/** Render, and let mount-time storage reads settle before asserting. */
+const render = async () => {
+  const rendered = renderComponent(
     <ConsentProvider>
       <ThemeProvider>
         <FullDataViewApp />
       </ThemeProvider>
     </ConsentProvider>,
   )
+  await act(async () => {})
+  return rendered
+}
 
 /** Give storage watchers and awaited effects a macrotask to run. */
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0))
 
 const renderLoaded = async () => {
   view = await render()
-  await view.act(async () => {
+  await act(async () => {
     await flush()
   })
   return view
 }
 
-const text = () => view!.container.textContent ?? ''
+const text = () => view.container.textContent ?? ''
 
 /** The tab id the page's URL currently names. */
 const urlTabId = () => new URL(window.location.href).searchParams.get('tabId')
 
 /** Write `next` for `tabId`, and let the watcher react. */
 const writeState = async (tabId: number, next: SidePanelConfig | null) => {
-  await view!.act(async () => {
+  await act(async () => {
     await storage.setItem(`session:sidepanel_config_${tabId}`, next)
     await flush()
     await flush()
@@ -127,16 +131,9 @@ beforeEach(async () => {
   fakeBrowser.reset()
   modeFlags.isDevOrTest = true
   openTabList = []
-  stubScrolling()
   window.history.replaceState({}, '', '/full-data-view.html?tabId=1')
   await storage.setItem(consentKey, true)
   spyOnBrowser(fakeBrowser.tabs, 'query').mockResolvedValue([] as never)
-})
-
-afterEach(async () => {
-  await view?.cleanup()
-  view = undefined
-  document.body.innerHTML = ''
 })
 
 describe('following storage while the view is open', () => {
@@ -238,7 +235,7 @@ describe('following storage while the view is open', () => {
     await openTabs([{ id: 1, title: 'Populations', url: 'https://a', state: state([row('1')]) }])
     await renderLoaded()
 
-    await view!.act(async () => {
+    await act(async () => {
       await fakeBrowser.tabs.onCreated.trigger({ id: 3, title: 'Fresh', url: 'https://c' } as never)
       await flush()
     })
@@ -257,7 +254,7 @@ describe('following storage while the view is open', () => {
     await openTabs([{ id: 1, title: 'Populations', url: 'https://a', state: state([row('1')]) }])
     await renderLoaded()
 
-    await view!.act(async () => {
+    await act(async () => {
       await fakeBrowser.tabs.onCreated.trigger({ title: 'Idless' } as never)
       await flush()
     })
@@ -282,7 +279,7 @@ describe('when a tab closes', () => {
   const closeTab = async (tabId: number) => {
     openTabList = openTabList.filter((tab) => tab.id !== tabId)
     await storage.removeItem(`session:sidepanel_config_${tabId}`)
-    await view!.act(async () => {
+    await act(async () => {
       await fakeBrowser.tabs.onRemoved.trigger(tabId, {
         windowId: 1,
         isWindowClosing: false,
@@ -347,13 +344,13 @@ describe('the debug log level', () => {
 
     expect(setLevel).toHaveBeenCalledWith('error')
 
-    await view!.act(async () => {
+    await act(async () => {
       await storage.setItem('local:debugMode', true)
       await flush()
     })
     expect(setLevel).toHaveBeenCalledWith('trace')
 
-    await view!.act(async () => {
+    await act(async () => {
       await storage.setItem('local:debugMode', false)
       await flush()
     })
@@ -376,7 +373,7 @@ describe('the debug log level', () => {
     await renderLoaded()
     const setLevel = vi.spyOn(log, 'setLevel').mockImplementation(() => {})
 
-    await view!.act(async () => {
+    await act(async () => {
       await storage.setItem('local:debugMode', true)
       await flush()
     })

@@ -1,16 +1,12 @@
 // @vitest-environment jsdom
 import { ANALYTICS_CONSENT_STORAGE_KEY } from '@/utils/consent'
 import log from 'loglevel'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
 import { spyOnBrowser } from '@@/tests/support/fake-browser'
-import {
-  openRadixTrigger,
-  querySelector,
-  renderComponent,
-  type RenderResult,
-} from '@@/tests/support/react'
+import { type RenderResult, act, render as renderComponent } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 
 // `isDevOrTest` is a build-time constant; the log level only follows the debug
 // flag in production builds, so it needs a mutable mock to be reachable.
@@ -30,7 +26,7 @@ vi.mock('@/utils/modeTest', () => ({
 const { ConsentProvider } = await import('@/components/consent-provider')
 const { SidePanelRoot } = await import('@/entrypoints/sidepanel/SidePanelRoot')
 
-let view: RenderResult | undefined
+let view: RenderResult
 
 const consentKey = `sync:${ANALYTICS_CONSENT_STORAGE_KEY}` as const
 
@@ -60,15 +56,10 @@ beforeEach(async () => {
   ] as never)
 })
 
-afterEach(async () => {
-  await view?.cleanup()
-  view = undefined
-  document.body.innerHTML = ''
-})
-
 describe('SidePanelRoot', () => {
   it('renders the panel', async () => {
-    view = await render()
+    view = render()
+    await act(async () => {})
 
     expect(view.container.textContent).toContain('Configuration')
   })
@@ -77,8 +68,8 @@ describe('SidePanelRoot', () => {
     modeFlags.isDevOrTest = true
     const setLevel = vi.spyOn(log, 'setLevel').mockImplementation(() => {})
 
-    view = await render()
-    await view.act(flushWatchers)
+    view = render()
+    await act(flushWatchers)
 
     expect(setLevel).toHaveBeenCalledWith('trace')
   })
@@ -86,8 +77,8 @@ describe('SidePanelRoot', () => {
   it('logs only errors in production builds with debug mode off', async () => {
     const setLevel = vi.spyOn(log, 'setLevel').mockImplementation(() => {})
 
-    view = await render()
-    await view.act(flushWatchers)
+    view = render()
+    await act(flushWatchers)
 
     expect(setLevel).toHaveBeenCalledWith('error')
   })
@@ -96,17 +87,19 @@ describe('SidePanelRoot', () => {
     await storage.setItem('local:debugMode', true)
     const setLevel = vi.spyOn(log, 'setLevel').mockImplementation(() => {})
 
-    view = await render()
-    await view.act(flushWatchers)
+    view = render()
+    await act(flushWatchers)
 
     expect(setLevel).toHaveBeenCalledWith('trace')
   })
 
   it('follows the debug flag when it changes elsewhere', async () => {
-    view = await render()
+    view = render()
+    // Let the mount-time read settle, so only later changes reach the spy.
+    await act(async () => {})
     const setLevel = vi.spyOn(log, 'setLevel').mockImplementation(() => {})
 
-    await view.act(async () => {
+    await act(async () => {
       await storage.setItem('local:debugMode', true)
       await flushWatchers()
     })
@@ -116,10 +109,12 @@ describe('SidePanelRoot', () => {
 
   it('leaves the log level alone on changes in dev or test builds', async () => {
     modeFlags.isDevOrTest = true
-    view = await render()
+    view = render()
+    // Let the mount-time read settle, so only later changes reach the spy.
+    await act(async () => {})
     const setLevel = vi.spyOn(log, 'setLevel').mockImplementation(() => {})
 
-    await view.act(async () => {
+    await act(async () => {
       await storage.setItem('local:debugMode', true)
       await flushWatchers()
     })
@@ -129,16 +124,14 @@ describe('SidePanelRoot', () => {
 
   it('hands the panel a way to write the flag back', async () => {
     await storage.setItem('local:debugMode', true)
-    view = await render()
-    await view.act(flushWatchers)
+    view = render()
+    await act(flushWatchers)
 
-    await view.act(async () => {
-      openRadixTrigger(
-        querySelector<HTMLButtonElement>(view!.container, 'button[aria-label="Settings"]'),
-      )
-      await flushWatchers()
-    })
-    await view.act(async () => {
+    await userEvent.click(
+      view.container.querySelector<HTMLButtonElement>('button[aria-label="Settings"]')!,
+    )
+    await flushWatchers()
+    await act(async () => {
       debugSwitch().click()
       await flushWatchers()
     })
@@ -147,11 +140,8 @@ describe('SidePanelRoot', () => {
   })
 
   it('stops listening once unmounted', async () => {
-    view = await render()
-    const { cleanup } = view
-    view = undefined
-
-    await cleanup()
+    view = render()
+    view.unmount()
 
     await expect(storage.setItem('local:debugMode', true)).resolves.toBeUndefined()
   })

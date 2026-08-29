@@ -10,10 +10,20 @@ import { getPresets, setPresets, userPresetsStorage } from '@/utils/storage'
 import { SYSTEM_PRESET_STATUS_KEY, type Preset } from '@/utils/types'
 import log from 'loglevel'
 import { createRef } from 'react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
-import { querySelector, renderComponent, type RenderResult } from '@@/tests/support/react'
+import { type RenderResult, act, render as renderComponent } from '@testing-library/react'
+import userEventBase from '@testing-library/user-event'
+
+// user-event waits between the events it dispatches. Some of these tests
+// install fake timers, and nothing would advance that wait, so hand it the
+// clock they control.
+const userEvent = userEventBase.setup({
+  advanceTimers: (ms) => {
+    if (vi.isFakeTimers()) vi.advanceTimersByTime(ms)
+  },
+})
 
 const trackEvent = vi.hoisted(() => vi.fn())
 vi.mock('@/utils/analytics', async (importOriginal) => ({
@@ -32,7 +42,7 @@ vi.mock('@/utils/export-data', async (importOriginal) => ({
   downloadFile: downloadMocks.downloadFile,
 }))
 
-let view: RenderResult | undefined
+let view: RenderResult
 
 const preset = (id = 'p1'): Preset => ({
   id,
@@ -52,24 +62,32 @@ const withProviders = (props: Parameters<typeof Settings>[0] = {}) => (
   </ConsentProvider>
 )
 
-const render = (props: Parameters<typeof Settings>[0] = {}) => renderComponent(withProviders(props))
+/** Render `ui`, and let mount-time storage reads settle before asserting. */
+const render2 = async (ui: React.ReactNode) => {
+  const rendered = renderComponent(ui)
+  await act(async () => {})
+  return rendered
+}
+
+/** Render Settings inside the providers the entrypoints wrap it in. */
+const render = (props: Parameters<typeof Settings>[0] = {}) => render2(withProviders(props))
 
 const button = (label: string) =>
-  querySelector<HTMLButtonElement>(view!.container, `button[aria-label="${label}"]`)
+  view.container.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)!
 
 const rowByLabel = (label: string): HTMLElement => {
-  const heading = [...view!.container.querySelectorAll('span')].find(
+  const heading = [...view.container.querySelectorAll('span')].find(
     (span) => span.textContent === label,
   )
   if (!heading?.parentElement) throw new Error(`No settings row labelled ${label}`)
   return heading.parentElement
 }
 
-const fileInput = () => querySelector<HTMLInputElement>(view!.container, 'input[type="file"]')
+const fileInput = () => view.container.querySelector<HTMLInputElement>('input[type="file"]')!
 
 /** Drive the hidden file input as the picker would. */
 const chooseFile = (contents: string) =>
-  view!.act(async () => {
+  act(async () => {
     const input = fileInput()
     Object.defineProperty(input, 'files', {
       configurable: true,
@@ -86,12 +104,6 @@ beforeEach(async () => {
   await userPresetsStorage.setValue([])
 })
 
-afterEach(async () => {
-  await view?.cleanup()
-  view = undefined
-  document.body.innerHTML = ''
-})
-
 describe('Settings', () => {
   it('lists the always-visible settings rows', async () => {
     view = await render()
@@ -105,7 +117,7 @@ describe('Settings', () => {
   it('applies an extra class when given one', async () => {
     view = await render({ className: 'settings-panel' })
 
-    expect(querySelector(view.container, '.settings-panel')).toBeTruthy()
+    expect(view.container.querySelector('.settings-panel')).toBeTruthy()
   })
 
   describe('keyboard shortcut', () => {
@@ -115,7 +127,7 @@ describe('Settings', () => {
       const open = vi.spyOn(window, 'open').mockReturnValue(null)
       view = await render()
 
-      await view.act(() => rowByLabel('Keyboard shortcut').querySelector('button')!.click())
+      await userEvent.click(rowByLabel('Keyboard shortcut').querySelector('button')!)
 
       expect(writeText).toHaveBeenCalledWith(
         'chrome://extensions/shortcuts#:~:text=Scrape%20Similar',
@@ -132,7 +144,7 @@ describe('Settings', () => {
       const onResetSystemPresets = vi.fn()
       view = await render({ onResetSystemPresets })
 
-      await view.act(() => rowByLabel('System presets').querySelector('button')!.click())
+      await userEvent.click(rowByLabel('System presets').querySelector('button')!)
 
       expect(await storage.getItem(`sync:${SYSTEM_PRESET_STATUS_KEY}`)).toBeNull()
       expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.SYSTEM_PRESETS_RESET)
@@ -142,7 +154,7 @@ describe('Settings', () => {
     it('works without a reset callback', async () => {
       view = await render()
 
-      await view.act(() => rowByLabel('System presets').querySelector('button')!.click())
+      await userEvent.click(rowByLabel('System presets').querySelector('button')!)
 
       expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.SYSTEM_PRESETS_RESET)
     })
@@ -153,7 +165,7 @@ describe('Settings', () => {
       vi.spyOn(storage, 'removeItem').mockRejectedValueOnce(failure)
       view = await render()
 
-      await view.act(() => rowByLabel('System presets').querySelector('button')!.click())
+      await userEvent.click(rowByLabel('System presets').querySelector('button')!)
 
       expect(errorSpy).toHaveBeenCalledWith('Error resetting system presets:', failure)
     })
@@ -164,7 +176,7 @@ describe('Settings', () => {
       await setPresets([preset()])
       view = await render()
 
-      await view.act(() => button('Export user presets').click())
+      await userEvent.click(button('Export user presets'))
 
       expect(downloadMocks.downloadFile).toHaveBeenCalledWith(
         expect.stringContaining('"presets"'),
@@ -182,7 +194,7 @@ describe('Settings', () => {
       })
       view = await render()
 
-      await view.act(() => button('Export user presets').click())
+      await userEvent.click(button('Export user presets'))
 
       expect(errorSpy).toHaveBeenCalledWith('Error exporting presets:', failure)
     })
@@ -195,7 +207,7 @@ describe('Settings', () => {
       view = await render()
       const click = vi.spyOn(fileInput(), 'click')
 
-      await view.act(() => button('Import user presets').click())
+      await userEvent.click(button('Import user presets'))
 
       expect(click).toHaveBeenCalled()
     })
@@ -214,7 +226,7 @@ describe('Settings', () => {
       view = await render({ onPresetsImported })
       await chooseFile(validFile)
 
-      await view.act(() => {
+      await act(() => {
         const confirmButton = [...document.querySelectorAll('button')].find(
           (candidate) => candidate.textContent === 'Import' && candidate.closest('[role="dialog"]'),
         )
@@ -235,7 +247,7 @@ describe('Settings', () => {
       view = await render()
       await chooseFile(validFile)
 
-      await view.act(() => {
+      await act(() => {
         const cancel = [...document.querySelectorAll('button')].find(
           (candidate) => candidate.textContent === 'Cancel',
         )
@@ -272,7 +284,7 @@ describe('Settings', () => {
     it('does nothing when the picker is dismissed without a file', async () => {
       view = await render()
 
-      await view.act(() => {
+      await act(() => {
         fileInput().dispatchEvent(new Event('change', { bubbles: true }))
       })
 
@@ -286,7 +298,7 @@ describe('Settings', () => {
       await chooseFile(validFile)
       vi.spyOn(userPresetsStorage, 'setValue').mockRejectedValueOnce(new Error('quota exceeded'))
 
-      await view.act(() => {
+      await act(() => {
         const confirmButton = [...document.querySelectorAll('button')].find(
           (candidate) => candidate.textContent === 'Import' && candidate.closest('[role="dialog"]'),
         )
@@ -306,7 +318,7 @@ describe('Settings', () => {
       })
       await chooseFile(validFile)
 
-      await view.act(() => {
+      await act(() => {
         const confirmButton = [...document.querySelectorAll('button')].find(
           (candidate) => candidate.textContent === 'Import' && candidate.closest('[role="dialog"]'),
         )
@@ -336,7 +348,7 @@ describe('Settings', () => {
 
       view = await render()
 
-      const toggle = querySelector(view.container, '[role="switch"]')
+      const toggle = view.container.querySelector('[role="switch"]')!
       expect(toggle.getAttribute('aria-checked')).toBe('true')
     })
 
@@ -345,7 +357,7 @@ describe('Settings', () => {
 
       view = await render()
 
-      expect(querySelector(view.container, '[role="switch"]').getAttribute('aria-checked')).toBe(
+      expect(view.container.querySelector('[role="switch"]')!.getAttribute('aria-checked')).toBe(
         'false',
       )
     })
@@ -353,7 +365,7 @@ describe('Settings', () => {
     it('records a change of mind', async () => {
       view = await render()
 
-      await view.act(() => querySelector<HTMLElement>(view!.container, '[role="switch"]').click())
+      await act(() => view.container.querySelector<HTMLElement>('[role="switch"]')!.click())
 
       expect(await storage.getItem(`sync:${ANALYTICS_CONSENT_STORAGE_KEY}`)).toBe(true)
     })
@@ -392,10 +404,10 @@ describe('Settings', () => {
 
     it('unlocks after five title clicks', async () => {
       const ref = createRef<{ unlockDebugMode: () => void }>()
-      view = await renderComponent(withProviders({ ref }))
+      view = await render2(withProviders({ ref }))
 
       for (let i = 0; i < 5; i++) {
-        await view.act(() => ref.current!.unlockDebugMode())
+        await act(() => ref.current!.unlockDebugMode())
       }
 
       expect(view.container.textContent).toContain('Debug mode')
@@ -405,10 +417,10 @@ describe('Settings', () => {
 
     it('stays locked after four clicks', async () => {
       const ref = createRef<{ unlockDebugMode: () => void }>()
-      view = await renderComponent(withProviders({ ref }))
+      view = await render2(withProviders({ ref }))
 
       for (let i = 0; i < 4; i++) {
-        await view.act(() => ref.current!.unlockDebugMode())
+        await act(() => ref.current!.unlockDebugMode())
       }
 
       expect(view.container.textContent).not.toContain('Debug mode')
@@ -417,15 +429,15 @@ describe('Settings', () => {
     it('forgets a partial click run after the window lapses', async () => {
       vi.useFakeTimers()
       const ref = createRef<{ unlockDebugMode: () => void }>()
-      view = await renderComponent(withProviders({ ref }))
+      view = await render2(withProviders({ ref }))
 
       for (let i = 0; i < 4; i++) {
-        await view.act(() => ref.current!.unlockDebugMode())
+        await act(() => ref.current!.unlockDebugMode())
       }
-      await view.act(() => {
+      await act(() => {
         vi.advanceTimersByTime(HIDDEN_UNLOCK_WINDOW_MS + 1)
       })
-      await view.act(() => ref.current!.unlockDebugMode())
+      await act(() => ref.current!.unlockDebugMode())
 
       expect(view.container.textContent).not.toContain('Debug mode')
       vi.useRealTimers()
@@ -434,9 +446,9 @@ describe('Settings', () => {
     it('ignores further clicks once already unlocked', async () => {
       await storage.setItem('local:debugUnlocked', true)
       const ref = createRef<{ unlockDebugMode: () => void }>()
-      view = await renderComponent(withProviders({ ref }))
+      view = await render2(withProviders({ ref }))
 
-      await view.act(() => ref.current!.unlockDebugMode())
+      await act(() => ref.current!.unlockDebugMode())
 
       expect(trackEvent).not.toHaveBeenCalledWith(ANALYTICS_EVENTS.HIDDEN_SETTINGS_UNLOCK)
     })
@@ -456,8 +468,8 @@ describe('Settings', () => {
       const onDebugModeChange = vi.fn()
 
       view = await render({ debugMode: true, onDebugModeChange })
-      await view.act(() => {
-        const switches = [...view!.container.querySelectorAll<HTMLElement>('[role="switch"]')]
+      await act(() => {
+        const switches = [...view.container.querySelectorAll<HTMLElement>('[role="switch"]')]
         switches.at(-1)!.click()
       })
 
@@ -473,8 +485,8 @@ describe('Settings', () => {
       const onDebugModeChange = vi.fn()
 
       view = await render({ onDebugModeChange })
-      await view.act(() => {
-        const switches = [...view!.container.querySelectorAll<HTMLElement>('[role="switch"]')]
+      await act(() => {
+        const switches = [...view.container.querySelectorAll<HTMLElement>('[role="switch"]')]
         switches.at(-1)!.click()
       })
 
@@ -486,8 +498,8 @@ describe('Settings', () => {
       await storage.setItem('local:debugUnlocked', true)
 
       view = await render()
-      await view.act(() => {
-        const switches = [...view!.container.querySelectorAll<HTMLElement>('[role="switch"]')]
+      await act(() => {
+        const switches = [...view.container.querySelectorAll<HTMLElement>('[role="switch"]')]
         switches.at(-1)!.click()
       })
 
@@ -497,7 +509,7 @@ describe('Settings', () => {
     it('appears when debug mode is switched on elsewhere', async () => {
       view = await render()
 
-      await view.act(async () => {
+      await act(async () => {
         await storage.setItem('local:debugMode', true)
         await new Promise((resolve) => setTimeout(resolve, 0))
       })
@@ -508,7 +520,7 @@ describe('Settings', () => {
     it('appears when the unlock is granted elsewhere', async () => {
       view = await render()
 
-      await view.act(async () => {
+      await act(async () => {
         await storage.setItem('local:debugUnlocked', true)
         await new Promise((resolve) => setTimeout(resolve, 0))
       })
@@ -518,10 +530,7 @@ describe('Settings', () => {
 
     it('stops listening once unmounted', async () => {
       view = await render()
-      const { cleanup } = view
-      view = undefined
-
-      await cleanup()
+      view.unmount()
 
       await expect(storage.setItem('local:debugMode', true)).resolves.toBeUndefined()
     })

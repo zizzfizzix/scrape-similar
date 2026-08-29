@@ -15,19 +15,18 @@ import {
   type SidePanelConfig,
 } from '@/utils/types'
 import log from 'loglevel'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
 import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
 import {
-  openRadixTrigger,
-  querySelector,
-  renderComponent,
-  setInputValue,
-  stubScrolling,
-  waitFor,
   type RenderResult,
-} from '@@/tests/support/react'
+  act,
+  fireEvent,
+  render as renderComponent,
+  waitFor,
+} from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 
 const trackEvent = vi.hoisted(() => vi.fn())
 vi.mock('@/utils/analytics', async (importOriginal) => ({
@@ -41,7 +40,7 @@ vi.mock('sonner', async (importOriginal) => ({
   toast: toastMocks.toast,
 }))
 
-let view: RenderResult | undefined
+let view: RenderResult
 
 const TAB_ID = 4
 const OTHER_TAB_ID = 7
@@ -98,8 +97,9 @@ const tabsGetReplies = (tab: Partial<Browser.tabs.Tab>, lastError?: { message?: 
     },
   )
 
-const render = () =>
-  renderComponent(
+/** Render, and let mount-time storage reads settle before asserting. */
+const render = async () => {
+  const rendered = renderComponent(
     <ConsentProvider>
       <ThemeProvider>
         <TooltipProvider>
@@ -108,31 +108,27 @@ const render = () =>
       </ThemeProvider>
     </ConsentProvider>,
   )
+  await act(async () => {})
+  return rendered
+}
 
 const mainSelectorInput = () =>
-  querySelector<HTMLTextAreaElement>(view!.container, 'textarea#mainSelector')
+  view.container.querySelector<HTMLTextAreaElement>('textarea#mainSelector')!
 
 /** Tell the panel the browser switched to `tabId`. */
 const activateTab = (tabId: number) =>
-  view!.act(async () => {
+  act(async () => {
     await fakeBrowser.tabs.onActivated.trigger({ tabId, windowId: 1 })
   })
 
 beforeEach(async () => {
   fakeBrowser.reset()
   setLastError(undefined)
-  stubScrolling()
   await userPresetsStorage.setValue([])
   await storage.setItem(`sync:${ANALYTICS_CONSENT_STORAGE_KEY}`, true)
   spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(undefined as never)
   contentScriptReplies({ success: true, matchCount: 3 })
   await attachToTab()
-})
-
-afterEach(async () => {
-  await view?.cleanup()
-  view = undefined
-  document.body.innerHTML = ''
 })
 
 describe('resolving the attached tab', () => {
@@ -211,18 +207,18 @@ describe('following the active tab', () => {
     view = await render()
     tabsGetReplies({ id: TAB_ID, url: 'chrome://settings' })
 
-    await view.act(async () => {
+    await act(async () => {
       await fakeBrowser.tabs.onUpdated.trigger(TAB_ID, { url: 'chrome://settings' }, {} as never)
     })
 
-    await waitFor(() => expect(view!.container.textContent).toContain('Unsupported URL'))
+    await waitFor(() => expect(view.container.textContent).toContain('Unsupported URL'))
   })
 
   it('ignores a URL change in a tab it is not attached to', async () => {
     view = await render()
     const get = tabsGetReplies({ id: OTHER_TAB_ID, url: 'chrome://settings' })
 
-    await view.act(async () => {
+    await act(async () => {
       await fakeBrowser.tabs.onUpdated.trigger(
         OTHER_TAB_ID,
         { url: 'chrome://settings' },
@@ -237,12 +233,12 @@ describe('following the active tab', () => {
     view = await render()
     tabsGetReplies({}, { message: 'gone' })
 
-    await view.act(async () => {
+    await act(async () => {
       await fakeBrowser.tabs.onUpdated.trigger(TAB_ID, { url: 'about:blank' }, {} as never)
     })
 
     // A blank URL is not injectable either, so the splash takes over.
-    await waitFor(() => expect(view!.container.textContent).toContain('Unsupported URL'))
+    await waitFor(() => expect(view.container.textContent).toContain('Unsupported URL'))
   })
 
   it('ignores stored data that arrives for a different tab', async () => {
@@ -251,7 +247,7 @@ describe('following the active tab', () => {
     view = await render()
     await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
 
-    await view.act(async () => {
+    await act(async () => {
       await storage.setItem(`session:sidepanel_config_${OTHER_TAB_ID}`, {
         currentScrapeConfig: { ...config, mainSelector: '//li' },
       })
@@ -280,8 +276,8 @@ describe('without a tab to talk to', () => {
       undefined as never,
     )
 
-    await view.act(() =>
-      querySelector<HTMLButtonElement>(view!.container, 'button[aria-label="Add column"]').click(),
+    await act(() =>
+      view.container.querySelector<HTMLButtonElement>('button[aria-label="Add column"]')!.click(),
     )
 
     expect(sendMessage).not.toHaveBeenCalled()
@@ -291,22 +287,21 @@ describe('without a tab to talk to', () => {
     const sendMessage = contentScriptReplies({ success: true })
     view = await render()
 
-    await view.act(() =>
-      querySelector<HTMLButtonElement>(
-        view!.container,
-        'button[aria-label="Open visual picker"]',
-      ).click(),
+    await act(() =>
+      view.container
+        .querySelector<HTMLButtonElement>('button[aria-label="Open visual picker"]')!
+        .click(),
     )
-    await view.act(() => setInputValue(mainSelectorInput(), '//td'))
+    fireEvent.change(mainSelectorInput(), { target: { value: '//td' } })
     // The button offers to validate the draft, which would normally scrape.
-    await view.act(async () => {
-      ;[...view!.container.querySelectorAll('button')]
+    await act(async () => {
+      ;[...view.container.querySelectorAll('button')]
         .find((candidate) => candidate.textContent?.trim() === 'Validate selector')!
         .click()
       await Promise.resolve()
     })
     // Committing the draft would normally ask for a highlight.
-    await view.act(async () => {
+    await act(async () => {
       mainSelectorInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
       await new Promise((resolve) => setTimeout(resolve, 200))
     })
@@ -318,8 +313,8 @@ describe('without a tab to talk to', () => {
     const sendMessage = contentScriptReplies({ success: true })
     view = await render()
 
-    await view.act(() =>
-      querySelector<HTMLButtonElement>(view!.container, 'button[aria-label="Add column"]').click(),
+    await act(() =>
+      view.container.querySelector<HTMLButtonElement>('button[aria-label="Add column"]')!.click(),
     )
 
     expect(sendMessage).not.toHaveBeenCalled()
@@ -340,7 +335,7 @@ describe('reading the stored state', () => {
     view = await render()
 
     // The table is built from the current config, since none was recorded.
-    await waitFor(() => expect(view!.container.textContent).toContain('Extracted Data'))
+    await waitFor(() => expect(view.container.textContent).toContain('Extracted Data'))
     expect(view.container.querySelector('th')?.textContent).toBeDefined()
   })
 
@@ -362,7 +357,7 @@ describe('reading the stored state', () => {
     // offers a re-scrape rather than a first one.
     await waitFor(() =>
       expect(
-        [...view!.container.querySelectorAll('button')].some(
+        [...view.container.querySelectorAll('button')].some(
           (candidate) => candidate.textContent?.trim() === 'Scrape',
         ),
       ).toBe(true),
@@ -385,7 +380,7 @@ describe('reading the stored state', () => {
     getItem.mockRestore()
     await activateTab(TAB_ID)
 
-    await view.act(async () => {
+    await act(async () => {
       release!({ currentScrapeConfig: { ...config, mainSelector: '//stale' } })
     })
 
@@ -422,18 +417,18 @@ describe('reading the stored state', () => {
     await activateTab(OTHER_TAB_ID)
 
     // An empty URL is not injectable, so the panel explains itself.
-    await waitFor(() => expect(view!.container.textContent).toContain('Unsupported URL'))
+    await waitFor(() => expect(view.container.textContent).toContain('Unsupported URL'))
   })
 
   it('blanks the URL when an update reports none', async () => {
     view = await render()
     tabsGetReplies({ id: TAB_ID })
 
-    await view.act(async () => {
+    await act(async () => {
       await fakeBrowser.tabs.onUpdated.trigger(TAB_ID, { status: 'loading' }, {} as never)
     })
 
-    await waitFor(() => expect(view!.container.textContent).toContain('Unsupported URL'))
+    await waitFor(() => expect(view.container.textContent).toContain('Unsupported URL'))
   })
 })
 
@@ -447,8 +442,8 @@ describe('remembering the selector a scrape used', () => {
   /** Press the main action button, whatever it currently reads. */
   const scrape = async (response: unknown, label = 'Scrape') => {
     contentScriptReplies(response)
-    await view!.act(async () => {
-      ;[...view!.container.querySelectorAll('button')]
+    await act(async () => {
+      ;[...view.container.querySelectorAll('button')]
         .find((candidate) => candidate.textContent?.trim() === label)!
         .click()
       await Promise.resolve()
@@ -490,9 +485,9 @@ describe('remembering the selector a scrape used', () => {
     view = await render()
     // With an uncommitted draft the button is offered as "Validate selector",
     // and the scrape still runs against the blank committed config.
-    await view.act(() => {
+    await act(() => {
       mainSelectorInput().focus()
-      setInputValue(mainSelectorInput(), '//td')
+      fireEvent.change(mainSelectorInput(), { target: { value: '//td' } })
     })
 
     await scrape(scraped, 'Validate selector')
@@ -525,7 +520,7 @@ describe('remembering the selector a scrape used', () => {
 
     await scrape({ success: true })
 
-    await waitFor(() => expect(view!.container.textContent).toContain('0 found'))
+    await waitFor(() => expect(view.container.textContent).toContain('0 found'))
   })
 
   it('records the row count from a reply that does not claim success', async () => {
@@ -549,12 +544,12 @@ describe('presets', () => {
   }
 
   const byLabel = (label: string) =>
-    [...view!.container.querySelectorAll('button')].find(
+    [...view.container.querySelectorAll('button')].find(
       (candidate) => candidate.textContent?.trim() === label,
     )!
 
   /** Open the Load popover; its content is portalled onto the body. */
-  const openPresetList = () => view!.act(() => openRadixTrigger(byLabel('Load')))
+  const openPresetList = () => userEvent.click(byLabel('Load'))
 
   const presetRow = (name: string) =>
     [...document.querySelectorAll<HTMLElement>('[cmdk-item]')].find((candidate) =>
@@ -569,18 +564,17 @@ describe('presets', () => {
 
   const loadPreset = async (name: string) => {
     await waitForPreset(name)
-    await view!.act(() => presetRow(name)!.click())
+    await userEvent.click(presetRow(name)!)
   }
 
   /** Open the Save drawer, name the preset and confirm. */
   const savePresetNamed = async (name: string) => {
-    await view!.act(() => openRadixTrigger(byLabel('Save')))
-    const nameField = querySelector<HTMLInputElement>(
-      document.body,
+    await userEvent.click(byLabel('Save'))
+    const nameField = document.body.querySelector<HTMLInputElement>(
       'input[placeholder="Preset name"]',
-    )
-    await view!.act(() => setInputValue(nameField, name))
-    await view!.act(async () => {
+    )!
+    fireEvent.change(nameField, { target: { value: name } })
+    await act(async () => {
       ;[...document.querySelectorAll<HTMLButtonElement>('[data-slot="drawer-content"] button')]
         .filter((candidate) => candidate.textContent?.trim() === 'Save')
         .at(-1)!
@@ -592,13 +586,12 @@ describe('presets', () => {
   /** Open the Load popover, ask to remove `name`, and confirm. */
   const deletePresetNamed = async (name: string) => {
     await waitForPreset(name)
-    await view!.act(() => querySelector<HTMLButtonElement>(presetRow(name)!, 'button').click())
-    await view!.act(async () => {
-      ;[...document.querySelectorAll<HTMLButtonElement>('button')]
-        .find((candidate) => ['Delete', 'Hide'].includes(candidate.textContent?.trim() ?? ''))!
-        .click()
-      await Promise.resolve()
-    })
+    await userEvent.click(presetRow(name)!.querySelector<HTMLButtonElement>('button')!)
+    await userEvent.click(
+      [...document.querySelectorAll<HTMLButtonElement>('button')].find((candidate) =>
+        ['Delete', 'Hide'].includes(candidate.textContent?.trim() ?? ''),
+      )!,
+    )
   }
 
   it('records loading a user preset', async () => {
@@ -636,7 +629,7 @@ describe('presets', () => {
     await waitForPreset('Rows')
     const sendMessage = contentScriptReplies({ success: true, matchCount: 3 })
 
-    await view.act(() => presetRow('Rows')!.click())
+    await userEvent.click(presetRow('Rows')!)
 
     expect(sendMessage).not.toHaveBeenCalled()
   })
@@ -713,7 +706,7 @@ describe('presets', () => {
     view = await render()
     await openPresetList()
 
-    await view.act(async () => {
+    await act(async () => {
       await userPresetsStorage.setValue([userPreset])
     })
 
@@ -725,7 +718,7 @@ describe('presets', () => {
     view = await render()
     await waitForPreset(systemPreset.name)
 
-    await view.act(async () => {
+    await act(async () => {
       await storage.setItem(`sync:${SYSTEM_PRESET_STATUS_KEY}`, { [systemPreset.id]: false })
     })
 
@@ -734,14 +727,12 @@ describe('presets', () => {
 
   it('picks up presets imported from the settings drawer', async () => {
     view = await render()
-    await view.act(() =>
-      openRadixTrigger(
-        querySelector<HTMLButtonElement>(view!.container, 'button[aria-label="Settings"]'),
-      ),
+    await userEvent.click(
+      view.container.querySelector<HTMLButtonElement>('button[aria-label="Settings"]')!,
     )
-    const fileInput = querySelector<HTMLInputElement>(document.body, 'input[type="file"]')
+    const fileInput = document.body.querySelector<HTMLInputElement>('input[type="file"]')!
 
-    await view.act(async () => {
+    await act(async () => {
       Object.defineProperty(fileInput, 'files', {
         configurable: true,
         value: [
@@ -754,7 +745,7 @@ describe('presets', () => {
       await Promise.resolve()
       await Promise.resolve()
     })
-    await view.act(async () => {
+    await act(async () => {
       // The Settings row and the confirmation both read "Import"; the
       // confirmation is portalled, so it comes last in the document.
       ;[...document.querySelectorAll<HTMLButtonElement>('button')]
@@ -785,11 +776,10 @@ describe('talking to the content script', () => {
     view = await render()
     contentScriptReplies(undefined, { message: 'port closed' })
 
-    await view.act(() =>
-      querySelector<HTMLButtonElement>(
-        view!.container,
-        'button[aria-label="Open visual picker"]',
-      ).click(),
+    await act(() =>
+      view.container
+        .querySelector<HTMLButtonElement>('button[aria-label="Open visual picker"]')!
+        .click(),
     )
 
     await waitFor(() => expect(toastMocks.toast.error).toHaveBeenCalledWith(CONNECT_ERROR))
@@ -799,11 +789,10 @@ describe('talking to the content script', () => {
     view = await render()
     const sendMessage = contentScriptReplies({ success: true })
 
-    await view.act(() =>
-      querySelector<HTMLButtonElement>(
-        view!.container,
-        'button[aria-label="Open visual picker"]',
-      ).click(),
+    await act(() =>
+      view.container
+        .querySelector<HTMLButtonElement>('button[aria-label="Open visual picker"]')!
+        .click(),
     )
 
     expect(sendMessage).toHaveBeenCalledWith(
@@ -820,8 +809,8 @@ describe('talking to the content script', () => {
     await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
     contentScriptReplies(undefined, { message: 'port closed' })
 
-    await view.act(() => setInputValue(mainSelectorInput(), '//td'))
-    await view.act(async () => {
+    fireEvent.change(mainSelectorInput(), { target: { value: '//td' } })
+    await act(async () => {
       mainSelectorInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
       await new Promise((resolve) => setTimeout(resolve, 200))
     })
@@ -835,8 +824,8 @@ describe('talking to the content script', () => {
     await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
     contentScriptReplies({ success: true })
 
-    await view.act(() => setInputValue(mainSelectorInput(), '//td'))
-    await view.act(async () => {
+    fireEvent.change(mainSelectorInput(), { target: { value: '//td' } })
+    await act(async () => {
       mainSelectorInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
       await new Promise((resolve) => setTimeout(resolve, 200))
     })
@@ -856,16 +845,15 @@ describe('talking to the content script', () => {
     view = await render()
     await waitFor(() =>
       expect(
-        view!.container.querySelector('button[aria-label="Highlight this element"]'),
+        view.container.querySelector('button[aria-label="Highlight this element"]'),
       ).not.toBeNull(),
     )
     contentScriptReplies({ success: true })
 
-    await view.act(() =>
-      querySelector<HTMLButtonElement>(
-        view!.container,
-        'button[aria-label="Highlight this element"]',
-      ).click(),
+    await act(() =>
+      view.container
+        .querySelector<HTMLButtonElement>('button[aria-label="Highlight this element"]')!
+        .click(),
     )
 
     expect(toastMocks.toast.error).not.toHaveBeenCalled()
@@ -875,11 +863,10 @@ describe('talking to the content script', () => {
     view = await render()
     contentScriptReplies({ success: false })
 
-    await view.act(() =>
-      querySelector<HTMLButtonElement>(
-        view!.container,
-        'button[aria-label="Open visual picker"]',
-      ).click(),
+    await act(() =>
+      view.container
+        .querySelector<HTMLButtonElement>('button[aria-label="Open visual picker"]')!
+        .click(),
     )
 
     expect(toastMocks.toast.error).not.toHaveBeenCalled()
@@ -897,16 +884,15 @@ describe('talking to the content script', () => {
     view = await render()
     await waitFor(() =>
       expect(
-        view!.container.querySelector('button[aria-label="Highlight this element"]'),
+        view.container.querySelector('button[aria-label="Highlight this element"]'),
       ).not.toBeNull(),
     )
     contentScriptReplies(undefined, { message: 'port closed' })
 
-    await view.act(() =>
-      querySelector<HTMLButtonElement>(
-        view!.container,
-        'button[aria-label="Highlight this element"]',
-      ).click(),
+    await act(() =>
+      view.container
+        .querySelector<HTMLButtonElement>('button[aria-label="Highlight this element"]')!
+        .click(),
     )
 
     await waitFor(() => expect(toastMocks.toast.error).toHaveBeenCalledWith(CONNECT_ERROR))

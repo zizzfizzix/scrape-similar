@@ -3,9 +3,10 @@ import { ThemeProvider, useTheme } from '@/components/theme-provider'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
-import { querySelector, renderComponent, type RenderResult } from '@@/tests/support/react'
+import { act, render as renderComponent, waitFor, type RenderResult } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 
-let view: RenderResult | undefined
+let view: RenderResult
 
 /** Give storage watchers a macrotask to fire. */
 const flushWatchers = () => new Promise((resolve) => setTimeout(resolve, 0))
@@ -44,11 +45,12 @@ const Probe = () => {
   )
 }
 
-const currentTheme = () => querySelector(view!.container, '[data-testid="theme"]').textContent
+const currentTheme = () => view.container.querySelector('[data-testid="theme"]')!.textContent
 const press = (name: string) =>
-  view!.act(() =>
-    querySelector<HTMLButtonElement>(view!.container, `[data-testid="${name}"]`).click(),
-  )
+  userEvent.click(view.container.querySelector<HTMLButtonElement>(`[data-testid="${name}"]`)!)
+
+/** Wait for the theme the provider has settled on. */
+const expectTheme = (theme: string) => waitFor(() => expect(currentTheme()).toBe(theme))
 
 beforeEach(() => {
   fakeBrowser.reset()
@@ -56,71 +58,68 @@ beforeEach(() => {
 })
 
 afterEach(async () => {
-  await view?.cleanup()
-  view = undefined
-  document.body.innerHTML = ''
   document.documentElement.className = ''
 })
 
 describe('ThemeProvider', () => {
   it('defaults to following the system', async () => {
-    view = await renderComponent(
+    view = renderComponent(
       <ThemeProvider>
         <Probe />
       </ThemeProvider>,
     )
 
-    expect(currentTheme()).toBe('system')
+    await expectTheme('system')
   })
 
   it('honours an explicit default', async () => {
-    view = await renderComponent(
+    view = renderComponent(
       <ThemeProvider defaultTheme="dark">
         <Probe />
       </ThemeProvider>,
     )
 
-    expect(currentTheme()).toBe('dark')
+    await expectTheme('dark')
   })
 
   it('adopts the stored theme on mount', async () => {
     await storage.setItem('local:theme', 'dark')
 
-    view = await renderComponent(
+    view = renderComponent(
       <ThemeProvider>
         <Probe />
       </ThemeProvider>,
     )
 
-    expect(currentTheme()).toBe('dark')
+    await expectTheme('dark')
   })
 
   it('reads from a custom storage key', async () => {
     await storage.setItem('local:panel-theme', 'light')
 
-    view = await renderComponent(
+    view = renderComponent(
       <ThemeProvider themeStorageKey="panel-theme">
         <Probe />
       </ThemeProvider>,
     )
 
-    expect(currentTheme()).toBe('light')
+    await expectTheme('light')
   })
 
   it('ignores a stored value that is not a theme', async () => {
     await storage.setItem('local:theme', 'neon')
 
-    view = await renderComponent(
+    view = renderComponent(
       <ThemeProvider>
         <Probe />
       </ThemeProvider>,
     )
 
-    expect(currentTheme()).toBe('system')
+    await expectTheme('system')
   })
 
   it('applies the light class to the document root', async () => {
-    view = await renderComponent(
+    view = renderComponent(
       <ThemeProvider defaultTheme="light">
         <Probe />
       </ThemeProvider>,
@@ -132,7 +131,7 @@ describe('ThemeProvider', () => {
   it('replaces the previous theme class rather than stacking', async () => {
     document.documentElement.classList.add('light')
 
-    view = await renderComponent(
+    view = renderComponent(
       <ThemeProvider defaultTheme="dark">
         <Probe />
       </ThemeProvider>,
@@ -146,7 +145,7 @@ describe('ThemeProvider', () => {
     const root = document.createElement('div')
     document.body.append(root)
 
-    view = await renderComponent(
+    view = renderComponent(
       <ThemeProvider defaultTheme="dark" rootElement={root}>
         <Probe />
       </ThemeProvider>,
@@ -159,7 +158,7 @@ describe('ThemeProvider', () => {
   it('follows a dark system preference', async () => {
     stubPrefersDark(true)
 
-    view = await renderComponent(
+    view = renderComponent(
       <ThemeProvider>
         <Probe />
       </ThemeProvider>,
@@ -171,7 +170,7 @@ describe('ThemeProvider', () => {
   it('follows a light system preference', async () => {
     stubPrefersDark(false)
 
-    view = await renderComponent(
+    view = renderComponent(
       <ThemeProvider>
         <Probe />
       </ThemeProvider>,
@@ -182,21 +181,21 @@ describe('ThemeProvider', () => {
 
   it('reacts when the system preference changes', async () => {
     const media = stubPrefersDark(false)
-    view = await renderComponent(
+    view = renderComponent(
       <ThemeProvider>
         <Probe />
       </ThemeProvider>,
     )
 
     // The stub reports `matches: false` throughout, so re-emitting keeps light.
-    await view.act(() => media.emit())
+    await act(() => media.emit())
 
     expect(document.documentElement.classList.contains('light')).toBe(true)
   })
 
   it('stops following the system once a theme is chosen', async () => {
     const media = stubPrefersDark(true)
-    view = await renderComponent(
+    view = renderComponent(
       <ThemeProvider>
         <Probe />
       </ThemeProvider>,
@@ -204,13 +203,13 @@ describe('ThemeProvider', () => {
 
     await press('light')
 
-    expect(currentTheme()).toBe('light')
+    await expectTheme('light')
     expect(document.documentElement.classList.contains('light')).toBe(true)
     expect(media.listeners.size).toBe(0)
   })
 
   it('persists a chosen theme', async () => {
-    view = await renderComponent(
+    view = renderComponent(
       <ThemeProvider>
         <Probe />
       </ThemeProvider>,
@@ -222,7 +221,7 @@ describe('ThemeProvider', () => {
   })
 
   it('persists to the custom storage key', async () => {
-    view = await renderComponent(
+    view = renderComponent(
       <ThemeProvider themeStorageKey="panel-theme">
         <Probe />
       </ThemeProvider>,
@@ -235,7 +234,7 @@ describe('ThemeProvider', () => {
 
   it('goes back to following the system when asked', async () => {
     stubPrefersDark(true)
-    view = await renderComponent(
+    view = renderComponent(
       <ThemeProvider defaultTheme="light">
         <Probe />
       </ThemeProvider>,
@@ -243,66 +242,63 @@ describe('ThemeProvider', () => {
 
     await press('system')
 
-    expect(currentTheme()).toBe('system')
+    await expectTheme('system')
     expect(document.documentElement.classList.contains('dark')).toBe(true)
   })
 
   it('picks up a theme changed elsewhere', async () => {
-    view = await renderComponent(
+    view = renderComponent(
       <ThemeProvider>
         <Probe />
       </ThemeProvider>,
     )
 
-    await view.act(async () => {
+    await act(async () => {
       await storage.setItem('local:theme', 'dark')
       await flushWatchers()
     })
 
-    expect(currentTheme()).toBe('dark')
+    await expectTheme('dark')
   })
 
   it('ignores a non-theme value written elsewhere', async () => {
-    view = await renderComponent(
+    view = renderComponent(
       <ThemeProvider defaultTheme="light">
         <Probe />
       </ThemeProvider>,
     )
 
-    await view.act(async () => {
+    await act(async () => {
       await storage.setItem('local:theme', 'neon')
       await flushWatchers()
     })
 
-    expect(currentTheme()).toBe('light')
+    await expectTheme('light')
   })
 
   it('ignores the theme being cleared elsewhere', async () => {
     await storage.setItem('local:theme', 'dark')
-    view = await renderComponent(
+    view = renderComponent(
       <ThemeProvider>
         <Probe />
       </ThemeProvider>,
     )
 
-    await view.act(async () => {
+    await act(async () => {
       await storage.removeItem('local:theme')
       await flushWatchers()
     })
 
-    expect(currentTheme()).toBe('dark')
+    await expectTheme('dark')
   })
 
   it('stops listening once unmounted', async () => {
-    view = await renderComponent(
+    view = renderComponent(
       <ThemeProvider>
         <Probe />
       </ThemeProvider>,
     )
-    const { cleanup } = view
-    view = undefined
-
-    await cleanup()
+    view.unmount()
 
     await expect(storage.setItem('local:theme', 'dark')).resolves.toBeUndefined()
   })
@@ -310,16 +306,16 @@ describe('ThemeProvider', () => {
 
 describe('useTheme', () => {
   it('falls back to the default context outside a provider', async () => {
-    view = await renderComponent(<Probe />)
+    view = renderComponent(<Probe />)
 
-    expect(currentTheme()).toBe('system')
+    await expectTheme('system')
   })
 
   it('has a no-op setter outside a provider', async () => {
-    view = await renderComponent(<Probe />)
+    view = renderComponent(<Probe />)
 
     await press('dark')
 
-    expect(currentTheme()).toBe('system')
+    await expectTheme('system')
   })
 })

@@ -7,12 +7,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
 import {
-  findByRole,
-  openRadixTrigger,
-  querySelector,
-  renderComponent,
+  act,
+  fireEvent,
+  render as renderComponent,
+  screen,
   type RenderResult,
-} from '@@/tests/support/react'
+} from '@testing-library/react'
 
 const trackEvent = vi.hoisted(() => vi.fn())
 vi.mock('@/utils/analytics', async (importOriginal) => ({
@@ -30,7 +30,7 @@ vi.mock('@/utils/export-data', async (importOriginal) => ({
   rowsToXlsxBuffer: exportMocks.rowsToXlsxBuffer,
 }))
 
-let view: RenderResult | undefined
+let view: RenderResult
 
 const row = (data: Record<string, string>, isEmpty = false, originalIndex = 0): ScrapedRow => ({
   data,
@@ -61,13 +61,25 @@ const render = (overrides: Partial<ExportButtonsProps> = {}) => {
   return renderComponent(<ExportButtons {...props} />)
 }
 
-const trigger = () => querySelector<HTMLButtonElement>(view!.container, 'button')
-const openMenu = () => view!.act(() => openRadixTrigger(trigger()))
-const menuItem = (label: string) => findByRole('menuitem', label)
+const trigger = () => view.container.querySelector<HTMLButtonElement>('button')!
+/**
+ * Open the export menu.
+ *
+ * Radix opens on pointer events, which `fireEvent.click` alone does not send.
+ * user-event would send them, but it waits between events and these tests run
+ * on fake timers, so drive the sequence directly.
+ */
+const openMenu = () => {
+  const el = trigger()
+  fireEvent.pointerDown(el, { button: 0 })
+  fireEvent.pointerUp(el, { button: 0 })
+  fireEvent.click(el)
+}
+const menuItem = (label: string) => screen.getByRole('menuitem', { name: label })
 
 const choose = async (label: string) => {
-  await openMenu()
-  await view!.act(async () => {
+  openMenu()
+  await act(async () => {
     menuItem(label).click()
     await Promise.resolve()
   })
@@ -84,17 +96,14 @@ beforeEach(() => {
 })
 
 afterEach(async () => {
-  await view?.cleanup()
-  view = undefined
   vi.unstubAllGlobals()
-  document.body.innerHTML = ''
 })
 
 describe('ExportButtons', () => {
   it('offers all four export destinations', async () => {
-    view = await render()
+    view = render()
 
-    await openMenu()
+    openMenu()
 
     expect(menuItem('Copy all to clipboard')).toBeTruthy()
     expect(menuItem('Save all as CSV')).toBeTruthy()
@@ -103,23 +112,23 @@ describe('ExportButtons', () => {
   })
 
   it('says "all" when nothing is ticked', async () => {
-    view = await render()
+    view = render()
 
-    await openMenu()
+    openMenu()
 
     expect(menuItem('Save all as CSV')).toBeTruthy()
   })
 
   it('counts a single ticked row', async () => {
-    view = await render({ selectedRows: [filled] })
+    view = render({ selectedRows: [filled] })
 
-    await openMenu()
+    openMenu()
 
     expect(menuItem('Save 1 row as CSV')).toBeTruthy()
   })
 
   it('counts several ticked rows', async () => {
-    view = await render({
+    view = render({
       selectedRows: [filled, blank],
       scrapeResult: {
         data: [filled, blank, row({ Title: 'third' }, false, 2)],
@@ -127,14 +136,14 @@ describe('ExportButtons', () => {
       },
     })
 
-    await openMenu()
+    openMenu()
 
     expect(menuItem('Save 2 rows as CSV')).toBeTruthy()
   })
 
   describe('copying to the clipboard', () => {
     it('writes the visible rows as TSV', async () => {
-      view = await render()
+      view = render()
 
       await choose('Copy all to clipboard')
 
@@ -143,7 +152,7 @@ describe('ExportButtons', () => {
     })
 
     it('includes the empty rows when they are shown', async () => {
-      view = await render({ showEmptyRows: true })
+      view = render({ showEmptyRows: true })
 
       await choose('Copy all to clipboard')
 
@@ -151,7 +160,7 @@ describe('ExportButtons', () => {
     })
 
     it('records the attempt before it can fail', async () => {
-      view = await render()
+      view = render()
 
       await choose('Copy all to clipboard')
 
@@ -164,7 +173,7 @@ describe('ExportButtons', () => {
 
     it('reports a clipboard the browser refused', async () => {
       vi.mocked(navigator.clipboard.writeText).mockRejectedValue(new Error('denied'))
-      view = await render()
+      view = render()
 
       await choose('Copy all to clipboard')
 
@@ -173,7 +182,7 @@ describe('ExportButtons', () => {
     })
 
     it('refuses when there is nothing to copy', async () => {
-      view = await render({ scrapeResult: { data: [blank], columnOrder: ['Title'] } })
+      view = render({ scrapeResult: { data: [blank], columnOrder: ['Title'] } })
 
       await choose('Copy all to clipboard')
 
@@ -184,7 +193,7 @@ describe('ExportButtons', () => {
 
   describe('saving a CSV', () => {
     it('downloads the visible rows', async () => {
-      view = await render()
+      view = render()
 
       await choose('Save all as CSV')
 
@@ -197,7 +206,7 @@ describe('ExportButtons', () => {
     })
 
     it('uses the filename it was given', async () => {
-      view = await render({ filename: 'My export' })
+      view = render({ filename: 'My export' })
 
       await choose('Save all as CSV')
 
@@ -209,7 +218,7 @@ describe('ExportButtons', () => {
     })
 
     it('dates the filename when none was given', async () => {
-      view = await render()
+      view = render()
 
       await choose('Save all as CSV')
 
@@ -224,7 +233,7 @@ describe('ExportButtons', () => {
       exportMocks.downloadFile.mockImplementationOnce(() => {
         throw new Error('no blob support')
       })
-      view = await render()
+      view = render()
 
       await choose('Save all as CSV')
 
@@ -235,7 +244,7 @@ describe('ExportButtons', () => {
     })
 
     it('refuses when there is nothing to export', async () => {
-      view = await render({ scrapeResult: { data: [], columnOrder: [] } })
+      view = render({ scrapeResult: { data: [], columnOrder: [] } })
 
       await choose('Save all as CSV')
 
@@ -245,7 +254,7 @@ describe('ExportButtons', () => {
 
   describe('saving an Excel file', () => {
     it('downloads the workbook', async () => {
-      view = await render()
+      view = render()
 
       await choose('Save all to Excel (.xlsx)')
 
@@ -264,7 +273,7 @@ describe('ExportButtons', () => {
 
     it('reports a workbook it could not build', async () => {
       exportMocks.rowsToXlsxBuffer.mockRejectedValueOnce(new Error('out of memory'))
-      view = await render()
+      view = render()
 
       await choose('Save all to Excel (.xlsx)')
 
@@ -275,7 +284,7 @@ describe('ExportButtons', () => {
     })
 
     it('refuses when there is nothing to export', async () => {
-      view = await render({ scrapeResult: { data: [], columnOrder: [] } })
+      view = render({ scrapeResult: { data: [], columnOrder: [] } })
 
       await choose('Save all to Excel (.xlsx)')
 
@@ -298,7 +307,7 @@ describe('ExportButtons', () => {
 
     it('asks the background to build the spreadsheet', async () => {
       const sendMessage = backgroundReplies({ success: true, url: 'https://docs.google.com/x' })
-      view = await render({ filename: 'My export' })
+      view = render({ filename: 'My export' })
 
       await choose('Export all to Google Sheets')
 
@@ -322,7 +331,7 @@ describe('ExportButtons', () => {
 
     it('records the attempt before it can fail', async () => {
       backgroundReplies({ success: true, url: 'https://docs.google.com/x' })
-      view = await render()
+      view = render()
 
       await choose('Export all to Google Sheets')
 
@@ -334,7 +343,7 @@ describe('ExportButtons', () => {
 
     it('reports a connection failure', async () => {
       backgroundReplies(undefined, { message: 'port closed' })
-      view = await render()
+      view = render()
 
       await choose('Export all to Google Sheets')
 
@@ -346,7 +355,7 @@ describe('ExportButtons', () => {
 
     it('reports a refusal from the background', async () => {
       backgroundReplies({ success: false, error: 'Quota exceeded' })
-      view = await render()
+      view = render()
 
       await choose('Export all to Google Sheets')
 
@@ -355,7 +364,7 @@ describe('ExportButtons', () => {
 
     it('reports a cancelled authorization plainly', async () => {
       backgroundReplies({ success: false, error: 'Google authorization was cancelled' })
-      view = await render()
+      view = render()
 
       await choose('Export all to Google Sheets')
 
@@ -364,7 +373,7 @@ describe('ExportButtons', () => {
 
     it('treats a success with no URL as a failure', async () => {
       backgroundReplies({ success: true })
-      view = await render()
+      view = render()
 
       await choose('Export all to Google Sheets')
 
@@ -377,10 +386,10 @@ describe('ExportButtons', () => {
       spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockImplementation(
         () => new Promise(() => {}),
       )
-      view = await render()
+      view = render()
 
       await choose('Export all to Google Sheets')
-      await view.act(() => {
+      await act(() => {
         vi.advanceTimersByTime(SHEETS_EXPORT_TIMEOUT_MS)
       })
 
@@ -393,7 +402,7 @@ describe('ExportButtons', () => {
 
     it('refuses when there is nothing to export', async () => {
       const sendMessage = backgroundReplies({ success: true })
-      view = await render({ scrapeResult: { data: [], columnOrder: [] } })
+      view = render({ scrapeResult: { data: [], columnOrder: [] } })
 
       await choose('Export all to Google Sheets')
 
@@ -410,15 +419,15 @@ describe('ExportButtons', () => {
           return new Promise(() => {})
         },
       )
-      view = await render()
+      view = render()
 
       await choose('Export all to Google Sheets')
-      await view.act(() => {
+      await act(() => {
         vi.advanceTimersByTime(SHEETS_EXPORT_TIMEOUT_MS)
       })
       toastMocks.toast.error.mockClear()
 
-      await view.act(() => reply!({ success: true, url: 'https://docs.google.com/late' }))
+      await act(() => reply!({ success: true, url: 'https://docs.google.com/late' }))
 
       expect(toastMocks.toast.success).toHaveBeenCalledWith(
         'Exported to Google Sheets',
@@ -432,12 +441,10 @@ describe('ExportButtons', () => {
       spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockImplementation(
         () => new Promise(() => {}),
       )
-      view = await render()
+      view = render()
       await choose('Export all to Google Sheets')
 
-      const { cleanup } = view
-      view = undefined
-      await cleanup()
+      view.unmount()
 
       await vi.advanceTimersByTimeAsync(SHEETS_EXPORT_TIMEOUT_MS)
       expect(toastMocks.toast.error).not.toHaveBeenCalledWith('Export timed out - please try again')
@@ -446,7 +453,7 @@ describe('ExportButtons', () => {
   })
 
   it('exports no columns when the scrape reported no column order', async () => {
-    view = await render({ scrapeResult: { data: [filled] } as ScrapeResult })
+    view = render({ scrapeResult: { data: [filled] } as ScrapeResult })
 
     await choose('Copy all to clipboard')
 
@@ -454,7 +461,7 @@ describe('ExportButtons', () => {
   })
 
   it('passes size, variant and class through to the trigger', async () => {
-    view = await render({ size: 'lg', variant: 'secondary', className: 'export-trigger' })
+    view = render({ size: 'lg', variant: 'secondary', className: 'export-trigger' })
 
     expect(trigger().className).toContain('export-trigger')
   })

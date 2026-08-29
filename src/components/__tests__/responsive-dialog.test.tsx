@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import { ResponsiveDialog } from '@/components/responsive-dialog'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { renderComponent, type RenderResult } from '@@/tests/support/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { type RenderResult, render as renderComponent } from '@testing-library/react'
 
-let view: RenderResult | undefined
+let view: RenderResult
 
 /** Report whether the desktop breakpoint matches, and let tests flip it. */
 const setDesktop = (matches: boolean) => {
@@ -38,17 +38,11 @@ const fullDialog = (open = true) => (
 /** Content is portalled to the body, outside the render container. */
 const portalled = () => document.body.textContent ?? ''
 
-afterEach(async () => {
-  await view?.cleanup()
-  view = undefined
-  document.body.innerHTML = ''
-})
-
 describe('ResponsiveDialog on desktop', () => {
   beforeEach(() => setDesktop(true))
 
   it('renders every part of the dialog', async () => {
-    view = await renderComponent(fullDialog())
+    view = renderComponent(fullDialog())
 
     expect(portalled()).toContain('Import presets')
     expect(portalled()).toContain('Current presets will be lost.')
@@ -57,20 +51,20 @@ describe('ResponsiveDialog on desktop', () => {
   })
 
   it('uses the dialog role rather than the drawer', async () => {
-    view = await renderComponent(fullDialog())
+    view = renderComponent(fullDialog())
 
     expect(document.querySelector('[role="dialog"]')).not.toBeNull()
     expect(document.querySelector('[data-vaul-drawer]')).toBeNull()
   })
 
   it('shows a close button by default', async () => {
-    view = await renderComponent(fullDialog())
+    view = renderComponent(fullDialog())
 
     expect(document.querySelector('[data-slot="dialog-close"]')).not.toBeNull()
   })
 
   it('hides the close button when asked', async () => {
-    view = await renderComponent(
+    view = renderComponent(
       <ResponsiveDialog.Root open onOpenChange={() => {}}>
         <ResponsiveDialog.Content showCloseButton={false}>
           <ResponsiveDialog.Title>Import presets</ResponsiveDialog.Title>
@@ -82,13 +76,13 @@ describe('ResponsiveDialog on desktop', () => {
   })
 
   it('renders nothing while closed', async () => {
-    view = await renderComponent(fullDialog(false))
+    view = renderComponent(fullDialog(false))
 
     expect(portalled()).not.toContain('Import presets')
   })
 
   it('renders the cancel action unwrapped', async () => {
-    view = await renderComponent(fullDialog())
+    view = renderComponent(fullDialog())
 
     const cancel = [...document.querySelectorAll('button')].find(
       (button) => button.textContent === 'Cancel',
@@ -97,7 +91,7 @@ describe('ResponsiveDialog on desktop', () => {
   })
 
   it('applies extra classes to each part', async () => {
-    view = await renderComponent(
+    view = renderComponent(
       <ResponsiveDialog.Root open onOpenChange={() => {}}>
         <ResponsiveDialog.Content className="content-class">
           <ResponsiveDialog.Header className="header-class">
@@ -127,7 +121,7 @@ describe('ResponsiveDialog on mobile', () => {
   beforeEach(() => setDesktop(false))
 
   it('renders every part of the drawer', async () => {
-    view = await renderComponent(fullDialog())
+    view = renderComponent(fullDialog())
 
     expect(portalled()).toContain('Import presets')
     expect(portalled()).toContain('Current presets will be lost.')
@@ -135,7 +129,7 @@ describe('ResponsiveDialog on mobile', () => {
   })
 
   it('wraps the cancel action so it closes the drawer', async () => {
-    view = await renderComponent(fullDialog())
+    view = renderComponent(fullDialog())
 
     const cancel = [...document.querySelectorAll('button')].find(
       (button) => button.textContent === 'Cancel',
@@ -144,7 +138,7 @@ describe('ResponsiveDialog on mobile', () => {
   })
 
   it('applies extra classes to each part', async () => {
-    view = await renderComponent(
+    view = renderComponent(
       <ResponsiveDialog.Root open onOpenChange={() => {}}>
         <ResponsiveDialog.Content className="content-class">
           <ResponsiveDialog.Header className="header-class">
@@ -172,7 +166,7 @@ describe('ResponsiveDialog on mobile', () => {
   it('honours a custom breakpoint query', async () => {
     const matchMedia = vi.spyOn(window, 'matchMedia')
 
-    view = await renderComponent(
+    view = renderComponent(
       <ResponsiveDialog.Root open onOpenChange={() => {}} breakpointQuery="(min-width: 1200px)">
         <ResponsiveDialog.Content>
           <ResponsiveDialog.Title>Title</ResponsiveDialog.Title>
@@ -193,34 +187,34 @@ describe('ResponsiveDialog subcomponents outside a root', () => {
   const expectedError = 'ResponsiveDialog subcomponents must be used within ResponsiveDialog.Root'
 
   it('refuses to render Content', async () => {
-    await expect(
+    expect(() =>
       renderComponent(<ResponsiveDialog.Content>Body</ResponsiveDialog.Content>),
-    ).rejects.toThrow(expectedError)
+    ).toThrow(expectedError)
   })
 
   it('refuses to render Header', async () => {
-    await expect(renderComponent(<ResponsiveDialog.Header />)).rejects.toThrow(expectedError)
+    expect(() => renderComponent(<ResponsiveDialog.Header />)).toThrow(expectedError)
   })
 
   it('refuses to render Title', async () => {
-    await expect(renderComponent(<ResponsiveDialog.Title />)).rejects.toThrow(expectedError)
+    expect(() => renderComponent(<ResponsiveDialog.Title />)).toThrow(expectedError)
   })
 
   it('refuses to render Description', async () => {
-    await expect(renderComponent(<ResponsiveDialog.Description />)).rejects.toThrow(expectedError)
+    expect(() => renderComponent(<ResponsiveDialog.Description />)).toThrow(expectedError)
   })
 
   it('refuses to render Footer', async () => {
-    await expect(renderComponent(<ResponsiveDialog.Footer />)).rejects.toThrow(expectedError)
+    expect(() => renderComponent(<ResponsiveDialog.Footer />)).toThrow(expectedError)
   })
 
   it('refuses to render Close', async () => {
-    await expect(
+    expect(() =>
       renderComponent(
         <ResponsiveDialog.Close>
           <button type="button">Cancel</button>
         </ResponsiveDialog.Close>,
       ),
-    ).rejects.toThrow(expectedError)
+    ).toThrow(expectedError)
   })
 })

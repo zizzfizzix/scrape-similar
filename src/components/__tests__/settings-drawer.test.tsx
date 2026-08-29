@@ -5,9 +5,10 @@ import { ThemeProvider } from '@/components/theme-provider'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ANALYTICS_EVENTS } from '@/utils/analytics'
 import { userPresetsStorage } from '@/utils/storage'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
-import { openRadixTrigger, renderComponent, type RenderResult } from '@@/tests/support/react'
 
 const trackEvent = vi.hoisted(() => vi.fn())
 vi.mock('@/utils/analytics', async (importOriginal) => ({
@@ -17,10 +18,8 @@ vi.mock('@/utils/analytics', async (importOriginal) => ({
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
-let view: RenderResult | undefined
-
-const render = () =>
-  renderComponent(
+const renderDrawer = () =>
+  render(
     <ConsentProvider>
       <ThemeProvider>
         <TooltipProvider>
@@ -30,56 +29,39 @@ const render = () =>
     </ConsentProvider>,
   )
 
-/** The drawer content is portalled, so look for the title in the document. */
-const drawerTitle = () =>
-  [...document.querySelectorAll<HTMLElement>('[data-slot="drawer-title"]')].find(
-    (candidate) => candidate.textContent === 'Settings',
-  )
-
-const openDrawer = async () => {
-  const trigger = view!.container.querySelector<HTMLElement>('button[aria-label="Settings"]')!
-  await view!.act(() => openRadixTrigger(trigger))
-}
+const openDrawer = () => userEvent.click(screen.getByRole('button', { name: 'Settings' }))
 
 beforeEach(async () => {
   fakeBrowser.reset()
   await userPresetsStorage.setValue([])
 })
 
-afterEach(async () => {
-  await view?.cleanup()
-  view = undefined
-  document.body.innerHTML = ''
-})
-
 describe('SettingsDrawer', () => {
   it('keeps the settings out of the document until the drawer is opened', async () => {
-    view = await render()
+    renderDrawer()
 
-    expect(drawerTitle()).toBeUndefined()
+    expect(screen.queryByText('Theme')).not.toBeInTheDocument()
     expect(trackEvent).not.toHaveBeenCalledWith(ANALYTICS_EVENTS.SETTINGS_OPEN)
   })
 
   it('reports the drawer being opened', async () => {
-    view = await render()
+    renderDrawer()
 
     await openDrawer()
 
-    expect(drawerTitle()).toBeDefined()
+    expect(await screen.findByText('Theme')).toBeInTheDocument()
     expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.SETTINGS_OPEN)
   })
 
   it('unlocks the hidden debug row from five clicks on the drawer title', async () => {
-    view = await render()
+    renderDrawer()
     await openDrawer()
 
-    const title = drawerTitle()!
-    expect(document.body.textContent).not.toContain('Debug mode')
+    const title = await screen.findByText('Settings', { selector: '[data-slot="drawer-title"]' })
+    expect(screen.queryByText('Debug mode')).not.toBeInTheDocument()
 
-    for (let i = 0; i < 5; i++) {
-      await view.act(() => title.click())
-    }
+    for (let i = 0; i < 5; i++) await userEvent.click(title)
 
-    expect(document.body.textContent).toContain('Debug mode')
+    await waitFor(() => expect(screen.getByText('Debug mode')).toBeInTheDocument())
   })
 })
