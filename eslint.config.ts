@@ -1,5 +1,6 @@
 import js from '@eslint/js'
 import vitest from '@vitest/eslint-plugin'
+import type { Linter } from 'eslint'
 import jestDom from 'eslint-plugin-jest-dom'
 import reactHooks from 'eslint-plugin-react-hooks'
 import testingLibrary from 'eslint-plugin-testing-library'
@@ -59,6 +60,50 @@ const restrictedSyntax = (
 ): { 'no-restricted-syntax': ['error', ...RestrictedSelector[]] } => ({
   'no-restricted-syntax': ['error', ...selectors],
 })
+
+/**
+ * Typed rules from `strictTypeChecked` and `stylisticTypeChecked` that this
+ * codebase already satisfies, so they cost nothing to switch on and only ever
+ * fail on something new. Kept as an explicit list rather than by extending
+ * those two configs, because the rest of them is a backlog rather than a
+ * decision — see #282 for the ladder and what each remaining rule would cost.
+ *
+ * Rules that cannot fire here are left out rather than listed: the enum and
+ * class ones (both banned by convention) and `ban-tslint-comment`.
+ */
+const ALREADY_CLEAN: Linter.RulesRecord = {
+  '@typescript-eslint/consistent-generic-constructors': 'error',
+  '@typescript-eslint/consistent-type-assertions': 'error',
+  '@typescript-eslint/dot-notation': 'error',
+  '@typescript-eslint/no-array-delete': 'error',
+  // `${obj}` where `obj` has no useful `toString` — "[object Object]" in a log
+  // line or, worse, in an exported cell.
+  '@typescript-eslint/no-base-to-string': 'error',
+  '@typescript-eslint/no-confusing-non-null-assertion': 'error',
+  // Fires when a dependency marks something `@deprecated`, which is the only
+  // warning WXT or Radix gives before removing it.
+  '@typescript-eslint/no-deprecated': 'error',
+  '@typescript-eslint/no-duplicate-type-constituents': 'error',
+  '@typescript-eslint/no-dynamic-delete': 'error',
+  '@typescript-eslint/no-for-in-array': 'error',
+  // The `eval` ban in CLAUDE.md, for the spellings `no-eval` does not see.
+  '@typescript-eslint/no-implied-eval': 'error',
+  '@typescript-eslint/no-meaningless-void-operator': 'error',
+  '@typescript-eslint/no-non-null-asserted-nullish-coalescing': 'error',
+  '@typescript-eslint/no-redundant-type-constituents': 'error',
+  '@typescript-eslint/no-unnecessary-type-arguments': 'error',
+  '@typescript-eslint/no-unsafe-unary-minus': 'error',
+  '@typescript-eslint/prefer-find': 'error',
+  '@typescript-eslint/prefer-for-of': 'error',
+  '@typescript-eslint/prefer-function-type': 'error',
+  '@typescript-eslint/prefer-includes': 'error',
+  '@typescript-eslint/prefer-reduce-type-parameter': 'error',
+  '@typescript-eslint/prefer-string-starts-ends-with': 'error',
+  // The option `strictTypeChecked` uses: flag only the `return await` that
+  // changes error handling, not the one that is merely redundant.
+  '@typescript-eslint/return-await': ['error', 'error-handling-correctness-only'],
+  '@typescript-eslint/unified-signatures': 'error',
+}
 
 /**
  * Rules worth having that no longer fit in the diff that turned the linter on.
@@ -133,6 +178,10 @@ export default defineConfig([
         },
       ],
       ...restrictedSyntax(NO_ENUM, NO_DEFAULT_EXPORT),
+      // `== null` is the deliberate "null or undefined" check; everything else
+      // compares by identity.
+      eqeqeq: ['error', 'always', { null: 'ignore' }],
+      ...ALREADY_CLEAN,
       '@typescript-eslint/no-unused-vars': [
         'error',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' },
