@@ -20,7 +20,7 @@ interface PresetItemProps {
   'data-index'?: number
 }
 
-const PresetItem: React.FC<PresetItemProps> = ({
+export const PresetItem: React.FC<PresetItemProps> = ({
   preset,
   onSelect,
   onDelete,
@@ -84,5 +84,3 @@ const PresetItem: React.FC<PresetItemProps> = ({
     </div>
   )
 }
-
-export default PresetItem

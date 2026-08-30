@@ -8,13 +8,13 @@ import { ANALYTICS_CONSENT_STORAGE_KEY } from '@/utils/consent'
 import { HIDDEN_UNLOCK_WINDOW_MS, PRESET_EXPORT_FILENAME } from '@/utils/preset-transfer'
 import { getPresets, setPresets, userPresetsStorage } from '@/utils/storage'
 import { SYSTEM_PRESET_STATUS_KEY, type Preset } from '@/utils/types'
+import { act, render as renderComponent, type RenderResult } from '@testing-library/react'
+import userEventBase from '@testing-library/user-event'
 import log from 'loglevel'
 import { createRef } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
-import { type RenderResult, act, render as renderComponent } from '@testing-library/react'
-import userEventBase from '@testing-library/user-event'
 
 // user-event waits between the events it dispatches. Some of these tests
 // install fake timers, and nothing would advance that wait, so hand it the
@@ -349,7 +349,7 @@ describe('Settings', () => {
       view = await render()
 
       const toggle = view.container.querySelector('[role="switch"]')!
-      expect(toggle.getAttribute('aria-checked')).toBe('true')
+      expect(toggle).toHaveAttribute('aria-checked', 'true')
     })
 
     it('reflects a declined consent', async () => {
@@ -357,7 +357,8 @@ describe('Settings', () => {
 
       view = await render()
 
-      expect(view.container.querySelector('[role="switch"]')!.getAttribute('aria-checked')).toBe(
+      expect(view.container.querySelector('[role="switch"]')!).toHaveAttribute(
+        'aria-checked',
         'false',
       )
     })
@@ -459,7 +460,7 @@ describe('Settings', () => {
       view = await render({ debugMode: true })
 
       const switches = [...view.container.querySelectorAll('[role="switch"]')]
-      expect(switches.at(-1)!.getAttribute('aria-checked')).toBe('true')
+      expect(switches.at(-1)!).toHaveAttribute('aria-checked', 'true')
     })
 
     it('reports a change and clears the unlock when turned off', async () => {

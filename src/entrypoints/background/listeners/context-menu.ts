@@ -20,7 +20,7 @@ export const setupContextMenuListener = (): void => {
       if (info.menuItemId === 'scrape-similar') {
         await handleQuickScrape(targetTabId, info)
       } else if (info.menuItemId === 'scrape-visual-picker') {
-        await handleVisualPicker(targetTabId, tab, info)
+        await handleVisualPicker(targetTabId, tab)
       }
     },
   )
@@ -103,11 +103,7 @@ const handleQuickScrape = async (
 /**
  * Handle 'Visual picker' context menu action
  */
-const handleVisualPicker = async (
-  targetTabId: number,
-  tab: Browser.tabs.Tab,
-  info: Browser.contextMenus.OnClickData,
-): Promise<void> => {
+const handleVisualPicker = async (targetTabId: number, tab: Browser.tabs.Tab): Promise<void> => {
   log.debug('Scrape visual picker selected, toggling picker mode...')
 
   // Track context menu visual picker usage

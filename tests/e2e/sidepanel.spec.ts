@@ -17,7 +17,6 @@ import {
 test.describe('Sidepanel Core Functionality', () => {
   test('sidepanel shows unsupported URL splash when opened on a non-supported URL', async ({
     context,
-    extensionId,
     serviceWorker,
     openSidePanel,
   }) => {
@@ -717,7 +716,7 @@ test.describe('Visual Picker Integration', () => {
     await openButton.click()
 
     // Should now show "close" label
-    let closeButton = sidePanel.getByLabel(/close visual picker/i)
+    const closeButton = sidePanel.getByLabel(/close visual picker/i)
     await expect(closeButton).toBeVisible()
 
     // Disable picker

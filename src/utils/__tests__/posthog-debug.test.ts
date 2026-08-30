@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 type Env = 'development' | 'test' | 'production'
 
-type Scenario = {
+interface Scenario {
   env: Env
   debugMode: boolean | null
 }

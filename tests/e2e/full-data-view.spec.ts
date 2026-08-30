@@ -69,7 +69,6 @@ test.describe('Full Data View', () => {
     openSidePanel,
     serviceWorker,
     context,
-    extensionId,
     fixturePageUrl,
   }) => {
     // Prepare first tab with data
@@ -170,7 +169,6 @@ test.describe('Full Data View', () => {
     openSidePanel,
     serviceWorker,
     context,
-    extensionId,
     fixturePageUrl,
   }) => {
     const sidePanel = await openSidePanel()
@@ -228,10 +226,7 @@ test.describe('Full Data View', () => {
     // Get initial column width
     const initialWidth = await dataColumnHeader.evaluate((el) => el.getBoundingClientRect().width)
 
-    // Locate resize handle (should be at the right edge of the header)
-    const resizeHandle = dataColumnHeader.locator('div').last()
-
-    // Perform resize by dragging the handle
+    // Perform resize by dragging the handle at the right edge of the header
     const headerBox = await dataColumnHeader.boundingBox()
     if (headerBox) {
       // Drag from right edge to make column wider

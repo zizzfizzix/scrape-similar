@@ -1,24 +1,24 @@
 // @vitest-environment jsdom
-import ConfigForm from '@/components/ConfigForm'
+import { ConfigForm } from '@/components/ConfigForm'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ANALYTICS_EVENTS } from '@/utils/analytics'
 import { setRecentMainSelectors, userPresetsStorage } from '@/utils/storage'
 import { SYSTEM_PRESETS } from '@/utils/system_presets'
 import { SYSTEM_PRESET_STATUS_KEY, type Preset, type ScrapeConfig } from '@/utils/types'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fakeBrowser } from 'wxt/testing/fake-browser'
-import { storage } from 'wxt/utils/storage'
+import { stubOffsetWidth } from '@@/tests/support/dom'
 import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
-import { useState } from 'react'
 import {
-  type RenderResult,
   act,
   fireEvent,
   render as renderComponent,
   waitFor,
+  type RenderResult,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { stubOffsetWidth } from '@@/tests/support/dom'
+import { useState } from 'react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { fakeBrowser } from 'wxt/testing/fake-browser'
+import { storage } from 'wxt/utils/storage'
 
 const trackEvent = vi.hoisted(() => vi.fn())
 vi.mock('@/utils/analytics', async (importOriginal) => ({
@@ -806,7 +806,7 @@ describe('ConfigForm', () => {
       }
 
       const drawerText = () =>
-        document.querySelector<HTMLElement>('[data-slot="drawer-content"]')!?.textContent ?? ''
+        document.querySelector<HTMLElement>('[data-slot="drawer-content"]')?.textContent ?? ''
 
       /** The drawer stays mounted while it animates out, so read its state. */
       const openDrawer = () =>

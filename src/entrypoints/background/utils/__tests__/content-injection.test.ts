@@ -1,7 +1,7 @@
 import { injectContentScriptToAllTabs } from '@/entrypoints/background/utils/content-injection'
-import { beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
-import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { spyOnBrowser } from '@@/tests/support/fake-browser'
+import { beforeEach, describe, expect, it, type MockInstance } from 'vitest'
+import { fakeBrowser } from 'wxt/testing/fake-browser'
 
 const setManifest = (contentScripts?: unknown) => {
   spyOnBrowser(fakeBrowser.runtime, 'getManifest').mockReturnValue({

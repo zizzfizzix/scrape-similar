@@ -6,7 +6,7 @@ import { ThemeProvider } from '@/components/theme-provider'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ANALYTICS_EVENTS } from '@/utils/analytics'
 import { author } from '@@/package.json' with { type: 'json' }
-import { type RenderResult, render as renderComponent, screen } from '@testing-library/react'
+import { type RenderResult, render as renderComponent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
@@ -74,7 +74,7 @@ describe('Footer', () => {
     view = render()
 
     expect(supportLink().href).toContain('ko-fi.com/kubaserafinowski')
-    expect(supportLink().getAttribute('aria-label')).toBe('Support Kuba Serafinowski on Ko-fi')
+    expect(supportLink()).toHaveAttribute('aria-label', 'Support Kuba Serafinowski on Ko-fi')
   })
 
   it('records a click on the support link', async () => {
@@ -116,7 +116,7 @@ describe('Footer', () => {
   it('marks the settings variant with a slot for styling hooks', async () => {
     view = render({ showSettings: true })
 
-    expect(view.container.querySelector('footer')!.getAttribute('data-slot')).toBe('footer')
+    expect(view.container.querySelector('footer')!).toHaveAttribute('data-slot', 'footer')
   })
 })
 

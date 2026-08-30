@@ -1,9 +1,9 @@
 import { handleUiMessage } from '@/entrypoints/background/handlers/ui'
 import type { Message, MessageResponse } from '@/utils/types'
+import { spyOnBrowser } from '@@/tests/support/fake-browser'
 import log from 'loglevel'
 import { beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
-import { spyOnBrowser } from '@@/tests/support/fake-browser'
 
 const sheetsMocks = vi.hoisted(() => ({ handleExportToSheets: vi.fn() }))
 vi.mock('@/entrypoints/background/handlers/sheets-export', () => sheetsMocks)

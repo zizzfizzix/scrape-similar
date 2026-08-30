@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
+import { type RenderResult, act, render as renderComponent } from '@testing-library/react'
 import log from 'loglevel'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
-import { type RenderResult, act, render as renderComponent } from '@testing-library/react'
 
 /**
  * The PostHog API key and host are read from `import.meta.env` at call time but

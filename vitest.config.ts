@@ -1,7 +1,7 @@
-import { COVERAGE_EXCLUSIONS } from './coverage-exclusions.ts'
 import { loadEnv, type PluginOption } from 'vite'
 import { configDefaults, defineConfig } from 'vitest/config'
 import { WxtVitest } from 'wxt/testing/vitest-plugin'
+import { COVERAGE_EXCLUSIONS } from './coverage-exclusions.ts'
 
 export default defineConfig({
   // FIXME: Workaround for vite 6 vs 7 plugin type mismatch

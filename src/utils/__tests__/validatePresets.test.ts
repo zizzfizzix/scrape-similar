@@ -16,24 +16,36 @@ const validPreset: Preset = {
   createdAt: 1234567890,
 }
 
+type ImportResult = ReturnType<typeof validatePresetImport>
+
+/**
+ * The `in` narrowing a test needs before it can read a branch's fields, kept
+ * out of the tests themselves so that their assertions are not conditional.
+ */
+const accepted = (result: ImportResult) => {
+  if ('error' in result) throw new Error(`Expected an accepted import, got: ${result.error}`)
+  return result
+}
+
+const rejected = (result: ImportResult) => {
+  if (!('error' in result)) throw new Error('Expected the import to be rejected')
+  return result
+}
+
 describe('validatePresetImport', () => {
   it('accepts valid version 1 and presets array', () => {
-    const result = validatePresetImport({ version: 1, presets: [validPreset] })
-    expect('error' in result).toBe(false)
-    if (!('error' in result)) {
-      expect(result.presets).toHaveLength(1)
-      expect(result.presets[0]).toEqual(validPreset)
-      expect(result.skippedSystemCount).toBe(0)
-    }
+    const result = accepted(validatePresetImport({ version: 1, presets: [validPreset] }))
+
+    expect(result.presets).toHaveLength(1)
+    expect(result.presets[0]).toEqual(validPreset)
+    expect(result.skippedSystemCount).toBe(0)
   })
 
   it('returns empty presets and zero skipped for empty array', () => {
-    const result = validatePresetImport({ version: 1, presets: [] })
-    expect('error' in result).toBe(false)
-    if (!('error' in result)) {
-      expect(result.presets).toHaveLength(0)
-      expect(result.skippedSystemCount).toBe(0)
-    }
+    const result = accepted(validatePresetImport({ version: 1, presets: [] }))
+
+    expect(result.presets).toHaveLength(0)
+    expect(result.skippedSystemCount).toBe(0)
   })
 
   it('returns error when data is not an object', () => {
@@ -55,10 +67,7 @@ describe('validatePresetImport', () => {
 
   it('returns error when version is unsupported (future)', () => {
     const result = validatePresetImport({ version: 99, presets: [] })
-    expect('error' in result).toBe(true)
-    if ('error' in result) {
-      expect(result.error).toContain('Unsupported')
-    }
+    expect(rejected(result).error).toContain('Unsupported')
   })
 
   it('returns error when version is invalid type', () => {
@@ -83,10 +92,7 @@ describe('validatePresetImport', () => {
         { id: 'x', name: 'Y' }, // missing config, createdAt
       ],
     })
-    expect('error' in result).toBe(true)
-    if ('error' in result) {
-      expect(result.error).toMatch(/Invalid preset at index 0/)
-    }
+    expect(rejected(result).error).toMatch(/Invalid preset at index 0/)
   })
 
   it('filters out system preset IDs and sets skippedSystemCount', () => {
@@ -106,12 +112,11 @@ describe('validatePresetImport', () => {
         },
       ],
     })
-    expect('error' in result).toBe(false)
-    if (!('error' in result)) {
-      expect(result.presets).toHaveLength(1)
-      expect(result.presets[0]?.id).toBe(validPreset.id)
-      expect(result.skippedSystemCount).toBe(1)
-    }
+    const importedPresets = accepted(result)
+
+    expect(importedPresets.presets).toHaveLength(1)
+    expect(importedPresets.presets[0]?.id).toBe(validPreset.id)
+    expect(importedPresets.skippedSystemCount).toBe(1)
   })
 
   it('validates config has mainSelector and columns', () => {
@@ -135,11 +140,10 @@ describe('validatePresetImport', () => {
       version: 1,
       presets: [validPreset, preset2],
     })
-    expect('error' in result).toBe(false)
-    if (!('error' in result)) {
-      expect(result.presets).toHaveLength(2)
-      expect(result.skippedSystemCount).toBe(0)
-    }
+    const importedPresets = accepted(result)
+
+    expect(importedPresets.presets).toHaveLength(2)
+    expect(importedPresets.skippedSystemCount).toBe(0)
   })
 })
 

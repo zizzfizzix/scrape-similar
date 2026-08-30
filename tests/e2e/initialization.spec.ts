@@ -28,16 +28,13 @@ test('initialises storage with empty user presets array', async ({ serviceWorker
     // Register the `onChanged` listener *before* performing the initial read to
     // prevent a race condition where the key is written between the read and
     // listener setup.
-    return await new Promise(async (resolve) => {
+    return await new Promise((resolve) => {
       let settled = false
-      let timeoutId: ReturnType<typeof setTimeout> | undefined
 
       function finish(value: unknown[] | undefined) {
         if (settled) return
         settled = true
-        if (timeoutId !== undefined) {
-          clearTimeout(timeoutId)
-        }
+        clearTimeout(timeoutId)
         chrome.storage.onChanged.removeListener(onChange)
         resolve(value)
       }
@@ -50,14 +47,14 @@ test('initialises storage with empty user presets array', async ({ serviceWorker
       }
 
       chrome.storage.onChanged.addListener(onChange)
+      const timeoutId = setTimeout(() => finish(undefined), 5_000)
 
       // After the listener is attached, perform the initial read.
-      const { user_presets } = await chrome.storage.sync.get('user_presets')
-      if (user_presets !== undefined) {
-        finish(Array.isArray(user_presets) ? user_presets : undefined)
-      }
-
-      timeoutId = setTimeout(() => finish(undefined), 5_000)
+      void chrome.storage.sync.get('user_presets').then(({ user_presets }) => {
+        if (user_presets !== undefined) {
+          finish(Array.isArray(user_presets) ? user_presets : undefined)
+        }
+      })
     })
   })
 

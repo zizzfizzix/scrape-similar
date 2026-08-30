@@ -1,13 +1,13 @@
 // @vitest-environment jsdom
-import DataTable from '@/components/DataTable'
+import { DataTable } from '@/components/DataTable'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ANALYTICS_EVENTS } from '@/utils/analytics'
 import type { ScrapeConfig, ScrapedData, ScrapedRow } from '@/utils/types'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { spyOnBrowser } from '@@/tests/support/fake-browser'
 import { type RenderResult, act, render as renderComponent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { fakeBrowser } from 'wxt/testing/fake-browser'
 
 const trackEvent = vi.hoisted(() => vi.fn())
 vi.mock('@/utils/analytics', async (importOriginal) => ({

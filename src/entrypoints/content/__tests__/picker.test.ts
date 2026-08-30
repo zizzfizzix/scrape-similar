@@ -12,11 +12,11 @@ import {
 import { createState, type ContentScriptState } from '@/entrypoints/content/state'
 import { ANALYTICS_EVENTS } from '@/utils/analytics'
 import { MESSAGE_TYPES } from '@/utils/types'
+import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
 import log from 'loglevel'
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import type { ContentScriptContext } from 'wxt/utils/content-script-context'
-import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
 
 const trackEvent = vi.hoisted(() => vi.fn())
 vi.mock('@/utils/analytics', async (importOriginal) => ({
@@ -81,7 +81,7 @@ describe('applyCrosshairCursor', () => {
     applyCrosshairCursor()
 
     expect(document.getElementById('scrape-similar-picker-cursor')).not.toBeNull()
-    expect(document.documentElement.classList.contains('scrape-similar-picker-active')).toBe(true)
+    expect(document.documentElement).toHaveClass('scrape-similar-picker-active')
   })
 
   it('injects the style only once', () => {
@@ -99,7 +99,7 @@ describe('removeCrosshairCursor', () => {
     removeCrosshairCursor()
 
     expect(document.getElementById('scrape-similar-picker-cursor')).toBeNull()
-    expect(document.documentElement.classList.contains('scrape-similar-picker-active')).toBe(false)
+    expect(document.documentElement).not.toHaveClass('scrape-similar-picker-active')
   })
 
   it('does nothing when the cursor was never applied', () => {
@@ -656,7 +656,7 @@ describe('enablePickerMode', () => {
     await enablePickerMode(ctx, state, disable, 'keyboard_shortcut')
 
     expect(state.pickerModeActive).toBe(true)
-    expect(document.documentElement.classList.contains('scrape-similar-picker-active')).toBe(true)
+    expect(document.documentElement).toHaveClass('scrape-similar-picker-active')
     expect(bannerMocks.mountPickerBanner).toHaveBeenCalledWith(ctx, state, disable)
     expect(state.pickerEventHandlers).not.toBeNull()
   })
@@ -754,7 +754,7 @@ describe('disablePickerMode', () => {
     disablePickerMode(state, 'escape')
 
     expect(state.pickerModeActive).toBe(false)
-    expect(document.documentElement.classList.contains('scrape-similar-picker-active')).toBe(false)
+    expect(document.documentElement).not.toHaveClass('scrape-similar-picker-active')
     expect(bannerMocks.unmountPickerBanner).toHaveBeenCalledWith(state)
     expect(highlightMocks.removePickerHighlights).toHaveBeenCalledWith(state.highlightedElements)
     expect(bannerMocks.restoreFixedElements).toHaveBeenCalledWith(state)

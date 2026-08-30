@@ -1,10 +1,8 @@
 // @vitest-environment jsdom
-import ExportButtons from '@/components/ExportButtons'
+import { ExportButtons } from '@/components/ExportButtons'
 import { ANALYTICS_EVENTS } from '@/utils/analytics'
 import { SHEETS_EXPORT_TIMEOUT_MS } from '@/utils/export-data'
 import { MESSAGE_TYPES, type ScrapeConfig, type ScrapedRow, type ScrapeResult } from '@/utils/types'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
 import {
   act,
@@ -13,6 +11,8 @@ import {
   screen,
   type RenderResult,
 } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { fakeBrowser } from 'wxt/testing/fake-browser'
 
 const trackEvent = vi.hoisted(() => vi.fn())
 vi.mock('@/utils/analytics', async (importOriginal) => ({

@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
+import type { ContentScriptState } from '@/entrypoints/content/state'
 import { ANALYTICS_EVENTS } from '@/utils/analytics'
 import log from 'loglevel'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ContentScriptState } from '@/entrypoints/content/state'
 import type { ContentScriptContext } from 'wxt/utils/content-script-context'
 
 const trackEvent = vi.hoisted(() => vi.fn())

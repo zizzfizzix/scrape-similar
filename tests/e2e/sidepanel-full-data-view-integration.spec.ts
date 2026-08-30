@@ -271,11 +271,9 @@ test.describe('Sidepanel Full Data View Integration', () => {
     await expect(compactViewButton.locator('svg')).toBeVisible() // Minimize2 icon
     await expect(hideSidepanelButton.locator('svg')).toBeVisible() // X icon
 
-    // Verify button styling
-    const compactButtonClasses = await compactViewButton.getAttribute('class')
+    // Hide should be an outline button
     const hideButtonClasses = await hideSidepanelButton.getAttribute('class')
 
-    // Compact view should be primary button, hide should be outline
     expect(hideButtonClasses).toContain('outline')
   })
 

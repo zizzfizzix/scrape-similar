@@ -301,7 +301,6 @@ test.describe('DataTable Enhancements', () => {
 
     // Verify that the auto-resizing actually calculated different widths
     // (not all columns have exactly the same width)
-    const uniqueWidths = [...new Set(dataColumnWidths)]
     if (dataColumnWidths.length > 1) {
       // If we have multiple columns, they should have some variation in width
       // Allow for some tolerance due to rounding

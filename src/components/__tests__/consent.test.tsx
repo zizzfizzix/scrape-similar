@@ -1,16 +1,16 @@
 // @vitest-environment jsdom
+import { ConsentProvider, useConsent } from '@/components/consent-provider'
 import { ConsentCard } from '@/components/ConsentCard'
 import { ConsentContent } from '@/components/ConsentContent'
 import { ConsentModal } from '@/components/ConsentModal'
-import { ConsentProvider, useConsent } from '@/components/consent-provider'
 import { ConsentWrapper } from '@/components/ConsentWrapper'
 import { ANALYTICS_CONSENT_STORAGE_KEY, getConsentState } from '@/utils/consent'
+import { type RenderResult, act, render as renderComponent } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
-import { type RenderResult, act, render as renderComponent } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 
 let view: RenderResult
 

@@ -1,7 +1,6 @@
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Toaster } from '@/components/ui/sonner'
-import { chromeExtensionId } from '@@/package.json' with { type: 'json' }
 import {
   buildConfigChangeUpdates,
   buildExportFilename,
@@ -10,6 +9,7 @@ import {
   parseFullDataViewTabId,
   resolveStoredConfig,
 } from '@/utils/sidepanel-state'
+import { chromeExtensionId } from '@@/package.json' with { type: 'json' }
 import log from 'loglevel'
 import { Minimize2, X } from 'lucide-react'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
@@ -128,7 +128,7 @@ interface SidePanelProps {
   onDebugModeChange: (enabled: boolean) => void
 }
 
-const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) => {
+export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) => {
   // State
   const [targetTabId, setTargetTabId] = useState<number | null>(null)
   // Ref to hold the current targetTabId
@@ -771,5 +771,3 @@ const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) =
     </div>
   )
 }
-
-export default SidePanel

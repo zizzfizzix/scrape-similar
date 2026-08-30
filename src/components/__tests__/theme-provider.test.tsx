@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 import { ThemeProvider, useTheme } from '@/components/theme-provider'
+import { act, render as renderComponent, waitFor, type RenderResult } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
-import { act, render as renderComponent, waitFor, type RenderResult } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 
 let view: RenderResult
 
@@ -125,7 +125,7 @@ describe('ThemeProvider', () => {
       </ThemeProvider>,
     )
 
-    expect(document.documentElement.classList.contains('light')).toBe(true)
+    expect(document.documentElement).toHaveClass('light')
   })
 
   it('replaces the previous theme class rather than stacking', async () => {
@@ -137,8 +137,8 @@ describe('ThemeProvider', () => {
       </ThemeProvider>,
     )
 
-    expect(document.documentElement.classList.contains('light')).toBe(false)
-    expect(document.documentElement.classList.contains('dark')).toBe(true)
+    expect(document.documentElement).not.toHaveClass('light')
+    expect(document.documentElement).toHaveClass('dark')
   })
 
   it('themes a given root element instead of the document', async () => {
@@ -151,8 +151,8 @@ describe('ThemeProvider', () => {
       </ThemeProvider>,
     )
 
-    expect(root.classList.contains('dark')).toBe(true)
-    expect(document.documentElement.classList.contains('dark')).toBe(false)
+    expect(root).toHaveClass('dark')
+    expect(document.documentElement).not.toHaveClass('dark')
   })
 
   it('follows a dark system preference', async () => {
@@ -164,7 +164,7 @@ describe('ThemeProvider', () => {
       </ThemeProvider>,
     )
 
-    expect(document.documentElement.classList.contains('dark')).toBe(true)
+    expect(document.documentElement).toHaveClass('dark')
   })
 
   it('follows a light system preference', async () => {
@@ -176,7 +176,7 @@ describe('ThemeProvider', () => {
       </ThemeProvider>,
     )
 
-    expect(document.documentElement.classList.contains('light')).toBe(true)
+    expect(document.documentElement).toHaveClass('light')
   })
 
   it('reacts when the system preference changes', async () => {
@@ -190,7 +190,7 @@ describe('ThemeProvider', () => {
     // The stub reports `matches: false` throughout, so re-emitting keeps light.
     await act(() => media.emit())
 
-    expect(document.documentElement.classList.contains('light')).toBe(true)
+    expect(document.documentElement).toHaveClass('light')
   })
 
   it('stops following the system once a theme is chosen', async () => {
@@ -204,7 +204,7 @@ describe('ThemeProvider', () => {
     await press('light')
 
     await expectTheme('light')
-    expect(document.documentElement.classList.contains('light')).toBe(true)
+    expect(document.documentElement).toHaveClass('light')
     expect(media.listeners.size).toBe(0)
   })
 
@@ -243,7 +243,7 @@ describe('ThemeProvider', () => {
     await press('system')
 
     await expectTheme('system')
-    expect(document.documentElement.classList.contains('dark')).toBe(true)
+    expect(document.documentElement).toHaveClass('dark')
   })
 
   it('picks up a theme changed elsewhere', async () => {

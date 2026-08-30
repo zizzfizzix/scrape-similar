@@ -66,7 +66,7 @@ describe('ModeToggle', () => {
     view = render({ id: 'theme-toggle', ariaLabelledby: 'theme-label' })
 
     expect(trigger().id).toBe('theme-toggle')
-    expect(trigger().getAttribute('aria-labelledby')).toBe('theme-label')
+    expect(trigger()).toHaveAttribute('aria-labelledby', 'theme-label')
   })
 
   it('offers all three themes', async () => {

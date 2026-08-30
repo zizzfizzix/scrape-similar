@@ -114,7 +114,10 @@ export const showPickerContextMenu = async (
         try {
           const unmount = (appRoot as { __unmount?: () => void } | undefined)?.__unmount
           if (typeof unmount === 'function') unmount()
-        } catch {}
+        } catch {
+          // The React root is being torn down with the page around it; a failed
+          // unmount leaves nothing behind to clean up.
+        }
         state.pickerContextMenuHost = null
         state.pickerContextMenuApi = null
       },
@@ -189,7 +192,9 @@ export const removePickerContextMenu = (
   if (state.pickerContextMenuUi) {
     try {
       state.pickerContextMenuUi.remove()
-    } catch {}
+    } catch {
+      // Already detached — the state reset below is all that is left to do.
+    }
     state.pickerContextMenuUi = null
   }
 

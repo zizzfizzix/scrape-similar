@@ -1,8 +1,8 @@
+import { spyOnBrowser } from '@@/tests/support/fake-browser'
 import log from 'loglevel'
 import { beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
-import { spyOnBrowser } from '@@/tests/support/fake-browser'
 
 // `isDevOrTest` is a build-time constant, so both production and dev/test
 // branches are only reachable behind a mutable mock.
