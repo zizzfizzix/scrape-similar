@@ -30,10 +30,8 @@ beforeEach(() => {
 afterEach(() => {
   // Restore window
   if (typeof originalWindow === 'undefined') {
-    // @ts-ignore - delete to match original absence
     delete (globalThis as any).window
   } else {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     globalThis.window = originalWindow
   }
 

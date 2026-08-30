@@ -1,9 +1,7 @@
 // @vitest-environment jsdom
 import { ResponsiveDialog } from '@/components/responsive-dialog'
+import { render as renderComponent } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { type RenderResult, render as renderComponent } from '@testing-library/react'
-
-let view: RenderResult
 
 /** Report whether the desktop breakpoint matches, and let tests flip it. */
 const setDesktop = (matches: boolean) => {
@@ -42,7 +40,7 @@ describe('ResponsiveDialog on desktop', () => {
   beforeEach(() => setDesktop(true))
 
   it('renders every part of the dialog', async () => {
-    view = renderComponent(fullDialog())
+    renderComponent(fullDialog())
 
     expect(portalled()).toContain('Import presets')
     expect(portalled()).toContain('Current presets will be lost.')
@@ -51,20 +49,20 @@ describe('ResponsiveDialog on desktop', () => {
   })
 
   it('uses the dialog role rather than the drawer', async () => {
-    view = renderComponent(fullDialog())
+    renderComponent(fullDialog())
 
     expect(document.querySelector('[role="dialog"]')).not.toBeNull()
     expect(document.querySelector('[data-vaul-drawer]')).toBeNull()
   })
 
   it('shows a close button by default', async () => {
-    view = renderComponent(fullDialog())
+    renderComponent(fullDialog())
 
     expect(document.querySelector('[data-slot="dialog-close"]')).not.toBeNull()
   })
 
   it('hides the close button when asked', async () => {
-    view = renderComponent(
+    renderComponent(
       <ResponsiveDialog.Root open onOpenChange={() => {}}>
         <ResponsiveDialog.Content showCloseButton={false}>
           <ResponsiveDialog.Title>Import presets</ResponsiveDialog.Title>
@@ -76,13 +74,13 @@ describe('ResponsiveDialog on desktop', () => {
   })
 
   it('renders nothing while closed', async () => {
-    view = renderComponent(fullDialog(false))
+    renderComponent(fullDialog(false))
 
     expect(portalled()).not.toContain('Import presets')
   })
 
   it('renders the cancel action unwrapped', async () => {
-    view = renderComponent(fullDialog())
+    renderComponent(fullDialog())
 
     const cancel = [...document.querySelectorAll('button')].find(
       (button) => button.textContent === 'Cancel',
@@ -91,7 +89,7 @@ describe('ResponsiveDialog on desktop', () => {
   })
 
   it('applies extra classes to each part', async () => {
-    view = renderComponent(
+    renderComponent(
       <ResponsiveDialog.Root open onOpenChange={() => {}}>
         <ResponsiveDialog.Content className="content-class">
           <ResponsiveDialog.Header className="header-class">
@@ -121,7 +119,7 @@ describe('ResponsiveDialog on mobile', () => {
   beforeEach(() => setDesktop(false))
 
   it('renders every part of the drawer', async () => {
-    view = renderComponent(fullDialog())
+    renderComponent(fullDialog())
 
     expect(portalled()).toContain('Import presets')
     expect(portalled()).toContain('Current presets will be lost.')
@@ -129,7 +127,7 @@ describe('ResponsiveDialog on mobile', () => {
   })
 
   it('wraps the cancel action so it closes the drawer', async () => {
-    view = renderComponent(fullDialog())
+    renderComponent(fullDialog())
 
     const cancel = [...document.querySelectorAll('button')].find(
       (button) => button.textContent === 'Cancel',
@@ -138,7 +136,7 @@ describe('ResponsiveDialog on mobile', () => {
   })
 
   it('applies extra classes to each part', async () => {
-    view = renderComponent(
+    renderComponent(
       <ResponsiveDialog.Root open onOpenChange={() => {}}>
         <ResponsiveDialog.Content className="content-class">
           <ResponsiveDialog.Header className="header-class">
@@ -166,7 +164,7 @@ describe('ResponsiveDialog on mobile', () => {
   it('honours a custom breakpoint query', async () => {
     const matchMedia = vi.spyOn(window, 'matchMedia')
 
-    view = renderComponent(
+    renderComponent(
       <ResponsiveDialog.Root open onOpenChange={() => {}} breakpointQuery="(min-width: 1200px)">
         <ResponsiveDialog.Content>
           <ResponsiveDialog.Title>Title</ResponsiveDialog.Title>

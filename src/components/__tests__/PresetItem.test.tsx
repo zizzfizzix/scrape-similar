@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import PresetItem from '@/components/PresetItem'
+import { PresetItem } from '@/components/PresetItem'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { SYSTEM_PRESETS } from '@/utils/system_presets'
 import type { Preset } from '@/utils/types'
@@ -97,13 +97,13 @@ describe('PresetItem', () => {
   it('offers to delete a user preset', async () => {
     view = render()
 
-    expect(actionButton().getAttribute('aria-label')).toBe('Delete preset "My links"')
+    expect(actionButton()).toHaveAttribute('aria-label', 'Delete preset "My links"')
   })
 
   it('offers to hide a system preset rather than delete it', async () => {
     view = render({ preset: systemPreset })
 
-    expect(actionButton().getAttribute('aria-label')).toBe(`Hide preset "${systemPreset.name}"`)
+    expect(actionButton()).toHaveAttribute('aria-label', `Hide preset "${systemPreset.name}"`)
   })
 
   it('badges a system preset', async () => {
@@ -152,18 +152,18 @@ describe('PresetItem', () => {
   it('exposes its position for keyboard navigation when given one', async () => {
     view = render({ 'data-index': 3 })
 
-    expect(row().getAttribute('data-autosuggest-index')).toBe('3')
+    expect(row()).toHaveAttribute('data-autosuggest-index', '3')
   })
 
   it('omits the position attribute when no index is given', async () => {
     view = render()
 
-    expect(row().hasAttribute('data-autosuggest-index')).toBe(false)
+    expect(row()).not.toHaveAttribute('data-autosuggest-index')
   })
 
   it('keeps a zero index, which is falsy but meaningful', async () => {
     view = render({ 'data-index': 0 })
 
-    expect(row().getAttribute('data-autosuggest-index')).toBe('0')
+    expect(row()).toHaveAttribute('data-autosuggest-index', '0')
   })
 })

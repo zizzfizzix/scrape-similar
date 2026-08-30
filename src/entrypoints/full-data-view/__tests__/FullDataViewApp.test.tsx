@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { ConsentProvider } from '@/components/consent-provider'
 import { ThemeProvider } from '@/components/theme-provider'
-import FullDataViewApp from '@/entrypoints/full-data-view/FullDataViewApp'
+import { FullDataViewApp } from '@/entrypoints/full-data-view/FullDataViewApp'
 import { ANALYTICS_EVENTS } from '@/utils/analytics'
 import { ANALYTICS_CONSENT_STORAGE_KEY } from '@/utils/consent'
 import {
@@ -10,9 +10,6 @@ import {
   type ScrapedRow,
   type SidePanelConfig,
 } from '@/utils/types'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { fakeBrowser } from 'wxt/testing/fake-browser'
-import { storage } from 'wxt/utils/storage'
 import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
 import {
   type RenderResult,
@@ -21,6 +18,9 @@ import {
   render as renderComponent,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { fakeBrowser } from 'wxt/testing/fake-browser'
+import { storage } from 'wxt/utils/storage'
 
 const trackEvent = vi.hoisted(() => vi.fn())
 vi.mock('@/utils/analytics', async (importOriginal) => ({

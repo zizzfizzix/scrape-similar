@@ -7,11 +7,11 @@ import {
 } from '@/entrypoints/content/bootstrap'
 import { createState } from '@/entrypoints/content/state'
 import { MESSAGE_TYPES, type Message, type MessageResponse } from '@/utils/types'
+import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
 import log from 'loglevel'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import type { ContentScriptContext } from 'wxt/utils/content-script-context'
-import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
 
 // `isDevOrTest` is a build-time constant; the debug flag is only consulted in
 // production builds, so it needs a mutable mock to be reachable.

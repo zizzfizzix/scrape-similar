@@ -143,7 +143,10 @@ export const mountPickerBanner = async (
         try {
           const unmount = (appRoot as { __unmount?: () => void } | undefined)?.__unmount
           if (typeof unmount === 'function') unmount()
-        } catch {}
+        } catch {
+          // The React root is being torn down with the page around it; a failed
+          // unmount leaves nothing behind to clean up.
+        }
         state.bannerRootEl = null
         state.bannerCountEl = null
         state.bannerXPathEl = null
@@ -175,7 +178,8 @@ export const unmountPickerBanner = (state: ContentScriptState): void => {
       state.pickerBannerUi.remove?.()
       state.pickerBannerUi = null
     }
-  } catch (e) {
-    // ignore
+  } catch {
+    // The banner is gone either way, and this runs on paths where the page is
+    // already unloading.
   }
 }

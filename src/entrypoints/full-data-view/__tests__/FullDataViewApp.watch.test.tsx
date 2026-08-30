@@ -1,15 +1,15 @@
 // @vitest-environment jsdom
 import { ConsentProvider } from '@/components/consent-provider'
 import { ThemeProvider } from '@/components/theme-provider'
-import FullDataViewApp from '@/entrypoints/full-data-view/FullDataViewApp'
+import { FullDataViewApp } from '@/entrypoints/full-data-view/FullDataViewApp'
 import { ANALYTICS_CONSENT_STORAGE_KEY } from '@/utils/consent'
 import type { ScrapeConfig, ScrapedRow, SidePanelConfig } from '@/utils/types'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import log from 'loglevel'
-import { fakeBrowser } from 'wxt/testing/fake-browser'
-import { storage } from 'wxt/utils/storage'
 import { spyOnBrowser } from '@@/tests/support/fake-browser'
 import { type RenderResult, act, render as renderComponent, waitFor } from '@testing-library/react'
+import log from 'loglevel'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { fakeBrowser } from 'wxt/testing/fake-browser'
+import { storage } from 'wxt/utils/storage'
 
 // `isDevOrTest` is a build-time constant; the debug-level watcher only does
 // anything in production builds, so it needs a mutable mock to be reachable.

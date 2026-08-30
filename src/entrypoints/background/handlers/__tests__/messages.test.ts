@@ -1,10 +1,10 @@
 import { setupMessageListener } from '@/entrypoints/background/handlers/messages'
 import { getSessionState } from '@/entrypoints/background/services/session-storage'
 import type { Message, MessageResponse } from '@/utils/types'
+import { spyOnBrowser } from '@@/tests/support/fake-browser'
 import log from 'loglevel'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
-import { spyOnBrowser } from '@@/tests/support/fake-browser'
 
 const routeMocks = vi.hoisted(() => ({
   handleContentScriptMessage: vi.fn(),

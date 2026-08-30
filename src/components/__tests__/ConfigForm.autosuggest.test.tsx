@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import ConfigForm from '@/components/ConfigForm'
+import { ConfigForm } from '@/components/ConfigForm'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import {
   getRecentMainSelectors,
@@ -8,9 +8,6 @@ import {
   userPresetsStorage,
 } from '@/utils/storage'
 import type { Preset, ScrapeConfig } from '@/utils/types'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fakeBrowser } from 'wxt/testing/fake-browser'
-import { storage } from 'wxt/utils/storage'
 import { setLastError } from '@@/tests/support/fake-browser'
 import {
   type RenderResult,
@@ -20,6 +17,9 @@ import {
   waitFor,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { fakeBrowser } from 'wxt/testing/fake-browser'
+import { storage } from 'wxt/utils/storage'
 
 const trackEvent = vi.hoisted(() => vi.fn())
 vi.mock('@/utils/analytics', async (importOriginal) => ({

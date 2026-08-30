@@ -201,8 +201,8 @@ export const countXPathMatches = (xpath: string, contextNode: Node = document): 
  */
 export const minimizeXPath = (node: Element): string => {
   let xpath = generateXPath(node)
-  const xpathLastPredicateRegex = /^(.*)(\[\d+\])([^\[\]]*)$/
-  const xpathFirstSegmentRegex = /^(\/+[^\/]+)(.*)$/
+  const xpathLastPredicateRegex = /^(.*)(\[\d+\])([^[\]]*)$/
+  const xpathFirstSegmentRegex = /^(\/+[^/]+)(.*)$/
   let result: RegExpExecArray | null
   let selection: number | undefined
 

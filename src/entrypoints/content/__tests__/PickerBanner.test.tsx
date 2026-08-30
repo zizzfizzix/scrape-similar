@@ -1,9 +1,8 @@
 // @vitest-environment jsdom
 import { mountPickerBannerReact, PickerBanner } from '@/entrypoints/content/ui/PickerBanner'
+import { type RenderResult, act, render as renderComponent } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
-import { type RenderResult, act, render as renderComponent } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 
 let view: RenderResult
 
@@ -133,7 +132,7 @@ describe('mountPickerBannerReact', () => {
   it('themes the container by default', async () => {
     await mount({ getState: () => ({ count: 0, xpath: '' }), onClose: () => {} })
 
-    expect(container.classList.contains('light')).toBe(true)
+    expect(container).toHaveClass('light')
   })
 
   it('themes an explicit root element when given one', async () => {
@@ -142,8 +141,8 @@ describe('mountPickerBannerReact', () => {
 
     await mount({ getState: () => ({ count: 0, xpath: '' }), onClose: () => {} }, themeRoot)
 
-    expect(themeRoot.classList.contains('light')).toBe(true)
-    expect(container.classList.contains('light')).toBe(false)
+    expect(themeRoot).toHaveClass('light')
+    expect(container).not.toHaveClass('light')
   })
 
   it('detaches the tree on unmount', async () => {

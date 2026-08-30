@@ -5,7 +5,7 @@ import { ThemeProvider } from '@/components/theme-provider'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ANALYTICS_EVENTS } from '@/utils/analytics'
 import { userPresetsStorage } from '@/utils/storage'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
@@ -62,6 +62,6 @@ describe('SettingsDrawer', () => {
 
     for (let i = 0; i < 5; i++) await userEvent.click(title)
 
-    await waitFor(() => expect(screen.getByText('Debug mode')).toBeInTheDocument())
+    expect(await screen.findByText('Debug mode')).toBeInTheDocument()
   })
 })

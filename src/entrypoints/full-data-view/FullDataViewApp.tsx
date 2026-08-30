@@ -30,6 +30,14 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 import {
+  collectTabsWithData,
+  parseRequestedTabId,
+  resolveTabSelection,
+  type TabData,
+  visibleRows,
+} from '@/entrypoints/full-data-view/tab-data'
+import { calculateOptimalColumnWidth, FULL_DATA_VIEW_COLUMN_METRICS } from '@/utils/column-width'
+import {
   type CellContext,
   type ColumnDef,
   columnFilteringFeature,
@@ -54,14 +62,6 @@ import {
   tableFeatures,
   useTable,
 } from '@tanstack/react-table'
-import {
-  collectTabsWithData,
-  parseRequestedTabId,
-  resolveTabSelection,
-  visibleRows,
-  type TabData,
-} from '@/entrypoints/full-data-view/tab-data'
-import { calculateOptimalColumnWidth, FULL_DATA_VIEW_COLUMN_METRICS } from '@/utils/column-width'
 import log from 'loglevel'
 import {
   ArrowLeft,
@@ -100,9 +100,7 @@ const fullDataViewFeatures = tableFeatures({
 
 type FullDataViewFeatures = typeof fullDataViewFeatures
 
-interface FullDataViewAppProps {}
-
-const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
+export const FullDataViewApp: React.FC = () => {
   // URL parsing
   const initialTabId = parseRequestedTabId(window.location.search)
 
@@ -387,7 +385,7 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
       if (currentTab?.id) {
         await browser.tabs.remove(currentTab.id)
       }
-    } catch (err) {
+    } catch {
       toast.error('Failed to switch back to tab')
     }
   }
@@ -413,7 +411,7 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
           }
         },
       )
-    } catch (err) {
+    } catch {
       toast.error('Failed to activate tab for highlighting')
     }
   }
@@ -1057,5 +1055,3 @@ const FullDataViewApp: React.FC<FullDataViewAppProps> = () => {
     </TooltipProvider>
   )
 }
-
-export default FullDataViewApp

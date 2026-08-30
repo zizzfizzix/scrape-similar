@@ -1,8 +1,8 @@
 import { initializeContextMenus } from '@/entrypoints/background/utils/context-menu-setup'
+import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
 import log from 'loglevel'
 import { beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
-import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
 
 describe('initializeContextMenus', () => {
   let create: MockInstance

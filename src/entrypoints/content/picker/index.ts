@@ -107,7 +107,7 @@ const processMouseUpdate = (state: ContentScriptState): void => {
   }
 
   // Get element under cursor (ignore our overlay/banner)
-  let el: Element | null = null
+  let el: Element | null
   const prevPointerEvents = state.bannerRootEl?.style.pointerEvents
   if (state.bannerRootEl) state.bannerRootEl.style.pointerEvents = 'none'
   try {

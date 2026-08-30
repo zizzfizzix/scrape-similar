@@ -2,12 +2,11 @@
 import { ANALYTICS_EVENTS } from '@/utils/analytics'
 import { ANALYTICS_CONSENT_STORAGE_KEY, getConsentState } from '@/utils/consent'
 import { MESSAGE_TYPES } from '@/utils/types'
+import { spyOnBrowser } from '@@/tests/support/fake-browser'
+import { type RenderResult, act, render as renderComponent } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
-import { spyOnBrowser } from '@@/tests/support/fake-browser'
-import { type RenderResult, act, render as renderComponent } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 
 const trackEvent = vi.hoisted(() => vi.fn())
 vi.mock('@/utils/analytics', async (importOriginal) => ({
@@ -35,7 +34,7 @@ vi.mock('@/utils/modeTest', () => ({
   },
 }))
 
-const { default: OnboardingApp } = await import('@/entrypoints/onboarding/OnboardingApp')
+const { OnboardingApp } = await import('@/entrypoints/onboarding/OnboardingApp')
 const { ConsentProvider } = await import('@/components/consent-provider')
 const { ThemeProvider } = await import('@/components/theme-provider')
 const { TooltipProvider } = await import('@/components/ui/tooltip')

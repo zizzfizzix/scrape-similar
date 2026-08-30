@@ -20,7 +20,7 @@ import {
 } from '@/utils/export-data'
 import { getColumnKeys } from '@/utils/getColumnKeys'
 import { rowsToTsv } from '@/utils/tsv'
-import type { ScrapeConfig, ScrapeResult, ScrapedRow } from '@/utils/types'
+import type { ScrapeConfig, ScrapedRow, ScrapeResult } from '@/utils/types'
 import { MESSAGE_TYPES } from '@/utils/types'
 import log from 'loglevel'
 import { ChevronsUpDown, Clipboard, FileDown, FileSpreadsheet, Sheet } from 'lucide-react'
@@ -38,7 +38,7 @@ interface ExportButtonsProps {
   className?: string
 }
 
-const ExportButtons: React.FC<ExportButtonsProps> = ({
+export const ExportButtons: React.FC<ExportButtonsProps> = ({
   scrapeResult,
   config,
   showEmptyRows,
@@ -273,5 +273,3 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({
     </DropdownMenu>
   )
 }
-
-export default ExportButtons

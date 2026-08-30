@@ -2,7 +2,7 @@
 import { ConsentProvider } from '@/components/consent-provider'
 import { ThemeProvider } from '@/components/theme-provider'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import SidePanel from '@/entrypoints/sidepanel/SidePanel'
+import { SidePanel } from '@/entrypoints/sidepanel/SidePanel'
 import { ANALYTICS_EVENTS } from '@/utils/analytics'
 import { ANALYTICS_CONSENT_STORAGE_KEY } from '@/utils/consent'
 import { getPresets, userPresetsStorage } from '@/utils/storage'
@@ -15,19 +15,18 @@ import {
   type SidePanelConfig,
 } from '@/utils/types'
 import { chromeExtensionId } from '@@/package.json' with { type: 'json' }
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fakeBrowser } from 'wxt/testing/fake-browser'
-import { storage } from 'wxt/utils/storage'
 import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
 import {
   type RenderResult,
   act,
   fireEvent,
   render as renderComponent,
-  screen,
   waitFor,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { fakeBrowser } from 'wxt/testing/fake-browser'
+import { storage } from 'wxt/utils/storage'
 
 const trackEvent = vi.hoisted(() => vi.fn())
 vi.mock('@/utils/analytics', async (importOriginal) => ({

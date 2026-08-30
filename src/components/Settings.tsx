@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { ButtonGroup } from '@/components/ui/button-group'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { downloadFile } from '@/utils/export-data'
 import {
   buildPresetExportJson,
   describeImportSuccess,
@@ -13,7 +14,6 @@ import {
   readPresetFile,
 } from '@/utils/preset-transfer'
 import { getPresets, setPresets } from '@/utils/storage'
-import { downloadFile } from '@/utils/export-data'
 import log from 'loglevel'
 import { Clipboard, Import, Upload } from 'lucide-react'
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react'

@@ -59,7 +59,7 @@ export type ElementDetailsPayload = {
   text?: string
 } | null
 
-export type ExportResult = {
+export interface ExportResult {
   success: boolean
   url?: string
   error?: string

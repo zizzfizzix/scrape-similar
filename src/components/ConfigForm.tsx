@@ -86,7 +86,7 @@ interface ConfigFormProps {
   pickerModeActive?: boolean
 }
 
-const ConfigForm: React.FC<ConfigFormProps> = ({
+export const ConfigForm: React.FC<ConfigFormProps> = ({
   config,
   onChange,
   onScrape,
@@ -306,7 +306,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
           },
         )
       })
-    } catch (err) {
+    } catch {
       setGuessButtonState('failure')
       setTimeout(() => setGuessButtonState('idle'), 1500)
     }
@@ -875,7 +875,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
                       )}
 
                       {/* Preset suggestions */}
-                      {filteredPresetsForAutosuggest.map((preset, index) => (
+                      {filteredPresetsForAutosuggest.map((preset) => (
                         <CommandItem
                           key={preset.id}
                           value={preset.id}
@@ -1133,5 +1133,3 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
     </div>
   )
 }
-
-export default ConfigForm

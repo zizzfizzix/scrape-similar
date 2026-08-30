@@ -9,7 +9,7 @@ import {
   rowsToCsv,
   SHEETS_EXPORT_TIMEOUT_MS,
 } from '@/utils/export-data'
-import type { ScrapeResult, ScrapedRow } from '@/utils/types'
+import type { ScrapedRow, ScrapeResult } from '@/utils/types'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const row = (data: Record<string, string>, isEmpty = false, originalIndex = 0): ScrapedRow => ({

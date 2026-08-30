@@ -174,11 +174,6 @@ test.describe('Main selector autosuggest', () => {
 
     // Focus autosuggest and ensure no duplicate recent equals preset selector shown
     await input.focus()
-    const recentRowWithSame = sidePanel
-      .locator('[data-slot="command-item"]')
-      .filter({ hasText: '//h2' })
-      .first()
-    // The preset appears via PresetItem; the recent should be excluded. We just assert dropdown is visible
     await expect(sidePanel.locator('[data-slot="command-list"]')).toBeVisible()
   })
 

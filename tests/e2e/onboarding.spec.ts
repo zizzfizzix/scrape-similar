@@ -229,7 +229,7 @@ test.describe('Onboarding Demo Scrape', () => {
     // The config is cleared as soon as the demo runs, so catch the write itself
     // rather than reading the key afterwards.
     const configPromise = serviceWorker.evaluate(() => {
-      return new Promise<ScrapeConfig>((resolve, reject) => {
+      return new Promise<ScrapeConfig>((resolve) => {
         const listener = (
           changes: Record<string, chrome.storage.StorageChange>,
           areaName: string,

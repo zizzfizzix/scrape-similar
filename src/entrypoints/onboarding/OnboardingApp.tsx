@@ -4,6 +4,13 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { Toaster } from '@/components/ui/sonner'
+import {
+  buildSlideNavigationProperties,
+  buildSlideViewProperties,
+  demoPageUrl,
+  detectPlatform,
+  nextSlideIndex,
+} from '@/entrypoints/onboarding/navigation'
 import { isTest } from '@/utils/modeTest'
 import {
   Ban,
@@ -22,13 +29,6 @@ import {
   Shield,
   Zap,
 } from 'lucide-react'
-import {
-  buildSlideNavigationProperties,
-  buildSlideViewProperties,
-  demoPageUrl,
-  detectPlatform,
-  nextSlideIndex,
-} from '@/entrypoints/onboarding/navigation'
 import React, { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -41,7 +41,7 @@ interface OnboardingSlide {
   image?: string
 }
 
-const OnboardingApp: React.FC = () => {
+export const OnboardingApp: React.FC = () => {
   const [currentSlide, setCurrentSlide] = useState(0)
   const [platform, setPlatform] = useState<'mac' | 'win'>('win')
   const { loading: isLoading, state: consentState, setConsent } = useConsent()
@@ -114,7 +114,7 @@ const OnboardingApp: React.FC = () => {
       } else {
         toast.error('Failed to start demo: ' + (response?.error || 'Unknown error'))
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to start demo. Please try again.')
     }
   }
@@ -693,5 +693,3 @@ const OnboardingApp: React.FC = () => {
     </div>
   )
 }
-
-export default OnboardingApp

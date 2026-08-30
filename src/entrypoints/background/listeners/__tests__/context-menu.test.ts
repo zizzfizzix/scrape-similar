@@ -2,11 +2,11 @@ import { setupContextMenuListener } from '@/entrypoints/background/listeners/con
 import { getSessionState } from '@/entrypoints/background/services/session-storage'
 import { ANALYTICS_EVENTS } from '@/utils/analytics'
 import type { ScrapeConfig } from '@/utils/types'
+import { spyOnBrowser } from '@@/tests/support/fake-browser'
 import log from 'loglevel'
 import { beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
-import { spyOnBrowser } from '@@/tests/support/fake-browser'
 
 const trackEvent = vi.hoisted(() => vi.fn())
 vi.mock('@/utils/analytics', async (importOriginal) => ({

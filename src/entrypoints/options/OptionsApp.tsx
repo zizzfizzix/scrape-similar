@@ -3,9 +3,8 @@ import { isDevOrTest } from '@/utils/modeTest'
 import log from 'loglevel'
 import React, { useEffect, useRef, useState } from 'react'
 
-const OptionsApp: React.FC = () => {
+export const OptionsApp: React.FC = () => {
   const [debugMode, setDebugMode] = useState(false)
-  const { theme } = useTheme()
   const settingsRef = useRef<{ unlockDebugMode: () => void }>(null)
 
   // Load debug mode from storage on mount
@@ -67,5 +66,3 @@ const OptionsApp: React.FC = () => {
     </div>
   )
 }
-
-export default OptionsApp

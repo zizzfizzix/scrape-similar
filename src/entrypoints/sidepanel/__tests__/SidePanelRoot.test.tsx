@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 import { ANALYTICS_CONSENT_STORAGE_KEY } from '@/utils/consent'
+import { spyOnBrowser } from '@@/tests/support/fake-browser'
+import { type RenderResult, act, render as renderComponent } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import log from 'loglevel'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
-import { spyOnBrowser } from '@@/tests/support/fake-browser'
-import { type RenderResult, act, render as renderComponent } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 
 // `isDevOrTest` is a build-time constant; the log level only follows the debug
 // flag in production builds, so it needs a mutable mock to be reachable.

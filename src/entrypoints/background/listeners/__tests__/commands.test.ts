@@ -1,8 +1,8 @@
 import { setupCommandsListener } from '@/entrypoints/background/listeners/commands'
+import { spyOnBrowser } from '@@/tests/support/fake-browser'
 import log from 'loglevel'
 import { beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
-import { spyOnBrowser } from '@@/tests/support/fake-browser'
 
 describe('setupCommandsListener', () => {
   let setOptions: MockInstance

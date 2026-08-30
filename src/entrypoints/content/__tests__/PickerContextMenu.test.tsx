@@ -3,14 +3,14 @@ import {
   mountPickerContextMenuReact,
   PickerContextMenu,
 } from '@/entrypoints/content/ui/PickerContextMenu'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { fakeBrowser } from 'wxt/testing/fake-browser'
 import {
   type RenderResult,
   act,
   fireEvent,
   render as renderComponent,
 } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { fakeBrowser } from 'wxt/testing/fake-browser'
 
 /** Menu geometry the component clamps against. */
 const MENU_WIDTH = 80
@@ -225,7 +225,7 @@ describe('mountPickerContextMenuReact', () => {
   it('themes the container by default', async () => {
     await mount()
 
-    expect(container.classList.contains('light')).toBe(true)
+    expect(container).toHaveClass('light')
   })
 
   it('themes an explicit root element when given one', async () => {
@@ -234,7 +234,7 @@ describe('mountPickerContextMenuReact', () => {
 
     await mount({}, themeRoot)
 
-    expect(themeRoot.classList.contains('light')).toBe(true)
-    expect(container.classList.contains('light')).toBe(false)
+    expect(themeRoot).toHaveClass('light')
+    expect(container).not.toHaveClass('light')
   })
 })

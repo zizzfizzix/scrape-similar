@@ -1,5 +1,5 @@
 import { TooltipProvider } from '@/components/ui/tooltip'
-import SidePanel from '@/entrypoints/sidepanel/SidePanel'
+import { SidePanel } from '@/entrypoints/sidepanel/SidePanel'
 import { isDevOrTest } from '@/utils/modeTest'
 import log from 'loglevel'
 import React, { useEffect, useState } from 'react'

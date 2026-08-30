@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 import { ANALYTICS_CONSENT_STORAGE_KEY } from '@/utils/consent'
+import { type RenderResult, act, render as renderComponent } from '@testing-library/react'
 import log from 'loglevel'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
-import { type RenderResult, act, render as renderComponent } from '@testing-library/react'
 
 /** A PostHog stand-in that records how it was configured. */
 const posthogMock = vi.hoisted(() => {

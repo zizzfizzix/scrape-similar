@@ -24,7 +24,7 @@ import {
   useTable,
 } from '@tanstack/react-table'
 import { ChevronLeft, ChevronRight, Clipboard, Expand, Highlighter } from 'lucide-react'
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 
 // The side panel table only needs column sizing/resizing; pagination is handled
@@ -46,7 +46,7 @@ interface DataTableProps {
   tabId?: number | null
 }
 
-const DataTable: React.FC<DataTableProps> = ({
+export const DataTable: React.FC<DataTableProps> = ({
   data,
   config,
   onRowHighlight,
@@ -442,5 +442,3 @@ const DataTable: React.FC<DataTableProps> = ({
     </div>
   )
 }
-
-export default DataTable
