@@ -11,6 +11,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { ANALYTICS_EVENTS, trackEvent } from '@/utils/analytics'
 import { calculateOptimalColumnWidth, SIDE_PANEL_COLUMN_METRICS } from '@/utils/column-width'
+import { fireAndForget } from '@/utils/fire-and-forget'
 import { getColumnKeys } from '@/utils/getColumnKeys'
 import { rowToTsv } from '@/utils/tsv'
 import {
@@ -258,7 +259,9 @@ export const DataTable: React.FC<DataTableProps> = ({
 
     // Use type assertion since WXT will generate this entrypoint
     const fullViewUrl = browser.runtime.getURL(`/full-data-view.html?tabId=${tabId}`)
-    browser.tabs.create({ url: fullViewUrl })
+    // Not awaited: the side panel closes on the next line, so there is nobody
+    // left to await it.
+    fireAndForget(browser.tabs.create({ url: fullViewUrl }))
 
     // Close the sidepanel window after opening the full view
     window.close()

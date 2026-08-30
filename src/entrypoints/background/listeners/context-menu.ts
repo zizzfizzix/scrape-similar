@@ -1,4 +1,5 @@
 import { ANALYTICS_EVENTS, trackEvent } from '@/utils/analytics'
+import { asListener } from '@/utils/fire-and-forget'
 import { isInjectableUrl } from '@/utils/isInjectableUrl'
 import log from 'loglevel'
 import { applySidePanelDataUpdates, getSessionState } from '../services/session-storage'
@@ -8,7 +9,7 @@ import { applySidePanelDataUpdates, getSessionState } from '../services/session-
  */
 export const setupContextMenuListener = (): void => {
   browser.contextMenus.onClicked.addListener(
-    async (info: Browser.contextMenus.OnClickData, tab?: Browser.tabs.Tab) => {
+    asListener(async (info: Browser.contextMenus.OnClickData, tab?: Browser.tabs.Tab) => {
       log.debug('Context menu clicked:', info, tab)
 
       if (!tab?.id) {
@@ -22,7 +23,7 @@ export const setupContextMenuListener = (): void => {
       } else if (info.menuItemId === 'scrape-visual-picker') {
         await handleVisualPicker(targetTabId, tab)
       }
-    },
+    }),
   )
 }
 

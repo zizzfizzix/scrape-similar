@@ -21,7 +21,7 @@ import * as consent from '@/utils/consent'
 import * as contextDetection from '@/utils/context-detection'
 import * as posthogBg from '@/utils/posthog-background'
 
-import { EVENT_QUEUE_STORAGE_KEY, trackEvent } from '@/utils/analytics'
+import { captureEvent, EVENT_QUEUE_STORAGE_KEY, trackEvent } from '@/utils/analytics'
 
 const QUEUE_KEY = `local:${EVENT_QUEUE_STORAGE_KEY}`
 const EVENT_NAME = 'contextual_event'
@@ -32,7 +32,7 @@ const getQueuedEvent = async () => {
   return queue[queue.length - 1]
 }
 
-describe('trackEvent – context specific behaviour', () => {
+describe('captureEvent – context specific behaviour', () => {
   beforeEach(() => {
     fakeBrowser.reset()
     vi.restoreAllMocks()
@@ -49,7 +49,7 @@ describe('trackEvent – context specific behaviour', () => {
     const captureSpy = vi.fn()
     vi.spyOn(posthogBg, 'getPostHogBackground').mockResolvedValue({ capture: captureSpy } as any)
 
-    await trackEvent(EVENT_NAME, { foo: 'bar' })
+    await captureEvent(EVENT_NAME, { foo: 'bar' })
 
     expect(captureSpy).toHaveBeenCalledTimes(1)
     const [capturedName, capturedProps] = captureSpy.mock.calls[0] ?? []
@@ -62,7 +62,7 @@ describe('trackEvent – context specific behaviour', () => {
   it('queues event in sidepanel when PostHog is unavailable', async () => {
     currentContext = contextDetection.EXTENSION_CONTEXTS.SIDEPANEL
 
-    await trackEvent(EVENT_NAME)
+    await captureEvent(EVENT_NAME)
 
     const queued = await getQueuedEvent()
     expect(queued).toBeTruthy()
@@ -77,7 +77,7 @@ describe('trackEvent – context specific behaviour', () => {
     const captureSpy = vi.fn()
     ;(globalThis as any).window.__scrape_similar_posthog = { capture: captureSpy }
 
-    await trackEvent(EVENT_NAME, { baz: 'qux' })
+    await captureEvent(EVENT_NAME, { baz: 'qux' })
 
     expect(captureSpy).toHaveBeenCalledTimes(1)
     const [capturedName, capturedProps] = captureSpy.mock.calls[0] ?? []
@@ -89,7 +89,7 @@ describe('trackEvent – context specific behaviour', () => {
     currentContext = contextDetection.EXTENSION_CONTEXTS.CONTENT_SCRIPT
     const sendMessageSpy = vi.spyOn(browser.runtime, 'sendMessage')
 
-    await trackEvent(EVENT_NAME, { alpha: 1 })
+    await captureEvent(EVENT_NAME, { alpha: 1 })
 
     expect(sendMessageSpy).toHaveBeenCalledTimes(1)
     const [{ type, payload }] = sendMessageSpy.mock.calls[0] as any[]
@@ -103,7 +103,7 @@ describe('trackEvent – context specific behaviour', () => {
     const captureSpy = vi.fn()
     vi.spyOn(posthogBg, 'getPostHogBackground').mockResolvedValue({ capture: captureSpy } as any)
 
-    await trackEvent(EVENT_NAME, { extension_context: 'custom_context' })
+    await captureEvent(EVENT_NAME, { extension_context: 'custom_context' })
 
     const [, capturedProps] = captureSpy.mock.calls[0] ?? []
     expect(capturedProps.extension_context).toBe('custom_context')
@@ -114,22 +114,40 @@ describe('trackEvent – context specific behaviour', () => {
     const warnSpy = vi.spyOn(log, 'warn').mockImplementation(() => {})
     vi.spyOn(posthogBg, 'getPostHogBackground').mockResolvedValue(null)
 
-    await trackEvent(EVENT_NAME)
+    await captureEvent(EVENT_NAME)
 
     expect(warnSpy).toHaveBeenCalledWith('PostHog not available in background context')
     // Consent is granted, so the event is dropped rather than queued for later.
     expect(await getQueuedEvent()).toBeUndefined()
   })
 
+  it('hands the event to the background from content-script context', async () => {
+    currentContext = contextDetection.EXTENSION_CONTEXTS.CONTENT_SCRIPT
+    const sendMessage = vi.spyOn(browser.runtime, 'sendMessage').mockResolvedValue(undefined)
+
+    await captureEvent(EVENT_NAME, { foo: 'bar' })
+
+    expect(sendMessage).toHaveBeenCalledWith({
+      type: MESSAGE_TYPES.TRACK_EVENT,
+      payload: {
+        eventName: EVENT_NAME,
+        properties: expect.objectContaining({
+          foo: 'bar',
+          extension_context: contextDetection.EXTENSION_CONTEXTS.CONTENT_SCRIPT,
+        }),
+      },
+    })
+  })
+
   it('swallows a send failure from content-script context', async () => {
     currentContext = contextDetection.EXTENSION_CONTEXTS.CONTENT_SCRIPT
     const debugSpy = vi.spyOn(log, 'debug').mockImplementation(() => {})
     const failure = new Error('receiving end does not exist')
-    vi.spyOn(browser.runtime, 'sendMessage').mockImplementation(() => {
-      throw failure
-    })
+    // `sendMessage` rejects rather than throwing, which is only caught because
+    // the call is awaited.
+    vi.spyOn(browser.runtime, 'sendMessage').mockRejectedValue(failure)
 
-    await expect(trackEvent(EVENT_NAME)).resolves.toBeUndefined()
+    await expect(captureEvent(EVENT_NAME)).resolves.toBeUndefined()
 
     expect(debugSpy).toHaveBeenCalledWith(
       'Failed to send tracking message from content script:',
@@ -142,7 +160,7 @@ describe('trackEvent – context specific behaviour', () => {
     const warnSpy = vi.spyOn(log, 'warn').mockImplementation(() => {})
     ;(globalThis as any).window = undefined
 
-    await trackEvent(EVENT_NAME)
+    await captureEvent(EVENT_NAME)
 
     const [, details] = warnSpy.mock.calls[0] as any[]
     expect(details).toMatchObject({ context: 'martian_context', hasWindow: false, url: 'N/A' })
@@ -153,7 +171,7 @@ describe('trackEvent – context specific behaviour', () => {
     const warnSpy = vi.spyOn(log, 'warn').mockImplementation(() => {})
     ;(globalThis as any).window = { location: { href: 'https://example.com/page' } }
 
-    await trackEvent(EVENT_NAME)
+    await captureEvent(EVENT_NAME)
 
     const [, details] = warnSpy.mock.calls[0] as any[]
     expect(details).toMatchObject({ hasWindow: true, url: 'https://example.com/page' })
@@ -165,8 +183,20 @@ describe('trackEvent – context specific behaviour', () => {
     const failure = new Error('storage unavailable')
     vi.spyOn(consent, 'getConsentState').mockRejectedValue(failure)
 
-    await expect(trackEvent(EVENT_NAME)).resolves.toBeUndefined()
+    await expect(captureEvent(EVENT_NAME)).resolves.toBeUndefined()
 
     expect(errorSpy).toHaveBeenCalledWith('Error tracking event:', failure)
+  })
+
+  it('hands trackEvent callers no promise, and captures anyway', async () => {
+    currentContext = contextDetection.EXTENSION_CONTEXTS.BACKGROUND
+    const captureSpy = vi.fn()
+    vi.spyOn(posthogBg, 'getPostHogBackground').mockResolvedValue({ capture: captureSpy } as any)
+
+    expect(trackEvent(EVENT_NAME, { foo: 'bar' })).toBeUndefined()
+
+    await vi.waitFor(() =>
+      expect(captureSpy).toHaveBeenCalledWith(EVENT_NAME, expect.objectContaining({ foo: 'bar' })),
+    )
   })
 })

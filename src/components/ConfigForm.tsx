@@ -31,6 +31,7 @@ import {
   RECENT_SUGGESTION_PREFIX,
   resolveSuggestion,
 } from '@/utils/autosuggest'
+import { fireAndForget } from '@/utils/fire-and-forget'
 import {
   sanitizeToSingleLine,
   withAddedColumn,
@@ -470,7 +471,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
   const [recentSelectors, setRecentSelectors] = useState<string[]>([])
 
   useEffect(() => {
-    getRecentMainSelectors().then(setRecentSelectors)
+    fireAndForget(getRecentMainSelectors().then(setRecentSelectors))
   }, [])
 
   // Watch local storage for recents updates and refresh state
@@ -562,27 +563,29 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
       }
       if (mainSelectorDraft.trim()) {
         // Save to recents if not a preset, then either validate (if changed) or scrape (if unchanged and valid)
-        ;(async () => {
-          const all = await getAllPresets()
-          if (!isSelectorAPreset(mainSelectorDraft, all)) {
-            await pushRecentMainSelector(mainSelectorDraft)
-            const updated = await getRecentMainSelectors()
-            setRecentSelectors(updated)
-          }
-          if (hasUncommittedChanges) {
-            // First Enter after changes: validate selector via highlight
-            commitMainSelector(mainSelectorDraft)
-            mainSelectorInputRef.current?.blur()
-          } else {
-            // No changes: if valid, trigger scrape; otherwise, validate again
-            if (isMainSelectorValid) {
-              onScrape()
-            } else {
+        fireAndForget(
+          (async () => {
+            const all = await getAllPresets()
+            if (!isSelectorAPreset(mainSelectorDraft, all)) {
+              await pushRecentMainSelector(mainSelectorDraft)
+              const updated = await getRecentMainSelectors()
+              setRecentSelectors(updated)
+            }
+            if (hasUncommittedChanges) {
+              // First Enter after changes: validate selector via highlight
               commitMainSelector(mainSelectorDraft)
               mainSelectorInputRef.current?.blur()
+            } else {
+              // No changes: if valid, trigger scrape; otherwise, validate again
+              if (isMainSelectorValid) {
+                onScrape()
+              } else {
+                commitMainSelector(mainSelectorDraft)
+                mainSelectorInputRef.current?.blur()
+              }
             }
-          }
-        })()
+          })(),
+        )
       }
       return
     }
@@ -737,9 +740,9 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
                   onChange={(e) => setPresetName(e.target.value)}
                   autoFocus
                   className="ph_hidden"
-                  onKeyDown={(e) => {
+                  onKeyDown={async (e) => {
                     if (e.key === 'Enter' && presetName.trim()) {
-                      handleSavePreset()
+                      await handleSavePreset()
                     }
                   }}
                 />
@@ -858,17 +861,14 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
                                   variant="ghost"
                                   size="icon"
                                   className="h-6 w-6 p-0 justify-center rounded hover:bg-destructive/10 opacity-70 hover:opacity-100 focus:outline-none"
-                                  onClick={(e) => {
+                                  onClick={async (e) => {
                                     e.preventDefault()
                                     e.stopPropagation()
-                                    removeRecentMainSelector(selector).then(() => {
-                                      getRecentMainSelectors().then((updated) => {
-                                        setRecentSelectors(updated)
-                                        // Keep dropdown open and move focus back to Command root
-                                        requestAnimationFrame(() => {
-                                          commandRef.current?.focus()
-                                        })
-                                      })
+                                    await removeRecentMainSelector(selector)
+                                    setRecentSelectors(await getRecentMainSelectors())
+                                    // Keep dropdown open and move focus back to Command root
+                                    requestAnimationFrame(() => {
+                                      commandRef.current?.focus()
                                     })
                                   }}
                                 >

@@ -4,6 +4,7 @@ import { ButtonGroup } from '@/components/ui/button-group'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { downloadFile } from '@/utils/export-data'
+import { fireAndForget } from '@/utils/fire-and-forget'
 import {
   buildPresetExportJson,
   describeImportSuccess,
@@ -68,13 +69,15 @@ export const Settings = React.memo(
 
     // Load debug flags from storage on mount
     useEffect(() => {
-      storage
-        .getItems(['local:debugMode', 'local:debugUnlocked'])
-        .then(([debugMode, debugUnlocked]) => {
-          debugModeValRef.current = !!debugMode?.value
-          debugUnlockedValRef.current = !!debugUnlocked?.value
-          setIsDebugRowVisible(debugModeValRef.current || debugUnlockedValRef.current)
-        })
+      fireAndForget(
+        storage
+          .getItems(['local:debugMode', 'local:debugUnlocked'])
+          .then(([debugMode, debugUnlocked]) => {
+            debugModeValRef.current = !!debugMode?.value
+            debugUnlockedValRef.current = !!debugUnlocked?.value
+            setIsDebugRowVisible(debugModeValRef.current || debugUnlockedValRef.current)
+          }),
+      )
     }, [])
 
     // Listen for changes to either flag and update visibility
@@ -113,7 +116,7 @@ export const Settings = React.memo(
         timerRef.current = null
 
         // Save debug unlock state to storage
-        storage.setItem('local:debugUnlocked', true)
+        fireAndForget(storage.setItem('local:debugUnlocked', true))
 
         // Track hidden settings unlocked
         trackEvent(ANALYTICS_EVENTS.HIDDEN_SETTINGS_UNLOCK)
@@ -126,7 +129,7 @@ export const Settings = React.memo(
 
       // Clear unlock state when debug mode is turned off
       if (!checked) {
-        storage.removeItem('local:debugUnlocked')
+        fireAndForget(storage.removeItem('local:debugUnlocked'))
       }
 
       // Track debug mode toggle
@@ -137,7 +140,9 @@ export const Settings = React.memo(
 
     const handleKeyboardShortcutClick = useCallback(() => {
       const url = 'chrome://extensions/shortcuts#:~:text=Scrape%20Similar'
-      navigator.clipboard.writeText(url)
+      // Not awaited: `window.open` below needs the user gesture this handler is
+      // still inside, which an await would spend.
+      fireAndForget(navigator.clipboard.writeText(url))
       window.open('about:blank', '_blank')
 
       // Track keyboard shortcut copied
@@ -221,7 +226,7 @@ export const Settings = React.memo(
     }, [])
 
     const handleAnalyticsToggle = (checked: boolean) => {
-      setConsent(checked)
+      fireAndForget(setConsent(checked))
     }
 
     // Generate unique ids for switch components for accessibility

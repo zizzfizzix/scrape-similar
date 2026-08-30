@@ -117,13 +117,15 @@ export const ANALYTICS_EVENTS = {
 } as const
 
 /**
- * Track an event with PostHog, automatically including the environment property
- * This function handles all three execution contexts with proper context detection:
- * - Background service worker: Uses getPostHogBackground()
- * - React UI context: Uses PostHog from React context (via window.__scrape_similar_posthog)
- * - Content script: Sends message to background script for tracking
+ * The awaitable half of `trackEvent`, exported for the tests that assert on
+ * where an event ended up. Production code calls `trackEvent`.
+ *
+ * Routes by execution context:
+ * - Background service worker: `getPostHogBackground()`
+ * - React UI context: PostHog from React context (`window.__scrape_similar_posthog`)
+ * - Content script: hands the event to the background script over a message
  */
-export const trackEvent = async (
+export const captureEvent = async (
   eventName: string,
   properties: Record<string, any> = {},
 ): Promise<void> => {
@@ -181,7 +183,7 @@ export const trackEvent = async (
 
       case EXTENSION_CONTEXTS.CONTENT_SCRIPT: {
         try {
-          browser.runtime.sendMessage({
+          await browser.runtime.sendMessage({
             type: MESSAGE_TYPES.TRACK_EVENT,
             payload: {
               eventName,
@@ -210,4 +212,15 @@ export const trackEvent = async (
   } catch (error) {
     log.error('Error tracking event:', error)
   }
+}
+
+/**
+ * Fire-and-forget by construction: `captureEvent` reports every failure it can
+ * see through `log` and resolves either way, so a caller has nothing to await
+ * and nothing to handle. Returning `void` says that in the type, which is what
+ * keeps `no-floating-promises` off the several dozen call sites that would
+ * otherwise each have to write the discard out.
+ */
+export const trackEvent = (eventName: string, properties: Record<string, any> = {}): void => {
+  void captureEvent(eventName, properties)
 }

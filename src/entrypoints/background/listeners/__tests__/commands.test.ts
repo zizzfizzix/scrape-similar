@@ -1,5 +1,6 @@
 import { setupCommandsListener } from '@/entrypoints/background/listeners/commands'
 import { spyOnBrowser } from '@@/tests/support/fake-browser'
+import { settle } from '@@/tests/support/settle'
 import log from 'loglevel'
 import { beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
@@ -7,7 +8,7 @@ import { fakeBrowser } from 'wxt/testing/fake-browser'
 describe('setupCommandsListener', () => {
   let setOptions: MockInstance
   let sendMessage: MockInstance
-  let runCommand: (command: string) => Promise<void>
+  let dispatchCommand: (command: string) => void
   let query: MockInstance
 
   beforeEach(() => {
@@ -20,10 +21,15 @@ describe('setupCommandsListener', () => {
     // fake-browser has no in-memory commands implementation, so capture the
     // registered handler and invoke it directly.
     spyOnBrowser(fakeBrowser.commands.onCommand, 'addListener').mockImplementation((listener) => {
-      runCommand = listener as typeof runCommand
+      dispatchCommand = listener as typeof dispatchCommand
     })
     setupCommandsListener()
   })
+
+  const runCommand = async (command: string) => {
+    dispatchCommand(command)
+    await settle()
+  }
 
   /** Stand in for the single active tab in the current window. */
   const withActiveTab = (tab: Partial<Browser.tabs.Tab>) =>

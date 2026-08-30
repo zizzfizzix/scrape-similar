@@ -1,5 +1,6 @@
 import { EVENT_QUEUE_STORAGE_KEY, queueMutex } from '@/utils/analytics'
 import { ANALYTICS_CONSENT_STORAGE_KEY } from '@/utils/consent'
+import { asListener } from '@/utils/fire-and-forget'
 import { getPostHogBackground, resetPostHogInstance } from '@/utils/posthog-background'
 import log from 'loglevel'
 import { PostHog } from 'posthog-js/dist/module.no-external'
@@ -86,32 +87,40 @@ export const flushQueuedEvents = async (): Promise<void> => {
  */
 export const initializeAnalyticsQueue = async (): Promise<void> => {
   // On background startup – attempt to init PostHog (if consent) and flush queue
-  await getPostHogBackground().then(flushQueuedEvents)
+  await getPostHogBackground()
+  await flushQueuedEvents()
 
   // Listen for consent changes to (re)initialize PostHog and flush queued events
-  storage.watch<boolean | null | string>(`sync:${ANALYTICS_CONSENT_STORAGE_KEY}`, (value) => {
-    const sanitizedConsentState =
-      value === '' || value === null || value === undefined ? undefined : !!value
-    if (sanitizedConsentState === true) {
-      // Consent granted - initialize PostHog and flush queue
-      getPostHogBackground().then(flushQueuedEvents)
-    } else if (sanitizedConsentState === false) {
-      // Consent declined - reset PostHog instance and clear the queue safely
-      resetPostHogInstance()
+  storage.watch<boolean | null | string>(
+    `sync:${ANALYTICS_CONSENT_STORAGE_KEY}`,
+    asListener(async (value) => {
+      const sanitizedConsentState =
+        value === '' || value === null || value === undefined ? undefined : !!value
+      if (sanitizedConsentState === true) {
+        // Consent granted - initialize PostHog and flush queue
+        await getPostHogBackground()
+        await flushQueuedEvents()
+      } else if (sanitizedConsentState === false) {
+        // Consent declined - reset PostHog instance and clear the queue safely
+        resetPostHogInstance()
 
-      // Acquire the same mutex used by queueEvent / flushQueuedEvents to avoid races
-      queueMutex.runExclusive(async () => {
-        await storage.setItem(`local:${EVENT_QUEUE_STORAGE_KEY}`, [])
-      })
+        // Acquire the same mutex used by queueEvent / flushQueuedEvents to avoid races
+        await queueMutex.runExclusive(async () => {
+          await storage.setItem(`local:${EVENT_QUEUE_STORAGE_KEY}`, [])
+        })
 
-      log.debug('User declined consent - reset PostHog and cleared event queue')
-    }
-  })
+        log.debug('User declined consent - reset PostHog and cleared event queue')
+      }
+    }),
+  )
 
   // Watch for new items added to the analytics queue in case consent was granted after startup
-  storage.watch<QueuedEvent[]>(`local:${EVENT_QUEUE_STORAGE_KEY}`, (queue) => {
-    if (queue && queue.length > 0) {
-      flushQueuedEvents()
-    }
-  })
+  storage.watch<QueuedEvent[]>(
+    `local:${EVENT_QUEUE_STORAGE_KEY}`,
+    asListener(async (queue) => {
+      if (queue && queue.length > 0) {
+        await flushQueuedEvents()
+      }
+    }),
+  )
 }

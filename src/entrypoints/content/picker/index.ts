@@ -24,6 +24,7 @@ import {
 } from '@/entrypoints/content/picker/context-menu'
 import type { ContentScriptState } from '@/entrypoints/content/state'
 import { ANALYTICS_EVENTS, trackEvent } from '@/utils/analytics'
+import { asListener, fireAndForget } from '@/utils/fire-and-forget'
 import {
   evaluateXPath,
   guessScrapeConfigForElement,
@@ -289,17 +290,20 @@ export const handlePickerClick = async (
     const elementsToHighlight = evaluateXPath(config.mainSelector)
     highlightMatchingElements(elementsToHighlight, { shouldScroll: false })
 
-    // Persist validation state so the UI marks the selector as validated
-    browser.runtime.sendMessage({
-      type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
-      payload: {
-        tabId,
-        updates: {
-          highlightMatchCount: elementsToHighlight.length,
-          highlightError: null,
+    // Persist validation state so the UI marks the selector as validated. Not
+    // awaited: nothing below depends on the side panel having caught up.
+    fireAndForget(
+      browser.runtime.sendMessage({
+        type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
+        payload: {
+          tabId,
+          updates: {
+            highlightMatchCount: elementsToHighlight.length,
+            highlightError: null,
+          },
         },
-      },
-    })
+      }),
+    )
 
     trackEvent(ANALYTICS_EVENTS.ELEMENTS_HIGHLIGHT, {
       elements_count: elementsToHighlight.length,
@@ -324,7 +328,7 @@ export const handlePickerClick = async (
         type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
         payload: { tabId, updates: { scrapeResult } },
       },
-      async (response) => {
+      asListener(async (response: { success?: boolean; error?: string } | undefined) => {
         if (browser.runtime.lastError) {
           log.error('Error sending picker scrape result to background:', browser.runtime.lastError)
         } else if (response?.success) {
@@ -334,7 +338,7 @@ export const handlePickerClick = async (
         } else {
           log.error('Failed to save picker scrape result:', response?.error)
         }
-      },
+      }),
     )
   } catch (err) {
     log.error('Error in picker click handler:', err)
@@ -408,13 +412,15 @@ export const enablePickerMode = async (
 
   // Save picker mode state to storage
   if (state.tabId !== null) {
-    browser.runtime.sendMessage({
-      type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
-      payload: {
-        tabId: state.tabId,
-        updates: { pickerModeActive: true },
-      },
-    })
+    fireAndForget(
+      browser.runtime.sendMessage({
+        type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
+        payload: {
+          tabId: state.tabId,
+          updates: { pickerModeActive: true },
+        },
+      }),
+    )
   }
 
   // Create event handlers
@@ -486,7 +492,7 @@ const createPickerEventHandlers = (
 
   return {
     mouseMoveHandler: (e: MouseEvent) => handlePickerMouseMove(e, state),
-    clickHandler: (e: MouseEvent) => handlePickerClick(e, state, disablePickerMode),
+    clickHandler: asListener((e: MouseEvent) => handlePickerClick(e, state, disablePickerMode)),
     keyDownHandler: (e: KeyboardEvent) => handlePickerKeyDown(e, state, disablePickerMode),
     contextMenuHandler: (e: MouseEvent) => handlePickerContextMenu(e, state, handleShowContextMenu),
     clickOutsideHandler: (e: MouseEvent) =>
@@ -511,13 +517,15 @@ export const disablePickerMode = (state: ContentScriptState, source?: string): v
 
   // Save picker mode state to storage
   if (state.tabId !== null) {
-    browser.runtime.sendMessage({
-      type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
-      payload: {
-        tabId: state.tabId,
-        updates: { pickerModeActive: false },
-      },
-    })
+    fireAndForget(
+      browser.runtime.sendMessage({
+        type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
+        payload: {
+          tabId: state.tabId,
+          updates: { pickerModeActive: false },
+        },
+      }),
+    )
   }
 
   // Remove all highlights and restore original element styles

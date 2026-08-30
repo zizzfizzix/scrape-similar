@@ -1,5 +1,6 @@
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { SidePanel } from '@/entrypoints/sidepanel/SidePanel'
+import { fireAndForget } from '@/utils/fire-and-forget'
 import { isDevOrTest } from '@/utils/modeTest'
 import log from 'loglevel'
 import React, { useEffect, useState } from 'react'
@@ -14,14 +15,16 @@ export const SidePanelRoot: React.FC = () => {
   const [isDebugModeEnabled, setIsDebugModeEnabled] = useState(false)
 
   useEffect(() => {
-    storage.getItem<boolean>('local:debugMode').then((val) => {
-      setIsDebugModeEnabled(!!val)
-      if (isDevOrTest) {
-        log.setLevel('trace')
-      } else {
-        log.setLevel(val ? 'trace' : 'error')
-      }
-    })
+    fireAndForget(
+      storage.getItem<boolean>('local:debugMode').then((val) => {
+        setIsDebugModeEnabled(!!val)
+        if (isDevOrTest) {
+          log.setLevel('trace')
+        } else {
+          log.setLevel(val ? 'trace' : 'error')
+        }
+      }),
+    )
     const unwatch = storage.watch<boolean>('local:debugMode', (val) => {
       setIsDebugModeEnabled(!!val)
       if (!isDevOrTest) {
@@ -32,7 +35,7 @@ export const SidePanelRoot: React.FC = () => {
   }, [])
 
   const handleDebugModeChange = (enabled: boolean) => {
-    storage.setItem('local:debugMode', enabled)
+    fireAndForget(storage.setItem('local:debugMode', enabled))
   }
 
   return (

@@ -1,6 +1,6 @@
 import { trackEvent } from '@/utils/analytics'
 import log from 'loglevel'
-import type { MessageHandler } from '../types'
+import type { AsyncMessageHandler, MessageHandler } from '../types'
 import { handleExportToSheets } from './sheets-export'
 
 /**
@@ -84,7 +84,11 @@ const contentScriptHandlers: Record<string, MessageHandler> = {
 /**
  * Main content script message dispatcher
  */
-export const handleContentScriptMessage: MessageHandler = async (message, sender, sendResponse) => {
+export const handleContentScriptMessage: AsyncMessageHandler = async (
+  message,
+  sender,
+  sendResponse,
+) => {
   const tabId = sender.tab?.id
   if (!tabId) {
     log.error('No tab ID available for content script message')

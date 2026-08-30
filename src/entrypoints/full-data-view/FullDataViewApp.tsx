@@ -28,6 +28,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { asListener, fireAndForget } from '@/utils/fire-and-forget'
 
 import {
   collectTabsWithData,
@@ -157,17 +158,19 @@ export const FullDataViewApp: React.FC = () => {
       }
     }
 
-    loadTabsData()
+    fireAndForget(loadTabsData())
   }, [currentTabId, reloadRequest])
 
   useEffect(() => {
-    storage.getItem<boolean>('local:debugMode').then((val) => {
-      if (isDevOrTest) {
-        log.setLevel('trace')
-      } else {
-        log.setLevel(val ? 'trace' : 'error')
-      }
-    })
+    fireAndForget(
+      storage.getItem<boolean>('local:debugMode').then((val) => {
+        if (isDevOrTest) {
+          log.setLevel('trace')
+        } else {
+          log.setLevel(val ? 'trace' : 'error')
+        }
+      }),
+    )
 
     const unwatch = storage.watch<boolean>('local:debugMode', (val) => {
       if (!isDevOrTest) {
@@ -194,77 +197,80 @@ export const FullDataViewApp: React.FC = () => {
     // Function to set up a watcher for a specific tab
     const setupSingleTabWatcher = (tabId: number) => {
       const sessionKey = `sidepanel_config_${tabId}`
-      const unwatch = storage.watch<SidePanelConfig>(`session:${sessionKey}`, async (newValue) => {
-        // Update only the specific tab that changed, preserve user's current selection
-        const tabInfo = await browser.tabs.get(tabId).catch(() => null)
-        if (!tabInfo) return
+      const unwatch = storage.watch<SidePanelConfig>(
+        `session:${sessionKey}`,
+        asListener(async (newValue) => {
+          // Update only the specific tab that changed, preserve user's current selection
+          const tabInfo = await browser.tabs.get(tabId).catch(() => null)
+          if (!tabInfo) return
 
-        if (!newValue?.scrapeResult?.data || newValue.scrapeResult.data.length === 0) {
-          // Data was removed - remove this tab from our list
-          setAllTabsData((prev) => {
-            const filtered = prev.filter((tabData) => tabData.tabId !== tabId)
-            // If this was the current tab and there are other tabs, switch to first available
-            const [newTab] = filtered
-            if (currentTabId === tabId && newTab) {
-              setCurrentTabId(newTab.tabId)
-              setCurrentTabData(newTab)
-              // Update URL
-              const newUrl = new URL(window.location.href)
-              newUrl.searchParams.set('tabId', newTab.tabId.toString())
-              window.history.replaceState({}, '', newUrl.toString())
-            } else if (currentTabId === tabId) {
-              // No other tabs available
-              setCurrentTabId(null)
-              setCurrentTabData(null)
-            }
-            return filtered
-          })
-        } else {
-          // Update or add the tab data
-          const updatedTabData: TabData = {
-            tabId: tabId,
-            tabUrl: tabInfo.url || 'Unknown URL',
-            tabTitle: tabInfo.title || 'Unknown Title',
-            scrapeResult: newValue.scrapeResult,
-            config: newValue.currentScrapeConfig || {
-              mainSelector: '',
-              columns: [{ name: 'Text', selector: '.' }],
-            },
-          }
-
-          setAllTabsData((prev) => {
-            const existingIndex = prev.findIndex((tabData) => tabData.tabId === tabId)
-            let newTabs: TabData[]
-            if (existingIndex >= 0) {
-              // Update existing tab
-              newTabs = [...prev]
-              newTabs[existingIndex] = updatedTabData
-            } else {
-              // Add new tab
-              newTabs = [...prev, updatedTabData]
+          if (!newValue?.scrapeResult?.data || newValue.scrapeResult.data.length === 0) {
+            // Data was removed - remove this tab from our list
+            setAllTabsData((prev) => {
+              const filtered = prev.filter((tabData) => tabData.tabId !== tabId)
+              // If this was the current tab and there are other tabs, switch to first available
+              const [newTab] = filtered
+              if (currentTabId === tabId && newTab) {
+                setCurrentTabId(newTab.tabId)
+                setCurrentTabData(newTab)
+                // Update URL
+                const newUrl = new URL(window.location.href)
+                newUrl.searchParams.set('tabId', newTab.tabId.toString())
+                window.history.replaceState({}, '', newUrl.toString())
+              } else if (currentTabId === tabId) {
+                // No other tabs available
+                setCurrentTabId(null)
+                setCurrentTabData(null)
+              }
+              return filtered
+            })
+          } else {
+            // Update or add the tab data
+            const updatedTabData: TabData = {
+              tabId: tabId,
+              tabUrl: tabInfo.url || 'Unknown URL',
+              tabTitle: tabInfo.title || 'Unknown Title',
+              scrapeResult: newValue.scrapeResult,
+              config: newValue.currentScrapeConfig || {
+                mainSelector: '',
+                columns: [{ name: 'Text', selector: '.' }],
+              },
             }
 
-            // If there's no current tab selected and this is the first/only tab, select it.
-            // This update either replaces an entry or appends one, so an empty
-            // `prev` can only ever become a list of one.
-            if (currentTabId === null && newTabs.length === 1) {
-              setCurrentTabId(updatedTabData.tabId)
+            setAllTabsData((prev) => {
+              const existingIndex = prev.findIndex((tabData) => tabData.tabId === tabId)
+              let newTabs: TabData[]
+              if (existingIndex >= 0) {
+                // Update existing tab
+                newTabs = [...prev]
+                newTabs[existingIndex] = updatedTabData
+              } else {
+                // Add new tab
+                newTabs = [...prev, updatedTabData]
+              }
+
+              // If there's no current tab selected and this is the first/only tab, select it.
+              // This update either replaces an entry or appends one, so an empty
+              // `prev` can only ever become a list of one.
+              if (currentTabId === null && newTabs.length === 1) {
+                setCurrentTabId(updatedTabData.tabId)
+                setCurrentTabData(updatedTabData)
+                // Update URL
+                const newUrl = new URL(window.location.href)
+                newUrl.searchParams.set('tabId', updatedTabData.tabId.toString())
+                window.history.replaceState({}, '', newUrl.toString())
+              }
+
+              return newTabs
+            })
+
+            // If this is the current tab, update current data too
+            if (currentTabId === tabId) {
               setCurrentTabData(updatedTabData)
-              // Update URL
-              const newUrl = new URL(window.location.href)
-              newUrl.searchParams.set('tabId', updatedTabData.tabId.toString())
-              window.history.replaceState({}, '', newUrl.toString())
             }
-
-            return newTabs
-          })
-
-          // If this is the current tab, update current data too
-          if (currentTabId === tabId) {
-            setCurrentTabData(updatedTabData)
           }
-        }
-      })
+        }),
+      )
       return unwatch
     }
 
@@ -495,9 +501,9 @@ export const FullDataViewApp: React.FC = () => {
               onClick={
                 isEmpty
                   ? undefined
-                  : () => {
+                  : async () => {
                       const rowSelector = `(${currentTabData.config.mainSelector})[${originalIndex + 1}]`
-                      handleRowHighlight(rowSelector, currentTabData.tabId)
+                      await handleRowHighlight(rowSelector, currentTabData.tabId)
                     }
               }
             >
