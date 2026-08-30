@@ -1,6 +1,3 @@
-import { readFile } from 'node:fs/promises'
-import path from 'node:path'
-import { describe, expect, it } from 'vitest'
 import {
   BOOTSTRAP_EXCLUSIONS,
   BOOTSTRAP_LINE_BUDGET,
@@ -8,6 +5,9 @@ import {
   GENERATED_EXCLUSIONS,
   TYPE_ONLY_EXCLUSIONS,
 } from '@@/coverage-exclusions'
+import { readFile } from 'node:fs/promises'
+import path from 'node:path'
+import { describe, expect, it } from 'vitest'
 
 /**
  * Every entry on the coverage exclusion list drops code out of the measured

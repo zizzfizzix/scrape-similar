@@ -1,6 +1,7 @@
+import type { Rule } from 'eslint'
+
 /**
- * The source shape that makes v8 count a function wrong, scanned for by
- * `src/__tests__/coverage-hazards.test.ts`.
+ * Bans the source shape that makes v8 count a function wrong.
  *
  * V8 counts the code after an `await` as part of the block that resumed it. An
  * `await` that only runs on one side of a branch — the right of `||`, `&&` or
@@ -34,84 +35,62 @@
  * Only `await` is flagged. `yield` has the same shape, but this codebase has no
  * generators, so a rule about them would be untested here.
  */
-
-import { parse } from '@babel/parser'
-
-export interface ConditionalAwait {
-  line: number
-  column: number
-  /** Where the `await` sits, phrased for the failure message. */
-  branch: string
-}
+const DOCUMENTATION =
+  'https://github.com/zizzfizzix/scrape-similar/blob/main/tools/eslint-rules/no-conditional-await.ts'
 
 const FUNCTION_TYPES = new Set([
   'ArrowFunctionExpression',
-  'ClassMethod',
-  'ClassPrivateMethod',
   'FunctionDeclaration',
   'FunctionExpression',
-  'ObjectMethod',
 ])
-
-interface Node {
-  type: string
-  loc?: { start: { line: number; column: number } }
-  [key: string]: unknown
-}
-
-const isNode = (value: unknown): value is Node =>
-  typeof value === 'object' && value !== null && typeof (value as Node).type === 'string'
 
 /**
  * A nested function starts fresh: its body runs when it is called, not when the
  * branch around its definition is taken.
  */
-export const findConditionalAwaits = (code: string, filePath: string): ConditionalAwait[] => {
-  const ast = parse(code, {
-    sourceType: 'module',
-    plugins: filePath.endsWith('.tsx') ? ['typescript', 'jsx'] : ['typescript'],
-  })
+const branchAround = (node: Rule.Node): string | null => {
+  let child: Rule.Node = node
+  let parent: Rule.Node | null = node.parent
 
-  const found: ConditionalAwait[] = []
-
-  const walk = (value: unknown, branch: string | null): void => {
-    if (Array.isArray(value)) {
-      for (const item of value) walk(item, branch)
-      return
+  while (parent !== null && !FUNCTION_TYPES.has(parent.type)) {
+    if (parent.type === 'LogicalExpression' && parent.right === child) {
+      return `the right-hand side of \`${parent.operator}\``
     }
-    if (!isNode(value)) return
-
-    if (value.type === 'AwaitExpression' && branch !== null) {
-      const start = value.loc?.start
-      found.push({
-        line: start ? start.line : 0,
-        // Babel columns are 0-based; editors address them from 1.
-        column: start ? start.column + 1 : 0,
-        branch,
-      })
+    if (
+      parent.type === 'ConditionalExpression' &&
+      (parent.consequent === child || parent.alternate === child)
+    ) {
+      return 'an arm of `?:`'
     }
 
-    const inherited = FUNCTION_TYPES.has(value.type) ? null : branch
-
-    if (value.type === 'LogicalExpression') {
-      walk(value.left, inherited)
-      walk(value.right, `the right-hand side of \`${String(value.operator)}\``)
-      return
-    }
-    if (value.type === 'ConditionalExpression') {
-      walk(value.test, inherited)
-      walk(value.consequent, 'an arm of `?:`')
-      walk(value.alternate, 'an arm of `?:`')
-      return
-    }
-
-    for (const [key, child] of Object.entries(value)) {
-      if (key === 'loc') continue
-      walk(child, inherited)
-    }
+    child = parent
+    parent = parent.parent
   }
 
-  walk(ast.program, null)
+  return null
+}
 
-  return found
+export const noConditionalAwait: Rule.RuleModule = {
+  meta: {
+    type: 'problem',
+    docs: {
+      description: 'disallow `await` in a position only one side of a branch reaches',
+      url: DOCUMENTATION,
+    },
+    schema: [],
+    messages: {
+      conditionalAwait:
+        'This `await` sits on {{branch}}, so v8 counts the rest of the function as if it only ran ' +
+        'on that branch (#272). Await on its own line and use the result in the expression.',
+    },
+  },
+  create: (context) => ({
+    AwaitExpression: (node) => {
+      const branch = branchAround(node)
+
+      if (branch !== null) {
+        context.report({ node, messageId: 'conditionalAwait', data: { branch } })
+      }
+    },
+  }),
 }

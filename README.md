@@ -76,6 +76,12 @@ pnpm dev            # or npm run dev
 # Target a specific browser in dev mode (e.g. Firefox)
 pnpm dev:firefox    # or npm run dev:firefox
 
+# Type-check, lint and format
+pnpm compile        # tsc --noEmit (TypeScript 7)
+pnpm lint           # ESLint, warnings included
+pnpm lint:fix       # apply the fixes ESLint can make itself
+pnpm fmt            # Prettier
+
 # Production build
 pnpm build          # or npm run build
 
@@ -136,6 +142,30 @@ src/
 - Prefer functional components with React hooks
 - Use descriptive variable names with auxiliary verbs
 - Follow the established project structure
+
+#### Linting, and the two TypeScript packages
+
+ESLint enforces the conventions above, plus the hooks rules and the test-harness
+rules, from `eslint.config.ts`. Rules that report violations today are listed in
+the `DEFERRED` block there with the count each one has, so re-enabling one is a
+line of config and the fixes it names.
+
+Installing it takes one indirection, because TypeScript 7 is a Go rewrite that
+ships no JavaScript compiler API: the `typescript` package exports `version` and
+the in-progress `typescript/unstable/*` surface, and nothing else. Every tool
+that reads the program — typescript-eslint,
+`prettier-plugin-organize-imports` — needs the old API, and typescript-eslint's
+peer range stops below 6.1 regardless. Until the stable API arrives in 7.1, both
+are installed:
+
+| dependency    | resolves to               | used by                                                               |
+| ------------- | ------------------------- | --------------------------------------------------------------------- |
+| `typescript`  | `@typescript/typescript6` | typescript-eslint, `prettier-plugin-organize-imports`, editor tooling |
+| `typescript7` | `typescript@7`            | `pnpm compile`, i.e. the type-check that gates CI                     |
+
+The compatibility package installs its compiler as `tsc6`, so `tsc` still means
+TypeScript 7 and nothing about the build changes. Drop the alias and the
+`typescript7` entry once typescript-eslint supports the 7.1 API.
 
 #### Web Extension Best Practices
 

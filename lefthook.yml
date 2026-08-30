@@ -3,12 +3,16 @@
 # (`scripts/install-git-hooks.mjs`).
 # Set LEFTHOOK=0 to skip all hooks for a single command.
 
-# Formatting is a property of the diff itself, so it is checked per commit.
+# Formatting and the lint rules are properties of the diff itself, so they are
+# checked per commit.
 pre-commit:
   commands:
     fmt-check:
       run: pnpm fmt-check
       fail_text: "Commit blocked: please run 'pnpm fmt' before staging your changes."
+    lint:
+      run: pnpm lint
+      fail_text: "Commit blocked: run 'pnpm lint:fix', then fix what is left by hand."
 
 # The test suite takes ~40s and coverage is a property of the branch as a whole,
 # not of each work-in-progress commit, so it gates the push instead.
