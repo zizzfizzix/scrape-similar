@@ -179,7 +179,7 @@ export const FullDataViewApp: React.FC = () => {
     }
   }, [currentTabData?.tabTitle])
 
-  // Reset shouldShowEmptyRows when global filter is applied (empty rows won't match search anyway)
+  // An empty row cannot match a search term, so the toggle is meaningless once one is set.
   useEffect(() => {
     if (globalFilter && globalFilter.length > 0) {
       setShouldShowEmptyRows(false)
@@ -416,7 +416,6 @@ export const FullDataViewApp: React.FC = () => {
     }
   }
 
-  // Filter data based on the shouldShowEmptyRows toggle
   const filteredData = useMemo(
     () =>
       currentTabData ? visibleRows(currentTabData.scrapeResult.data, shouldShowEmptyRows) : [],

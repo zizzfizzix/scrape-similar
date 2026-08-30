@@ -107,45 +107,22 @@ const ALREADY_CLEAN: Linter.RulesRecord = {
 }
 
 /**
- * CLAUDE.md's "use auxiliary verbs for booleans" (#284), and the last row of #7's
- * table left unanswered. It was a real disagreement rather than a slip: of the 98
- * boolean variables here, 43 already read `isX` / `hasX` and 55 did not, so the
- * convention was half-kept and the newer half of the code was the half keeping
- * it. Enabling it renamed the other 55.
+ * CLAUDE.md's boolean prefix row (#284).
  *
- * Two things the config had to settle before it was trustworthy:
+ * The `filter` exempts `ConsentState`, which is `boolean | undefined` where
+ * `undefined` means "not asked yet". `naming-convention` strips `null` and
+ * `undefined` from a type before checking it (`getNonNullableType()`), so it
+ * reads that tri-state as a boolean and no option says otherwise — and a prefix
+ * would promise two states where there are three. Variables holding one are
+ * named `…consentState` so this line can find them.
  *
- * `was` is in the list because `wasCancelled` was already written that way and
- * reads better than any of the alternatives; `did` is not, because #284 proposed
- * it and nothing here wanted it.
- *
- * The `filter` is for `ConsentState`, which is `boolean | undefined` where
- * `undefined` means "not asked yet". The rule calls `getNonNullableType()` before
- * comparing, deliberately, so it reads that tri-state as a boolean and there is no
- * option that says otherwise. A prefix would promise two states where there are
- * three, so a variable holding one is named `…consentState` and exempted by that
- * name — which makes the naming of that type the convention this line enforces.
- *
- * Scope is `variable`, which is the row CLAUDE.md actually states. Props and
- * message payloads keep their own names, so a passthrough reads
- * `showEmptyRows={shouldShowEmptyRows}`: the prop says what the component does
- * with it, the variable says what it holds. That is a decision with a count
- * behind it rather than a preference: the same prefix costs 46 on `parameter`
- * and 537 on properties, and the property side is dominated by names this
- * codebase does not own — `success` 259 times (the `MessageResponse` envelope),
- * `debugMode` 30 (a message payload), then `bubbles` / `cancelable` from
- * `EventInit`, `ok` from `Response`, `enableResizing` from TanStack Table,
- * `active` / `currentWindow` from `browser.tabs.query`. Widening the selector
- * means renaming a cross-context contract or exempting most of what it reports.
- *
- * The other rows of #7's table were measured the same way and stay off for the
- * same kind of reason. Casing reports 69, of which 67 are React components
- * declared `const Foo: React.FC` — JSX requires that capital, so the fix is to
- * allow `PascalCase`, which leaves the rule permitting camelCase, PascalCase and
- * UPPER_CASE and saying nothing. The remaining 2 are e2e constants spelled to
- * match the storage keys they stand for. And the directory row is not reachable
- * from here at all: `naming-convention` never sees a filename, so enforcing it
- * would take `check-file` or `unicorn/filename-case` instead.
+ * The selector stays at `variable`. Widening it to properties reports 537, led
+ * by `success` 259 times: the `MessageResponse` envelope, a cross-context
+ * contract rather than a name to fix. `parameter` reports 46, mostly props.
+ * CLAUDE.md's other naming rows do not want a selector either — casing reports
+ * 69, of which 67 are React components that have to be allowed `PascalCase`
+ * anyway, and `naming-convention` never sees a filename, so the directory row
+ * would take `check-file` or `unicorn/filename-case`.
  */
 const BOOLEAN_PREFIX: Linter.RulesRecord = {
   '@typescript-eslint/naming-convention': [
