@@ -29,11 +29,11 @@ test('initialises storage with empty user presets array', async ({ serviceWorker
     // prevent a race condition where the key is written between the read and
     // listener setup.
     return await new Promise((resolve) => {
-      let settled = false
+      let isSettled = false
 
       function finish(value: unknown[] | undefined) {
-        if (settled) return
-        settled = true
+        if (isSettled) return
+        isSettled = true
         clearTimeout(timeoutId)
         chrome.storage.onChanged.removeListener(onChange)
         resolve(value)

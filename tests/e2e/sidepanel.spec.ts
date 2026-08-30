@@ -679,20 +679,20 @@ test.describe('Visual Picker Integration', () => {
     await crosshairButton.click()
 
     // Verify picker is active on the page
-    const pickerActive = await testPage.evaluate(() => {
+    const isPickerActive = await testPage.evaluate(() => {
       return document.documentElement.classList.contains('scrape-similar-picker-active')
     })
-    expect(pickerActive).toBe(true)
+    expect(isPickerActive).toBe(true)
 
     // Click again to disable picker
     crosshairButton = sidePanel.getByLabel(/close visual picker/i)
     await crosshairButton.click()
 
     // Verify picker is no longer active
-    const pickerStillActive = await testPage.evaluate(() => {
+    const isPickerStillActive = await testPage.evaluate(() => {
       return document.documentElement.classList.contains('scrape-similar-picker-active')
     })
-    expect(pickerStillActive).toBe(false)
+    expect(isPickerStillActive).toBe(false)
   })
 
   test('crosshair button changes to close when picker active', async ({

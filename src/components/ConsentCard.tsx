@@ -19,9 +19,9 @@ export const ConsentCard: React.FC<ConsentCardProps> = ({ onDecision, className 
   const getMaxW = getComputedStyle(document.documentElement).getPropertyValue('--max-w-2xl').trim()
 
   // This only ever renders in a document, same as the `getComputedStyle` above.
-  const getMatches = window.matchMedia(`(min-width: ${getMaxW})`).matches
+  const isInitiallyWide = window.matchMedia(`(min-width: ${getMaxW})`).matches
 
-  const [isWide, setIsWide] = useState<boolean>(getMatches)
+  const [isWide, setIsWide] = useState<boolean>(isInitiallyWide)
 
   useEffect(() => {
     const mq = window.matchMedia(`(min-width: ${getMaxW})`)

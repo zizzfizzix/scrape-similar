@@ -140,7 +140,7 @@ src/
 
 - Use TypeScript for all code
 - Prefer functional components with React hooks
-- Use descriptive variable names with auxiliary verbs
+- Name booleans with an auxiliary verb — `is`, `has`, `should`, `can`, `was`, `will` — which `naming-convention` enforces
 - Follow the established project structure
 
 #### Linting, and the two TypeScript packages

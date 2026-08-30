@@ -28,8 +28,8 @@ describe('user presets storage', () => {
 
   it('setPresets writes and getPresets returns the same data', async () => {
     const toStore: Preset[] = [mockPreset]
-    const ok = await setPresets(toStore)
-    expect(ok).toBe(true)
+    const isStored = await setPresets(toStore)
+    expect(isStored).toBe(true)
     const presets = await getPresets()
     expect(presets).toHaveLength(1)
     expect(presets[0]).toEqual(mockPreset)

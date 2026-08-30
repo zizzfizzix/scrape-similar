@@ -36,8 +36,8 @@ const handleTrackEvent: MessageHandler = (message, sender, sendResponse) => {
 const handleGetDebugMode: MessageHandler = async (message, sender, sendResponse) => {
   const tabId = sender.tab?.id
   log.debug(`Content script in tab ${tabId} requested debug mode status`)
-  const debugSetting = await storage.getItem<boolean>('local:debugMode')
-  sendResponse({ success: true, debugMode: !!debugSetting })
+  const isDebugModeEnabled = await storage.getItem<boolean>('local:debugMode')
+  sendResponse({ success: true, debugMode: !!isDebugModeEnabled })
 }
 
 /**

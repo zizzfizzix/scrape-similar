@@ -134,11 +134,11 @@ async function initializePostHog(): Promise<void> {
 }
 
 export const PostHogWrapper: React.FC<PostHogWrapperProps> = ({ children }) => {
-  const { loading, state: consentState } = useConsent()
+  const { loading: isLoading, state: consentState } = useConsent()
 
   // Whenever consent changes, (init / reset) PostHog
   useEffect(() => {
-    if (loading) return
+    if (isLoading) return
 
     if (consentState === true) {
       // `initializePostHog` is a no-op once an instance exists, so there is no
@@ -155,7 +155,7 @@ export const PostHogWrapper: React.FC<PostHogWrapperProps> = ({ children }) => {
         log.debug('PostHog instance removed from window')
       }
     }
-  }, [loading, consentState])
+  }, [isLoading, consentState])
 
   // Sync PostHog debug config with storage changes (production only)
   useEffect(() => {

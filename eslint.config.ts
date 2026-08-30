@@ -25,9 +25,10 @@ import { noConditionalAwait } from './tools/eslint-rules/no-conditional-await.ts
  * thing `pnpm compile` runs — keeps the `tsc` name. Neither package shadows the
  * other's binary. See the README for when that indirection can come out.
  *
- * Type-aware linting is switched on (`projectService`), but only two typed
- * rules are enabled so far; the rest are staged in DEFERRED below with the
- * violation count each one has today.
+ * Type-aware linting is switched on (`projectService`). The typed rules that are
+ * on are the ones this codebase already passes (ALREADY_CLEAN) plus the boolean
+ * naming rule; the rest are staged in DEFERRED below with the violation count
+ * each one has today.
  */
 
 const TEST_FILES = ['**/__tests__/**/*.{ts,tsx}', '**/*.test.{ts,tsx}', 'vitest.setup.ts']
@@ -103,6 +104,37 @@ const ALREADY_CLEAN: Linter.RulesRecord = {
   // changes error handling, not the one that is merely redundant.
   '@typescript-eslint/return-await': ['error', 'error-handling-correctness-only'],
   '@typescript-eslint/unified-signatures': 'error',
+}
+
+/**
+ * CLAUDE.md's boolean prefix row (#284).
+ *
+ * The `filter` exempts `ConsentState`, which is `boolean | undefined` where
+ * `undefined` means "not asked yet". `naming-convention` strips `null` and
+ * `undefined` from a type before checking it (`getNonNullableType()`), so it
+ * reads that tri-state as a boolean and no option says otherwise — and a prefix
+ * would promise two states where there are three. Variables holding one are
+ * named `…consentState` so this line can find them.
+ *
+ * The selector stays at `variable`. Widening it to properties reports 537, led
+ * by `success` 259 times: the `MessageResponse` envelope, a cross-context
+ * contract rather than a name to fix. `parameter` reports 46, mostly props.
+ * CLAUDE.md's other naming rows do not want a selector either — casing reports
+ * 69, of which 67 are React components that have to be allowed `PascalCase`
+ * anyway, and `naming-convention` never sees a filename, so the directory row
+ * would take `check-file` or `unicorn/filename-case`.
+ */
+const BOOLEAN_PREFIX: Linter.RulesRecord = {
+  '@typescript-eslint/naming-convention': [
+    'error',
+    {
+      selector: 'variable',
+      types: ['boolean'],
+      format: ['PascalCase'],
+      prefix: ['is', 'has', 'should', 'can', 'was', 'will'],
+      filter: { regex: '[Cc]onsentState$', match: false },
+    },
+  ],
 }
 
 /**
@@ -182,6 +214,7 @@ export default defineConfig([
       // compares by identity.
       eqeqeq: ['error', 'always', { null: 'ignore' }],
       ...ALREADY_CLEAN,
+      ...BOOLEAN_PREFIX,
       '@typescript-eslint/no-unused-vars': [
         'error',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' },

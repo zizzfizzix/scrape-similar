@@ -144,7 +144,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
   const [presets, setPresets] = useState<Preset[]>([])
   const [isScraping, setIsScraping] = useState(false)
   const [tabUrl, setTabUrl] = useState<string | null>(null)
-  const [showPresets, setShowPresets] = useState(false)
+  const [shouldShowPresets, setShouldShowPresets] = useState(false)
   const [contentScriptCommsError, setContentScriptCommsError] = useState<string | null>(null)
   // Track last scrape row count for button feedback
   const [lastScrapeRowCount, setLastScrapeRowCount] = useState<number | null>(null)
@@ -152,8 +152,8 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
   const dataTableRef = useRef<HTMLDivElement | null>(null)
   const [highlightMatchCount, setHighlightMatchCount] = useState<number | undefined>(undefined)
   const [highlightError, setHighlightError] = useState<string | undefined>(undefined)
-  const [showEmptyRows, setShowEmptyRows] = useState(false)
-  const [pickerModeActive, setPickerModeActive] = useState(false)
+  const [shouldShowEmptyRows, setShouldShowEmptyRows] = useState(false)
+  const [isPickerModeActive, setIsPickerModeActive] = useState(false)
 
   // Memoized export filename (regenerates if tabUrl changes)
   const exportFilename = React.useMemo(() => buildExportFilename(tabUrl, new Date()), [tabUrl])
@@ -221,7 +221,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
   // --- Update config state and trigger saveSidePanelState ---
   const handleConfigChange = (newConfig: ScrapeConfig) => {
     const previousMainSelector = config.mainSelector
-    const mainSelectorChanged = newConfig.mainSelector !== previousMainSelector
+    const hasMainSelectorChanged = newConfig.mainSelector !== previousMainSelector
 
     setConfig(newConfig)
 
@@ -231,7 +231,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
     setLastScrapeRowCount(null)
 
     // Only clear highlight state if the main selector actually changed
-    if (mainSelectorChanged) {
+    if (hasMainSelectorChanged) {
       setHighlightMatchCount(undefined)
       setHighlightError(undefined)
     }
@@ -263,7 +263,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
       resultProducingConfig,
       highlightMatchCount,
       highlightError,
-      pickerModeActive,
+      pickerModeActive: isPickerModeActive,
     } = storedState
 
     const { config: newConfig, options: newOptions } = resolveStoredConfig(storedState)
@@ -289,7 +289,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
     setHighlightError(highlightError ?? undefined)
 
     // Restore picker mode state if present
-    setPickerModeActive(pickerModeActive ?? false)
+    setIsPickerModeActive(isPickerModeActive ?? false)
   }, [])
 
   // Initialize: load presets, listen for messages, AND listen for tab activation
@@ -425,7 +425,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
   // match comes from the content script, so a tab is always attached by here
   // and the selector is never blank.
   const handleScrape = () => {
-    setShowPresets(false)
+    setShouldShowPresets(false)
     setContentScriptCommsError(null)
     const tabId = targetTabId!
     setIsScraping(true)
@@ -589,8 +589,8 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
     }
     // `savePreset` reports its own storage failures as `false`, so a rejection
     // is not something that can reach here.
-    const success = await savePreset(preset)
-    if (success) {
+    const isSaved = await savePreset(preset)
+    if (isSaved) {
       const updatedPresets = await getAllPresets()
       setPresets(updatedPresets)
       log.debug('Preset saved successfully and UI updated')
@@ -627,8 +627,8 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
     }
     // Otherwise, delete user preset as before. `deletePreset` reports a storage
     // failure as `false` rather than rejecting.
-    const success = await deletePreset(preset.id)
-    if (success) {
+    const isDeleted = await deletePreset(preset.id)
+    if (isDeleted) {
       const updatedPresets = await getAllPresets()
       setPresets(updatedPresets)
       toast.success(
@@ -719,13 +719,13 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
               onLoadPreset={handleLoadPreset}
               onSavePreset={handleSavePreset}
               onDeletePreset={handleDeletePreset}
-              showPresets={showPresets}
-              setShowPresets={setShowPresets}
+              showPresets={shouldShowPresets}
+              setShowPresets={setShouldShowPresets}
               lastScrapeRowCount={lastScrapeRowCount}
               onClearLastScrapeRowCount={clearLastScrapeRowCount}
               highlightMatchCount={highlightMatchCount}
               highlightError={highlightError}
-              pickerModeActive={pickerModeActive}
+              pickerModeActive={isPickerModeActive}
               // Show rescrape hint when there is data and config differs from the config that produced it
               rescrapeAdvised={
                 !!scrapeResult?.data?.length &&
@@ -740,7 +740,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
                   <ExportButtons
                     scrapeResult={scrapeResult}
                     config={resultProducingConfig || config}
-                    showEmptyRows={showEmptyRows}
+                    showEmptyRows={shouldShowEmptyRows}
                     filename={exportFilename}
                     variant="outline"
                   />
@@ -752,8 +752,8 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
                   onRowHighlight={handleRowHighlight}
                   config={resultProducingConfig || config}
                   columnOrder={scrapeResult.columnOrder}
-                  showEmptyRows={showEmptyRows}
-                  onShowEmptyRowsChange={setShowEmptyRows}
+                  showEmptyRows={shouldShowEmptyRows}
+                  onShowEmptyRowsChange={setShouldShowEmptyRows}
                   tabId={targetTabId}
                 />
               </div>

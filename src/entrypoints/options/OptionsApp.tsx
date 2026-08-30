@@ -4,13 +4,13 @@ import log from 'loglevel'
 import React, { useEffect, useRef, useState } from 'react'
 
 export const OptionsApp: React.FC = () => {
-  const [debugMode, setDebugMode] = useState(false)
+  const [isDebugModeEnabled, setIsDebugModeEnabled] = useState(false)
   const settingsRef = useRef<{ unlockDebugMode: () => void }>(null)
 
   // Load debug mode from storage on mount
   useEffect(() => {
     storage.getItem<boolean>('local:debugMode').then((val) => {
-      setDebugMode(!!val)
+      setIsDebugModeEnabled(!!val)
       if (isDevOrTest) {
         log.setLevel('trace')
       } else {
@@ -19,7 +19,7 @@ export const OptionsApp: React.FC = () => {
     })
 
     const unwatch = storage.watch<boolean>('local:debugMode', (val) => {
-      setDebugMode(!!val)
+      setIsDebugModeEnabled(!!val)
       if (!isDevOrTest) {
         log.setLevel(val ? 'trace' : 'error')
       }
@@ -31,7 +31,7 @@ export const OptionsApp: React.FC = () => {
   }, [])
 
   const handleDebugModeChange = (enabled: boolean) => {
-    setDebugMode(enabled)
+    setIsDebugModeEnabled(enabled)
     storage.setItem('local:debugMode', enabled)
   }
 
@@ -53,7 +53,7 @@ export const OptionsApp: React.FC = () => {
               <div className="bg-card border rounded-lg p-6">
                 <Settings
                   ref={settingsRef}
-                  debugMode={debugMode}
+                  debugMode={isDebugModeEnabled}
                   onDebugModeChange={handleDebugModeChange}
                 />
               </div>

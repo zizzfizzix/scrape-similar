@@ -7,18 +7,18 @@ import * as React from 'react'
  * Used for responsive Dialog/Drawer (desktop vs mobile).
  */
 export function useMediaQuery(query: string): boolean {
-  const [value, setValue] = React.useState(false)
+  const [isMatching, setIsMatching] = React.useState(false)
 
   React.useEffect(() => {
     const mediaQuery = window.matchMedia(query)
-    setValue(mediaQuery.matches)
+    setIsMatching(mediaQuery.matches)
 
     const handler = (event: MediaQueryListEvent) => {
-      setValue(event.matches)
+      setIsMatching(event.matches)
     }
     mediaQuery.addEventListener('change', handler)
     return () => mediaQuery.removeEventListener('change', handler)
   }, [query])
 
-  return value
+  return isMatching
 }

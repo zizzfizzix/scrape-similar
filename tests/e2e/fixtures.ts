@@ -357,18 +357,18 @@ export const TestHelpers = {
       /** Override together with `expectedMatchCount`, so the two stay consistent. */
       selector?: string
       expectedMatchCount?: number
-      dismissConsent?: boolean
+      shouldDismissConsent?: boolean
     },
   ): Promise<Page> {
     const {
       testPageUrl,
       selector = DEFAULT_SCRAPE_SELECTOR,
       expectedMatchCount = DEFAULT_SCRAPE_ROW_COUNT,
-      dismissConsent = true,
+      shouldDismissConsent = true,
     } = options
 
     // Dismiss analytics consent if requested
-    if (dismissConsent) {
+    if (shouldDismissConsent) {
       await TestHelpers.dismissAnalyticsConsent(serviceWorker)
     }
 

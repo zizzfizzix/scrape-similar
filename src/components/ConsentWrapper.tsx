@@ -11,10 +11,10 @@ export const ConsentWrapper: React.FC<ConsentWrapperProps> = ({
   variant = 'overlay',
   className = '',
 }) => {
-  const { loading, state: consentState } = useConsent()
+  const { loading: isLoading, state: consentState } = useConsent()
 
   // Wait until the consent state is loaded by the provider
-  if (loading) {
+  if (isLoading) {
     return null
   }
 

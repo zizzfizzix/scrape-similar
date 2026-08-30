@@ -27,7 +27,7 @@ export default defineConfig({
     // entry it generates itself (wxt-dev/wxt#2581) — entries we declare here are passed
     // through untouched, so we have to gate them ourselves. Moot while the Firefox build
     // is MV2, since WXT flattens the entry to a plain string array, but not once it isn't.
-    const useDynamicUrl = browser !== 'firefox' && browser !== 'safari'
+    const shouldUseDynamicUrl = browser !== 'firefox' && browser !== 'safari'
 
     return {
       name: 'Scrape Similar',
@@ -66,7 +66,7 @@ export default defineConfig({
           matches: ['http://*/*', 'https://*/*'],
           // Serve these from a per-session dynamic origin so pages can't probe our
           // static extension ID to fingerprint the extension.
-          use_dynamic_url: useDynamicUrl,
+          use_dynamic_url: shouldUseDynamicUrl,
         },
       ],
     }

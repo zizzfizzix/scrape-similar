@@ -25,9 +25,9 @@ const stubFetch = (
   responses: Array<{ ok?: boolean; status?: number; statusText?: string; body?: unknown }>,
 ) => {
   const fetchMock = vi.fn()
-  for (const { ok = true, status = 200, statusText = 'OK', body = {} } of responses) {
+  for (const { ok: isOk = true, status = 200, statusText = 'OK', body = {} } of responses) {
     fetchMock.mockResolvedValueOnce({
-      ok,
+      ok: isOk,
       status,
       statusText,
       json: vi.fn().mockResolvedValue(body),
