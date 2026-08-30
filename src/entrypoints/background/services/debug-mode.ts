@@ -33,8 +33,8 @@ export const initializeDebugMode = async (): Promise<void> => {
     log.setLevel('trace')
   } else {
     // Initialise log level from persistent storage
-    const debugMode = await storage.getItem<boolean>('local:debugMode')
-    log.setLevel(debugMode ? 'trace' : 'error')
+    const isDebugModeEnabled = await storage.getItem<boolean>('local:debugMode')
+    log.setLevel(isDebugModeEnabled ? 'trace' : 'error')
   }
 
   // React to debugMode changes

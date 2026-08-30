@@ -207,11 +207,11 @@ test.describe('Onboarding Demo Scrape', () => {
 
     // The picker's banner lives in a shadow root, so check the class it puts on
     // the document element instead.
-    const pickerActive = await onboardingPage.evaluate(() => {
+    const isPickerActive = await onboardingPage.evaluate(() => {
       return document.documentElement.classList.contains('scrape-similar-picker-active')
     })
 
-    expect(pickerActive).toBe(true)
+    expect(isPickerActive).toBe(true)
   })
 
   test('stores demo scrape config correctly before navigation', async ({

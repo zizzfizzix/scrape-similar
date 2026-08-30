@@ -11,11 +11,11 @@ import React, { useEffect, useState } from 'react'
  * how the panel writes the flag back — can be exercised without a real root.
  */
 export const SidePanelRoot: React.FC = () => {
-  const [debugMode, setDebugMode] = useState(false)
+  const [isDebugModeEnabled, setIsDebugModeEnabled] = useState(false)
 
   useEffect(() => {
     storage.getItem<boolean>('local:debugMode').then((val) => {
-      setDebugMode(!!val)
+      setIsDebugModeEnabled(!!val)
       if (isDevOrTest) {
         log.setLevel('trace')
       } else {
@@ -23,7 +23,7 @@ export const SidePanelRoot: React.FC = () => {
       }
     })
     const unwatch = storage.watch<boolean>('local:debugMode', (val) => {
-      setDebugMode(!!val)
+      setIsDebugModeEnabled(!!val)
       if (!isDevOrTest) {
         log.setLevel(val ? 'trace' : 'error')
       }
@@ -38,7 +38,7 @@ export const SidePanelRoot: React.FC = () => {
   return (
     <ThemeProvider>
       <TooltipProvider>
-        <SidePanel debugMode={debugMode} onDebugModeChange={handleDebugModeChange} />
+        <SidePanel debugMode={isDebugModeEnabled} onDebugModeChange={handleDebugModeChange} />
       </TooltipProvider>
     </ThemeProvider>
   )

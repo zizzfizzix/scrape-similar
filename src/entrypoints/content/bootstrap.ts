@@ -42,8 +42,10 @@ export const applyDebugMode = (): void => {
 
   browser.runtime.onMessage.addListener((msg: Message) => {
     if (msg.type === MESSAGE_TYPES.DEBUG_MODE_CHANGED) {
-      const { debugMode } = (msg.payload as { debugMode: boolean }) || { debugMode: false }
-      log.setLevel(debugMode ? 'trace' : 'error')
+      const { debugMode: isDebugModeEnabled } = (msg.payload as { debugMode: boolean }) || {
+        debugMode: false,
+      }
+      log.setLevel(isDebugModeEnabled ? 'trace' : 'error')
     }
   })
 }

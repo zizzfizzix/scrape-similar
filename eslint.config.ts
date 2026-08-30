@@ -25,9 +25,10 @@ import { noConditionalAwait } from './tools/eslint-rules/no-conditional-await.ts
  * thing `pnpm compile` runs — keeps the `tsc` name. Neither package shadows the
  * other's binary. See the README for when that indirection can come out.
  *
- * Type-aware linting is switched on (`projectService`), but only two typed
- * rules are enabled so far; the rest are staged in DEFERRED below with the
- * violation count each one has today.
+ * Type-aware linting is switched on (`projectService`). The typed rules that are
+ * on are the ones this codebase already passes (ALREADY_CLEAN) plus the boolean
+ * naming rule; the rest are staged in DEFERRED below with the violation count
+ * each one has today.
  */
 
 const TEST_FILES = ['**/__tests__/**/*.{ts,tsx}', '**/*.test.{ts,tsx}', 'vitest.setup.ts']
@@ -103,6 +104,44 @@ const ALREADY_CLEAN: Linter.RulesRecord = {
   // changes error handling, not the one that is merely redundant.
   '@typescript-eslint/return-await': ['error', 'error-handling-correctness-only'],
   '@typescript-eslint/unified-signatures': 'error',
+}
+
+/**
+ * CLAUDE.md's "use auxiliary verbs for booleans" (#284), and the last row of #7's
+ * table left unanswered. It was a real disagreement rather than a slip: of the 98
+ * boolean variables here, 43 already read `isX` / `hasX` and 55 did not, so the
+ * convention was half-kept and the newer half of the code was the half keeping
+ * it. Enabling it renamed the other 55.
+ *
+ * Two things the config had to settle before it was trustworthy:
+ *
+ * `was` is in the list because `wasCancelled` was already written that way and
+ * reads better than any of the alternatives; `did` is not, because #284 proposed
+ * it and nothing here wanted it.
+ *
+ * The `filter` is for `ConsentState`, which is `boolean | undefined` where
+ * `undefined` means "not asked yet". The rule calls `getNonNullableType()` before
+ * comparing, deliberately, so it reads that tri-state as a boolean and there is no
+ * option that says otherwise. A prefix would promise two states where there are
+ * three, so a variable holding one is named `…consentState` and exempted by that
+ * name — which makes the naming of that type the convention this line enforces.
+ *
+ * Scope is `variable`, which is the row CLAUDE.md actually states. Props and
+ * message payloads keep their own names, so a passthrough reads
+ * `showEmptyRows={shouldShowEmptyRows}`: the prop says what the component does
+ * with it, the variable says what it holds.
+ */
+const BOOLEAN_PREFIX: Linter.RulesRecord = {
+  '@typescript-eslint/naming-convention': [
+    'error',
+    {
+      selector: 'variable',
+      types: ['boolean'],
+      format: ['PascalCase'],
+      prefix: ['is', 'has', 'should', 'can', 'was', 'will'],
+      filter: { regex: '[Cc]onsentState$', match: false },
+    },
+  ],
 }
 
 /**
@@ -182,6 +221,7 @@ export default defineConfig([
       // compares by identity.
       eqeqeq: ['error', 'always', { null: 'ignore' }],
       ...ALREADY_CLEAN,
+      ...BOOLEAN_PREFIX,
       '@typescript-eslint/no-unused-vars': [
         'error',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' },

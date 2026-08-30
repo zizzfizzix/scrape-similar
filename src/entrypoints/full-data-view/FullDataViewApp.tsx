@@ -108,9 +108,9 @@ export const FullDataViewApp: React.FC = () => {
   const [currentTabId, setCurrentTabId] = useState<number | null>(initialTabId)
   const [allTabsData, setAllTabsData] = useState<TabData[]>([])
   const [currentTabData, setCurrentTabData] = useState<TabData | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [showEmptyRows, setShowEmptyRows] = useState(false)
+  const [shouldShowEmptyRows, setShouldShowEmptyRows] = useState(false)
   const [globalFilter, setGlobalFilter] = useState('')
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
@@ -128,7 +128,7 @@ export const FullDataViewApp: React.FC = () => {
   // Load data from storage
   const loadTabsData = useCallback(async () => {
     try {
-      setLoading(true)
+      setIsLoading(true)
       setError(null)
 
       const tabsWithData = await collectTabsWithData(await browser.tabs.query({}), (tabId) =>
@@ -143,7 +143,7 @@ export const FullDataViewApp: React.FC = () => {
     } catch (err) {
       setError('Failed to load tab data: ' + (err as Error).message)
     } finally {
-      setLoading(false)
+      setIsLoading(false)
     }
   }, [currentTabId])
 
@@ -179,10 +179,10 @@ export const FullDataViewApp: React.FC = () => {
     }
   }, [currentTabData?.tabTitle])
 
-  // Reset showEmptyRows when global filter is applied (empty rows won't match search anyway)
+  // Reset shouldShowEmptyRows when global filter is applied (empty rows won't match search anyway)
   useEffect(() => {
     if (globalFilter && globalFilter.length > 0) {
-      setShowEmptyRows(false)
+      setShouldShowEmptyRows(false)
     }
   }, [globalFilter])
 
@@ -416,10 +416,11 @@ export const FullDataViewApp: React.FC = () => {
     }
   }
 
-  // Filter data based on showEmptyRows toggle
+  // Filter data based on the shouldShowEmptyRows toggle
   const filteredData = useMemo(
-    () => (currentTabData ? visibleRows(currentTabData.scrapeResult.data, showEmptyRows) : []),
-    [currentTabData, showEmptyRows],
+    () =>
+      currentTabData ? visibleRows(currentTabData.scrapeResult.data, shouldShowEmptyRows) : [],
+    [currentTabData, shouldShowEmptyRows],
   )
 
   // Build columns for TanStack Table with enhanced features
@@ -648,7 +649,7 @@ export const FullDataViewApp: React.FC = () => {
   })
 
   // Loading state
-  if (loading) {
+  if (isLoading) {
     return (
       <TooltipProvider>
         <div className="min-h-screen bg-background">
@@ -764,9 +765,9 @@ export const FullDataViewApp: React.FC = () => {
                         // cmdk only ever filters values this list rendered.
                         const tabData = allTabsData.find((tab) => tab.tabId.toString() === value)!
                         const searchTerm = search.toLowerCase()
-                        const titleMatch = tabData.tabTitle.toLowerCase().includes(searchTerm)
-                        const urlMatch = tabData.tabUrl.toLowerCase().includes(searchTerm)
-                        return titleMatch || urlMatch ? 1 : 0
+                        const hasTitleMatch = tabData.tabTitle.toLowerCase().includes(searchTerm)
+                        const hasUrlMatch = tabData.tabUrl.toLowerCase().includes(searchTerm)
+                        return hasTitleMatch || hasUrlMatch ? 1 : 0
                       }}
                     >
                       <CommandInput
@@ -812,7 +813,7 @@ export const FullDataViewApp: React.FC = () => {
                   <ExportButtons
                     scrapeResult={shownTab.scrapeResult}
                     config={shownTab.config}
-                    showEmptyRows={showEmptyRows}
+                    showEmptyRows={shouldShowEmptyRows}
                     selectedRows={table
                       .getFilteredSelectedRowModel()
                       .rows.map((row) => row.original)}
@@ -860,8 +861,8 @@ export const FullDataViewApp: React.FC = () => {
                     <div className="col-start-2 flex items-center gap-2">
                       <Switch
                         id="show-empty-rows"
-                        checked={showEmptyRows}
-                        onCheckedChange={setShowEmptyRows}
+                        checked={shouldShowEmptyRows}
+                        onCheckedChange={setShouldShowEmptyRows}
                       />
                       <label
                         htmlFor="show-empty-rows"
@@ -877,7 +878,7 @@ export const FullDataViewApp: React.FC = () => {
                 <div className="col-start-3 text-sm text-muted-foreground text-right">
                   {globalFilter
                     ? `${table.getFilteredRowModel().rows.length} filtered rows`
-                    : showEmptyRows
+                    : shouldShowEmptyRows
                       ? `${table.getFilteredRowModel().rows.length} total rows`
                       : `${table.getFilteredRowModel().rows.length} rows with data`}
                 </div>

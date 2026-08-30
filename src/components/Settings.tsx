@@ -55,10 +55,10 @@ export const Settings = React.memo(
     className,
     ref,
   }: SettingsProps) => {
-    const [showDebugRow, setShowDebugRow] = useState(debugMode)
+    const [isDebugRowVisible, setIsDebugRowVisible] = useState(debugMode)
     const [importConfirm, setImportConfirm] = useState<ImportConfirmState>(CLOSED_IMPORT_CONFIRM)
     const fileInputRef = useRef<HTMLInputElement>(null)
-    const { loading: consentLoading, state: consentState, setConsent } = useConsent()
+    const { loading: isConsentLoading, state: consentState, setConsent } = useConsent()
     const clickCountRef = useRef(0)
     const timerRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -73,7 +73,7 @@ export const Settings = React.memo(
         .then(([debugMode, debugUnlocked]) => {
           debugModeValRef.current = !!debugMode?.value
           debugUnlockedValRef.current = !!debugUnlocked?.value
-          setShowDebugRow(debugModeValRef.current || debugUnlockedValRef.current)
+          setIsDebugRowVisible(debugModeValRef.current || debugUnlockedValRef.current)
         })
     }, [])
 
@@ -81,11 +81,11 @@ export const Settings = React.memo(
     useEffect(() => {
       const unwatchDebugMode = storage.watch<boolean>('local:debugMode', (val) => {
         debugModeValRef.current = !!val
-        setShowDebugRow(debugModeValRef.current || debugUnlockedValRef.current)
+        setIsDebugRowVisible(debugModeValRef.current || debugUnlockedValRef.current)
       })
       const unwatchDebugUnlocked = storage.watch<boolean>('local:debugUnlocked', (val) => {
         debugUnlockedValRef.current = !!val
-        setShowDebugRow(debugModeValRef.current || debugUnlockedValRef.current)
+        setIsDebugRowVisible(debugModeValRef.current || debugUnlockedValRef.current)
       })
 
       return () => {
@@ -96,7 +96,7 @@ export const Settings = React.memo(
 
     // Handler for clicking the title to unlock debug mode
     const handleTitleClick = () => {
-      if (showDebugRow) return
+      if (isDebugRowVisible) return
       clickCountRef.current += 1
       if (clickCountRef.current === 1) {
         // Start/reset timer on first click
@@ -105,7 +105,7 @@ export const Settings = React.memo(
         }, HIDDEN_UNLOCK_WINDOW_MS)
       }
       if (clickCountRef.current >= HIDDEN_UNLOCK_CLICKS) {
-        setShowDebugRow(true)
+        setIsDebugRowVisible(true)
         clickCountRef.current = 0
         // The first click of a run always arms this timer, so reaching the
         // unlock threshold means there is one to clear.
@@ -121,7 +121,7 @@ export const Settings = React.memo(
     }
 
     const handleDebugSwitch = (checked: boolean) => {
-      setShowDebugRow(checked)
+      setIsDebugRowVisible(checked)
       if (onDebugModeChange) onDebugModeChange(checked)
 
       // Clear unlock state when debug mode is turned off
@@ -197,8 +197,8 @@ export const Settings = React.memo(
     const handleImportConfirm = useCallback(async () => {
       const { presets, skippedSystemCount } = importConfirm
       try {
-        const ok = await setPresets(presets)
-        if (!ok) throw new Error('setPresets failed')
+        const isImported = await setPresets(presets)
+        if (!isImported) throw new Error('setPresets failed')
         trackEvent(ANALYTICS_EVENTS.PRESET_IMPORT, {
           success: true,
           presetCount: presets.length,
@@ -350,7 +350,7 @@ export const Settings = React.memo(
             </ResponsiveDialog.Footer>
           </ResponsiveDialog.Content>
         </ResponsiveDialog.Root>
-        {!consentLoading && (
+        {!isConsentLoading && (
           <div className="flex items-center justify-between gap-4">
             <span className="text-sm font-medium" id={`${analyticsSwitchId}-label`}>
               Anonymous analytics
@@ -363,7 +363,7 @@ export const Settings = React.memo(
             />
           </div>
         )}
-        {showDebugRow && (
+        {isDebugRowVisible && (
           <div className="flex items-center justify-between gap-4">
             <span className="text-sm font-medium" id={`${debugSwitchId}-label`}>
               Debug mode

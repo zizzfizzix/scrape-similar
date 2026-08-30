@@ -149,16 +149,16 @@ describe('mountPickerBanner', () => {
       }),
     })
 
-    let settled = false
+    let isSettled = false
     const mounting = mountPickerBanner(ctx, state, onClose).then(() => {
-      settled = true
+      isSettled = true
     })
     await Promise.resolve()
-    expect(settled).toBe(false)
+    expect(isSettled).toBe(false)
 
     resolveReady()
     await mounting
-    expect(settled).toBe(true)
+    expect(isSettled).toBe(true)
   })
 
   it('proceeds when the React banner reports no ready promise', async () => {

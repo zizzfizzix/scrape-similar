@@ -21,9 +21,9 @@ describe('isVisibleAndInViewport', () => {
     // Mock checkVisibility to return true
     element.checkVisibility = vi.fn(() => true)
 
-    const result = isVisibleAndInViewport(element)
+    const isVisible = isVisibleAndInViewport(element)
 
-    expect(result).toBe(true)
+    expect(isVisible).toBe(true)
   })
 
   it('returns false for element with visibility hidden', () => {
@@ -33,9 +33,9 @@ describe('isVisibleAndInViewport', () => {
     // Mock checkVisibility to return false
     element.checkVisibility = vi.fn(() => false)
 
-    const result = isVisibleAndInViewport(element)
+    const isVisible = isVisibleAndInViewport(element)
 
-    expect(result).toBe(false)
+    expect(isVisible).toBe(false)
   })
 
   it('returns false for element outside viewport (above)', () => {
@@ -58,9 +58,9 @@ describe('isVisibleAndInViewport', () => {
       toJSON: () => ({}),
     }))
 
-    const result = isVisibleAndInViewport(element)
+    const isVisible = isVisibleAndInViewport(element)
 
-    expect(result).toBe(false)
+    expect(isVisible).toBe(false)
   })
 
   it('returns false for element outside viewport (below)', () => {
@@ -81,9 +81,9 @@ describe('isVisibleAndInViewport', () => {
       toJSON: () => ({}),
     }))
 
-    const result = isVisibleAndInViewport(element)
+    const isVisible = isVisibleAndInViewport(element)
 
-    expect(result).toBe(false)
+    expect(isVisible).toBe(false)
   })
 
   it('returns false for element outside viewport (left)', () => {
@@ -104,9 +104,9 @@ describe('isVisibleAndInViewport', () => {
       toJSON: () => ({}),
     }))
 
-    const result = isVisibleAndInViewport(element)
+    const isVisible = isVisibleAndInViewport(element)
 
-    expect(result).toBe(false)
+    expect(isVisible).toBe(false)
   })
 
   it('returns false for element outside viewport (right)', () => {
@@ -127,9 +127,9 @@ describe('isVisibleAndInViewport', () => {
       toJSON: () => ({}),
     }))
 
-    const result = isVisibleAndInViewport(element)
+    const isVisible = isVisibleAndInViewport(element)
 
-    expect(result).toBe(false)
+    expect(isVisible).toBe(false)
   })
 })
 

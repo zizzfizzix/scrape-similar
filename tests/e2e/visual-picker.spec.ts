@@ -23,11 +23,11 @@ test.describe('Visual Element Picker', () => {
       await testPage.bringToFront()
 
       // Verify picker is active
-      const pickerActive = await testPage.evaluate(() => {
+      const isPickerActive = await testPage.evaluate(() => {
         return document.documentElement.classList.contains('scrape-similar-picker-active')
       })
 
-      expect(pickerActive).toBe(true)
+      expect(isPickerActive).toBe(true)
     })
 
     test('toggles picker mode on and off', async ({
@@ -48,20 +48,20 @@ test.describe('Visual Element Picker', () => {
       await crosshairButton.click()
 
       // Verify picker is active
-      let pickerActive = await testPage.evaluate(() => {
+      let isPickerActive = await testPage.evaluate(() => {
         return document.documentElement.classList.contains('scrape-similar-picker-active')
       })
-      expect(pickerActive).toBe(true)
+      expect(isPickerActive).toBe(true)
 
       // Toggle off
       crosshairButton = sidePanel.getByLabel(/close visual picker/i)
       await crosshairButton.click()
 
       // Verify picker is no longer active
-      pickerActive = await testPage.evaluate(() => {
+      isPickerActive = await testPage.evaluate(() => {
         return document.documentElement.classList.contains('scrape-similar-picker-active')
       })
-      expect(pickerActive).toBe(false)
+      expect(isPickerActive).toBe(false)
     })
   })
 
@@ -84,19 +84,19 @@ test.describe('Visual Element Picker', () => {
       await crosshairButton.click()
 
       // Verify picker is active
-      let pickerActive = await testPage.evaluate(() => {
+      let isPickerActive = await testPage.evaluate(() => {
         return document.documentElement.classList.contains('scrape-similar-picker-active')
       })
-      expect(pickerActive).toBe(true)
+      expect(isPickerActive).toBe(true)
 
       // Press Escape
       await testPage.keyboard.press('Escape')
 
       // Verify picker is no longer active
-      pickerActive = await testPage.evaluate(() => {
+      isPickerActive = await testPage.evaluate(() => {
         return document.documentElement.classList.contains('scrape-similar-picker-active')
       })
-      expect(pickerActive).toBe(false)
+      expect(isPickerActive).toBe(false)
 
       // Verify no scrape occurred (sidepanel should not have data table)
       const dataTable = sidePanel.getByRole('heading', { name: /extracted data/i })
@@ -136,10 +136,10 @@ test.describe('Visual Element Picker', () => {
       })
 
       // Verify picker is no longer active
-      const pickerActive = await testPage.evaluate(() => {
+      const isPickerActive = await testPage.evaluate(() => {
         return document.documentElement.classList.contains('scrape-similar-picker-active')
       })
-      expect(pickerActive).toBe(false)
+      expect(isPickerActive).toBe(false)
 
       // Verify scrape occurred (sidepanel should have data table)
       const dataTable = sidePanel.getByRole('heading', { name: /extracted data/i })

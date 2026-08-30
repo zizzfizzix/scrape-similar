@@ -11,19 +11,20 @@ interface ConsentValue {
 const ConsentContext = createContext<ConsentValue | undefined>(undefined)
 
 export const ConsentProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [state, setState] = useState<ConsentState | null>(null) // null = loading
+  const [consentState, setConsentState] = useState<ConsentState | null>(null) // null = loading
 
   useEffect(() => {
     // initial load from storage
     // `getConsentState` reports its own storage failures and resolves to
     // `undefined`, so there is no rejection to catch here.
-    getConsentState().then(setState)
+    getConsentState().then(setConsentState)
 
     const unwatch = storage.watch<boolean | string | null>(
       `sync:${ANALYTICS_CONSENT_STORAGE_KEY}`,
       (value: boolean | string | null) => {
-        const sanitized: ConsentState = value === '' || value == null ? undefined : !!value
-        setState(sanitized)
+        const sanitizedConsentState: ConsentState =
+          value === '' || value == null ? undefined : !!value
+        setConsentState(sanitizedConsentState)
       },
     )
 
@@ -32,12 +33,12 @@ export const ConsentProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const setConsent = async (value: boolean): Promise<void> => {
     await persistConsent(value)
-    setState(value)
+    setConsentState(value)
   }
 
   const contextValue: ConsentValue = {
-    loading: state === null,
-    state: state === null ? undefined : state,
+    loading: consentState === null,
+    state: consentState === null ? undefined : consentState,
     setConsent,
   }
 

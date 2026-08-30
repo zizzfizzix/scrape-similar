@@ -121,7 +121,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
   const [search, setSearch] = useState('')
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null)
   // State for delete confirmation drawer
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [presetToDelete, setPresetToDelete] = useState<Preset | null>(null)
 
   // State for main selector autosuggest (using Command component)
@@ -337,19 +337,19 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
   // Delete Preset handler (with confirmation)
   const handleRequestDeletePreset = (preset: Preset) => {
     setPresetToDelete(preset)
-    setDeleteDialogOpen(true)
+    setIsDeleteDialogOpen(true)
   }
 
   const handleConfirmDeletePreset = () => {
     if (presetToDelete) {
       onDeletePreset(presetToDelete)
     }
-    setDeleteDialogOpen(false)
+    setIsDeleteDialogOpen(false)
     setPresetToDelete(null)
   }
 
   const handleCancelDeletePreset = () => {
-    setDeleteDialogOpen(false)
+    setIsDeleteDialogOpen(false)
     setPresetToDelete(null)
   }
 
@@ -402,8 +402,8 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
 
       // If focus moved into the autosuggest dropdown, keep it open
       const active = document.activeElement as HTMLElement | null
-      const movedIntoDropdown = !!(active && autosuggestRef.current?.contains(active))
-      if (movedIntoDropdown) return
+      const hasMovedIntoDropdown = !!(active && autosuggestRef.current?.contains(active))
+      if (hasMovedIntoDropdown) return
 
       setIsAutosuggestOpen(false)
       commitMainSelector(mainSelectorDraft)
@@ -659,7 +659,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
             </PopoverContent>
           </Popover>
           {/* Delete Confirmation Drawer */}
-          <Drawer open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <Drawer open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
             <DrawerContent>
               <DrawerHeader>
                 <DrawerTitle>
