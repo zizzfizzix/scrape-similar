@@ -7,6 +7,7 @@ import { SYSTEM_PRESETS } from '@/utils/system_presets'
 import { SYSTEM_PRESET_STATUS_KEY, type Preset, type ScrapeConfig } from '@/utils/types'
 import { stubOffsetWidth } from '@@/tests/support/dom'
 import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
+import { renderSettled } from '@@/tests/support/settle'
 import {
   act,
   fireEvent,
@@ -67,16 +68,12 @@ const baseProps = (): ConfigFormProps => ({
   highlightMatchCount: 3,
 })
 
-/** Render, and let mount-time storage reads settle before asserting. */
-const render = async (overrides: Partial<ConfigFormProps> = {}) => {
-  const rendered = renderComponent(
+const render = (overrides: Partial<ConfigFormProps> = {}) =>
+  renderSettled(
     <TooltipProvider>
       <ConfigForm {...baseProps()} {...overrides} />
     </TooltipProvider>,
   )
-  await act(async () => {})
-  return rendered
-}
 
 /** A ConfigForm whose parent actually applies the config it reports. */
 const ControlledConfigForm = () => {
@@ -282,11 +279,9 @@ describe('ConfigForm', () => {
         })
       }
 
-      const editSelector = async (value: string) => {
-        await act(() => {
-          mainSelectorInput().focus()
-          fireEvent.change(mainSelectorInput(), { target: { value } })
-        })
+      const editSelector = (value: string) => {
+        mainSelectorInput().focus()
+        fireEvent.change(mainSelectorInput(), { target: { value } })
       }
 
       /** Outlast the 150ms defer, so a commit the press failed to cancel lands. */
@@ -301,7 +296,7 @@ describe('ConfigForm', () => {
         const onHighlight = vi.fn()
         const onChange = vi.fn()
         view = await render({ onScrape, onHighlight, onChange })
-        await editSelector('//li')
+        editSelector('//li')
 
         await pressActionButton('Validate selector')
 
@@ -314,7 +309,7 @@ describe('ConfigForm', () => {
       it('pre-empts the deferred blur commit rather than validating twice', async () => {
         const onHighlight = vi.fn()
         view = await render({ onHighlight })
-        await editSelector('//li')
+        editSelector('//li')
 
         await pressActionButton('Validate selector')
         await letTheBlurCommitFallDue()
@@ -325,7 +320,7 @@ describe('ConfigForm', () => {
       it('scrapes once the edit has been committed', async () => {
         const onScrape = vi.fn()
         view = await render({ onScrape, config: { ...config, mainSelector: '//li' } })
-        await editSelector('//li')
+        editSelector('//li')
 
         await pressActionButton('Scrape')
 

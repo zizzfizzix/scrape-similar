@@ -3,7 +3,8 @@ import { ANALYTICS_EVENTS } from '@/utils/analytics'
 import { ANALYTICS_CONSENT_STORAGE_KEY, getConsentState } from '@/utils/consent'
 import { MESSAGE_TYPES } from '@/utils/types'
 import { spyOnBrowser } from '@@/tests/support/fake-browser'
-import { type RenderResult, act, render as renderComponent } from '@testing-library/react'
+import { renderSettled } from '@@/tests/support/settle'
+import { type RenderResult, act } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
@@ -44,9 +45,8 @@ let replace: ReturnType<typeof vi.fn>
 
 const consentKey = `sync:${ANALYTICS_CONSENT_STORAGE_KEY}` as const
 
-/** Render, and let mount-time storage reads settle before asserting. */
-const render = async () => {
-  const rendered = renderComponent(
+const render = () =>
+  renderSettled(
     <ConsentProvider>
       <ThemeProvider>
         <TooltipProvider>
@@ -55,9 +55,6 @@ const render = async () => {
       </ThemeProvider>
     </ConsentProvider>,
   )
-  await act(async () => {})
-  return rendered
-}
 
 const byText = (text: string): HTMLButtonElement => {
   const found = [...view.container.querySelectorAll('button')].find((candidate) =>

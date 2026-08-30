@@ -16,13 +16,8 @@ import {
   type SidePanelConfig,
 } from '@/utils/types'
 import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
-import {
-  act,
-  fireEvent,
-  render as renderComponent,
-  waitFor,
-  type RenderResult,
-} from '@testing-library/react'
+import { renderSettled } from '@@/tests/support/settle'
+import { act, fireEvent, waitFor, type RenderResult } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import log from 'loglevel'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -98,9 +93,8 @@ const tabsGetReplies = (tab: Partial<Browser.tabs.Tab>, lastError?: { message?: 
     },
   )
 
-/** Render, and let mount-time storage reads settle before asserting. */
-const render = async () => {
-  const rendered = renderComponent(
+const render = () =>
+  renderSettled(
     <ConsentProvider>
       <ThemeProvider>
         <TooltipProvider>
@@ -109,9 +103,6 @@ const render = async () => {
       </ThemeProvider>
     </ConsentProvider>,
   )
-  await act(async () => {})
-  return rendered
-}
 
 const mainSelectorInput = () =>
   view.container.querySelector<HTMLTextAreaElement>('textarea#mainSelector')!
@@ -487,10 +478,8 @@ describe('remembering the selector a scrape used', () => {
     await withValidatedSelector()
     view = await render()
     await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
-    await act(() => {
-      mainSelectorInput().focus()
-      fireEvent.change(mainSelectorInput(), { target: { value: '//li' } })
-    })
+    mainSelectorInput().focus()
+    fireEvent.change(mainSelectorInput(), { target: { value: '//li' } })
 
     const sendMessage = await scrape(scraped, 'Validate selector')
     // Outlast the 150ms blur defer, so a commit the press failed to cancel lands.

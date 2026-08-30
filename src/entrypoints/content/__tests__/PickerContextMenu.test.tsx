@@ -206,7 +206,7 @@ describe('mountPickerContextMenuReact', () => {
     await mount()
     const input = slider()
 
-    await act(async () => fireEvent.change(input, { target: { value: '0' } }))
+    fireEvent.change(input, { target: { value: '0' } })
 
     expect(onChange).toHaveBeenCalledWith(0)
     expect(slider().value).toBe('0')

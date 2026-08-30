@@ -8,7 +8,8 @@ import { ANALYTICS_CONSENT_STORAGE_KEY } from '@/utils/consent'
 import { HIDDEN_UNLOCK_WINDOW_MS, PRESET_EXPORT_FILENAME } from '@/utils/preset-transfer'
 import { getPresets, setPresets, userPresetsStorage } from '@/utils/storage'
 import { SYSTEM_PRESET_STATUS_KEY, type Preset } from '@/utils/types'
-import { act, render as renderComponent, type RenderResult } from '@testing-library/react'
+import { renderSettled } from '@@/tests/support/settle'
+import { act, type RenderResult } from '@testing-library/react'
 import userEventBase from '@testing-library/user-event'
 import log from 'loglevel'
 import { createRef } from 'react'
@@ -62,15 +63,8 @@ const withProviders = (props: Parameters<typeof Settings>[0] = {}) => (
   </ConsentProvider>
 )
 
-/** Render `ui`, and let mount-time storage reads settle before asserting. */
-const render2 = async (ui: React.ReactNode) => {
-  const rendered = renderComponent(ui)
-  await act(async () => {})
-  return rendered
-}
-
 /** Render Settings inside the providers the entrypoints wrap it in. */
-const render = (props: Parameters<typeof Settings>[0] = {}) => render2(withProviders(props))
+const render = (props: Parameters<typeof Settings>[0] = {}) => renderSettled(withProviders(props))
 
 const button = (label: string) =>
   view.container.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)!
@@ -405,7 +399,7 @@ describe('Settings', () => {
 
     it('unlocks after five title clicks', async () => {
       const ref = createRef<{ unlockDebugMode: () => void }>()
-      view = await render2(withProviders({ ref }))
+      view = await render({ ref })
 
       for (let i = 0; i < 5; i++) {
         await act(() => ref.current!.unlockDebugMode())
@@ -418,7 +412,7 @@ describe('Settings', () => {
 
     it('stays locked after four clicks', async () => {
       const ref = createRef<{ unlockDebugMode: () => void }>()
-      view = await render2(withProviders({ ref }))
+      view = await render({ ref })
 
       for (let i = 0; i < 4; i++) {
         await act(() => ref.current!.unlockDebugMode())
@@ -430,7 +424,7 @@ describe('Settings', () => {
     it('forgets a partial click run after the window lapses', async () => {
       vi.useFakeTimers()
       const ref = createRef<{ unlockDebugMode: () => void }>()
-      view = await render2(withProviders({ ref }))
+      view = await render({ ref })
 
       for (let i = 0; i < 4; i++) {
         await act(() => ref.current!.unlockDebugMode())
@@ -447,7 +441,7 @@ describe('Settings', () => {
     it('ignores further clicks once already unlocked', async () => {
       await storage.setItem('local:debugUnlocked', true)
       const ref = createRef<{ unlockDebugMode: () => void }>()
-      view = await render2(withProviders({ ref }))
+      view = await render({ ref })
 
       await act(() => ref.current!.unlockDebugMode())
 

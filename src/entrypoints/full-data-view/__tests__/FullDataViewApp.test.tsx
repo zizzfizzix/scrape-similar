@@ -11,12 +11,8 @@ import {
   type SidePanelConfig,
 } from '@/utils/types'
 import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
-import {
-  type RenderResult,
-  act,
-  fireEvent,
-  render as renderComponent,
-} from '@testing-library/react'
+import { renderSettled } from '@@/tests/support/settle'
+import { type RenderResult, act, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
@@ -81,20 +77,16 @@ const openTabs = async (
 const openSingleTab = (data: ScrapedRow[] = rows) =>
   openTabs([{ id: 1, title: 'Populations', url: 'https://example.com/pop', state: state(data) }])
 
-/** Render, and let mount-time storage reads settle before asserting. */
-const render = async () => {
-  const rendered = renderComponent(
+const render = () =>
+  renderSettled(
     <ConsentProvider>
       <ThemeProvider>
         <FullDataViewApp />
       </ThemeProvider>
     </ConsentProvider>,
   )
-  await act(async () => {})
-  return rendered
-}
 
-/** Render and let the mount-time tab scan settle. */
+/** Render and let the mount-time tab scan settle, not just the storage read. */
 const renderLoaded = async () => {
   view = await render()
   await act(async () => {

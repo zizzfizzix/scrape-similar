@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { type RenderResult, act, render as renderComponent } from '@testing-library/react'
+import { settleEffects } from '@@/tests/support/settle'
+import { type RenderResult, render as renderComponent } from '@testing-library/react'
 import log from 'loglevel'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
@@ -69,7 +70,7 @@ const render = async (scenario?: Scenario) => {
       </PostHogWrapper>
     </ConsentProvider>,
   )
-  await act(async () => {})
+  await settleEffects()
   return view
 }
 
