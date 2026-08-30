@@ -1,48 +1,35 @@
 /**
- * Source shapes that make the coverage numbers wrong, scanned for by
+ * The source shape that makes v8 count a function wrong, scanned for by
  * `src/__tests__/coverage-hazards.test.ts`.
  *
- * The other two coverage guards watch the measurement: the exclusion list in
- * `coverage-exclusions.ts` keeps code from being dropped from the denominator on
- * purpose, and `scripts/check-coverage-fidelity.mjs` keeps a build-chain bug
- * from dropping it by accident (#268). This one watches the *source*, because a
- * file can be fully instrumented and still be counted wrong.
- *
- * ## The hazard: `await` in a conditionally-evaluated expression
- *
- * V8's block coverage counts the code after an `await` as part of the block that
- * resumed it. When the `await` sits somewhere that only runs on one side of a
- * branch — the right of `||`, `&&` or `??`, or an arm of `?:` — that block is
- * the branch, so *everything after it in the same function* inherits the
- * branch's count instead of the function's:
+ * V8 counts the code after an `await` as part of the block that resumed it. An
+ * `await` that only runs on one side of a branch — the right of `||`, `&&` or
+ * `??`, or an arm of `?:` — puts the rest of the function in that branch's
+ * block, so every statement after it inherits the branch's count instead of the
+ * function's:
  *
  * ```ts
- * const debug = isDevOrTest || !!(await storage.getItem('local:debugMode')) // ← awaited only when !isDevOrTest
- * init({ debug })                                                          // ran 4×, counted 2×
- * if (!isDevOrTest) { ... }                                                // ran 4×, counted 2×
+ * const debug = isDevOrTest || !!(await storage.getItem('local:debugMode')) // awaited only when !isDevOrTest
+ * init({ debug })                                                          // ran 4x, counted 2x
+ * if (!isDevOrTest) { ... }                                                // ran 4x, counted 2x
  * ```
  *
- * Measured on the real thing (`posthog-background.ts`, four scenarios, two of
- * them dev/test): every statement after the `await` reported 2 executions
- * instead of 4, and the `if` reported its consequent taken twice out of a parent
- * count of two — so the arm that skips the watcher, which two of the four
- * scenarios genuinely take, came out as never taken. Where the `await` never
- * runs at all the same shape reports the rest of the function as dead code.
+ * The `if` then has a consequent count equal to its parent count, and the arm
+ * v8-to-istanbul derives as parent − consequent collapses to zero — a branch two
+ * of those four scenarios genuinely take, reported as never taken. Where the
+ * `await` never runs at all, the rest of the function reports as dead.
  *
- * That is what #272 hit. The ticket blamed one test file's data being evicted by
- * another's, because the symptom moved when test files were added or removed —
- * but the counts move for the mundane reason that the mix of scenarios in a run
- * changes which branch the `await` is attributed to. A single test file
- * reproduces it, and the workaround the ticket describes (giving the `if` an
- * explicit `else` so both arms are real blocks with their own counts, rather
- * than one being derived as parent − consequent) only hid the branch half of it;
- * the statement counts stayed wrong.
+ * That is #272, measured on `posthog-background.ts`. The ticket blamed one test
+ * file's coverage being evicted by another's, because the symptom moved as test
+ * files were added — but the counts move because the mix of scenarios changes
+ * which branch the `await` is attributed to, and one file on its own reproduces
+ * it. The workaround it describes (an explicit `else`, so both arms are real
+ * blocks rather than one derived) only hid the branch half of it; the statement
+ * counts stayed wrong.
  *
- * ## The rule
- *
- * Await on its own line and use the result in the expression. It is a
- * mechanical change, it reads better than an `await` buried in an options
- * object, and it makes the counts right.
+ * The fix is to await on its own line and use the result in the expression. A
+ * branch that is a statement (`if`, a loop body) is fine: v8 gives it a block of
+ * its own, so the code after it keeps the function's count.
  *
  * Only `await` is flagged. `yield` has the same shape, but this codebase has no
  * generators, so a rule about them would be untested here.
@@ -76,9 +63,8 @@ const isNode = (value: unknown): value is Node =>
   typeof value === 'object' && value !== null && typeof (value as Node).type === 'string'
 
 /**
- * Finds every `await` that only runs on one side of a branch within its own
- * function. A nested function starts fresh: its body runs when it is called, not
- * when the branch around its definition is taken.
+ * A nested function starts fresh: its body runs when it is called, not when the
+ * branch around its definition is taken.
  */
 export const findConditionalAwaits = (code: string, filePath: string): ConditionalAwait[] => {
   const ast = parse(code, {
@@ -98,9 +84,8 @@ export const findConditionalAwaits = (code: string, filePath: string): Condition
     if (value.type === 'AwaitExpression' && branch !== null) {
       const start = value.loc?.start
       found.push({
-        // Babel counts lines from 1 and columns from 0; both are reported the
-        // way an editor addresses them.
         line: start ? start.line : 0,
+        // Babel columns are 0-based; editors address them from 1.
         column: start ? start.column + 1 : 0,
         branch,
       })

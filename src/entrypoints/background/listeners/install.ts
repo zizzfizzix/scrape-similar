@@ -20,8 +20,8 @@ const UNINSTALL_SURVEY_URL =
 export const setupUninstallUrl = async (distinctId?: DistinctId | null): Promise<void> => {
   try {
     // If undefined (no argument), read from storage; otherwise use the provided value (including null).
-    // Kept as a statement rather than a ternary: an `await` in a ternary arm
-    // miscounts the rest of the function — see `coverage-hazards.ts` (#272).
+    // A statement rather than the ternary it reads like, because an `await` in a
+    // ternary arm miscounts the rest of the function — see `coverage-hazards.ts`.
     let resolvedDistinctId = distinctId
     if (resolvedDistinctId === undefined) {
       resolvedDistinctId = await storage.getItem<DistinctId>(DISTINCT_ID_KEY)

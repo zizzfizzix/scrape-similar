@@ -69,12 +69,6 @@ export const getPostHogBackground = async (): Promise<PostHog | null> => {
       // Retrieve or generate the device ID from shared storage **before** initializing PostHog
       const distinctId: DistinctId = await getOrCreateDistinctId()
 
-      // Awaited here rather than inline in the `debug:` option below, where it
-      // would only run when `isDevOrTest` is false: V8 attributes everything
-      // after such an `await` to the branch that reached it, so the rest of this
-      // function gets counted as if it only ran on that branch. That is what
-      // reported the watcher below as never skipped (#272). `coverage-hazards.ts`
-      // keeps the shape from coming back.
       const isDebugModeEnabled = !!(await storage.getItem<boolean>('local:debugMode'))
 
       // Initialize PostHog instance

@@ -5,12 +5,9 @@ import { findConditionalAwaits } from '@@/coverage-hazards'
 import { describe, expect, it } from 'vitest'
 
 /**
- * `coverage-hazards.ts` explains what an `await` on one side of a branch does to
- * the counts for the rest of its function, and why #272 read as a lost branch
- * rather than as the arithmetic it is. This is the gate: the shape is banned
- * from every file the coverage gate measures, so a reintroduction fails here
- * with the fix in the message instead of surfacing later as a branch nobody can
- * cover.
+ * The gate for the hazard `coverage-hazards.ts` describes: banning the shape
+ * from every measured file means a reintroduction fails here, with the fix in
+ * the message, rather than surfacing later as a branch nobody can cover (#272).
  */
 
 const repoRoot = path.resolve(import.meta.dirname, '../..')
@@ -18,10 +15,7 @@ const repoRoot = path.resolve(import.meta.dirname, '../..')
 const isTestFile = (relativePath: string) =>
   relativePath.includes('__tests__/') || /\.test\.tsx?$/.test(relativePath)
 
-/**
- * The exclusion globs are simple enough to match without a glob library: a
- * trailing `/**` directory prefix, or an exact path.
- */
+/** The exclusion globs are only `dir/**` and exact paths, so no glob library. */
 const isExcluded = (relativePath: string) =>
   COVERAGE_EXCLUSIONS.some((pattern) =>
     pattern.endsWith('/**')
@@ -62,8 +56,7 @@ describe('conditionally-evaluated `await`', () => {
     ).toEqual([])
   })
 
-  // Without this the scan silently passes on an empty file list — the same way
-  // an empty denominator makes a percentage gate pass in #268.
+  // Without this the scan passes silently on an empty file list.
   it('scans the files it is meant to scan', async () => {
     const scanned = await measuredSources()
 
@@ -103,11 +96,9 @@ describe('findConditionalAwaits', () => {
 
   it('leaves unconditional awaits alone', () => {
     expect(find('const a = async () => {\n  const y = await z()\n  return x || y\n}')).toEqual([])
-    // The left of a short-circuit and the test of a ternary always run.
     expect(find('const a = async () => (await y()) || x')).toEqual([])
     expect(find('const a = async () => ((await y()) ? 1 : 2)')).toEqual([])
-    // A statement-level branch gives V8 a block of its own, so the code after it
-    // keeps the function's count. Measured, not assumed.
+    // A statement-level branch gets a block of its own, so it is exempt.
     expect(find('const a = async () => {\n  if (x) {\n    await y()\n  }\n}')).toEqual([])
   })
 
