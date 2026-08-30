@@ -5,7 +5,13 @@
 
 # Formatting and the lint rules are properties of the diff itself, so they are
 # checked per commit.
+#
+# Both commands only read, so they run concurrently: ~34s sequential against
+# ~28s in parallel, since Prettier's ~10s now hides inside ESLint's. That holds
+# only while every command here is read-only — a `pnpm fmt` that writes would
+# race the linter reading the same files, and would have to go back to serial.
 pre-commit:
+  parallel: true
   commands:
     fmt-check:
       run: pnpm fmt-check
