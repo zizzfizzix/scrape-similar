@@ -70,9 +70,10 @@ const DEFERRED = {
   // 128, of which 65 are `trackEvent` — analytics calls that swallow their own
   // errors, so the fix is one signature rather than 65 `void`s.
   '@typescript-eslint/no-floating-promises': 'off',
-  // 36, nearly all `onClick={async () => …}`.
+  // 35, nearly all `onClick={async () => …}`.
   '@typescript-eslint/no-misused-promises': 'off',
-  // 74, split evenly between mock scaffolding and the message-passing types.
+  // 74: 28 in extension code, mostly the message-passing types, and 46 in unit
+  // and e2e test scaffolding.
   '@typescript-eslint/no-explicit-any': 'off',
   // 265. The component tests reach into `container` deliberately; the rule wants
   // them rewritten onto queries, which is a rewrite of the suite, not a fix.
