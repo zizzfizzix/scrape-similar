@@ -163,87 +163,6 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
     targetTabIdRef.current = targetTabId
   }, [targetTabId])
 
-  // Request tabId and tabUrl from browser.tabs API on mount
-  useEffect(() => {
-    log.debug('SidePanel mounted, requesting tabId and URL from browser.tabs API...')
-    // Use `currentWindow: true` instead of `lastFocusedWindow: true` because the
-    // side-panel itself becomes the *last focused* window in certain testing/
-    // automation scenarios (e.g. Playwright) - likely due to PW_CHROMIUM_ATTACH_TO_OTHER = '1'.
-    // When that happens the query returns an empty array because extension views
-    // are not considered *tabs*, causing our fallback error path to trigger.
-    // Limiting the query to the *current* window reliably returns the active
-    // webpage tab that the side-panel is attached to.
-    browser.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (browser.runtime.lastError) {
-        log.error('Error querying tabs:', browser.runtime.lastError.message)
-      } else if (tabs && tabs[0] && tabs[0].id) {
-        log.debug(`Got initial tabId directly: ${tabs[0].id}`)
-        const newTabId = tabs[0].id
-        const newTabUrl = tabs[0].url || ''
-        targetTabIdRef.current = newTabId
-        setTargetTabId(newTabId)
-        setTabUrl(newTabUrl)
-        const sessionKey = `sidepanel_config_${newTabId}`
-        storage.getItem<SidePanelConfig>(`session:${sessionKey}`).then((stored) => {
-          if (stored) {
-            log.debug('Initial data loaded from storage:', stored)
-            handleInitialData({
-              tabId: newTabId,
-              config: stored,
-            })
-          } else {
-            log.debug(`No initial data found in storage for tab ${newTabId}, using default state`)
-            handleInitialData({
-              tabId: newTabId,
-              config: createDefaultSidePanelState(),
-            })
-          }
-        })
-      } else {
-        log.error('No active tab found in last focused window')
-      }
-    })
-  }, [])
-
-  // Reset result-producing config when switching tabs
-  useEffect(() => {
-    setResultProducingConfig(null)
-  }, [targetTabId])
-
-  // --- Unified utility to save all sidepanel state to session storage ---
-  const saveSidePanelState = useCallback((tabId: number, updates: Partial<SidePanelConfig>) => {
-    browser.runtime.sendMessage({
-      type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
-      payload: { tabId, updates },
-    })
-  }, [])
-
-  // --- Update config state and trigger saveSidePanelState ---
-  const handleConfigChange = (newConfig: ScrapeConfig) => {
-    const previousMainSelector = config.mainSelector
-    const hasMainSelectorChanged = newConfig.mainSelector !== previousMainSelector
-
-    setConfig(newConfig)
-
-    // The row count belongs to the scrape that produced the current results.
-    // Once the config changes it is stale, so drop it instead of letting it
-    // resurface (e.g. as "0 found") when the new selector is validated.
-    setLastScrapeRowCount(null)
-
-    // Only clear highlight state if the main selector actually changed
-    if (hasMainSelectorChanged) {
-      setHighlightMatchCount(undefined)
-      setHighlightError(undefined)
-    }
-
-    if (targetTabId !== null) {
-      // Also resets the persisted highlight result when the main selector
-      // changed, so the storage watcher can't restore a stale match count.
-      saveSidePanelState(targetTabId, buildConfigChangeUpdates(config, newConfig))
-    }
-  }
-
-  // Function to handle incoming initial/updated config data
   const handleInitialData = useCallback((payload: { tabId: number; config: SidePanelConfig }) => {
     // Only compare with targetTabIdRef if it has been set
     const currentExpectedTabId = targetTabIdRef.current
@@ -291,6 +210,91 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
     // Restore picker mode state if present
     setIsPickerModeActive(isPickerModeActive ?? false)
   }, [])
+
+  // Request tabId and tabUrl from browser.tabs API on mount
+  useEffect(() => {
+    log.debug('SidePanel mounted, requesting tabId and URL from browser.tabs API...')
+    // Use `currentWindow: true` instead of `lastFocusedWindow: true` because the
+    // side-panel itself becomes the *last focused* window in certain testing/
+    // automation scenarios (e.g. Playwright) - likely due to PW_CHROMIUM_ATTACH_TO_OTHER = '1'.
+    // When that happens the query returns an empty array because extension views
+    // are not considered *tabs*, causing our fallback error path to trigger.
+    // Limiting the query to the *current* window reliably returns the active
+    // webpage tab that the side-panel is attached to.
+    browser.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (browser.runtime.lastError) {
+        log.error('Error querying tabs:', browser.runtime.lastError.message)
+      } else if (tabs && tabs[0] && tabs[0].id) {
+        log.debug(`Got initial tabId directly: ${tabs[0].id}`)
+        const newTabId = tabs[0].id
+        const newTabUrl = tabs[0].url || ''
+        targetTabIdRef.current = newTabId
+        setTargetTabId(newTabId)
+        setTabUrl(newTabUrl)
+        const sessionKey = `sidepanel_config_${newTabId}`
+        storage.getItem<SidePanelConfig>(`session:${sessionKey}`).then((stored) => {
+          if (stored) {
+            log.debug('Initial data loaded from storage:', stored)
+            handleInitialData({
+              tabId: newTabId,
+              config: stored,
+            })
+          } else {
+            log.debug(`No initial data found in storage for tab ${newTabId}, using default state`)
+            handleInitialData({
+              tabId: newTabId,
+              config: createDefaultSidePanelState(),
+            })
+          }
+        })
+      } else {
+        log.error('No active tab found in last focused window')
+      }
+    })
+  }, [handleInitialData])
+
+  // Results belong to the tab they were scraped from, so switching tabs drops
+  // them during the render that switches rather than in an effect afterwards —
+  // which would cascade a second render, and would land after the restore that
+  // `handleInitialData` schedules for the tab being switched to.
+  const [resultProducingTabId, setResultProducingTabId] = useState(targetTabId)
+  if (resultProducingTabId !== targetTabId) {
+    setResultProducingTabId(targetTabId)
+    setResultProducingConfig(null)
+  }
+
+  // --- Unified utility to save all sidepanel state to session storage ---
+  const saveSidePanelState = useCallback((tabId: number, updates: Partial<SidePanelConfig>) => {
+    browser.runtime.sendMessage({
+      type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
+      payload: { tabId, updates },
+    })
+  }, [])
+
+  // --- Update config state and trigger saveSidePanelState ---
+  const handleConfigChange = (newConfig: ScrapeConfig) => {
+    const previousMainSelector = config.mainSelector
+    const hasMainSelectorChanged = newConfig.mainSelector !== previousMainSelector
+
+    setConfig(newConfig)
+
+    // The row count belongs to the scrape that produced the current results.
+    // Once the config changes it is stale, so drop it instead of letting it
+    // resurface (e.g. as "0 found") when the new selector is validated.
+    setLastScrapeRowCount(null)
+
+    // Only clear highlight state if the main selector actually changed
+    if (hasMainSelectorChanged) {
+      setHighlightMatchCount(undefined)
+      setHighlightError(undefined)
+    }
+
+    if (targetTabId !== null) {
+      // Also resets the persisted highlight result when the main selector
+      // changed, so the storage watcher can't restore a stale match count.
+      saveSidePanelState(targetTabId, buildConfigChangeUpdates(config, newConfig))
+    }
+  }
 
   // Initialize: load presets, listen for messages, AND listen for tab activation
   useEffect(() => {
@@ -476,11 +480,12 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
   }
 
   // Scroll table into view when it appears (first time or after clearing)
+  const scrapedRowCount = scrapeResult?.data.length ?? 0
   React.useEffect(() => {
-    if (scrapeResult && scrapeResult.data.length > 0 && dataTableRef.current) {
+    if (scrapedRowCount > 0 && dataTableRef.current) {
       dataTableRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }
-  }, [scrapeResult?.data.length])
+  }, [scrapedRowCount])
 
   // Handle highlight request
   const handleHighlight = (selector: string) => {

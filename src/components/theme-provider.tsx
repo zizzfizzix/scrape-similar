@@ -24,6 +24,10 @@ const initialState: ThemeProviderState = {
 
 const ThemeProviderContext = createContext<ThemeProviderState>(initialState)
 
+/** The stored value is whatever was last written there, not necessarily a theme. */
+const isTheme = (value: Theme | null): value is Theme =>
+  value === 'light' || value === 'dark' || value === 'system'
+
 export function ThemeProvider({
   children,
   defaultTheme = 'system',
@@ -33,26 +37,24 @@ export function ThemeProvider({
 }: ThemeProviderProps) {
   const [theme, setTheme] = useState<Theme>(defaultTheme)
 
-  // Load theme from storage on mount
   useEffect(() => {
     storage.getItem<Theme>(`local:${themeStorageKey}`).then((stored) => {
-      if (stored && ['light', 'dark', 'system'].includes(stored)) {
+      if (isTheme(stored)) {
         setTheme(stored)
       }
     })
-  }, [])
+  }, [themeStorageKey])
 
-  // Listen for theme changes in storage
   useEffect(() => {
     const unwatchTheme = storage.watch<Theme>(`local:${themeStorageKey}`, (newTheme) => {
-      if (newTheme && ['light', 'dark', 'system'].includes(newTheme)) {
+      if (isTheme(newTheme)) {
         setTheme(newTheme)
       }
     })
     return () => {
       unwatchTheme()
     }
-  }, [])
+  }, [themeStorageKey])
 
   // Listen for system theme changes if theme is "system"
   useEffect(() => {

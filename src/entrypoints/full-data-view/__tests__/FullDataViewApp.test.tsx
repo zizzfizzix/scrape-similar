@@ -478,6 +478,21 @@ describe('FullDataViewApp', () => {
 
       expect(bodyRows()[0]?.textContent).toContain('Spain')
     })
+
+    it('orders the empty rows in with the rest when they are shown', async () => {
+      await openSingleTab()
+      await renderLoaded()
+      await act(() => view.container.querySelector<HTMLElement>('#show-empty-rows')!.click())
+
+      const countryHeader = [...view.container.querySelectorAll<HTMLElement>('th')].find((th) =>
+        th.textContent?.startsWith('Country'),
+      )!
+      await userEvent.click(countryHeader)
+
+      expect(bodyRows()).toHaveLength(3)
+      expect(bodyRows()[1]?.textContent).toContain('Poland')
+      expect(bodyRows()[2]?.textContent).toContain('Spain')
+    })
   })
 
   describe('pagination', () => {

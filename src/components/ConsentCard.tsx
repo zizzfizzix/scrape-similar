@@ -1,7 +1,8 @@
 import { Button } from '@/components/ui/button'
+import { useMediaQuery } from '@/hooks/use-media-query'
 import clsx from 'clsx'
 import { BarChart3, CheckIcon, X } from 'lucide-react'
-import React, { useEffect, useState } from 'react'
+import React from 'react'
 
 interface ConsentCardProps {
   onDecision?: (accepted: boolean) => void
@@ -16,19 +17,9 @@ export const ConsentCard: React.FC<ConsentCardProps> = ({ onDecision, className 
     onDecision?.(accepted)
   }
 
-  const getMaxW = getComputedStyle(document.documentElement).getPropertyValue('--max-w-2xl').trim()
+  const maxWidth = getComputedStyle(document.documentElement).getPropertyValue('--max-w-2xl').trim()
 
-  // This only ever renders in a document, same as the `getComputedStyle` above.
-  const isInitiallyWide = window.matchMedia(`(min-width: ${getMaxW})`).matches
-
-  const [isWide, setIsWide] = useState<boolean>(isInitiallyWide)
-
-  useEffect(() => {
-    const mq = window.matchMedia(`(min-width: ${getMaxW})`)
-    const handler = (e: MediaQueryListEvent) => setIsWide(e.matches)
-    mq.addEventListener('change', handler)
-    return () => mq.removeEventListener('change', handler)
-  }, [])
+  const isWide = useMediaQuery(`(min-width: ${maxWidth})`)
 
   return (
     <div className={clsx('w-full', className)}>

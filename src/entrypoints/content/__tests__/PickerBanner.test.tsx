@@ -96,18 +96,19 @@ describe('mountPickerBannerReact', () => {
     expect(container.textContent).toContain('9')
   })
 
-  it('ignores setData before the first render has committed', async () => {
-    // React commits asynchronously, so the setter is not installed yet.
+  it('applies setData that arrives before the first render has committed', async () => {
     const api = mountPickerBannerReact(container, {
       getState: () => ({ count: 0, xpath: '' }),
       onClose: () => {},
     })
 
-    expect(() => api.setData(3, '//x')).not.toThrow()
-
-    await act(async () => {})
+    await act(async () => {
+      api.setData(3, '//x')
+    })
     mounted = api
-    expect(container.querySelector<HTMLInputElement>('input')!.value).toBe('')
+
+    expect(container.querySelector<HTMLInputElement>('input')!.value).toBe('//x')
+    expect(container.textContent).toContain('3')
   })
 
   it('ignores setData after unmounting', async () => {

@@ -199,19 +199,29 @@ describe('ConsentCard', () => {
     expect(view.container.querySelector('h2')!.className).toContain('text-2xl')
   })
 
-  it('lays out wide when the viewport matches', async () => {
-    const listeners = new Set<(event: MediaQueryListEvent) => void>()
+  /**
+   * `useMediaQuery` reads `matches` back off the list rather than off the
+   * event, so the stub has to move with the breakpoint the way a real
+   * `MediaQueryList` does.
+   */
+  const stubMatchMedia = (matches: boolean) => {
+    const listeners = new Set<() => void>()
+    const list = {
+      matches,
+      addEventListener: (_: string, listener: () => void) => listeners.add(listener),
+      removeEventListener: (_: string, listener: () => void) => listeners.delete(listener),
+    }
     vi.spyOn(window, 'matchMedia').mockImplementation(
-      (query) =>
-        ({
-          matches: true,
-          media: query,
-          addEventListener: (_: string, listener: (event: MediaQueryListEvent) => void) =>
-            listeners.add(listener),
-          removeEventListener: (_: string, listener: (event: MediaQueryListEvent) => void) =>
-            listeners.delete(listener),
-        }) as unknown as MediaQueryList,
+      (query) => ({ ...list, media: query }) as unknown as MediaQueryList,
     )
+    return (next: boolean) => {
+      list.matches = next
+      for (const listener of listeners) listener()
+    }
+  }
+
+  it('lays out wide when the viewport matches', async () => {
+    stubMatchMedia(true)
 
     view = await render(withProvider(<ConsentCard />))
 
@@ -219,22 +229,11 @@ describe('ConsentCard', () => {
   })
 
   it('re-lays out when the viewport crosses the breakpoint', async () => {
-    const listeners = new Set<(event: MediaQueryListEvent) => void>()
-    vi.spyOn(window, 'matchMedia').mockImplementation(
-      (query) =>
-        ({
-          matches: false,
-          media: query,
-          addEventListener: (_: string, listener: (event: MediaQueryListEvent) => void) =>
-            listeners.add(listener),
-          removeEventListener: (_: string, listener: (event: MediaQueryListEvent) => void) =>
-            listeners.delete(listener),
-        }) as unknown as MediaQueryList,
-    )
+    const cross = stubMatchMedia(false)
     view = await render(withProvider(<ConsentCard />))
 
     await act(() => {
-      for (const listener of listeners) listener({ matches: true } as MediaQueryListEvent)
+      cross(true)
     })
 
     expect(view.container.querySelector('h2')!.className).toContain('text-xl')

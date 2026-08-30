@@ -62,16 +62,7 @@ export function mountPickerBannerReact(
     resolveReady = resolve
   })
 
-  function BannerWrapper() {
-    const [count, setCount] = React.useState<number>(handlers.getState().count)
-    const [xpath, setXpath] = React.useState<string>(handlers.getState().xpath)
-
-    // Set the data setter on the container so it can be called externally
-    ;(container as any).__setData = (c: number, x: string) => {
-      setCount(c)
-      setXpath(x)
-    }
-
+  function BannerWrapper({ count, xpath }: { count: number; xpath: string }) {
     // Signal that the component is ready after the first render
     React.useEffect(() => {
       resolveReady()
@@ -84,13 +75,26 @@ export function mountPickerBannerReact(
     )
   }
 
-  root.render(<BannerWrapper />)
+  // The picker drives the banner from outside React, so an update is a re-render
+  // of the root with new props rather than a setter stashed on the container —
+  // which the wrapper had to write during render, and which did not exist until
+  // React had committed.
+  const paint = (count: number, xpath: string) => {
+    root.render(<BannerWrapper count={count} xpath={xpath} />)
+  }
+
+  const initial = handlers.getState()
+  paint(initial.count, initial.xpath)
+
+  let isMounted = true
 
   return {
-    unmount: () => root.unmount(),
-    setData: (c, x) => {
-      const setter = (container as any).__setData
-      if (typeof setter === 'function') setter(c, x)
+    unmount: () => {
+      isMounted = false
+      root.unmount()
+    },
+    setData: (count, xpath) => {
+      if (isMounted) paint(count, xpath)
     },
     ready: readyPromise,
   }

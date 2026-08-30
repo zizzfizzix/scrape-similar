@@ -3,22 +3,21 @@
 import * as React from 'react'
 
 /**
- * React hook that matches a media query and updates when it changes.
  * Used for responsive Dialog/Drawer (desktop vs mobile).
+ *
+ * `matchMedia` is external state, so it is read through `useSyncExternalStore`
+ * rather than mirrored into `useState` from an effect: the first render already
+ * has the real answer, instead of painting the desktop layout and correcting it.
  */
 export function useMediaQuery(query: string): boolean {
-  const [isMatching, setIsMatching] = React.useState(false)
+  const subscribe = React.useCallback(
+    (onChange: () => void) => {
+      const mediaQuery = window.matchMedia(query)
+      mediaQuery.addEventListener('change', onChange)
+      return () => mediaQuery.removeEventListener('change', onChange)
+    },
+    [query],
+  )
 
-  React.useEffect(() => {
-    const mediaQuery = window.matchMedia(query)
-    setIsMatching(mediaQuery.matches)
-
-    const handler = (event: MediaQueryListEvent) => {
-      setIsMatching(event.matches)
-    }
-    mediaQuery.addEventListener('change', handler)
-    return () => mediaQuery.removeEventListener('change', handler)
-  }, [query])
-
-  return isMatching
+  return React.useSyncExternalStore(subscribe, () => window.matchMedia(query).matches)
 }
