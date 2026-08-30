@@ -410,6 +410,24 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
     }, 150)
   }
 
+  /**
+   * Cancelling the pending blur commit is what makes validating here work: the
+   * press blurs the textarea first, and that commit is deferred by 150ms so a
+   * click on a suggestion still lands, so scraping instead would carry the
+   * selector the user has just moved away from (#271).
+   */
+  const handleMainActionPress = () => {
+    if (hasUncommittedChanges) {
+      clearTimeout(blurCommitTimerRef.current)
+      setIsAutosuggestOpen(false)
+      commitMainSelector(mainSelectorDraft)
+      return
+    }
+
+    trackEvent(ANALYTICS_EVENTS.SCRAPE_BUTTON_PRESS)
+    onScrape()
+  }
+
   // Handle main selector change with autosuggest (newline-less)
   const handleMainSelectorChange = (value: string) => {
     const sanitized = sanitizeToSingleLine(value)
@@ -1081,10 +1099,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
         <div className="flex w-full justify-center mt-4 -mb-2">
           <Button
             className="w-full max-w-2xl"
-            onClick={() => {
-              trackEvent(ANALYTICS_EVENTS.SCRAPE_BUTTON_PRESS)
-              onScrape()
-            }}
+            onClick={handleMainActionPress}
             disabled={
               isLoading ||
               config.columns.length === 0 ||
