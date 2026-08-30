@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
 import { rowToTsv, rowsToTsv } from '@/utils/tsv'
-import type { ScrapedRow } from '@/utils/types'
+import type { ScrapedRow, ScrapedRowData } from '@/utils/types'
 
 // Helper to build ScrapedRow quickly
-const makeRow = (data: Record<string, any>): ScrapedRow => ({
-  data,
+const makeRow = (data: Record<string, unknown>): ScrapedRow => ({
+  // `ScrapedRowData` promises strings, but a scrape can still hand these
+  // helpers a number, a boolean or nothing at all — which is the coercion
+  // these tests are here to pin down.
+  data: data as ScrapedRowData,
   metadata: { originalIndex: 0, isEmpty: false },
 })
 

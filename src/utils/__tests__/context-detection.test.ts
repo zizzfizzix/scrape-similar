@@ -13,36 +13,31 @@ import {
   isSidePanel,
 } from '@/utils/context-detection'
 
-// Helper to safely restore global objects after each test
-let originalWindow: any
-let originalTabs: any
+/**
+ * A content script has no `browser.tabs`, which is how `isContentScript`
+ * recognises one — but the API's own types have `tabs` as always-present, so
+ * taking it away needs a view of `browser` that admits it can be missing.
+ */
+const withOptionalTabs = browser as { tabs?: typeof browser.tabs }
+
+// Preserved so a test that mimics a content script can put `tabs` back.
+let originalTabs: typeof browser.tabs | undefined
 
 beforeEach(() => {
-  // Preserve the original globals to restore later
-  originalWindow = globalThis.window
-  // Preserve the original tabs reference (fakeBrowser adds this)
-  originalTabs = (globalThis as any).browser?.tabs
+  originalTabs = withOptionalTabs.tabs
 
   // Reset fake browser between tests to clear previous stubs/state
   fakeBrowser.reset()
 })
 
 afterEach(() => {
-  // Restore window
-  if (typeof originalWindow === 'undefined') {
-    delete (globalThis as any).window
-  } else {
-    globalThis.window = originalWindow
-  }
+  // Restores every `window` and `self` these tests stubbed.
+  vi.unstubAllGlobals()
 
-  // Restore tabs property back onto browser if it was modified
-  const browserObj = (globalThis as any).browser
-  if (browserObj) {
-    if (typeof originalTabs === 'undefined') {
-      delete browserObj.tabs
-    } else {
-      browserObj.tabs = originalTabs
-    }
+  if (originalTabs === undefined) {
+    delete withOptionalTabs.tabs
+  } else {
+    withOptionalTabs.tabs = originalTabs
   }
 
   vi.restoreAllMocks()
@@ -76,7 +71,7 @@ describe('context detection utilities', () => {
   it('detects content script context', () => {
     vi.stubGlobal('window', {})
     // Remove tabs to mimic content script environment
-    delete (globalThis as any).browser.tabs
+    delete withOptionalTabs.tabs
 
     expect(isContentScript()).toBe(true)
     expect(getCurrentContext()).toBe(EXTENSION_CONTEXTS.CONTENT_SCRIPT)
@@ -84,8 +79,8 @@ describe('context detection utilities', () => {
 
   it('detects background context', () => {
     vi.stubGlobal('window', undefined)
-    if (typeof (globalThis as any).self === 'undefined') {
-      ;(globalThis as any).self = globalThis
+    if (typeof self === 'undefined') {
+      vi.stubGlobal('self', globalThis)
     }
 
     expect(isBackgroundContext()).toBe(true)

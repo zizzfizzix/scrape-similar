@@ -1,3 +1,16 @@
+import type { PostHogInterface } from 'posthog-js/dist/module.no-external'
+
+declare global {
+  interface Window {
+    /**
+     * The extension's PostHog instance in a UI context, published by
+     * `PostHogWrapper` for `trackEvent` to find. Carries the extension's name
+     * so it cannot collide with a PostHog the surrounding page installed.
+     */
+    __scrape_similar_posthog?: PostHogInterface
+  }
+}
+
 export interface ColumnDefinition {
   name: string
   selector: string
@@ -65,7 +78,7 @@ export interface ExportResult {
   error?: string
 }
 
-export interface Message<T = any> {
+export interface Message<T = unknown> {
   type: string
   payload?: T
 }
@@ -87,6 +100,14 @@ export type MessageResponse =
   | {
       success: true
       url: string
+    }
+  // The content script's replies: what it did, and — for a highlight — how many
+  // elements matched, or, for a scrape, the rows themselves.
+  | {
+      success: true
+      message: string
+      matchCount?: number
+      data?: ScrapeResult
     }
 
 // Message types
@@ -122,10 +143,26 @@ export const MESSAGE_TYPES = {
   TRIGGER_DEMO_SCRAPE: 'trigger_demo_scrape',
 } as const
 
+/**
+ * What an analytics property may hold. PostHog serialises every property to
+ * JSON, so this is JSON plus `undefined` — the value a spread leaves behind for
+ * a property the caller decided not to send.
+ */
+export type AnalyticsPropertyValue =
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | AnalyticsPropertyValue[]
+  | { [key: string]: AnalyticsPropertyValue }
+
+export type AnalyticsProperties = Record<string, AnalyticsPropertyValue>
+
 // Analytics message payload interface
 export interface TrackEventPayload {
   eventName: string
-  properties: Record<string, any>
+  properties: AnalyticsProperties
 }
 
 export interface SystemPresetStatusMap {

@@ -62,7 +62,7 @@ export const interpretStoreReply = (
  */
 const evaluateOrReply = (
   selector: string,
-  sendResponse: (response: any) => void,
+  sendResponse: (response: MessageResponse) => void,
 ): HTMLElement[] | null => {
   try {
     return evaluateXPath(selector)
@@ -79,7 +79,7 @@ export const createMessageHandler = (state: ContentScriptState, deps: HandlerDep
   return (
     message: Message,
     sender: Browser.runtime.MessageSender,
-    sendResponse: (response: any) => void,
+    sendResponse: (response: MessageResponse) => void,
   ): boolean | void => {
     log.debug('Content script received message:', message)
 
@@ -146,7 +146,7 @@ export const createMessageHandler = (state: ContentScriptState, deps: HandlerDep
 const handleStartScrape = (
   message: Message,
   state: ContentScriptState,
-  sendResponse: (response: any) => void,
+  sendResponse: (response: MessageResponse) => void,
 ): boolean => {
   log.debug('Starting scrape with config (direct from UI):', message.payload)
   const config = message.payload as ScrapeConfig
@@ -203,7 +203,10 @@ const handleStartScrape = (
 /**
  * Handle HIGHLIGHT_ELEMENTS message
  */
-const handleHighlightElements = (message: Message, sendResponse: (response: any) => void): void => {
+const handleHighlightElements = (
+  message: Message,
+  sendResponse: (response: MessageResponse) => void,
+): void => {
   log.debug('Highlighting elements:', message.payload)
   const { selector, shouldScroll } = (message.payload || {}) as {
     selector: string
@@ -233,7 +236,7 @@ const handleHighlightElements = (message: Message, sendResponse: (response: any)
  */
 const handleHighlightRowElement = (
   message: Message,
-  sendResponse: (response: any) => void,
+  sendResponse: (response: MessageResponse) => void,
 ): void => {
   log.debug('Highlighting row element:', message.payload)
   const { selector } = message.payload as { selector: string }
@@ -261,7 +264,7 @@ const handleHighlightRowElement = (
 const handleSaveElementDetails = (
   message: Message,
   state: ContentScriptState,
-  sendResponse: (response: any) => void,
+  sendResponse: (response: MessageResponse) => void,
 ): boolean => {
   if (!state.lastRightClickedElementDetails || !state.lastRightClickedElement) {
     log.warn('No lastRightClickedElementDetails or element to save.')
@@ -309,9 +312,9 @@ const handleSaveElementDetails = (
 const handleGuessConfigFromSelector = (
   message: Message,
   state: ContentScriptState,
-  sendResponse: (response: any) => void,
+  sendResponse: (response: MessageResponse) => void,
 ): boolean => {
-  const { mainSelector } = message.payload || {}
+  const { mainSelector } = (message.payload || {}) as { mainSelector?: string }
   if (!mainSelector?.trim()) {
     sendResponse({ success: false, error: 'Missing mainSelector' })
     return true

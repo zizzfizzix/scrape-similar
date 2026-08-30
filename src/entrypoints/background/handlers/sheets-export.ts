@@ -27,8 +27,11 @@ export type ExportPayloadValidation =
 /**
  * Validate EXPORT_TO_SHEETS payload structure
  */
-export const validateExportPayload = (payload: any): ExportPayloadValidation => {
-  const { filename, scrapedData, columnOrder, columnKeys } = payload || {}
+export const validateExportPayload = (payload: unknown): ExportPayloadValidation => {
+  // The payload crossed a message boundary, so nothing has checked its shape
+  // yet; that is what this function is for.
+  const { filename, scrapedData, columnOrder, columnKeys } = (payload ||
+    {}) as Partial<ExportPayload>
 
   if (!filename || !filename.trim()) {
     return { isValid: false, error: 'Filename is required for export' }
@@ -44,7 +47,7 @@ export const validateExportPayload = (payload: any): ExportPayloadValidation => 
  * Handle EXPORT_TO_SHEETS message from any context
  */
 export const handleExportToSheets = async (
-  payload: any,
+  payload: unknown,
   sendResponse: (response?: MessageResponse) => void,
   logPrefix: string = '',
 ): Promise<void> => {
@@ -91,11 +94,22 @@ export const handleExportToSheets = async (
   }
 }
 
+/** The part of a `spreadsheets.create` reply this export reads back. */
+interface CreatedSpreadsheet {
+  spreadsheetId: string
+  spreadsheetUrl: string
+  sheets: { properties: { sheetId: number } }[]
+}
+
 /**
  * Issue an authenticated Sheets API request, surfacing an expired token as a
  * distinct error so the caller can ask the user to retry.
  */
-const requestSheetsApi = async (token: string, url: string, body: unknown): Promise<any> => {
+const requestSheetsApi = async <T = unknown>(
+  token: string,
+  url: string,
+  body: unknown,
+): Promise<T> => {
   const response = await fetch(url, {
     method: 'POST',
     body: JSON.stringify(body),
@@ -115,7 +129,7 @@ const requestSheetsApi = async (token: string, url: string, body: unknown): Prom
     throw new Error(`API request failed: ${response.statusText} ${JSON.stringify(errorData)}`)
   }
 
-  return response.json()
+  return response.json() as Promise<T>
 }
 
 /**
@@ -139,7 +153,7 @@ export const exportToGoogleSheets = async (
       return { success: false, error: 'No columns found in data' }
     }
 
-    const spreadsheet = await requestSheetsApi(
+    const spreadsheet = await requestSheetsApi<CreatedSpreadsheet>(
       token,
       SHEETS_API.create(),
       buildCreateSpreadsheetBody(filename),
@@ -147,7 +161,8 @@ export const exportToGoogleSheets = async (
 
     const spreadsheetId = spreadsheet.spreadsheetId
     const spreadsheetUrl = spreadsheet.spreadsheetUrl
-    const sheetId = spreadsheet.sheets[0].properties.sheetId
+    // A spreadsheet is created with exactly one sheet, so this index is safe.
+    const sheetId = spreadsheet.sheets[0]!.properties.sheetId
 
     // Write the rows before formatting, so the header row exists to format.
     await requestSheetsApi(

@@ -15,6 +15,17 @@ import path from 'path'
 import { v7 as uuidv7 } from 'uuid'
 const { chromeExtensionId } = pkg
 
+declare global {
+  interface Window {
+    /**
+     * Where `TestHelpers.stubClipboard` parks the text the page tried to copy,
+     * for `TestHelpers.getCopiedText` to read back. The specs cannot use the
+     * real clipboard: a headless Chromium has none to read.
+     */
+    __copied: string | null
+  }
+}
+
 /** Fixture page served as the default scrape target. */
 export const SCRAPE_TARGET_PAGE = 'scrape-target.html'
 
@@ -329,9 +340,9 @@ export const TestHelpers = {
    */
   async stubClipboard(page: Page): Promise<void> {
     await page.evaluate(() => {
-      ;(window as any).__copied = null
+      window.__copied = null
       navigator.clipboard.writeText = async (t) => {
-        ;(window as any).__copied = t
+        window.__copied = t
         return Promise.resolve()
       }
     })
@@ -341,7 +352,7 @@ export const TestHelpers = {
    * Gets the text that was copied to the stubbed clipboard
    */
   async getCopiedText(page: Page): Promise<string | null> {
-    return await page.evaluate(() => (window as any).__copied)
+    return await page.evaluate(() => window.__copied)
   },
 
   /**

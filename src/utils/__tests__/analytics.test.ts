@@ -8,6 +8,7 @@ import {
   MAX_QUEUED_EVENTS,
   queueEvent,
   trackEvent,
+  type QueuedEvent,
 } from '@/utils/analytics'
 import * as consent from '@/utils/consent'
 
@@ -51,11 +52,11 @@ describe('analytics utilities', () => {
       // Add one more to trigger overflow logic
       await queueEvent({ name: 'overflow_event', props: {}, timestamp: Date.now() })
 
-      const queue = await storage.getItem<any[]>(QUEUE_KEY)
+      const queue = await storage.getItem<QueuedEvent[]>(QUEUE_KEY)
       expect(queue).toHaveLength(MAX_QUEUED_EVENTS)
       // The first event should have been dropped (FIFO)
-      expect(queue?.[0].name).toBe('event_1')
-      expect(queue?.[queue.length - 1].name).toBe('overflow_event')
+      expect(queue?.[0]?.name).toBe('event_1')
+      expect(queue?.at(-1)?.name).toBe('overflow_event')
     })
   })
 
@@ -65,7 +66,7 @@ describe('analytics utilities', () => {
 
       await trackEvent('declined_event')
 
-      const queue = await storage.getItem<any[]>(QUEUE_KEY)
+      const queue = await storage.getItem<QueuedEvent[]>(QUEUE_KEY)
       expect(queue).toBeNull()
     })
 
@@ -74,12 +75,12 @@ describe('analytics utilities', () => {
 
       await trackEvent('pending_consent_event', { extra: 'data' })
 
-      const queue = await storage.getItem<any[]>(QUEUE_KEY)
+      const queue = await storage.getItem<QueuedEvent[]>(QUEUE_KEY)
       expect(queue).toHaveLength(1)
-      const queued = queue![0]
-      expect(queued.name).toBe('pending_consent_event')
+      const queued = queue?.[0]
+      expect(queued?.name).toBe('pending_consent_event')
       // Original properties should be preserved
-      expect(queued.props.extra).toBe('data')
+      expect(queued?.props.extra).toBe('data')
     })
   })
 })

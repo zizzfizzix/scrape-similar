@@ -20,7 +20,7 @@ export const setupMessageListener = (): void => {
         log.debug('🔥 EXPORT_TO_SHEETS message received:', {
           messageType: message.type,
           hasPayload: !!message.payload,
-          payloadKeys: message.payload ? Object.keys(message.payload) : [],
+          payloadKeys: Object.keys((message.payload ?? {}) as object),
           senderTab: sender.tab?.id || 'no-tab',
           senderUrl: sender.url || 'no-url',
         })

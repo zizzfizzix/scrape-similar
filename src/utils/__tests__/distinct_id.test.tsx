@@ -7,10 +7,17 @@ import { storage } from 'wxt/utils/storage'
 // ------------------------- Mocks -------------------------
 // Mock PostHog core implementation and record the supplied distinct id
 vi.mock('posthog-js/dist/module.no-external', () => {
+  // The slice of PostHog's init options this stub reads; the real type has
+  // `loaded` taking a real PostHog, which this stub is not.
+  interface MockInitOptions {
+    bootstrap?: { distinctID?: string }
+    loaded?: (posthog: MockPostHog) => void
+  }
+
   class MockPostHog {
     private _distinctId: string | null = null
 
-    init(_apiKey: string, options: any) {
+    init(_apiKey: string, options: MockInitOptions) {
       this._distinctId = options?.bootstrap?.distinctID ?? null
       // Call the loaded callback immediately to mimic PostHog behaviour
       options?.loaded?.(this)
@@ -51,6 +58,7 @@ import { createRoot } from 'react-dom/client'
 describe('PostHog distinct id consistency', () => {
   beforeEach(async () => {
     fakeBrowser.reset()
+    delete window.__scrape_similar_posthog
     // Default consent behaviour for these tests is granted
     vi.spyOn(consent, 'getConsentState').mockResolvedValue(true)
     vi.spyOn(distinctId, 'getOrCreateDistinctId').mockResolvedValue('test-uuid-21415341242342')
@@ -72,8 +80,6 @@ describe('PostHog distinct id consistency', () => {
   })
 
   it('window.__scrape_similar_posthog has the same distinct id in UI context', async () => {
-    delete (globalThis as any).window?.__scrape_similar_posthog
-
     const bgPosthog = await getPostHogBackground()
     // Distinct id should now be persisted in storage
     const persistedDistinctId = await getOrCreateDistinctId()
@@ -93,8 +99,8 @@ describe('PostHog distinct id consistency', () => {
       )
     })
 
-    const uiPosthog = (globalThis as any).window.__scrape_similar_posthog
+    const uiPosthog = window.__scrape_similar_posthog
     expect(uiPosthog).toBeTruthy()
-    expect(uiPosthog.get_distinct_id()).toEqual(persistedDistinctId)
+    expect(uiPosthog!.get_distinct_id()).toEqual(persistedDistinctId)
   })
 })

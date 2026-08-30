@@ -28,7 +28,9 @@ import { noConditionalAwait } from './tools/eslint-rules/no-conditional-await.ts
  * Type-aware linting is switched on (`projectService`). The typed rules that are
  * on are the ones this codebase already passes (ALREADY_CLEAN) plus the boolean
  * naming rule; the rest are staged in DEFERRED below with the violation count
- * each one has today.
+ * each one has today. Nothing in `tseslint.configs.recommended` is overridden
+ * any more: `no-explicit-any` was the last one off, and #278 typed away the 72
+ * sites it named.
  */
 
 const TEST_FILES = ['**/__tests__/**/*.{ts,tsx}', '**/*.test.{ts,tsx}', 'vitest.setup.ts']
@@ -149,9 +151,6 @@ const DEFERRED = {
   '@typescript-eslint/no-floating-promises': 'off',
   // 35, nearly all `onClick={async () => …}`.
   '@typescript-eslint/no-misused-promises': 'off',
-  // 74: 28 in extension code, mostly the message-passing types, and 46 in unit
-  // and e2e test scaffolding.
-  '@typescript-eslint/no-explicit-any': 'off',
   // 265. The component tests reach into `container` deliberately; the rule wants
   // them rewritten onto queries, which is a rewrite of the suite, not a fix.
   'testing-library/no-node-access': 'off',

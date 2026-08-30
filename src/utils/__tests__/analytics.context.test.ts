@@ -4,8 +4,10 @@ import { browser } from 'wxt/browser'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
 
-// Dynamically control the context value returned by getCurrentContext
-let currentContext: any
+// Dynamically control the context value returned by getCurrentContext.
+// 'martian_context' is not an ExtensionContext, which is the point of the two
+// tests that use it.
+let currentContext: ExtensionContext | 'martian_context'
 
 vi.mock('@/utils/context-detection', async () => {
   const actual = await vi.importActual<typeof import('@/utils/context-detection')>(
@@ -18,19 +20,29 @@ vi.mock('@/utils/context-detection', async () => {
 })
 
 import * as consent from '@/utils/consent'
+import type { ExtensionContext } from '@/utils/context-detection'
 import * as contextDetection from '@/utils/context-detection'
 import * as posthogBg from '@/utils/posthog-background'
+import type { PostHog } from 'posthog-js/dist/module.no-external'
+import type { Mock } from 'vitest'
 
-import { EVENT_QUEUE_STORAGE_KEY, trackEvent } from '@/utils/analytics'
+import { EVENT_QUEUE_STORAGE_KEY, type QueuedEvent, trackEvent } from '@/utils/analytics'
 
 const QUEUE_KEY = `local:${EVENT_QUEUE_STORAGE_KEY}`
 const EVENT_NAME = 'contextual_event'
 
 // Helper to get the last queued event
 const getQueuedEvent = async () => {
-  const queue = (await storage.getItem<any[]>(QUEUE_KEY)) || []
+  const queue = (await storage.getItem<QueuedEvent[]>(QUEUE_KEY)) || []
   return queue[queue.length - 1]
 }
+
+/**
+ * `getPostHogBackground` resolves to a whole `PostHog`; these tests only reach
+ * for `capture`, so the cast that says so lives here rather than at each call.
+ */
+const stubBackgroundPostHog = (capture: Mock) =>
+  vi.spyOn(posthogBg, 'getPostHogBackground').mockResolvedValue({ capture } as unknown as PostHog)
 
 describe('trackEvent – context specific behaviour', () => {
   beforeEach(() => {
@@ -38,16 +50,17 @@ describe('trackEvent – context specific behaviour', () => {
     vi.restoreAllMocks()
     // Default consent behaviour for these tests is granted
     vi.spyOn(consent, 'getConsentState').mockResolvedValue(true)
-    // Ensure PostHog is absent
-    ;(globalThis as any).window = (globalThis as any).window || {}
-    delete (globalThis as any).window.__scrape_similar_posthog
+    // These run in the node environment, where there is no `window` at all —
+    // and `trackEvent`'s UI branch reads one. Give it an empty one, so PostHog
+    // is absent until a test puts it there.
+    vi.stubGlobal('window', {})
   })
 
   it('uses PostHog from background context', async () => {
     // Mock context and PostHog instance
     currentContext = contextDetection.EXTENSION_CONTEXTS.BACKGROUND
     const captureSpy = vi.fn()
-    vi.spyOn(posthogBg, 'getPostHogBackground').mockResolvedValue({ capture: captureSpy } as any)
+    stubBackgroundPostHog(captureSpy)
 
     await trackEvent(EVENT_NAME, { foo: 'bar' })
 
@@ -66,16 +79,15 @@ describe('trackEvent – context specific behaviour', () => {
 
     const queued = await getQueuedEvent()
     expect(queued).toBeTruthy()
-    expect(queued.name).toBe(EVENT_NAME)
-    expect(queued.props.extension_context).toBe(contextDetection.EXTENSION_CONTEXTS.SIDEPANEL)
+    expect(queued?.name).toBe(EVENT_NAME)
+    expect(queued?.props.extension_context).toBe(contextDetection.EXTENSION_CONTEXTS.SIDEPANEL)
   })
 
   it('captures event via window PostHog in sidepanel when available', async () => {
     currentContext = contextDetection.EXTENSION_CONTEXTS.SIDEPANEL
     // Create a minimal window with PostHog stub
-    ;(globalThis as any).window = {}
     const captureSpy = vi.fn()
-    ;(globalThis as any).window.__scrape_similar_posthog = { capture: captureSpy }
+    vi.stubGlobal('window', { __scrape_similar_posthog: { capture: captureSpy } })
 
     await trackEvent(EVENT_NAME, { baz: 'qux' })
 
@@ -92,7 +104,9 @@ describe('trackEvent – context specific behaviour', () => {
     await trackEvent(EVENT_NAME, { alpha: 1 })
 
     expect(sendMessageSpy).toHaveBeenCalledTimes(1)
-    const [{ type, payload }] = sendMessageSpy.mock.calls[0] as any[]
+    const [{ type, payload }] = sendMessageSpy.mock.calls[0] as unknown as [
+      { type: string; payload: TrackEventPayload },
+    ]
     expect(type).toBeDefined()
     expect(payload.eventName).toBe(EVENT_NAME)
     expect(payload.properties.alpha).toBe(1)
@@ -101,7 +115,7 @@ describe('trackEvent – context specific behaviour', () => {
   it('retains existing extension_context in properties', async () => {
     currentContext = contextDetection.EXTENSION_CONTEXTS.BACKGROUND
     const captureSpy = vi.fn()
-    vi.spyOn(posthogBg, 'getPostHogBackground').mockResolvedValue({ capture: captureSpy } as any)
+    stubBackgroundPostHog(captureSpy)
 
     await trackEvent(EVENT_NAME, { extension_context: 'custom_context' })
 
@@ -140,22 +154,22 @@ describe('trackEvent – context specific behaviour', () => {
   it('reports "N/A" for the URL when an unknown context has no window', async () => {
     currentContext = 'martian_context'
     const warnSpy = vi.spyOn(log, 'warn').mockImplementation(() => {})
-    ;(globalThis as any).window = undefined
+    vi.stubGlobal('window', undefined)
 
     await trackEvent(EVENT_NAME)
 
-    const [, details] = warnSpy.mock.calls[0] as any[]
+    const [, details] = warnSpy.mock.calls[0] as [string, Record<string, unknown>]
     expect(details).toMatchObject({ context: 'martian_context', hasWindow: false, url: 'N/A' })
   })
 
   it('reports the page URL for an unknown context that has a window', async () => {
     currentContext = 'martian_context'
     const warnSpy = vi.spyOn(log, 'warn').mockImplementation(() => {})
-    ;(globalThis as any).window = { location: { href: 'https://example.com/page' } }
+    vi.stubGlobal('window', { location: { href: 'https://example.com/page' } })
 
     await trackEvent(EVENT_NAME)
 
-    const [, details] = warnSpy.mock.calls[0] as any[]
+    const [, details] = warnSpy.mock.calls[0] as [string, Record<string, unknown>]
     expect(details).toMatchObject({ hasWindow: true, url: 'https://example.com/page' })
   })
 

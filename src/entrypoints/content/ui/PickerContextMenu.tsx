@@ -95,18 +95,20 @@ export function mountPickerContextMenuReact(
     y: options.y,
   }
 
+  // Set while the wrapper is mounted, which is the only time a caller's update
+  // has anywhere to go.
+  let applyUpdate: ((updates: Partial<typeof state>) => void) | null = null
+
   function Wrapper() {
     const [, forceUpdate] = React.useReducer((x) => x + 1, 0)
 
-    // Expose update methods on container for external control
     React.useEffect(() => {
-      const el = container as any
-      el.__update = (updates: Partial<typeof state>) => {
+      applyUpdate = (updates) => {
         Object.assign(state, updates)
         forceUpdate()
       }
       return () => {
-        delete el.__update
+        applyUpdate = null
       }
     }, [])
 
@@ -130,8 +132,7 @@ export function mountPickerContextMenuReact(
   root.render(<Wrapper />)
 
   const update = (updates: Partial<typeof state>) => {
-    const fn = (container as any).__update
-    if (fn) fn(updates)
+    if (applyUpdate) applyUpdate(updates)
   }
 
   return {

@@ -211,21 +211,14 @@ test.describe('DataTable Enhancements', () => {
     expect(fileName.toLowerCase()).toMatch(/\.csv$/)
 
     // Test clipboard copy
-    // Mock clipboard API
-    await sidePanel.evaluate(() => {
-      ;(window as any).__copied = null
-      navigator.clipboard.writeText = async (text: string) => {
-        ;(window as any).__copied = text
-        return Promise.resolve()
-      }
-    })
+    await TestHelpers.stubClipboard(sidePanel)
 
     // Open export dropdown again
     await exportButton.click()
     await sidePanel.getByRole('menuitem', { name: /copy all to clipboard/i }).click()
 
     // Verify clipboard operation
-    const copiedText = await sidePanel.evaluate(() => (window as any).__copied)
+    const copiedText = await TestHelpers.getCopiedText(sidePanel)
     expect(copiedText).not.toBeNull()
     expect(copiedText).toContain('\t') // Should be TSV format
   })

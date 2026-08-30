@@ -1,3 +1,4 @@
+import type { PostHogConfig } from 'posthog-js/dist/module.no-external'
 import { describe, expect, it, vi } from 'vitest'
 
 type Env = 'development' | 'test' | 'production'
@@ -23,10 +24,10 @@ async function runScenario({ env, debugMode }: Scenario): Promise<boolean[]> {
   const debugHistory: boolean[] = []
   vi.doMock('posthog-js/dist/module.no-external', () => {
     class PostHog {
-      init(_: any, cfg: any) {
+      init(_apiKey: string, cfg: Partial<PostHogConfig>) {
         debugHistory.push(!!cfg.debug)
       }
-      set_config(cfg: any) {
+      set_config(cfg: Partial<PostHogConfig>) {
         if ('debug' in cfg) debugHistory.push(!!cfg.debug)
       }
     }

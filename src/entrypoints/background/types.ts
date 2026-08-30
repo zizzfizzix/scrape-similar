@@ -10,7 +10,7 @@ export type MessageHandler = (
 
 export interface QueuedEvent {
   name: string
-  props: Record<string, any>
+  props: AnalyticsProperties
   timestamp: number
 }
 

@@ -20,11 +20,7 @@ let initializationPromise: Promise<void> | null = null
 
 // Helper function to check if PostHog is already initialized
 const isPostHogInitialized = (): boolean => {
-  return (
-    typeof window !== 'undefined' &&
-    (window as any).__scrape_similar_posthog &&
-    (window as any).__scrape_similar_posthog instanceof PostHog
-  )
+  return typeof window !== 'undefined' && window.__scrape_similar_posthog instanceof PostHog
 }
 
 /**
@@ -33,7 +29,7 @@ const isPostHogInitialized = (): boolean => {
 export const resetPostHogUI = () => {
   initializationPromise = null
   if (isPostHogInitialized()) {
-    delete (window as any).__scrape_similar_posthog
+    delete window.__scrape_similar_posthog
     log.debug('PostHog UI instance reset due to consent revocation')
   }
 }
@@ -114,7 +110,7 @@ async function initializePostHog(): Promise<void> {
         loaded: (posthogInstance) => {
           // Expose PostHog instance to window for analytics utility
           // Using a custom property name to avoid conflicts with website's PostHog
-          ;(window as any).__scrape_similar_posthog = posthogInstance
+          window.__scrape_similar_posthog = posthogInstance
           log.debug('PostHog instance exposed to window.__scrape_similar_posthog')
         },
       })
@@ -151,7 +147,7 @@ export const PostHogWrapper: React.FC<PostHogWrapperProps> = ({ children }) => {
 
     return () => {
       if (isPostHogInitialized()) {
-        delete (window as any).__scrape_similar_posthog
+        delete window.__scrape_similar_posthog
         log.debug('PostHog instance removed from window')
       }
     }
@@ -162,8 +158,11 @@ export const PostHogWrapper: React.FC<PostHogWrapperProps> = ({ children }) => {
     if (isDevOrTest) return
 
     const unwatch = storage.watch<boolean>('local:debugMode', (val) => {
-      if (isPostHogInitialized()) {
-        ;(window as any).__scrape_similar_posthog.set_config({ debug: !!val })
+      // `isPostHogInitialized` cannot narrow the global for us, so this repeats
+      // the check it makes in a shape TypeScript can follow.
+      const posthogInstance = window.__scrape_similar_posthog
+      if (posthogInstance instanceof PostHog) {
+        posthogInstance.set_config({ debug: !!val })
       }
     })
 

@@ -822,7 +822,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
                 shouldFilter={false}
                 value={cmdkSelectedId ?? '__none__'}
                 onValueChange={setCmdkSelectedId}
-                ref={commandRef as any}
+                ref={commandRef}
                 tabIndex={-1}
               >
                 <CommandList className="max-h-60">

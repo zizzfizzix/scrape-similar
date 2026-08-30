@@ -1,11 +1,14 @@
 import { rowsToXlsxBuffer, XLSX_MIME_TYPE } from '@/utils/export-data'
-import type { ScrapedRow } from '@/utils/types'
+import type { ScrapedRow, ScrapedRowData } from '@/utils/types'
 import type ExcelJS from 'exceljs'
 import { describe, expect, it } from 'vitest'
 
 // Helper to create mock scraped rows
-const makeRow = (data: Record<string, any>, isEmpty = false): ScrapedRow => ({
-  data,
+const makeRow = (data: Record<string, unknown>, isEmpty = false): ScrapedRow => ({
+  // `ScrapedRowData` promises strings, but a scrape can still hand these
+  // helpers a number, a boolean or nothing at all — which is the coercion
+  // these tests are here to pin down.
+  data: data as ScrapedRowData,
   metadata: { originalIndex: 0, isEmpty },
 })
 
