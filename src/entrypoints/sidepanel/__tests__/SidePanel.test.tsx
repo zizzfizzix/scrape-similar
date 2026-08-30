@@ -16,13 +16,8 @@ import {
 } from '@/utils/types'
 import { chromeExtensionId } from '@@/package.json' with { type: 'json' }
 import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
-import {
-  type RenderResult,
-  act,
-  fireEvent,
-  render as renderComponent,
-  waitFor,
-} from '@testing-library/react'
+import { renderSettled } from '@@/tests/support/settle'
+import { type RenderResult, act, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
@@ -78,9 +73,8 @@ const contentScriptReplies = (response: unknown, lastError?: { message?: string 
     },
   )
 
-/** Render, and let mount-time storage reads settle before asserting. */
-const render = async (props: Partial<Parameters<typeof SidePanel>[0]> = {}) => {
-  const rendered = renderComponent(
+const render = (props: Partial<Parameters<typeof SidePanel>[0]> = {}) =>
+  renderSettled(
     <ConsentProvider>
       <ThemeProvider>
         <TooltipProvider>
@@ -89,9 +83,6 @@ const render = async (props: Partial<Parameters<typeof SidePanel>[0]> = {}) => {
       </ThemeProvider>
     </ConsentProvider>,
   )
-  await act(async () => {})
-  return rendered
-}
 
 const mainSelectorInput = () =>
   view.container.querySelector<HTMLTextAreaElement>('textarea#mainSelector')!

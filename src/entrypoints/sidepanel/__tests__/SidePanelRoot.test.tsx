@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { ANALYTICS_CONSENT_STORAGE_KEY } from '@/utils/consent'
 import { spyOnBrowser } from '@@/tests/support/fake-browser'
+import { settleEffects } from '@@/tests/support/settle'
 import { type RenderResult, act, render as renderComponent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import log from 'loglevel'
@@ -59,7 +60,7 @@ beforeEach(async () => {
 describe('SidePanelRoot', () => {
   it('renders the panel', async () => {
     view = render()
-    await act(async () => {})
+    await settleEffects()
 
     expect(view.container.textContent).toContain('Configuration')
   })
@@ -96,7 +97,7 @@ describe('SidePanelRoot', () => {
   it('follows the debug flag when it changes elsewhere', async () => {
     view = render()
     // Let the mount-time read settle, so only later changes reach the spy.
-    await act(async () => {})
+    await settleEffects()
     const setLevel = vi.spyOn(log, 'setLevel').mockImplementation(() => {})
 
     await act(async () => {
@@ -111,7 +112,7 @@ describe('SidePanelRoot', () => {
     modeFlags.isDevOrTest = true
     view = render()
     // Let the mount-time read settle, so only later changes reach the spy.
-    await act(async () => {})
+    await settleEffects()
     const setLevel = vi.spyOn(log, 'setLevel').mockImplementation(() => {})
 
     await act(async () => {

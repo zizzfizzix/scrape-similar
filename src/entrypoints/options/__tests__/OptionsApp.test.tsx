@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { ANALYTICS_CONSENT_STORAGE_KEY } from '@/utils/consent'
-import { type RenderResult, act, render as renderComponent } from '@testing-library/react'
+import { renderSettled } from '@@/tests/support/settle'
+import { type RenderResult, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import log from 'loglevel'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -34,9 +35,8 @@ const consentKey = `sync:${ANALYTICS_CONSENT_STORAGE_KEY}` as const
 /** Give storage watchers a macrotask to fire. */
 const flushWatchers = () => new Promise((resolve) => setTimeout(resolve, 0))
 
-/** Render, and let the consent gate's storage read settle before asserting. */
-const render = async () => {
-  const rendered = renderComponent(
+const render = () =>
+  renderSettled(
     <ConsentProvider>
       <ThemeProvider>
         <TooltipProvider>
@@ -45,9 +45,6 @@ const render = async () => {
       </ThemeProvider>
     </ConsentProvider>,
   )
-  await act(async () => {})
-  return rendered
-}
 
 const debugSwitch = () => {
   const switches = [...view.container.querySelectorAll<HTMLElement>('[role="switch"]')]
