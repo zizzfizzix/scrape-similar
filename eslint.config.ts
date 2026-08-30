@@ -129,7 +129,23 @@ const ALREADY_CLEAN: Linter.RulesRecord = {
  * Scope is `variable`, which is the row CLAUDE.md actually states. Props and
  * message payloads keep their own names, so a passthrough reads
  * `showEmptyRows={shouldShowEmptyRows}`: the prop says what the component does
- * with it, the variable says what it holds.
+ * with it, the variable says what it holds. That is a decision with a count
+ * behind it rather than a preference: the same prefix costs 46 on `parameter`
+ * and 537 on properties, and the property side is dominated by names this
+ * codebase does not own — `success` 259 times (the `MessageResponse` envelope),
+ * `debugMode` 30 (a message payload), then `bubbles` / `cancelable` from
+ * `EventInit`, `ok` from `Response`, `enableResizing` from TanStack Table,
+ * `active` / `currentWindow` from `browser.tabs.query`. Widening the selector
+ * means renaming a cross-context contract or exempting most of what it reports.
+ *
+ * The other rows of #7's table were measured the same way and stay off for the
+ * same kind of reason. Casing reports 69, of which 67 are React components
+ * declared `const Foo: React.FC` — JSX requires that capital, so the fix is to
+ * allow `PascalCase`, which leaves the rule permitting camelCase, PascalCase and
+ * UPPER_CASE and saying nothing. The remaining 2 are e2e constants spelled to
+ * match the storage keys they stand for. And the directory row is not reachable
+ * from here at all: `naming-convention` never sees a filename, so enforcing it
+ * would take `check-file` or `unicorn/filename-case` instead.
  */
 const BOOLEAN_PREFIX: Linter.RulesRecord = {
   '@typescript-eslint/naming-convention': [
