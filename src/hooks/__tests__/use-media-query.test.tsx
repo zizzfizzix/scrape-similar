@@ -78,10 +78,12 @@ describe('useMediaQuery', () => {
     vi.unstubAllGlobals()
   })
 
-  it('starts false before the effect has run', async () => {
+  it('reports the query result on the first render, with no false frame', async () => {
+    lists.set('(min-width: 768px)', createFakeMediaQueryList('(min-width: 768px)', true))
+
     await render('(min-width: 768px)')
 
-    expect(observed[0]).toBe(false)
+    expect(observed[0]).toBe(true)
   })
 
   it('adopts the query result on mount', async () => {

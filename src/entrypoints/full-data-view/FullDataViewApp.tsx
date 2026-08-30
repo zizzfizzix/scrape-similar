@@ -74,7 +74,7 @@ import {
   Highlighter,
   Search,
 } from 'lucide-react'
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 
 // v9 features are opt-in. The full data view uses sorting, column + global
@@ -110,8 +110,11 @@ export const FullDataViewApp: React.FC = () => {
   const [currentTabData, setCurrentTabData] = useState<TabData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [shouldShowEmptyRows, setShouldShowEmptyRows] = useState(false)
+  const [isShowEmptyRowsChecked, setIsShowEmptyRowsChecked] = useState(false)
   const [globalFilter, setGlobalFilter] = useState('')
+  // A search never matches an empty row, so a running one both hides the toggle
+  // and overrides it, rather than silently switching the reader's choice off.
+  const shouldShowEmptyRows = globalFilter.length === 0 && isShowEmptyRowsChecked
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({})
@@ -125,32 +128,37 @@ export const FullDataViewApp: React.FC = () => {
   const [isTabSelectorOpen, setIsTabSelectorOpen] = useState(false)
   const [tabSearch, setTabSearch] = useState('')
 
-  // Load data from storage
-  const loadTabsData = useCallback(async () => {
-    try {
-      setIsLoading(true)
-      setError(null)
+  // Bumped by the Retry button to ask for the scan again on a tab id that has
+  // not changed.
+  const [reloadRequest, setReloadRequest] = useState(0)
 
-      const tabsWithData = await collectTabsWithData(await browser.tabs.query({}), (tabId) =>
-        storage.getItem<SidePanelConfig>(`session:sidepanel_config_${tabId}`),
-      )
-
-      setAllTabsData(tabsWithData)
-
-      const selection = resolveTabSelection(tabsWithData, currentTabId)
-      setCurrentTabId(selection.tabId)
-      setCurrentTabData(selection.data)
-    } catch (err) {
-      setError('Failed to load tab data: ' + (err as Error).message)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [currentTabId])
-
-  // Load data on mount
+  // Scans every tab for stored data on mount, whenever the shown tab changes,
+  // and on a retry. The loader lives in here rather than in a `useCallback`, so
+  // none of its state updates is reachable synchronously from the effect; and
+  // nothing needs setting before the first await, since `isLoading` starts true
+  // and a re-scan behind an open table has no reason to blank it.
   useEffect(() => {
+    const loadTabsData = async () => {
+      try {
+        const tabsWithData = await collectTabsWithData(await browser.tabs.query({}), (tabId) =>
+          storage.getItem<SidePanelConfig>(`session:sidepanel_config_${tabId}`),
+        )
+
+        setAllTabsData(tabsWithData)
+        setError(null)
+
+        const selection = resolveTabSelection(tabsWithData, currentTabId)
+        setCurrentTabId(selection.tabId)
+        setCurrentTabData(selection.data)
+      } catch (err) {
+        setError('Failed to load tab data: ' + (err as Error).message)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
     loadTabsData()
-  }, [loadTabsData])
+  }, [currentTabId, reloadRequest])
 
   useEffect(() => {
     storage.getItem<boolean>('local:debugMode').then((val) => {
@@ -178,29 +186,6 @@ export const FullDataViewApp: React.FC = () => {
       document.title = 'Full Data View - Scrape Similar'
     }
   }, [currentTabData?.tabTitle])
-
-  // An empty row cannot match a search term, so the toggle is meaningless once one is set.
-  useEffect(() => {
-    if (globalFilter && globalFilter.length > 0) {
-      setShouldShowEmptyRows(false)
-    }
-  }, [globalFilter])
-
-  // Track search usage with debouncing
-  useEffect(() => {
-    if (globalFilter.length === 0) return
-
-    const timeoutId = setTimeout(() => {
-      trackEvent(ANALYTICS_EVENTS.FULL_DATA_VIEW_SEARCH, {
-        search_term_length: globalFilter.length,
-        filtered_rows: table.getFilteredRowModel().rows.length,
-        // A search can only be typed from the main view, which has a tab.
-        total_rows: currentTabData!.scrapeResult.data.length,
-      })
-    }, 1000) // Debounce for 1 second
-
-    return () => clearTimeout(timeoutId)
-  }, [globalFilter, currentTabData])
 
   // Watch for storage changes to update data in real-time
   useEffect(() => {
@@ -453,7 +438,7 @@ export const FullDataViewApp: React.FC = () => {
             aria-label="Select all"
           />
         ),
-        cell: ({ row }) => (
+        cell: ({ row, table }) => (
           <Checkbox
             checked={row.getIsSelected()}
             onCheckedChange={(value: boolean) => {
@@ -647,6 +632,27 @@ export const FullDataViewApp: React.FC = () => {
     globalFilterFn: 'includesString',
   })
 
+  // `useTable` hands back a new object every render, so the effect below counts
+  // the rows here and depends on the count instead — otherwise every render
+  // would restart the debounce.
+  const filteredRowCount = table.getFilteredRowModel().rows.length
+
+  // Track search usage with debouncing
+  useEffect(() => {
+    if (globalFilter.length === 0) return
+
+    const timeoutId = setTimeout(() => {
+      trackEvent(ANALYTICS_EVENTS.FULL_DATA_VIEW_SEARCH, {
+        search_term_length: globalFilter.length,
+        filtered_rows: filteredRowCount,
+        // A search can only be typed from the main view, which has a tab.
+        total_rows: currentTabData!.scrapeResult.data.length,
+      })
+    }, 1000) // Debounce for 1 second
+
+    return () => clearTimeout(timeoutId)
+  }, [globalFilter, currentTabData, filteredRowCount])
+
   // Loading state
   if (isLoading) {
     return (
@@ -677,7 +683,13 @@ export const FullDataViewApp: React.FC = () => {
                 </CardHeader>
                 <CardContent>
                   <p>{error}</p>
-                  <Button onClick={() => loadTabsData()} className="mt-4">
+                  <Button
+                    onClick={() => {
+                      setIsLoading(true)
+                      setReloadRequest((request) => request + 1)
+                    }}
+                    className="mt-4"
+                  >
                     Retry
                   </Button>
                 </CardContent>
@@ -861,7 +873,7 @@ export const FullDataViewApp: React.FC = () => {
                       <Switch
                         id="show-empty-rows"
                         checked={shouldShowEmptyRows}
-                        onCheckedChange={setShouldShowEmptyRows}
+                        onCheckedChange={setIsShowEmptyRowsChecked}
                       />
                       <label
                         htmlFor="show-empty-rows"

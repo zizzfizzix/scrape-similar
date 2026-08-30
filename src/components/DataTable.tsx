@@ -24,7 +24,7 @@ import {
   useTable,
 } from '@tanstack/react-table'
 import { ChevronLeft, ChevronRight, Clipboard, Expand, Highlighter } from 'lucide-react'
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 
 // The side panel table only needs column sizing/resizing; pagination is handled
@@ -75,10 +75,14 @@ export const DataTable: React.FC<DataTableProps> = ({
     return `${filteredData.length}-${pagination.pageSize}-${showEmptyRows}`
   }, [filteredData.length, pagination.pageSize, showEmptyRows])
 
-  // Reset pagination when data changes
-  useEffect(() => {
+  // Send the reader back to page 1 whenever the rows underneath them change.
+  // Adjusting during render rather than from an effect keeps the table from
+  // painting the old page index against the new rows first.
+  const [previousFilteredData, setPreviousFilteredData] = useState(filteredData)
+  if (previousFilteredData !== filteredData) {
+    setPreviousFilteredData(filteredData)
     setPagination((prev) => ({ ...prev, pageIndex: 0 }))
-  }, [filteredData])
+  }
 
   // Build columns for TanStack Table
   const columns = useMemo<ColumnDef<DataTableFeatures, ScrapedRow>[]>(() => {

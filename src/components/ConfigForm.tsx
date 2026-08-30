@@ -110,7 +110,6 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
   const [guessButtonState, setGuessButtonState] = useState<
     'idle' | 'generating' | 'success' | 'failure'
   >('idle')
-  const [scrapeButtonState, setScrapeButtonState] = useState<'idle' | 'zero-found'>('idle')
 
   // State for Save Preset drawer
   const [isSaveDrawerOpen, setIsSaveDrawerOpen] = useState(false)
@@ -152,11 +151,15 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
    */
   const [mainSelectorDraft, setMainSelectorDraft] = useState(config.mainSelector)
 
-  // Keep draft in sync with external changes (e.g. preset load, storage sync)
-  useEffect(() => {
+  // An external change (preset load, storage sync) replaces whatever is in the
+  // input. Adjusting during render rather than from an effect keeps the frame
+  // that would otherwise show the superseded draft off the screen.
+  const [syncedMainSelector, setSyncedMainSelector] = useState(config.mainSelector)
+  if (syncedMainSelector !== config.mainSelector) {
+    setSyncedMainSelector(config.mainSelector)
     setMainSelectorDraft(config.mainSelector)
     setIsAutosuggestOpen(false)
-  }, [config.mainSelector])
+  }
 
   // Add ref and state for dynamic end adornment width
   const [endAdornmentWidth, setEndAdornmentWidth] = useState(0)
@@ -205,26 +208,31 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
     onClearLastScrapeRowCountRef.current = onClearLastScrapeRowCount
   }, [onClearLastScrapeRowCount])
 
-  // Watch for lastScrapeRowCount changes.
+  // The button reports "0 found" while that report is both current and unspent,
+  // so the only state here is the timer's verdict; the count stays the parent's.
+  const [isZeroFoundReportSpent, setIsZeroFoundReportSpent] = useState(false)
+  const [reportedRowCount, setReportedRowCount] = useState(lastScrapeRowCount)
+  if (reportedRowCount !== lastScrapeRowCount) {
+    setReportedRowCount(lastScrapeRowCount)
+    setIsZeroFoundReportSpent(false)
+  }
+  const scrapeButtonState =
+    lastScrapeRowCount === 0 && !isZeroFoundReportSpent ? 'zero-found' : 'idle'
+
   // Depends on lastScrapeRowCount only: if the callback identity were a dependency
   // the cleanup would cancel and the body would restart the timer on every parent
   // render, so the "0 found" feedback could outlive the scrape it belongs to.
   useEffect(() => {
     // No scrape feedback pending (or it was invalidated by a config change).
-    if (typeof lastScrapeRowCount !== 'number') {
-      setScrapeButtonState('idle')
-      return
-    }
+    if (typeof lastScrapeRowCount !== 'number') return
 
     if (lastScrapeRowCount !== 0) {
-      setScrapeButtonState('idle')
       onClearLastScrapeRowCountRef.current?.()
       return
     }
 
-    setScrapeButtonState('zero-found')
     const timeout = setTimeout(() => {
-      setScrapeButtonState('idle')
+      setIsZeroFoundReportSpent(true)
       onClearLastScrapeRowCountRef.current?.()
     }, ZERO_FOUND_FEEDBACK_MS)
     return () => clearTimeout(timeout)
@@ -380,6 +388,17 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
 
   useEffect(() => () => clearTimeout(blurCommitTimerRef.current), [])
 
+  // Opening never carries a selection over from the last time the list was
+  // open; the arrow-key handlers below move off -1 once it is open. Refocusing
+  // or typing into an already-open list is not an opening, and leaves the
+  // highlighted item where it is.
+  const openAutosuggest = () => {
+    if (isAutosuggestOpen) return
+    setIsAutosuggestOpen(true)
+    setSelectedAutosuggestIndex(-1)
+    setCmdkSelectedId(undefined)
+  }
+
   // Handle main selector focus
   const handleMainSelectorFocus = () => {
     // Focus is back, so a blur still waiting out its delay no longer applies.
@@ -387,7 +406,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
     // blurs the textarea; the user clicks straight back in and keeps typing, and
     // without this the pending timer closes the suggestions under them.
     clearTimeout(blurCommitTimerRef.current)
-    setIsAutosuggestOpen(true)
+    openAutosuggest()
   }
 
   // Handle main selector blur with delay to allow for clicks
@@ -433,9 +452,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
     const sanitized = sanitizeToSingleLine(value)
     setMainSelectorDraft(sanitized)
     // Keep dropdown open while typing (including when cleared) if the textarea has focus
-    if (!isAutosuggestOpen) {
-      setIsAutosuggestOpen(true)
-    }
+    openAutosuggest()
     // When cleared, reset selection but do not close; show all suggestions
     if (sanitized.length === 0) {
       setSelectedAutosuggestIndex(-1)
@@ -489,7 +506,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
     if (e.key === 'ArrowDown') {
       e.preventDefault()
       if (!isAutosuggestOpen) {
-        setIsAutosuggestOpen(true)
+        openAutosuggest()
         // after open, focus command root so cmdk handles keys
         requestAnimationFrame(() => {
           commandRef.current?.focus()
@@ -511,7 +528,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
     if (e.key === 'ArrowUp') {
       e.preventDefault()
       if (!isAutosuggestOpen) {
-        setIsAutosuggestOpen(true)
+        openAutosuggest()
         requestAnimationFrame(() => {
           commandRef.current?.focus()
           const last = Math.max(0, combinedSuggestionValues.length - 1)
@@ -576,13 +593,6 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
       return
     }
   }
-
-  // When autosuggest opens, do not preselect or focus any item.
-  useEffect(() => {
-    if (!isAutosuggestOpen) return
-    setSelectedAutosuggestIndex(-1)
-    setCmdkSelectedId(undefined)
-  }, [isAutosuggestOpen])
 
   // Close autosuggest on outside click (since focus may be inside Command)
   useEffect(() => {

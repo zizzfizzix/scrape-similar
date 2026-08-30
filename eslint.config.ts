@@ -169,15 +169,6 @@ const DEFERRED = {
   // unparseable code.
   'jest-dom/prefer-to-have-text-content': 'off',
   'jest-dom/prefer-to-have-style': 'off',
-  // 22 between them, and every one is an effect to restructure rather than a
-  // line to change: a `setState` on mount that wants `useSyncExternalStore`, a
-  // `[]` dependency list that would loop if it were completed. The React
-  // Compiler rules around them (`rules-of-hooks`, `purity`, `refs`,
-  // `set-state-in-render`, …) are on and clean.
-  'react-hooks/set-state-in-effect': 'off',
-  'react-hooks/exhaustive-deps': 'off',
-  'react-hooks/immutability': 'off',
-  'react-hooks/preserve-manual-memoization': 'off',
 } as const
 
 export default defineConfig([
