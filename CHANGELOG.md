@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.11.0](https://github.com/zizzfizzix/scrape-similar/compare/v0.10.1...v0.11.0) (2026-08-30)
+
+
+### Features
+
+* **lint:** enforce the boolean naming convention with naming-convention ([#285](https://github.com/zizzfizzix/scrape-similar/issues/285)) ([61507ee](https://github.com/zizzfizzix/scrape-similar/commit/61507eec5fa8bf39c4bd4b35dbff94b74e7783a0))
+* **manifest:** serve web accessible resources via dynamic URLs ([#242](https://github.com/zizzfizzix/scrape-similar/issues/242)) ([8127c80](https://github.com/zizzfizzix/scrape-similar/commit/8127c80703064e16d9f763209d6f5fa99ab55363))
+* **types:** adopt noUncheckedIndexedAccess and noImplicitOverride ([#255](https://github.com/zizzfizzix/scrape-similar/issues/255)) ([a112761](https://github.com/zizzfizzix/scrape-similar/commit/a11276141ce17de02b3bbb7b4f08f52da541038c)), closes [#245](https://github.com/zizzfizzix/scrape-similar/issues/245)
+
+
+### Bug Fixes
+
+* close the side-panel attach races and the autosuggest blur race ([#267](https://github.com/zizzfizzix/scrape-similar/issues/267)) ([6871bba](https://github.com/zizzfizzix/scrape-similar/commit/6871bba8d3bba7c28ed7b1d383e803859f37e647))
+* **sidepanel:** apply state written while the panel is starting up ([#262](https://github.com/zizzfizzix/scrape-similar/issues/262)) ([7a7318f](https://github.com/zizzfizzix/scrape-similar/commit/7a7318fb21ca05f9fbea98d51327c7f2d9163716))
+* **sidepanel:** don't report "0 found" on the scrape button while validating ([#256](https://github.com/zizzfizzix/scrape-similar/issues/256)) ([0c7efee](https://github.com/zizzfizzix/scrape-similar/commit/0c7efee2329605d9c9423e856d27cefec0819569))
+* **sidepanel:** reset validation state when the main selector is cleared ([#252](https://github.com/zizzfizzix/scrape-similar/issues/252)) ([6f0ccab](https://github.com/zizzfizzix/scrape-similar/commit/6f0ccab1b67634e4054e82be363013c050208ed6)), closes [#38](https://github.com/zizzfizzix/scrape-similar/issues/38)
+* stop awaiting on one side of a branch, which miscounts coverage ([#275](https://github.com/zizzfizzix/scrape-similar/issues/275)) ([cbfc6e0](https://github.com/zizzfizzix/scrape-similar/commit/cbfc6e0b4b2b7612ea2670b41fa91efb9884743f))
+* **test:** measure the whole codebase in the coverage gate ([#269](https://github.com/zizzfizzix/scrape-similar/issues/269)) ([b325ac9](https://github.com/zizzfizzix/scrape-similar/commit/b325ac96e2b8e47c923e3f798389d3b67f6e5b70))
+* validate the edited selector instead of scraping the old one ([#274](https://github.com/zizzfizzix/scrape-similar/issues/274)) ([4ce642a](https://github.com/zizzfizzix/scrape-similar/commit/4ce642a183ac1c0abe3aa588a4266b37c9e40cda))
+
 ## [0.10.1](https://github.com/zizzfizzix/scrape-similar/compare/v0.10.0...v0.10.1) (2026-04-25)
 
 
