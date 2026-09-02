@@ -147,8 +147,8 @@ const PROMISE_RULES: Linter.RulesRecord = {
   // Every option on, including `checksVoidReturn.attributes`. An async
   // `onClick` reads like the idiomatic React spelling, and it would be one if
   // the only alternative were `onClick={() => void handle()}` — the same
-  // dropped rejection with more syntax around it. It is not: `fireAndForget`
-  // in `src/utils/fire-and-forget.ts` reports what the handler threw, and a
+  // dropped rejection with more syntax around it. It is not: `reportRejection`
+  // in `src/utils/report-rejection.ts` reports what the handler threw, and a
   // rejected click handler is exactly as invisible as the service-worker
   // listener this rule is usually credited with catching.
   '@typescript-eslint/no-misused-promises': 'error',

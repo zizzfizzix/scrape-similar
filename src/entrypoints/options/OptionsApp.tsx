@@ -1,6 +1,6 @@
 import { Toaster } from '@/components/ui/sonner'
-import { fireAndForget } from '@/utils/fire-and-forget'
 import { isDevOrTest } from '@/utils/modeTest'
+import { reportRejection } from '@/utils/report-rejection'
 import log from 'loglevel'
 import React, { useEffect, useRef, useState } from 'react'
 
@@ -10,7 +10,7 @@ export const OptionsApp: React.FC = () => {
 
   // Load debug mode from storage on mount
   useEffect(() => {
-    fireAndForget(
+    reportRejection(
       storage.getItem<boolean>('local:debugMode').then((val) => {
         setIsDebugModeEnabled(!!val)
         if (isDevOrTest) {
@@ -35,7 +35,7 @@ export const OptionsApp: React.FC = () => {
 
   const handleDebugModeChange = (enabled: boolean) => {
     setIsDebugModeEnabled(enabled)
-    fireAndForget(storage.setItem('local:debugMode', enabled))
+    reportRejection(storage.setItem('local:debugMode', enabled))
   }
 
   const handleTitleClick = () => {

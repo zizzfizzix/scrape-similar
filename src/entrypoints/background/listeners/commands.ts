@@ -1,5 +1,5 @@
-import { asListener } from '@/utils/fire-and-forget'
 import { isInjectableUrl } from '@/utils/isInjectableUrl'
+import { reportingListener } from '@/utils/report-rejection'
 import log from 'loglevel'
 
 /**
@@ -7,7 +7,7 @@ import log from 'loglevel'
  */
 export const setupCommandsListener = (): void => {
   browser.commands.onCommand.addListener(
-    asListener(async (command) => {
+    reportingListener(async (command) => {
       if (command !== 'toggle_visual_picker') return
       try {
         const [activeTab] = await browser.tabs.query({ active: true, currentWindow: true })

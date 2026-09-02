@@ -12,8 +12,8 @@ import {
   nextSlideIndex,
   type Platform,
 } from '@/entrypoints/onboarding/navigation'
-import { fireAndForget } from '@/utils/fire-and-forget'
 import { isTest } from '@/utils/modeTest'
+import { reportRejection } from '@/utils/report-rejection'
 import {
   Ban,
   Check,
@@ -602,7 +602,9 @@ export const OnboardingApp: React.FC = () => {
 
             <Card className="relative">
               <CardHeader>
-                <ConsentCard onDecision={(accepted) => fireAndForget(onConsentChange(accepted))} />
+                <ConsentCard
+                  onDecision={(accepted) => reportRejection(onConsentChange(accepted))}
+                />
               </CardHeader>
               <CardContent className="space-y-6">
                 <ConsentContent />
@@ -651,7 +653,7 @@ export const OnboardingApp: React.FC = () => {
                     </Button>
                   )}
                   {currentSlide === slides.length - 1 ? (
-                    <Button size="sm" onClick={() => fireAndForget(handleStartDemo())}>
+                    <Button size="sm" onClick={() => reportRejection(handleStartDemo())}>
                       Start
                       <Rocket className="h-4 w-4 ml-2" />
                     </Button>

@@ -13,7 +13,7 @@ import {
 } from '@/entrypoints/background/listeners/tabs'
 import { initializeAnalyticsQueue } from '@/entrypoints/background/services/analytics-queue'
 import { initializeDebugMode } from '@/entrypoints/background/services/debug-mode'
-import { fireAndForget } from '@/utils/fire-and-forget'
+import { reportRejection } from '@/utils/report-rejection'
 
 /**
  * What the background service worker wires up on startup.
@@ -26,9 +26,9 @@ export const startBackground = (): void => {
   // Debug mode first, so everything below logs at the level the user chose.
   // None of the three can be awaited from a synchronous entrypoint, and a
   // service worker that fails to start one of them should say so.
-  fireAndForget(initializeDebugMode())
-  fireAndForget(initializeAnalyticsQueue())
-  fireAndForget(initializeUninstallUrl())
+  reportRejection(initializeDebugMode())
+  reportRejection(initializeAnalyticsQueue())
+  reportRejection(initializeUninstallUrl())
 
   setupInstallListener()
   setupStartupListener()

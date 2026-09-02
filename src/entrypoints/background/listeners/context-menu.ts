@@ -1,6 +1,6 @@
 import { ANALYTICS_EVENTS, trackEvent } from '@/utils/analytics'
-import { asListener } from '@/utils/fire-and-forget'
 import { isInjectableUrl } from '@/utils/isInjectableUrl'
+import { reportingListener } from '@/utils/report-rejection'
 import log from 'loglevel'
 import { applySidePanelDataUpdates, getSessionState } from '../services/session-storage'
 
@@ -9,7 +9,7 @@ import { applySidePanelDataUpdates, getSessionState } from '../services/session-
  */
 export const setupContextMenuListener = (): void => {
   browser.contextMenus.onClicked.addListener(
-    asListener(async (info: Browser.contextMenus.OnClickData, tab?: Browser.tabs.Tab) => {
+    reportingListener(async (info: Browser.contextMenus.OnClickData, tab?: Browser.tabs.Tab) => {
       log.debug('Context menu clicked:', info, tab)
 
       if (!tab?.id) {

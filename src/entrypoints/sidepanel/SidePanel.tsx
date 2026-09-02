@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Toaster } from '@/components/ui/sonner'
-import { fireAndForget } from '@/utils/fire-and-forget'
+import { reportRejection } from '@/utils/report-rejection'
 import {
   buildConfigChangeUpdates,
   buildExportFilename,
@@ -110,7 +110,7 @@ const FullDataViewControls: React.FC<{
         <h2 className="text-2xl mb-4">Full Screen View Active</h2>
 
         <div className="flex flex-col gap-4">
-          <Button onClick={() => fireAndForget(handleBackToTab())}>
+          <Button onClick={() => reportRejection(handleBackToTab())}>
             <Minimize2 className="h-4 w-4" />
             Compact View
           </Button>
@@ -233,7 +233,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
         setTargetTabId(newTabId)
         setTabUrl(newTabUrl)
         const sessionKey = `sidepanel_config_${newTabId}`
-        fireAndForget(
+        reportRejection(
           storage.getItem<SidePanelConfig>(`session:${sessionKey}`).then((stored) => {
             if (stored) {
               log.debug('Initial data loaded from storage:', stored)
@@ -268,7 +268,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
 
   // --- Unified utility to save all sidepanel state to session storage ---
   const saveSidePanelState = useCallback((tabId: number, updates: Partial<SidePanelConfig>) => {
-    fireAndForget(
+    reportRejection(
       browser.runtime.sendMessage({
         type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
         payload: { tabId, updates },
@@ -330,7 +330,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
 
       // Load data directly from storage for the new tab
       const sessionKey = `sidepanel_config_${newTabId}`
-      fireAndForget(
+      reportRejection(
         storage.getItem<SidePanelConfig>(`session:${sessionKey}`).then((stored) => {
           if (browser.runtime.lastError) {
             log.error(
@@ -681,7 +681,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
 
   // Every `Footer` below takes the same `() => void` prop, so the discard is
   // written once rather than once per render branch.
-  const resetSystemPresets = () => fireAndForget(handleResetSystemPresets())
+  const resetSystemPresets = () => reportRejection(handleResetSystemPresets())
 
   const handlePresetsImported = useCallback(() => {
     void getAllPresets().then(setPresets)
@@ -737,8 +737,8 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
               initialOptions={initialOptions}
               presets={presets}
               onLoadPreset={handleLoadPreset}
-              onSavePreset={(name) => fireAndForget(handleSavePreset(name))}
-              onDeletePreset={(preset) => fireAndForget(handleDeletePreset(preset))}
+              onSavePreset={(name) => reportRejection(handleSavePreset(name))}
+              onDeletePreset={(preset) => reportRejection(handleDeletePreset(preset))}
               showPresets={shouldShowPresets}
               setShowPresets={setShouldShowPresets}
               lastScrapeRowCount={lastScrapeRowCount}

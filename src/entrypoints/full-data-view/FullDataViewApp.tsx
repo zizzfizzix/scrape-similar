@@ -28,7 +28,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { asListener, fireAndForget } from '@/utils/fire-and-forget'
+import { reportingListener, reportRejection } from '@/utils/report-rejection'
 
 import {
   collectTabsWithData,
@@ -158,11 +158,11 @@ export const FullDataViewApp: React.FC = () => {
       }
     }
 
-    fireAndForget(loadTabsData())
+    reportRejection(loadTabsData())
   }, [currentTabId, reloadRequest])
 
   useEffect(() => {
-    fireAndForget(
+    reportRejection(
       storage.getItem<boolean>('local:debugMode').then((val) => {
         if (isDevOrTest) {
           log.setLevel('trace')
@@ -199,7 +199,7 @@ export const FullDataViewApp: React.FC = () => {
       const sessionKey = `sidepanel_config_${tabId}`
       const unwatch = storage.watch<SidePanelConfig>(
         `session:${sessionKey}`,
-        asListener(async (newValue) => {
+        reportingListener(async (newValue) => {
           // Update only the specific tab that changed, preserve user's current selection
           const tabInfo = await browser.tabs.get(tabId).catch(() => null)
           if (!tabInfo) return
@@ -503,7 +503,7 @@ export const FullDataViewApp: React.FC = () => {
                   ? undefined
                   : () => {
                       const rowSelector = `(${currentTabData.config.mainSelector})[${originalIndex + 1}]`
-                      fireAndForget(handleRowHighlight(rowSelector, currentTabData.tabId))
+                      reportRejection(handleRowHighlight(rowSelector, currentTabData.tabId))
                     }
               }
             >
@@ -534,7 +534,7 @@ export const FullDataViewApp: React.FC = () => {
               className="size-6"
               aria-label={isEmpty ? undefined : 'Copy this row'}
               disabled={isEmpty}
-              onClick={isEmpty ? undefined : () => fireAndForget(copyRow())}
+              onClick={isEmpty ? undefined : () => reportRejection(copyRow())}
             >
               <Clipboard className="size-4" />
             </Button>
@@ -748,7 +748,7 @@ export const FullDataViewApp: React.FC = () => {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => fireAndForget(handleBackToTab())}
+                    onClick={() => reportRejection(handleBackToTab())}
                   >
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     Back to Tab

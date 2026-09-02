@@ -1,7 +1,7 @@
 import { ANALYTICS_EVENTS, trackEvent } from '@/utils/analytics'
 import type { DistinctId } from '@/utils/distinct-id'
 import { DISTINCT_ID_KEY } from '@/utils/distinct-id'
-import { asListener, fireAndForget } from '@/utils/fire-and-forget'
+import { reportingListener, reportRejection } from '@/utils/report-rejection'
 import { initializeStorage } from '@/utils/storage'
 import log from 'loglevel'
 import { injectContentScriptToAllTabs } from '../utils/content-injection'
@@ -69,7 +69,7 @@ export const initializeUninstallUrl = async (): Promise<void> => {
  */
 export const setupInstallListener = (): void => {
   browser.runtime.onInstalled.addListener(
-    asListener(async (details: Browser.runtime.InstalledDetails) => {
+    reportingListener(async (details: Browser.runtime.InstalledDetails) => {
       log.debug('Scrape Similar extension installed')
 
       // Initialize storage
@@ -103,7 +103,7 @@ export const setupInstallListener = (): void => {
 
       // Inject content script into all tabs on install/update. Started rather
       // than awaited, so a failure here cannot cost the install event below.
-      fireAndForget(injectContentScriptToAllTabs())
+      reportRejection(injectContentScriptToAllTabs())
 
       log.debug('Service worker is running')
 
@@ -118,7 +118,7 @@ export const setupInstallListener = (): void => {
  */
 export const setupStartupListener = (): void => {
   browser.runtime.onStartup.addListener(
-    asListener(async () => {
+    reportingListener(async () => {
       await injectContentScriptToAllTabs()
       log.debug('Service worker is running')
     }),

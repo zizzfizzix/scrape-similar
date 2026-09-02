@@ -11,8 +11,8 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { ANALYTICS_EVENTS, trackEvent } from '@/utils/analytics'
 import { calculateOptimalColumnWidth, SIDE_PANEL_COLUMN_METRICS } from '@/utils/column-width'
-import { fireAndForget } from '@/utils/fire-and-forget'
 import { getColumnKeys } from '@/utils/getColumnKeys'
+import { reportRejection } from '@/utils/report-rejection'
 import { rowToTsv } from '@/utils/tsv'
 import {
   type CellContext,
@@ -156,7 +156,7 @@ export const DataTable: React.FC<DataTableProps> = ({
               className="size-6"
               aria-label={isEmpty ? undefined : 'Copy this row'}
               disabled={isEmpty}
-              onClick={isEmpty ? undefined : () => fireAndForget(copyRow())}
+              onClick={isEmpty ? undefined : () => reportRejection(copyRow())}
             >
               <Clipboard className="size-4" />
             </Button>
@@ -259,7 +259,7 @@ export const DataTable: React.FC<DataTableProps> = ({
     const fullViewUrl = browser.runtime.getURL(`/full-data-view.html?tabId=${tabId}`)
     // Not awaited: the side panel closes on the next line, so there is nobody
     // left to await it.
-    fireAndForget(browser.tabs.create({ url: fullViewUrl }))
+    reportRejection(browser.tabs.create({ url: fullViewUrl }))
 
     // Close the sidepanel window after opening the full view
     window.close()

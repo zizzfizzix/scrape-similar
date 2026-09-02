@@ -1,5 +1,5 @@
-import { asListener } from '@/utils/fire-and-forget'
 import { isDevOrTest } from '@/utils/modeTest'
+import { reportingListener } from '@/utils/report-rejection'
 import log from 'loglevel'
 
 /**
@@ -41,7 +41,7 @@ export const initializeDebugMode = async (): Promise<void> => {
   // React to debugMode changes
   storage.watch<boolean>(
     'local:debugMode',
-    asListener(async (debugMode) => {
+    reportingListener(async (debugMode) => {
       if (!isDevOrTest) {
         log.setLevel(debugMode ? 'trace' : 'error')
       }

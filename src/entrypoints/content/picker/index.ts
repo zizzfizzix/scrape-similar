@@ -24,7 +24,7 @@ import {
 } from '@/entrypoints/content/picker/context-menu'
 import type { ContentScriptState } from '@/entrypoints/content/state'
 import { ANALYTICS_EVENTS, trackEvent } from '@/utils/analytics'
-import { asListener, fireAndForget } from '@/utils/fire-and-forget'
+import { reportingListener, reportRejection } from '@/utils/report-rejection'
 import {
   evaluateXPath,
   guessScrapeConfigForElement,
@@ -292,7 +292,7 @@ export const handlePickerClick = async (
 
     // Persist validation state so the UI marks the selector as validated. Not
     // awaited: nothing below depends on the side panel having caught up.
-    fireAndForget(
+    reportRejection(
       browser.runtime.sendMessage({
         type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
         payload: {
@@ -328,7 +328,7 @@ export const handlePickerClick = async (
         type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
         payload: { tabId, updates: { scrapeResult } },
       },
-      asListener(async (response: { success?: boolean; error?: string } | undefined) => {
+      reportingListener(async (response: { success?: boolean; error?: string } | undefined) => {
         if (browser.runtime.lastError) {
           log.error('Error sending picker scrape result to background:', browser.runtime.lastError)
         } else if (response?.success) {
@@ -412,7 +412,7 @@ export const enablePickerMode = async (
 
   // Save picker mode state to storage
   if (state.tabId !== null) {
-    fireAndForget(
+    reportRejection(
       browser.runtime.sendMessage({
         type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
         payload: {
@@ -492,7 +492,9 @@ const createPickerEventHandlers = (
 
   return {
     mouseMoveHandler: (e: MouseEvent) => handlePickerMouseMove(e, state),
-    clickHandler: asListener((e: MouseEvent) => handlePickerClick(e, state, disablePickerMode)),
+    clickHandler: reportingListener((e: MouseEvent) =>
+      handlePickerClick(e, state, disablePickerMode),
+    ),
     keyDownHandler: (e: KeyboardEvent) => handlePickerKeyDown(e, state, disablePickerMode),
     contextMenuHandler: (e: MouseEvent) => handlePickerContextMenu(e, state, handleShowContextMenu),
     clickOutsideHandler: (e: MouseEvent) =>
@@ -517,7 +519,7 @@ export const disablePickerMode = (state: ContentScriptState, source?: string): v
 
   // Save picker mode state to storage
   if (state.tabId !== null) {
-    fireAndForget(
+    reportRejection(
       browser.runtime.sendMessage({
         type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
         payload: {

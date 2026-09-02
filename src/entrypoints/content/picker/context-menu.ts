@@ -1,7 +1,7 @@
 import { highlightElementsForPicker } from '@/entrypoints/content/highlight'
 import type { ContentScriptState } from '@/entrypoints/content/state'
 import { ANALYTICS_EVENTS, trackEvent } from '@/utils/analytics'
-import { fireAndForget } from '@/utils/fire-and-forget'
+import { reportRejection } from '@/utils/report-rejection'
 import { evaluateXPath } from '@/utils/scraper'
 import log from 'loglevel'
 import type { ContentScriptContext } from 'wxt/utils/content-script-context'
@@ -91,7 +91,7 @@ export const showPickerContextMenu = async (
         state.pickerContextMenuHost = container as HTMLDivElement
 
         // Dynamically import and mount the React component
-        fireAndForget(
+        reportRejection(
           import('@/entrypoints/content/ui/PickerContextMenu').then((mod) => {
             const { mountPickerContextMenuReact } = mod
             const api = mountPickerContextMenuReact(
@@ -241,7 +241,7 @@ export const handlePickerContextMenu = (
 
   event.preventDefault()
   event.stopPropagation()
-  fireAndForget(showContextMenu(event.clientX, event.clientY))
+  reportRejection(showContextMenu(event.clientX, event.clientY))
 }
 
 /**

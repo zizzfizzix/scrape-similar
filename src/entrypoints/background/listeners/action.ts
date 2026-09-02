@@ -1,5 +1,5 @@
 import { ANALYTICS_EVENTS, trackEvent } from '@/utils/analytics'
-import { asListener } from '@/utils/fire-and-forget'
+import { reportingListener } from '@/utils/report-rejection'
 import log from 'loglevel'
 import { initializeSessionState } from '../services/session-storage'
 
@@ -8,7 +8,7 @@ import { initializeSessionState } from '../services/session-storage'
  */
 export const setupActionListener = (): void => {
   browser.action.onClicked.addListener(
-    asListener(async (tab: Browser.tabs.Tab) => {
+    reportingListener(async (tab: Browser.tabs.Tab) => {
       if (!tab?.id) return
       const tabId = tab.id
 

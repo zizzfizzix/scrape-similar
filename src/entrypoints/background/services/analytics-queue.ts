@@ -1,7 +1,7 @@
 import { EVENT_QUEUE_STORAGE_KEY, queueMutex } from '@/utils/analytics'
 import { ANALYTICS_CONSENT_STORAGE_KEY } from '@/utils/consent'
-import { asListener } from '@/utils/fire-and-forget'
 import { getPostHogBackground, resetPostHogInstance } from '@/utils/posthog-background'
+import { reportingListener } from '@/utils/report-rejection'
 import log from 'loglevel'
 import { PostHog } from 'posthog-js/dist/module.no-external'
 import type { QueuedEvent } from '../types'
@@ -93,7 +93,7 @@ export const initializeAnalyticsQueue = async (): Promise<void> => {
   // Listen for consent changes to (re)initialize PostHog and flush queued events
   storage.watch<boolean | null | string>(
     `sync:${ANALYTICS_CONSENT_STORAGE_KEY}`,
-    asListener(async (value) => {
+    reportingListener(async (value) => {
       const sanitizedConsentState =
         value === '' || value === null || value === undefined ? undefined : !!value
       if (sanitizedConsentState === true) {
@@ -117,7 +117,7 @@ export const initializeAnalyticsQueue = async (): Promise<void> => {
   // Watch for new items added to the analytics queue in case consent was granted after startup
   storage.watch<QueuedEvent[]>(
     `local:${EVENT_QUEUE_STORAGE_KEY}`,
-    asListener(async (queue) => {
+    reportingListener(async (queue) => {
       if (queue && queue.length > 0) {
         await flushQueuedEvents()
       }

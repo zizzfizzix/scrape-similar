@@ -1,4 +1,4 @@
-import { fireAndForget } from '@/utils/fire-and-forget'
+import { reportRejection } from '@/utils/report-rejection'
 
 export interface StorageSubscriptionSource<T> {
   /** Must register the listener synchronously; returns its unsubscribe. */
@@ -31,7 +31,7 @@ export const subscribeWithBackfill = <T>(
     onValue(value)
   })
 
-  fireAndForget(
+  reportRejection(
     read().then((value) => {
       if (isSubscribed && !hasWatchedValue && value != null) {
         onValue(value)

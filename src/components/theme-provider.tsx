@@ -1,4 +1,4 @@
-import { fireAndForget } from '@/utils/fire-and-forget'
+import { reportRejection } from '@/utils/report-rejection'
 import { createContext, useContext, useEffect, useState } from 'react'
 
 type Theme = 'dark' | 'light' | 'system'
@@ -39,7 +39,7 @@ export function ThemeProvider({
   const [theme, setTheme] = useState<Theme>(defaultTheme)
 
   useEffect(() => {
-    fireAndForget(
+    reportRejection(
       storage.getItem<Theme>(`local:${themeStorageKey}`).then((stored) => {
         if (isTheme(stored)) {
           setTheme(stored)
@@ -91,7 +91,7 @@ export function ThemeProvider({
   const value = {
     theme,
     setTheme: (theme: Theme) => {
-      fireAndForget(storage.setItem(`local:${themeStorageKey}`, theme))
+      reportRejection(storage.setItem(`local:${themeStorageKey}`, theme))
       setTheme(theme)
     },
     rootElement,

@@ -1,4 +1,4 @@
-import { asListener } from '@/utils/fire-and-forget'
+import { reportingListener } from '@/utils/report-rejection'
 import log from 'loglevel'
 import { clearDemoScrapeFlag, executeDemoScrape } from '../services/demo-scrape'
 import { clearSessionState } from '../services/session-storage'
@@ -8,7 +8,7 @@ import { clearSessionState } from '../services/session-storage'
  */
 export const setupTabRemovedListener = (): void => {
   browser.tabs.onRemoved.addListener(
-    asListener(async (tabId: number) => {
+    reportingListener(async (tabId: number) => {
       log.debug(`Tab removed: ${tabId}`)
       await clearSessionState(tabId)
       await clearDemoScrapeFlag(tabId)
@@ -21,7 +21,7 @@ export const setupTabRemovedListener = (): void => {
  */
 export const setupTabUpdatedListener = (): void => {
   browser.tabs.onUpdated.addListener(
-    asListener(
+    reportingListener(
       async (tabId: number, changeInfo: Browser.tabs.OnUpdatedInfo, tab: Browser.tabs.Tab) => {
         if (changeInfo.status === 'complete') {
           const demoData = await storage.getItem<ScrapeConfig>(`local:demo_scrape_pending_${tabId}`)
