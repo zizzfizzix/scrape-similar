@@ -131,6 +131,23 @@ export const DataTable: React.FC<DataTableProps> = ({
             </Button>
           )
 
+          const copyRow = async () => {
+            const columnKeys = getColumnKeys(columnsOrder, config.columns)
+            const tsvContent = rowToTsv(row.original, columnKeys)
+            try {
+              await navigator.clipboard.writeText(tsvContent)
+              toast.success('Copied row to clipboard')
+              trackEvent(ANALYTICS_EVENTS.COPY_TO_CLIPBOARD_TRIGGER, {
+                rows_copied: 1,
+                columns_count: columnKeys.length,
+                export_type: 'data_table_row',
+              })
+            } catch {
+              toast.error('Failed to copy')
+              trackEvent(ANALYTICS_EVENTS.COPY_TO_CLIPBOARD_FAILURE)
+            }
+          }
+
           // Copy row button
           const copyButton = (
             <Button
@@ -139,26 +156,7 @@ export const DataTable: React.FC<DataTableProps> = ({
               className="size-6"
               aria-label={isEmpty ? undefined : 'Copy this row'}
               disabled={isEmpty}
-              onClick={
-                isEmpty
-                  ? undefined
-                  : async () => {
-                      const columnKeys = getColumnKeys(columnsOrder, config.columns)
-                      const tsvContent = rowToTsv(row.original, columnKeys)
-                      try {
-                        await navigator.clipboard.writeText(tsvContent)
-                        toast.success('Copied row to clipboard')
-                        trackEvent(ANALYTICS_EVENTS.COPY_TO_CLIPBOARD_TRIGGER, {
-                          rows_copied: 1,
-                          columns_count: columnKeys.length,
-                          export_type: 'data_table_row',
-                        })
-                      } catch {
-                        toast.error('Failed to copy')
-                        trackEvent(ANALYTICS_EVENTS.COPY_TO_CLIPBOARD_FAILURE)
-                      }
-                    }
-              }
+              onClick={isEmpty ? undefined : () => fireAndForget(copyRow())}
             >
               <Clipboard className="size-4" />
             </Button>

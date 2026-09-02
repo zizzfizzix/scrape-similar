@@ -740,16 +740,16 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
                   onChange={(e) => setPresetName(e.target.value)}
                   autoFocus
                   className="ph_hidden"
-                  onKeyDown={async (e) => {
+                  onKeyDown={(e) => {
                     if (e.key === 'Enter' && presetName.trim()) {
-                      await handleSavePreset()
+                      fireAndForget(handleSavePreset())
                     }
                   }}
                 />
               </div>
               <DrawerFooter>
                 <Button
-                  onClick={handleSavePreset}
+                  onClick={() => fireAndForget(handleSavePreset())}
                   disabled={
                     isSaving ||
                     !presetName.trim() ||
@@ -861,15 +861,19 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
                                   variant="ghost"
                                   size="icon"
                                   className="h-6 w-6 p-0 justify-center rounded hover:bg-destructive/10 opacity-70 hover:opacity-100 focus:outline-none"
-                                  onClick={async (e) => {
+                                  onClick={(e) => {
                                     e.preventDefault()
                                     e.stopPropagation()
-                                    await removeRecentMainSelector(selector)
-                                    setRecentSelectors(await getRecentMainSelectors())
-                                    // Keep dropdown open and move focus back to Command root
-                                    requestAnimationFrame(() => {
-                                      commandRef.current?.focus()
-                                    })
+                                    fireAndForget(
+                                      (async () => {
+                                        await removeRecentMainSelector(selector)
+                                        setRecentSelectors(await getRecentMainSelectors())
+                                        // Keep dropdown open and move focus back to Command root
+                                        requestAnimationFrame(() => {
+                                          commandRef.current?.focus()
+                                        })
+                                      })(),
+                                    )
                                   }}
                                 >
                                   <X className="h-3 w-3" />
@@ -1069,7 +1073,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  onClick={handleGuessConfig}
+                  onClick={() => fireAndForget(handleGuessConfig())}
                   disabled={guessButtonState === 'generating' || !isMainSelectorValid}
                   aria-label="Auto-generate configuration from selector"
                 >

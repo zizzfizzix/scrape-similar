@@ -110,7 +110,7 @@ const FullDataViewControls: React.FC<{
         <h2 className="text-2xl mb-4">Full Screen View Active</h2>
 
         <div className="flex flex-col gap-4">
-          <Button onClick={handleBackToTab}>
+          <Button onClick={() => fireAndForget(handleBackToTab())}>
             <Minimize2 className="h-4 w-4" />
             Compact View
           </Button>
@@ -679,6 +679,10 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
     })
   }
 
+  // Every `Footer` below takes the same `() => void` prop, so the discard is
+  // written once rather than once per render branch.
+  const resetSystemPresets = () => fireAndForget(handleResetSystemPresets())
+
   const handlePresetsImported = useCallback(() => {
     void getAllPresets().then(setPresets)
   }, [])
@@ -708,7 +712,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
         </ConsentWrapper>
         <Footer
           showSettings={true}
-          onResetSystemPresets={handleResetSystemPresets}
+          onResetSystemPresets={resetSystemPresets}
           onPresetsImported={handlePresetsImported}
           debugMode={debugMode}
           onDebugModeChange={onDebugModeChange}
@@ -733,8 +737,8 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
               initialOptions={initialOptions}
               presets={presets}
               onLoadPreset={handleLoadPreset}
-              onSavePreset={handleSavePreset}
-              onDeletePreset={handleDeletePreset}
+              onSavePreset={(name) => fireAndForget(handleSavePreset(name))}
+              onDeletePreset={(preset) => fireAndForget(handleDeletePreset(preset))}
               showPresets={shouldShowPresets}
               setShowPresets={setShouldShowPresets}
               lastScrapeRowCount={lastScrapeRowCount}
@@ -779,7 +783,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
       </ConsentWrapper>
       <Footer
         showSettings={true}
-        onResetSystemPresets={handleResetSystemPresets}
+        onResetSystemPresets={resetSystemPresets}
         onPresetsImported={handlePresetsImported}
         debugMode={debugMode}
         onDebugModeChange={onDebugModeChange}

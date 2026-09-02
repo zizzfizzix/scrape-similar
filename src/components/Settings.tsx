@@ -281,7 +281,7 @@ export const Settings = React.memo(
             type="button"
             variant="outline"
             size="sm"
-            onClick={handleResetSystemPresets}
+            onClick={() => fireAndForget(handleResetSystemPresets())}
             aria-labelledby={`${systemPresetsId}-label`}
           >
             Reset
@@ -297,7 +297,7 @@ export const Settings = React.memo(
             accept=".json,application/json"
             className="hidden"
             aria-hidden
-            onChange={handleImportFileChange}
+            onChange={(e) => fireAndForget(handleImportFileChange(e))}
           />
           <ButtonGroup aria-label="User presets import and export">
             <Button
@@ -316,7 +316,7 @@ export const Settings = React.memo(
               type="button"
               variant="outline"
               size="sm"
-              onClick={handleExportPresets}
+              onClick={() => fireAndForget(handleExportPresets())}
               aria-label="Export user presets"
             >
               <Upload className="mr-1 size-4" />
@@ -349,7 +349,11 @@ export const Settings = React.memo(
                   Cancel
                 </Button>
               </ResponsiveDialog.Close>
-              <Button type="button" variant="destructive" onClick={handleImportConfirm}>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={() => fireAndForget(handleImportConfirm())}
+              >
                 Import
               </Button>
             </ResponsiveDialog.Footer>

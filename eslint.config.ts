@@ -144,17 +144,14 @@ const BOOLEAN_PREFIX: Linter.RulesRecord = {
  */
 const PROMISE_RULES: Linter.RulesRecord = {
   '@typescript-eslint/no-floating-promises': 'error',
-  // `checksVoidReturn.attributes` is the one part of this rule with nothing to
-  // say about this codebase. A React handler prop is `() => void` because React
-  // has no other spelling for one, and nothing on the receiving side ever looks
-  // at what a handler returned; the rewrite the rule asks for,
-  // `onClick={() => void handle()}`, discards the same promise the async
-  // handler already discards, so it buys ceremony rather than a handled
-  // rejection. Every other void-return position stays checked — `arguments` is
-  // where the real mistakes are (`forEach(async …)`, a service-worker listener
-  // that rejects into nothing), and `asListener` in `src/utils/fire-and-forget.ts`
-  // is how those are written.
-  '@typescript-eslint/no-misused-promises': ['error', { checksVoidReturn: { attributes: false } }],
+  // Every option on, including `checksVoidReturn.attributes`. An async
+  // `onClick` reads like the idiomatic React spelling, and it would be one if
+  // the only alternative were `onClick={() => void handle()}` — the same
+  // dropped rejection with more syntax around it. It is not: `fireAndForget`
+  // in `src/utils/fire-and-forget.ts` reports what the handler threw, and a
+  // rejected click handler is exactly as invisible as the service-worker
+  // listener this rule is usually credited with catching.
+  '@typescript-eslint/no-misused-promises': 'error',
 }
 
 /**

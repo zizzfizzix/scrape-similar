@@ -501,15 +501,31 @@ export const FullDataViewApp: React.FC = () => {
               onClick={
                 isEmpty
                   ? undefined
-                  : async () => {
+                  : () => {
                       const rowSelector = `(${currentTabData.config.mainSelector})[${originalIndex + 1}]`
-                      await handleRowHighlight(rowSelector, currentTabData.tabId)
+                      fireAndForget(handleRowHighlight(rowSelector, currentTabData.tabId))
                     }
               }
             >
               <Highlighter className="size-4" />
             </Button>
           )
+
+          const copyRow = async () => {
+            const tsvContent = rowToTsv(row.original, columnKeys)
+            try {
+              await navigator.clipboard.writeText(tsvContent)
+              toast.success('Copied row to clipboard')
+              trackEvent(ANALYTICS_EVENTS.COPY_TO_CLIPBOARD_TRIGGER, {
+                rows_copied: 1,
+                columns_count: columnKeys.length,
+                export_type: 'full_data_view_row',
+              })
+            } catch {
+              toast.error('Failed to copy')
+              trackEvent(ANALYTICS_EVENTS.COPY_TO_CLIPBOARD_FAILURE)
+            }
+          }
 
           const copyButton = (
             <Button
@@ -518,25 +534,7 @@ export const FullDataViewApp: React.FC = () => {
               className="size-6"
               aria-label={isEmpty ? undefined : 'Copy this row'}
               disabled={isEmpty}
-              onClick={
-                isEmpty
-                  ? undefined
-                  : async () => {
-                      const tsvContent = rowToTsv(row.original, columnKeys)
-                      try {
-                        await navigator.clipboard.writeText(tsvContent)
-                        toast.success('Copied row to clipboard')
-                        trackEvent(ANALYTICS_EVENTS.COPY_TO_CLIPBOARD_TRIGGER, {
-                          rows_copied: 1,
-                          columns_count: columnKeys.length,
-                          export_type: 'full_data_view_row',
-                        })
-                      } catch {
-                        toast.error('Failed to copy')
-                        trackEvent(ANALYTICS_EVENTS.COPY_TO_CLIPBOARD_FAILURE)
-                      }
-                    }
-              }
+              onClick={isEmpty ? undefined : () => fireAndForget(copyRow())}
             >
               <Clipboard className="size-4" />
             </Button>
@@ -747,7 +745,11 @@ export const FullDataViewApp: React.FC = () => {
             <div className="container mx-auto px-4 py-4">
               <div className="grid grid-cols-[1fr_auto_1fr]">
                 <div className="flex items-center">
-                  <Button variant="outline" size="sm" onClick={handleBackToTab}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fireAndForget(handleBackToTab())}
+                  >
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     Back to Tab
                   </Button>

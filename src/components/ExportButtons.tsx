@@ -18,6 +18,7 @@ import {
   SHEETS_EXPORT_TIMEOUT_MS,
   XLSX_MIME_TYPE,
 } from '@/utils/export-data'
+import { fireAndForget } from '@/utils/fire-and-forget'
 import { getColumnKeys } from '@/utils/getColumnKeys'
 import { rowsToTsv } from '@/utils/tsv'
 import type { ScrapeConfig, ScrapedRow, ScrapeResult } from '@/utils/types'
@@ -245,7 +246,7 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onSelect={handleCopyTsv}>
+        <DropdownMenuItem onSelect={() => fireAndForget(handleCopyTsv())}>
           <Clipboard className="h-4 w-4" />
           Copy {exportText} to clipboard
         </DropdownMenuItem>
@@ -265,7 +266,7 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
           <Sheet className="h-4 w-4" />
           {isExporting ? 'Exporting…' : `Export ${exportText} to Google Sheets`}
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={handleXlsxExport}>
+        <DropdownMenuItem onSelect={() => fireAndForget(handleXlsxExport())}>
           <FileSpreadsheet className="h-4 w-4" />
           Save {exportText} to Excel (.xlsx)
         </DropdownMenuItem>
