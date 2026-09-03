@@ -1,3 +1,4 @@
+import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 // @vitest-environment jsdom
 import { ConsentProvider } from '@/components/consent-provider'
 import { ThemeProvider } from '@/components/theme-provider'
@@ -102,13 +103,10 @@ const render = async () => {
   return rendered
 }
 
-/** Give storage watchers and awaited effects a macrotask to run. */
-const flush = () => new Promise((resolve) => setTimeout(resolve, 0))
-
 const renderLoaded = async () => {
   view = await render()
   await act(async () => {
-    await flush()
+    await flushMicrotasks()
   })
   return view
 }
@@ -121,8 +119,8 @@ const urlTabId = () => new URL(window.location.href).searchParams.get('tabId')
 const writeState = async (tabId: number, next: SidePanelConfig | null) => {
   await act(async () => {
     await storage.setItem(`session:sidepanel_config_${tabId}`, next)
-    await flush()
-    await flush()
+    await flushMicrotasks()
+    await flushMicrotasks()
   })
 }
 
@@ -236,7 +234,7 @@ describe('following storage while the view is open', () => {
 
     await act(async () => {
       await fakeBrowser.tabs.onCreated.trigger({ id: 3, title: 'Fresh', url: 'https://c' } as never)
-      await flush()
+      await flushMicrotasks()
     })
     spyOnBrowser(fakeBrowser.tabs, 'get').mockResolvedValue({
       id: 3,
@@ -255,7 +253,7 @@ describe('following storage while the view is open', () => {
 
     await act(async () => {
       await fakeBrowser.tabs.onCreated.trigger({ title: 'Idless' } as never)
-      await flush()
+      await flushMicrotasks()
     })
 
     expect(text()).toContain('Populations')
@@ -283,7 +281,7 @@ describe('when a tab closes', () => {
         windowId: 1,
         isWindowClosing: false,
       })
-      await flush()
+      await flushMicrotasks()
     })
   }
 
@@ -345,13 +343,13 @@ describe('the debug log level', () => {
 
     await act(async () => {
       await storage.setItem('local:debugMode', true)
-      await flush()
+      await flushMicrotasks()
     })
     expect(setLevel).toHaveBeenCalledWith('trace')
 
     await act(async () => {
       await storage.setItem('local:debugMode', false)
-      await flush()
+      await flushMicrotasks()
     })
     expect(setLevel).toHaveBeenLastCalledWith('error')
   })
@@ -374,7 +372,7 @@ describe('the debug log level', () => {
 
     await act(async () => {
       await storage.setItem('local:debugMode', true)
-      await flush()
+      await flushMicrotasks()
     })
 
     expect(setLevel).not.toHaveBeenCalled()

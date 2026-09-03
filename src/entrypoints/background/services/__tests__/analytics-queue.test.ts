@@ -1,6 +1,7 @@
 import type { QueuedEvent } from '@/entrypoints/background/types'
 import { EVENT_QUEUE_STORAGE_KEY } from '@/utils/analytics'
 import { ANALYTICS_CONSENT_STORAGE_KEY } from '@/utils/consent'
+import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 import log from 'loglevel'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
@@ -31,9 +32,6 @@ const event = (name: string, timestamp = 1_700_000_000_000): QueuedEvent => ({
   props: { source: 'test' },
   timestamp,
 })
-
-/** Give storage watchers a macrotask to fire. */
-const flushWatchers = () => new Promise((resolve) => setTimeout(resolve, 0))
 
 describe('configurePostHogRateLimit', () => {
   it('defaults to ten events per second with a ten-fold burst', () => {
@@ -180,9 +178,9 @@ describe('initializeAnalyticsQueue', () => {
     const ph = createFakePostHog()
     posthogMocks.getPostHogBackground.mockResolvedValue(ph)
     await storage.setItem(queueKey, [event('queued')])
-    await flushWatchers()
+    await flushMicrotasks()
     await storage.setItem(`sync:${ANALYTICS_CONSENT_STORAGE_KEY}`, true)
-    await flushWatchers()
+    await flushMicrotasks()
 
     expect(ph.capture).toHaveBeenCalledWith('queued', expect.anything(), expect.anything())
   })
@@ -191,10 +189,10 @@ describe('initializeAnalyticsQueue', () => {
     posthogMocks.getPostHogBackground.mockResolvedValue(null)
     await initializeAnalyticsQueue()
     await storage.setItem(queueKey, [event('discarded')])
-    await flushWatchers()
+    await flushMicrotasks()
 
     await storage.setItem(`sync:${ANALYTICS_CONSENT_STORAGE_KEY}`, false)
-    await flushWatchers()
+    await flushMicrotasks()
 
     expect(posthogMocks.resetPostHogInstance).toHaveBeenCalled()
     expect(await readQueue()).toEqual([])
@@ -207,7 +205,7 @@ describe('initializeAnalyticsQueue', () => {
     posthogMocks.getPostHogBackground.mockClear()
 
     await storage.setItem(`sync:${ANALYTICS_CONSENT_STORAGE_KEY}`, '')
-    await flushWatchers()
+    await flushMicrotasks()
 
     expect(posthogMocks.resetPostHogInstance).not.toHaveBeenCalled()
     expect(posthogMocks.getPostHogBackground).not.toHaveBeenCalled()
@@ -219,7 +217,7 @@ describe('initializeAnalyticsQueue', () => {
     await initializeAnalyticsQueue()
 
     await storage.setItem(queueKey, [event('late')])
-    await flushWatchers()
+    await flushMicrotasks()
 
     expect(ph.capture).toHaveBeenCalledWith('late', expect.anything(), expect.anything())
   })
@@ -230,7 +228,7 @@ describe('initializeAnalyticsQueue', () => {
     await initializeAnalyticsQueue()
 
     await storage.setItem(queueKey, [])
-    await flushWatchers()
+    await flushMicrotasks()
 
     expect(ph.capture).not.toHaveBeenCalled()
   })
@@ -242,7 +240,7 @@ describe('initializeAnalyticsQueue', () => {
     await initializeAnalyticsQueue()
 
     await storage.removeItem(queueKey)
-    await flushWatchers()
+    await flushMicrotasks()
 
     expect(ph.capture).not.toHaveBeenCalled()
   })

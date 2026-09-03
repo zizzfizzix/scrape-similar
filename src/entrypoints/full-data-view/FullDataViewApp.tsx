@@ -284,7 +284,7 @@ export const FullDataViewApp: React.FC = () => {
       }
     }
 
-    setupWatchers().catch(log.error)
+    reportRejection(setupWatchers())
 
     // Listen for new tabs being created to set up watchers for them
     const handleTabCreated = (tab: Browser.tabs.Tab) => {
