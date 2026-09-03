@@ -679,8 +679,6 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
     })
   }
 
-  // Every `Footer` below takes the same `() => void` prop, so the discard is
-  // written once rather than once per render branch.
   const resetSystemPresets = () => reportRejection(handleResetSystemPresets())
 
   const handlePresetsImported = useCallback(() => {

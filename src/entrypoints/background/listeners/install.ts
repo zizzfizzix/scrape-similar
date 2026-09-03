@@ -101,8 +101,7 @@ export const setupInstallListener = (): void => {
         log.error('Error setting side panel behavior:', error)
       }
 
-      // Inject content script into all tabs on install/update. Started rather
-      // than awaited, so a failure here cannot cost the install event below.
+      // Not awaited, so a failure here cannot cost the install event below.
       reportRejection(injectContentScriptToAllTabs())
 
       log.debug('Service worker is running')

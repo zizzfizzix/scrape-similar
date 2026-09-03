@@ -215,11 +215,10 @@ export const captureEvent = async (
 }
 
 /**
- * Fire-and-forget by construction: `captureEvent` reports every failure it can
- * see through `log` and resolves either way, so a caller has nothing to await
- * and nothing to handle. Returning `void` says that in the type, which is what
- * keeps `no-floating-promises` off the several dozen call sites that would
- * otherwise each have to write the discard out.
+ * `captureEvent` reports every failure it can see through `log` and resolves
+ * either way, so a caller has nothing to await and nothing to handle. The
+ * `void` return says so, rather than leaving every call site to discard a
+ * promise that cannot reject.
  */
 export const trackEvent = (eventName: string, properties: Record<string, any> = {}): void => {
   void captureEvent(eventName, properties)

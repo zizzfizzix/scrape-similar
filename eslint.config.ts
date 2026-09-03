@@ -144,13 +144,10 @@ const BOOLEAN_PREFIX: Linter.RulesRecord = {
  */
 const PROMISE_RULES: Linter.RulesRecord = {
   '@typescript-eslint/no-floating-promises': 'error',
-  // Every option on, including `checksVoidReturn.attributes`. An async
-  // `onClick` reads like the idiomatic React spelling, and it would be one if
-  // the only alternative were `onClick={() => void handle()}` — the same
-  // dropped rejection with more syntax around it. It is not: `reportRejection`
-  // in `src/utils/report-rejection.ts` reports what the handler threw, and a
-  // rejected click handler is exactly as invisible as the service-worker
-  // listener this rule is usually credited with catching.
+  // Every option on, `checksVoidReturn.attributes` included. An async
+  // `onClick` looks idiomatic, and would be if the alternative were
+  // `onClick={() => void handle()}` — the same dropped rejection, more syntax.
+  // The alternative is `reportRejection`, which reports what the handler threw.
   '@typescript-eslint/no-misused-promises': 'error',
 }
 

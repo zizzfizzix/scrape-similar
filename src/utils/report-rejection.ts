@@ -1,19 +1,15 @@
 import log from 'loglevel'
 
 /**
- * Start an async task from a caller that has no way to await it, and report the
- * rejection rather than dropping it.
+ * Start an async task from a caller that has no way to await it.
  *
- * A promise nobody holds is not automatically a mistake — a service worker
- * starting its watchers, a click handler, or the message router that has to
- * return `true` before its dispatcher finishes has no one to hand a promise to.
- * What is a mistake is losing the rejection, which in a service worker is a
- * console line in a context nobody has a console open on. `void task` is the
- * discard `no-floating-promises` accepts; this is the discard plus the report.
+ * `void task` is the other discard `no-floating-promises` accepts, and it loses
+ * the rejection — which in a service worker is a console line in a context
+ * nobody has a console open on. This is that discard plus the report.
  *
- * Where the callee already logs its own failures and resolves either way, a
- * bare `void` says so more accurately — this would only add a `catch` that can
- * never run.
+ * Where the callee already logs its own failures and resolves either way, the
+ * bare `void` is the more accurate spelling; this would only add a `catch` that
+ * can never run, which the coverage gate then reports as dead.
  */
 export const reportRejection = (task: Promise<unknown>): void => {
   task.catch((error: unknown) => {

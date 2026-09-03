@@ -641,8 +641,6 @@ export const test = base.extend<
               btn.style.right = '10px'
               btn.style.zIndex = '2147483647'
               btn.addEventListener('click', () => {
-                // A click handler cannot await, and this button only exists to
-                // poke the background from a page the spec drives.
                 void chrome.runtime.sendMessage({ type: MESSAGE_TYPES.OPEN_SIDEPANEL })
               })
 

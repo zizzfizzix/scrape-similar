@@ -24,8 +24,6 @@ import { reportRejection } from '@/utils/report-rejection'
  */
 export const startBackground = (): void => {
   // Debug mode first, so everything below logs at the level the user chose.
-  // None of the three can be awaited from a synchronous entrypoint, and a
-  // service worker that fails to start one of them should say so.
   reportRejection(initializeDebugMode())
   reportRejection(initializeAnalyticsQueue())
   reportRejection(initializeUninstallUrl())
