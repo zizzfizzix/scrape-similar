@@ -1,6 +1,6 @@
 import { setupCommandsListener } from '@/entrypoints/background/listeners/commands'
 import { spyOnBrowser } from '@@/tests/support/fake-browser'
-import { settle } from '@@/tests/support/settle'
+import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 import log from 'loglevel'
 import { beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
@@ -28,7 +28,7 @@ describe('setupCommandsListener', () => {
 
   const runCommand = async (command: string) => {
     dispatchCommand(command)
-    await settle()
+    await flushMicrotasks()
   }
 
   /** Stand in for the single active tab in the current window. */

@@ -4,7 +4,7 @@ import {
 } from '@/entrypoints/background/listeners/tabs'
 import { getSessionState } from '@/entrypoints/background/services/session-storage'
 import type { ScrapeConfig } from '@/utils/types'
-import { settle } from '@@/tests/support/settle'
+import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
@@ -28,7 +28,7 @@ describe('setupTabRemovedListener', () => {
     await storage.setItem('session:sidepanel_config_4', { initialSelectionText: 'x' })
 
     await fakeBrowser.tabs.onRemoved.trigger(4, { windowId: 1, isWindowClosing: false })
-    await settle()
+    await flushMicrotasks()
 
     expect(await getSessionState(4)).toBeNull()
     expect(demoMocks.clearDemoScrapeFlag).toHaveBeenCalledWith(4)
@@ -45,7 +45,7 @@ describe('setupTabUpdatedListener', () => {
 
   const update = async (changeInfo: Browser.tabs.OnUpdatedInfo, tab: Partial<Browser.tabs.Tab>) => {
     await fakeBrowser.tabs.onUpdated.trigger(3, changeInfo, tab as Browser.tabs.Tab)
-    await settle()
+    await flushMicrotasks()
   }
 
   it('runs the pending demo scrape once the Wikipedia article finishes loading', async () => {

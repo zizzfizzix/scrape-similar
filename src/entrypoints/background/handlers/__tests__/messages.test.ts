@@ -2,7 +2,7 @@ import { setupMessageListener } from '@/entrypoints/background/handlers/messages
 import { getSessionState } from '@/entrypoints/background/services/session-storage'
 import type { Message, MessageResponse } from '@/utils/types'
 import { spyOnBrowser } from '@@/tests/support/fake-browser'
-import { settle } from '@@/tests/support/settle'
+import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 import log from 'loglevel'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
@@ -45,7 +45,7 @@ describe('setupMessageListener', () => {
 
     it('applies the updates to the tab named in the payload', async () => {
       update({ tabId: 5, updates: { highlightMatchCount: 3 } })
-      await settle()
+      await flushMicrotasks()
 
       expect((await getSessionState(5))?.highlightMatchCount).toBe(3)
       expect(sendResponse).toHaveBeenCalledWith({ success: true })
@@ -53,14 +53,14 @@ describe('setupMessageListener', () => {
 
     it('falls back to the sender tab when the payload omits the id', async () => {
       update({ updates: { highlightMatchCount: 7 } }, { tab: { id: 6 } } as never)
-      await settle()
+      await flushMicrotasks()
 
       expect((await getSessionState(6))?.highlightMatchCount).toBe(7)
     })
 
     it('prefers the explicit tab id over the sender tab', async () => {
       update({ tabId: 5, updates: { highlightMatchCount: 1 } }, { tab: { id: 6 } } as never)
-      await settle()
+      await flushMicrotasks()
 
       expect((await getSessionState(5))?.highlightMatchCount).toBe(1)
       expect(await getSessionState(6)).toBeNull()
@@ -99,14 +99,14 @@ describe('setupMessageListener', () => {
       vi.spyOn(storage, 'setItem').mockRejectedValueOnce(new Error('quota exceeded'))
 
       update({ tabId: 5, updates: { highlightMatchCount: 1 } })
-      await settle()
+      await flushMicrotasks()
 
       expect(sendResponse).toHaveBeenCalledWith({ success: false, error: 'quota exceeded' })
     })
 
     it('never reaches the sender-based routers', async () => {
       update({ tabId: 5, updates: {} })
-      await settle()
+      await flushMicrotasks()
 
       expect(routeMocks.handleContentScriptMessage).not.toHaveBeenCalled()
       expect(routeMocks.handleUiMessage).not.toHaveBeenCalled()

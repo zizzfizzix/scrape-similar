@@ -3,7 +3,7 @@ import { getSessionState } from '@/entrypoints/background/services/session-stora
 import { ANALYTICS_EVENTS } from '@/utils/analytics'
 import type { ScrapeConfig } from '@/utils/types'
 import { spyOnBrowser } from '@@/tests/support/fake-browser'
-import { settle } from '@@/tests/support/settle'
+import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 import log from 'loglevel'
 import { beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
@@ -47,7 +47,7 @@ describe('setupContextMenuListener', () => {
     tab?: Partial<Browser.tabs.Tab>,
   ) => {
     dispatchMenuClick(info, tab)
-    await settle()
+    await flushMicrotasks()
   }
 
   /** Reply to each content-script message type with a canned response. */
