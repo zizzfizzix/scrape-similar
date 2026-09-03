@@ -1,6 +1,7 @@
 import { highlightMatchingElements } from '@/entrypoints/content/highlight'
 import type { ContentScriptState } from '@/entrypoints/content/state'
 import { ANALYTICS_EVENTS, trackEvent } from '@/utils/analytics'
+import { reportRejection } from '@/utils/report-rejection'
 import { evaluateXPath, guessScrapeConfigForElement, scrapePage } from '@/utils/scraper'
 import { MESSAGE_TYPES, type Message, type ScrapeConfig, type ScrapeResult } from '@/utils/types'
 import log from 'loglevel'
@@ -100,7 +101,7 @@ export const createMessageHandler = (state: ContentScriptState, deps: HandlerDep
         case MESSAGE_TYPES.ENABLE_PICKER_MODE: {
           log.debug('Enabling picker mode via message')
           const { source } = (message.payload || {}) as { source?: string }
-          deps.enablePickerMode(source)
+          reportRejection(deps.enablePickerMode(source))
           sendResponse({ success: true, message: 'Picker mode enabled' })
           break
         }
@@ -120,7 +121,7 @@ export const createMessageHandler = (state: ContentScriptState, deps: HandlerDep
             deps.disablePickerMode(source || 'button')
             sendResponse({ success: true, message: 'Picker mode disabled' })
           } else {
-            deps.enablePickerMode(source || 'button')
+            reportRejection(deps.enablePickerMode(source || 'button'))
             sendResponse({ success: true, message: 'Picker mode enabled' })
           }
           break

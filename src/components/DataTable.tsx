@@ -12,6 +12,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { ANALYTICS_EVENTS, trackEvent } from '@/utils/analytics'
 import { calculateOptimalColumnWidth, SIDE_PANEL_COLUMN_METRICS } from '@/utils/column-width'
 import { getColumnKeys } from '@/utils/getColumnKeys'
+import { reportRejection } from '@/utils/report-rejection'
 import { rowToTsv } from '@/utils/tsv'
 import {
   type CellContext,
@@ -130,6 +131,23 @@ export const DataTable: React.FC<DataTableProps> = ({
             </Button>
           )
 
+          const copyRow = async () => {
+            const columnKeys = getColumnKeys(columnsOrder, config.columns)
+            const tsvContent = rowToTsv(row.original, columnKeys)
+            try {
+              await navigator.clipboard.writeText(tsvContent)
+              toast.success('Copied row to clipboard')
+              trackEvent(ANALYTICS_EVENTS.COPY_TO_CLIPBOARD_TRIGGER, {
+                rows_copied: 1,
+                columns_count: columnKeys.length,
+                export_type: 'data_table_row',
+              })
+            } catch {
+              toast.error('Failed to copy')
+              trackEvent(ANALYTICS_EVENTS.COPY_TO_CLIPBOARD_FAILURE)
+            }
+          }
+
           // Copy row button
           const copyButton = (
             <Button
@@ -138,26 +156,7 @@ export const DataTable: React.FC<DataTableProps> = ({
               className="size-6"
               aria-label={isEmpty ? undefined : 'Copy this row'}
               disabled={isEmpty}
-              onClick={
-                isEmpty
-                  ? undefined
-                  : async () => {
-                      const columnKeys = getColumnKeys(columnsOrder, config.columns)
-                      const tsvContent = rowToTsv(row.original, columnKeys)
-                      try {
-                        await navigator.clipboard.writeText(tsvContent)
-                        toast.success('Copied row to clipboard')
-                        trackEvent(ANALYTICS_EVENTS.COPY_TO_CLIPBOARD_TRIGGER, {
-                          rows_copied: 1,
-                          columns_count: columnKeys.length,
-                          export_type: 'data_table_row',
-                        })
-                      } catch {
-                        toast.error('Failed to copy')
-                        trackEvent(ANALYTICS_EVENTS.COPY_TO_CLIPBOARD_FAILURE)
-                      }
-                    }
-              }
+              onClick={isEmpty ? undefined : () => reportRejection(copyRow())}
             >
               <Clipboard className="size-4" />
             </Button>
@@ -258,7 +257,9 @@ export const DataTable: React.FC<DataTableProps> = ({
 
     // Use type assertion since WXT will generate this entrypoint
     const fullViewUrl = browser.runtime.getURL(`/full-data-view.html?tabId=${tabId}`)
-    browser.tabs.create({ url: fullViewUrl })
+    // Not awaited: the side panel closes on the next line, so there is nobody
+    // left to await it.
+    reportRejection(browser.tabs.create({ url: fullViewUrl }))
 
     // Close the sidepanel window after opening the full view
     window.close()

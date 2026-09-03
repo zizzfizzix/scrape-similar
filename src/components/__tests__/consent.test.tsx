@@ -1,3 +1,4 @@
+import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 // @vitest-environment jsdom
 import { ConsentProvider, useConsent } from '@/components/consent-provider'
 import { ConsentCard } from '@/components/ConsentCard'
@@ -15,9 +16,6 @@ import { storage } from 'wxt/utils/storage'
 let view: RenderResult
 
 const consentKey = `sync:${ANALYTICS_CONSENT_STORAGE_KEY}` as const
-
-/** Give storage watchers a macrotask to fire. */
-const flushWatchers = () => new Promise((resolve) => setTimeout(resolve, 0))
 
 const withProvider = (children: ReactNode) => <ConsentProvider>{children}</ConsentProvider>
 
@@ -91,7 +89,7 @@ describe('ConsentProvider', () => {
 
     await act(async () => {
       await storage.setItem(consentKey, true)
-      await flushWatchers()
+      await flushMicrotasks()
     })
 
     expect(probeText()).toBe(JSON.stringify({ loading: false, state: true }))
@@ -103,7 +101,7 @@ describe('ConsentProvider', () => {
 
     await act(async () => {
       await storage.removeItem(consentKey)
-      await flushWatchers()
+      await flushMicrotasks()
     })
 
     expect(probeText()).toBe(JSON.stringify({ loading: false }))
@@ -115,7 +113,7 @@ describe('ConsentProvider', () => {
 
     await act(async () => {
       await storage.setItem(consentKey, '')
-      await flushWatchers()
+      await flushMicrotasks()
     })
 
     expect(probeText()).toBe(JSON.stringify({ loading: false }))

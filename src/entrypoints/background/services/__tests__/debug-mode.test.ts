@@ -1,4 +1,5 @@
 import { spyOnBrowser } from '@@/tests/support/fake-browser'
+import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 import log from 'loglevel'
 import { beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
@@ -21,9 +22,6 @@ vi.mock('@/utils/modeTest', () => ({
 
 const { broadcastDebugMode, initializeDebugMode } =
   await import('@/entrypoints/background/services/debug-mode')
-
-/** Give storage watchers a macrotask to fire. */
-const flushWatchers = () => new Promise((resolve) => setTimeout(resolve, 0))
 
 describe('broadcastDebugMode', () => {
   beforeEach(() => {
@@ -114,7 +112,7 @@ describe('initializeDebugMode', () => {
     const setLevel = vi.spyOn(log, 'setLevel').mockImplementation(() => {})
 
     await storage.setItem('local:debugMode', true)
-    await flushWatchers()
+    await flushMicrotasks()
 
     expect(setLevel).toHaveBeenCalledWith('trace')
     expect(sendMessage).not.toHaveBeenCalled() // no tabs open
@@ -126,7 +124,7 @@ describe('initializeDebugMode', () => {
     const setLevel = vi.spyOn(log, 'setLevel').mockImplementation(() => {})
 
     await storage.setItem('local:debugMode', false)
-    await flushWatchers()
+    await flushMicrotasks()
 
     expect(setLevel).toHaveBeenCalledWith('error')
   })
@@ -138,7 +136,7 @@ describe('initializeDebugMode', () => {
     const setLevel = vi.spyOn(log, 'setLevel').mockImplementation(() => {})
 
     await storage.setItem('local:debugMode', true)
-    await flushWatchers()
+    await flushMicrotasks()
 
     expect(setLevel).not.toHaveBeenCalled()
     expect(sendMessage).toHaveBeenCalledWith(1, {
@@ -153,7 +151,7 @@ describe('initializeDebugMode', () => {
     await initializeDebugMode()
 
     await storage.removeItem('local:debugMode')
-    await flushWatchers()
+    await flushMicrotasks()
 
     expect(sendMessage).toHaveBeenCalledWith(1, {
       type: MESSAGE_TYPES.DEBUG_MODE_CHANGED,

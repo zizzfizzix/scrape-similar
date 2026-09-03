@@ -1,3 +1,4 @@
+import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 // @vitest-environment jsdom
 import { ConsentProvider } from '@/components/consent-provider'
 import { Settings } from '@/components/Settings'
@@ -512,7 +513,7 @@ describe('Settings', () => {
 
       await act(async () => {
         await storage.setItem('local:debugMode', true)
-        await new Promise((resolve) => setTimeout(resolve, 0))
+        await flushMicrotasks()
       })
 
       expect(view.container.textContent).toContain('Debug mode')
@@ -523,7 +524,7 @@ describe('Settings', () => {
 
       await act(async () => {
         await storage.setItem('local:debugUnlocked', true)
-        await new Promise((resolve) => setTimeout(resolve, 0))
+        await flushMicrotasks()
       })
 
       expect(view.container.textContent).toContain('Debug mode')

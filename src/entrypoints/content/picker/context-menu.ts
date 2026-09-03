@@ -1,6 +1,7 @@
 import { highlightElementsForPicker } from '@/entrypoints/content/highlight'
 import type { ContentScriptState } from '@/entrypoints/content/state'
 import { ANALYTICS_EVENTS, trackEvent } from '@/utils/analytics'
+import { reportRejection } from '@/utils/report-rejection'
 import { evaluateXPath } from '@/utils/scraper'
 import log from 'loglevel'
 import type { ContentScriptContext } from 'wxt/utils/content-script-context'
@@ -90,24 +91,26 @@ export const showPickerContextMenu = async (
         state.pickerContextMenuHost = container as HTMLDivElement
 
         // Dynamically import and mount the React component
-        import('@/entrypoints/content/ui/PickerContextMenu').then((mod) => {
-          const { mountPickerContextMenuReact } = mod
-          const api = mountPickerContextMenuReact(
-            appRoot,
-            {
-              x: state.contextMenuX,
-              y: state.contextMenuY,
-              levels: state.selectorCandidates.length,
-              currentLevel: state.selectedCandidateIndex,
-              onChange: (level: number) => onLevelChange(level, 'slider'),
-              onClose,
-            },
-            container,
-          )
-          state.pickerContextMenuApi = api
-          // Store unmount function for cleanup
-          ;(appRoot as { __unmount?: () => void }).__unmount = api.unmount
-        })
+        reportRejection(
+          import('@/entrypoints/content/ui/PickerContextMenu').then((mod) => {
+            const { mountPickerContextMenuReact } = mod
+            const api = mountPickerContextMenuReact(
+              appRoot,
+              {
+                x: state.contextMenuX,
+                y: state.contextMenuY,
+                levels: state.selectorCandidates.length,
+                currentLevel: state.selectedCandidateIndex,
+                onChange: (level: number) => onLevelChange(level, 'slider'),
+                onClose,
+              },
+              container,
+            )
+            state.pickerContextMenuApi = api
+            // Store unmount function for cleanup
+            ;(appRoot as { __unmount?: () => void }).__unmount = api.unmount
+          }),
+        )
         return appRoot
       },
       onRemove: (appRoot?: HTMLElement) => {
@@ -238,7 +241,7 @@ export const handlePickerContextMenu = (
 
   event.preventDefault()
   event.stopPropagation()
-  showContextMenu(event.clientX, event.clientY)
+  reportRejection(showContextMenu(event.clientX, event.clientY))
 }
 
 /**

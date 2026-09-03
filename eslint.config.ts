@@ -25,10 +25,10 @@ import { noConditionalAwait } from './tools/eslint-rules/no-conditional-await.ts
  * thing `pnpm compile` runs — keeps the `tsc` name. Neither package shadows the
  * other's binary. See the README for when that indirection can come out.
  *
- * Type-aware linting is switched on (`projectService`). The typed rules that are
- * on are the ones this codebase already passes (ALREADY_CLEAN) plus the boolean
- * naming rule; the rest are staged in DEFERRED below with the violation count
- * each one has today.
+ * Type-aware linting is switched on (`projectService`). What is on from it is
+ * the rules this codebase already passes (ALREADY_CLEAN), the promise pair
+ * (PROMISE_RULES) and the boolean naming rule; the rest is staged in DEFERRED
+ * below with the violation count each one has today.
  */
 
 const TEST_FILES = ['**/__tests__/**/*.{ts,tsx}', '**/*.test.{ts,tsx}', 'vitest.setup.ts']
@@ -138,17 +138,26 @@ const BOOLEAN_PREFIX: Linter.RulesRecord = {
 }
 
 /**
+ * The pair type-aware linting was switched on for in #7, and cleaned up in
+ * #277. Neither ships in `tseslint.configs.recommended`, so both are named
+ * here rather than simply dropped from DEFERRED.
+ */
+const PROMISE_RULES: Linter.RulesRecord = {
+  '@typescript-eslint/no-floating-promises': 'error',
+  // Every option on, `checksVoidReturn.attributes` included. An async
+  // `onClick` looks idiomatic, and would be if the alternative were
+  // `onClick={() => void handle()}` — the same dropped rejection, more syntax.
+  // The alternative is `reportRejection`, which reports what the handler threw.
+  '@typescript-eslint/no-misused-promises': 'error',
+}
+
+/**
  * Rules worth having that no longer fit in the diff that turned the linter on.
  * Each is off with the number of violations it reports today, so re-enabling one
  * is a line here plus the fixes it names — and so the count is a claim a reviewer
  * can check rather than an impression. See #7.
  */
 const DEFERRED = {
-  // 128, of which 65 are `trackEvent` — analytics calls that swallow their own
-  // errors, so the fix is one signature rather than 65 `void`s.
-  '@typescript-eslint/no-floating-promises': 'off',
-  // 35, nearly all `onClick={async () => …}`.
-  '@typescript-eslint/no-misused-promises': 'off',
   // 74: 28 in extension code, mostly the message-passing types, and 46 in unit
   // and e2e test scaffolding.
   '@typescript-eslint/no-explicit-any': 'off',
@@ -205,6 +214,7 @@ export default defineConfig([
       // compares by identity.
       eqeqeq: ['error', 'always', { null: 'ignore' }],
       ...ALREADY_CLEAN,
+      ...PROMISE_RULES,
       ...BOOLEAN_PREFIX,
       '@typescript-eslint/no-unused-vars': [
         'error',

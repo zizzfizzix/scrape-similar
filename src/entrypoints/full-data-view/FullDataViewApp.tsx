@@ -28,6 +28,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { reportingListener, reportRejection } from '@/utils/report-rejection'
 
 import {
   collectTabsWithData,
@@ -157,17 +158,19 @@ export const FullDataViewApp: React.FC = () => {
       }
     }
 
-    loadTabsData()
+    reportRejection(loadTabsData())
   }, [currentTabId, reloadRequest])
 
   useEffect(() => {
-    storage.getItem<boolean>('local:debugMode').then((val) => {
-      if (isDevOrTest) {
-        log.setLevel('trace')
-      } else {
-        log.setLevel(val ? 'trace' : 'error')
-      }
-    })
+    reportRejection(
+      storage.getItem<boolean>('local:debugMode').then((val) => {
+        if (isDevOrTest) {
+          log.setLevel('trace')
+        } else {
+          log.setLevel(val ? 'trace' : 'error')
+        }
+      }),
+    )
 
     const unwatch = storage.watch<boolean>('local:debugMode', (val) => {
       if (!isDevOrTest) {
@@ -194,77 +197,80 @@ export const FullDataViewApp: React.FC = () => {
     // Function to set up a watcher for a specific tab
     const setupSingleTabWatcher = (tabId: number) => {
       const sessionKey = `sidepanel_config_${tabId}`
-      const unwatch = storage.watch<SidePanelConfig>(`session:${sessionKey}`, async (newValue) => {
-        // Update only the specific tab that changed, preserve user's current selection
-        const tabInfo = await browser.tabs.get(tabId).catch(() => null)
-        if (!tabInfo) return
+      const unwatch = storage.watch<SidePanelConfig>(
+        `session:${sessionKey}`,
+        reportingListener(async (newValue) => {
+          // Update only the specific tab that changed, preserve user's current selection
+          const tabInfo = await browser.tabs.get(tabId).catch(() => null)
+          if (!tabInfo) return
 
-        if (!newValue?.scrapeResult?.data || newValue.scrapeResult.data.length === 0) {
-          // Data was removed - remove this tab from our list
-          setAllTabsData((prev) => {
-            const filtered = prev.filter((tabData) => tabData.tabId !== tabId)
-            // If this was the current tab and there are other tabs, switch to first available
-            const [newTab] = filtered
-            if (currentTabId === tabId && newTab) {
-              setCurrentTabId(newTab.tabId)
-              setCurrentTabData(newTab)
-              // Update URL
-              const newUrl = new URL(window.location.href)
-              newUrl.searchParams.set('tabId', newTab.tabId.toString())
-              window.history.replaceState({}, '', newUrl.toString())
-            } else if (currentTabId === tabId) {
-              // No other tabs available
-              setCurrentTabId(null)
-              setCurrentTabData(null)
-            }
-            return filtered
-          })
-        } else {
-          // Update or add the tab data
-          const updatedTabData: TabData = {
-            tabId: tabId,
-            tabUrl: tabInfo.url || 'Unknown URL',
-            tabTitle: tabInfo.title || 'Unknown Title',
-            scrapeResult: newValue.scrapeResult,
-            config: newValue.currentScrapeConfig || {
-              mainSelector: '',
-              columns: [{ name: 'Text', selector: '.' }],
-            },
-          }
-
-          setAllTabsData((prev) => {
-            const existingIndex = prev.findIndex((tabData) => tabData.tabId === tabId)
-            let newTabs: TabData[]
-            if (existingIndex >= 0) {
-              // Update existing tab
-              newTabs = [...prev]
-              newTabs[existingIndex] = updatedTabData
-            } else {
-              // Add new tab
-              newTabs = [...prev, updatedTabData]
+          if (!newValue?.scrapeResult?.data || newValue.scrapeResult.data.length === 0) {
+            // Data was removed - remove this tab from our list
+            setAllTabsData((prev) => {
+              const filtered = prev.filter((tabData) => tabData.tabId !== tabId)
+              // If this was the current tab and there are other tabs, switch to first available
+              const [newTab] = filtered
+              if (currentTabId === tabId && newTab) {
+                setCurrentTabId(newTab.tabId)
+                setCurrentTabData(newTab)
+                // Update URL
+                const newUrl = new URL(window.location.href)
+                newUrl.searchParams.set('tabId', newTab.tabId.toString())
+                window.history.replaceState({}, '', newUrl.toString())
+              } else if (currentTabId === tabId) {
+                // No other tabs available
+                setCurrentTabId(null)
+                setCurrentTabData(null)
+              }
+              return filtered
+            })
+          } else {
+            // Update or add the tab data
+            const updatedTabData: TabData = {
+              tabId: tabId,
+              tabUrl: tabInfo.url || 'Unknown URL',
+              tabTitle: tabInfo.title || 'Unknown Title',
+              scrapeResult: newValue.scrapeResult,
+              config: newValue.currentScrapeConfig || {
+                mainSelector: '',
+                columns: [{ name: 'Text', selector: '.' }],
+              },
             }
 
-            // If there's no current tab selected and this is the first/only tab, select it.
-            // This update either replaces an entry or appends one, so an empty
-            // `prev` can only ever become a list of one.
-            if (currentTabId === null && newTabs.length === 1) {
-              setCurrentTabId(updatedTabData.tabId)
+            setAllTabsData((prev) => {
+              const existingIndex = prev.findIndex((tabData) => tabData.tabId === tabId)
+              let newTabs: TabData[]
+              if (existingIndex >= 0) {
+                // Update existing tab
+                newTabs = [...prev]
+                newTabs[existingIndex] = updatedTabData
+              } else {
+                // Add new tab
+                newTabs = [...prev, updatedTabData]
+              }
+
+              // If there's no current tab selected and this is the first/only tab, select it.
+              // This update either replaces an entry or appends one, so an empty
+              // `prev` can only ever become a list of one.
+              if (currentTabId === null && newTabs.length === 1) {
+                setCurrentTabId(updatedTabData.tabId)
+                setCurrentTabData(updatedTabData)
+                // Update URL
+                const newUrl = new URL(window.location.href)
+                newUrl.searchParams.set('tabId', updatedTabData.tabId.toString())
+                window.history.replaceState({}, '', newUrl.toString())
+              }
+
+              return newTabs
+            })
+
+            // If this is the current tab, update current data too
+            if (currentTabId === tabId) {
               setCurrentTabData(updatedTabData)
-              // Update URL
-              const newUrl = new URL(window.location.href)
-              newUrl.searchParams.set('tabId', updatedTabData.tabId.toString())
-              window.history.replaceState({}, '', newUrl.toString())
             }
-
-            return newTabs
-          })
-
-          // If this is the current tab, update current data too
-          if (currentTabId === tabId) {
-            setCurrentTabData(updatedTabData)
           }
-        }
-      })
+        }),
+      )
       return unwatch
     }
 
@@ -278,7 +284,7 @@ export const FullDataViewApp: React.FC = () => {
       }
     }
 
-    setupWatchers().catch(log.error)
+    reportRejection(setupWatchers())
 
     // Listen for new tabs being created to set up watchers for them
     const handleTabCreated = (tab: Browser.tabs.Tab) => {
@@ -497,13 +503,29 @@ export const FullDataViewApp: React.FC = () => {
                   ? undefined
                   : () => {
                       const rowSelector = `(${currentTabData.config.mainSelector})[${originalIndex + 1}]`
-                      handleRowHighlight(rowSelector, currentTabData.tabId)
+                      reportRejection(handleRowHighlight(rowSelector, currentTabData.tabId))
                     }
               }
             >
               <Highlighter className="size-4" />
             </Button>
           )
+
+          const copyRow = async () => {
+            const tsvContent = rowToTsv(row.original, columnKeys)
+            try {
+              await navigator.clipboard.writeText(tsvContent)
+              toast.success('Copied row to clipboard')
+              trackEvent(ANALYTICS_EVENTS.COPY_TO_CLIPBOARD_TRIGGER, {
+                rows_copied: 1,
+                columns_count: columnKeys.length,
+                export_type: 'full_data_view_row',
+              })
+            } catch {
+              toast.error('Failed to copy')
+              trackEvent(ANALYTICS_EVENTS.COPY_TO_CLIPBOARD_FAILURE)
+            }
+          }
 
           const copyButton = (
             <Button
@@ -512,25 +534,7 @@ export const FullDataViewApp: React.FC = () => {
               className="size-6"
               aria-label={isEmpty ? undefined : 'Copy this row'}
               disabled={isEmpty}
-              onClick={
-                isEmpty
-                  ? undefined
-                  : async () => {
-                      const tsvContent = rowToTsv(row.original, columnKeys)
-                      try {
-                        await navigator.clipboard.writeText(tsvContent)
-                        toast.success('Copied row to clipboard')
-                        trackEvent(ANALYTICS_EVENTS.COPY_TO_CLIPBOARD_TRIGGER, {
-                          rows_copied: 1,
-                          columns_count: columnKeys.length,
-                          export_type: 'full_data_view_row',
-                        })
-                      } catch {
-                        toast.error('Failed to copy')
-                        trackEvent(ANALYTICS_EVENTS.COPY_TO_CLIPBOARD_FAILURE)
-                      }
-                    }
-              }
+              onClick={isEmpty ? undefined : () => reportRejection(copyRow())}
             >
               <Clipboard className="size-4" />
             </Button>
@@ -741,7 +745,11 @@ export const FullDataViewApp: React.FC = () => {
             <div className="container mx-auto px-4 py-4">
               <div className="grid grid-cols-[1fr_auto_1fr]">
                 <div className="flex items-center">
-                  <Button variant="outline" size="sm" onClick={handleBackToTab}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => reportRejection(handleBackToTab())}
+                  >
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     Back to Tab
                   </Button>

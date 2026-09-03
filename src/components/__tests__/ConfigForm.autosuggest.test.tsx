@@ -119,6 +119,28 @@ describe('the autosuggest dropdown', () => {
       await waitFor(() => expect(selectedSuggestion()?.textContent).toContain('Table rows'))
     })
 
+    /**
+     * The arrow handlers scroll the highlighted row into view from inside a
+     * `requestAnimationFrame`, so whether the "nothing to scroll to" arm runs
+     * at all was a race against the frame — the branch flapped in and out of
+     * coverage depending on how loaded the machine was. Driving the frame by
+     * hand settles it.
+     */
+    it('scrolls nothing into view when the list it opens is empty', async () => {
+      view = await render({ presets: [] })
+      await focusField()
+      await press('Escape')
+      const scrollIntoView = vi.spyOn(Element.prototype, 'scrollIntoView')
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+        callback(0)
+        return 0
+      })
+
+      await press('ArrowDown')
+
+      expect(scrollIntoView).not.toHaveBeenCalled()
+    })
+
     it('opens on ArrowUp and highlights the last entry', async () => {
       view = await render({ presets })
       await focusField()

@@ -125,7 +125,7 @@ test.describe('Sidepanel Full Data View Integration', () => {
     // Open sidepanel while viewing full data view
     const sidePanel = await openSidePanel()
 
-    fullDataViewPage.bringToFront()
+    await fullDataViewPage.bringToFront()
 
     // Should show the special full data view controls
     await expect(sidePanel.getByRole('heading', { name: /full screen view active/i })).toBeVisible()
@@ -152,7 +152,7 @@ test.describe('Sidepanel Full Data View Integration', () => {
     // Open sidepanel
     const sidePanel = await openSidePanel()
 
-    fullDataViewPage.bringToFront()
+    await fullDataViewPage.bringToFront()
 
     // Should still show the special controls even without tabId
     await expect(sidePanel.getByRole('heading', { name: /full screen view active/i })).toBeVisible()
@@ -223,7 +223,7 @@ test.describe('Sidepanel Full Data View Integration', () => {
     // Open sidepanel
     const sidePanel = await openSidePanel()
 
-    fullDataViewPage.bringToFront()
+    await fullDataViewPage.bringToFront()
 
     // Should show full data view controls
     await expect(sidePanel.getByRole('heading', { name: /full screen view active/i })).toBeVisible()
@@ -255,7 +255,7 @@ test.describe('Sidepanel Full Data View Integration', () => {
     // Open sidepanel
     const sidePanel = await openSidePanel()
 
-    fullDataViewPage.bringToFront()
+    await fullDataViewPage.bringToFront()
 
     // Verify layout and styling
     await expect(sidePanel.getByRole('heading', { name: /full screen view active/i })).toBeVisible()
@@ -293,7 +293,7 @@ test.describe('Sidepanel Full Data View Integration', () => {
     // Open sidepanel
     const sidePanel = await openSidePanel()
 
-    fullDataViewPage.bringToFront()
+    await fullDataViewPage.bringToFront()
 
     // Verify full data view controls appear
     await expect(sidePanel.getByRole('heading', { name: /full screen view active/i })).toBeVisible()

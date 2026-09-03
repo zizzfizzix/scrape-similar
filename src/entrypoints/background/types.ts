@@ -8,6 +8,13 @@ export type MessageHandler = (
   sendResponse: (response?: MessageResponse) => void,
 ) => Promise<void> | void
 
+/**
+ * A dispatcher rather than a single handler. Always async, so the router — which
+ * must return `true` synchronously to keep the message channel open — has a
+ * promise to attach a rejection handler to.
+ */
+export type AsyncMessageHandler = (...args: Parameters<MessageHandler>) => Promise<void>
+
 export interface QueuedEvent {
   name: string
   props: Record<string, any>

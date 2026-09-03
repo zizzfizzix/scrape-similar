@@ -17,7 +17,7 @@ export const ConsentProvider: React.FC<{ children: React.ReactNode }> = ({ child
     // initial load from storage
     // `getConsentState` reports its own storage failures and resolves to
     // `undefined`, so there is no rejection to catch here.
-    getConsentState().then(setConsentState)
+    void getConsentState().then(setConsentState)
 
     const unwatch = storage.watch<boolean | string | null>(
       `sync:${ANALYTICS_CONSENT_STORAGE_KEY}`,
