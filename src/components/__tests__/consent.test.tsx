@@ -5,6 +5,7 @@ import { ConsentContent } from '@/components/ConsentContent'
 import { ConsentModal } from '@/components/ConsentModal'
 import { ConsentWrapper } from '@/components/ConsentWrapper'
 import { ANALYTICS_CONSENT_STORAGE_KEY, getConsentState } from '@/utils/consent'
+import { renderSettled as render } from '@@/tests/support/settle'
 import { type RenderResult, act, render as renderComponent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
@@ -20,13 +21,6 @@ const consentKey = `sync:${ANALYTICS_CONSENT_STORAGE_KEY}` as const
 const flushWatchers = () => new Promise((resolve) => setTimeout(resolve, 0))
 
 const withProvider = (children: ReactNode) => <ConsentProvider>{children}</ConsentProvider>
-
-/** Render, and let the provider's storage read settle before asserting. */
-const render = async (ui: ReactNode) => {
-  const rendered = renderComponent(ui)
-  await act(async () => {})
-  return rendered
-}
 
 beforeEach(() => {
   fakeBrowser.reset()

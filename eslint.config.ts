@@ -28,10 +28,20 @@ import { noConditionalAwait } from './tools/eslint-rules/no-conditional-await.ts
  * Type-aware linting is switched on (`projectService`). The typed rules that are
  * on are the ones this codebase already passes (ALREADY_CLEAN) plus the boolean
  * naming rule; the rest are staged in DEFERRED below with the violation count
- * each one has today.
+ * each one has today. A rule that is wrong for this codebase rather than merely
+ * unfixed goes in OFF_ON_MERITS instead, which is not a worklist.
  */
 
-const TEST_FILES = ['**/__tests__/**/*.{ts,tsx}', '**/*.test.{ts,tsx}', 'vitest.setup.ts']
+const TEST_FILES = [
+  '**/__tests__/**/*.{ts,tsx}',
+  '**/*.test.{ts,tsx}',
+  'vitest.setup.ts',
+  // The harness modules the suite mounts through, so the rules that describe a
+  // test apply to the helper as well as to its callers — `settleEffects` in
+  // `tests/support/settle.ts` is the one place `no-unnecessary-act` is allowed
+  // to be wrong, and that has to be visible where it is written.
+  'tests/support/**/*.{ts,tsx}',
+]
 
 const NO_ENUM = {
   selector: 'TSEnumDeclaration',
@@ -147,20 +157,34 @@ const DEFERRED = {
   // 128, of which 65 are `trackEvent` — analytics calls that swallow their own
   // errors, so the fix is one signature rather than 65 `void`s.
   '@typescript-eslint/no-floating-promises': 'off',
-  // 35, nearly all `onClick={async () => …}`.
+  // 34, mostly an async handler passed straight to a JSX prop that wants
+  // `void` — 21 of them `onClick` / `onSelect` / `onChange`, 6 an event
+  // listener, and the rest a callback handed to a browser API.
   '@typescript-eslint/no-misused-promises': 'off',
-  // 74: 28 in extension code, mostly the message-passing types, and 46 in unit
+  // 72: 26 in extension code, mostly the message-passing types, and 46 in unit
   // and e2e test scaffolding.
   '@typescript-eslint/no-explicit-any': 'off',
-  // 265. The component tests reach into `container` deliberately; the rule wants
-  // them rewritten onto queries, which is a rewrite of the suite, not a fix.
+} as const
+
+/**
+ * Rules that are off because they are wrong for this codebase, rather than off
+ * until someone gets to them. Nothing here is a worklist: re-reading these
+ * needs a reason that has changed, not an afternoon.
+ */
+const OFF_ON_MERITS = {
+  /**
+   * 268 across 19 files, and #280 asked the question behind the count: does this
+   * suite want to be query-first? It cannot be. 78 of the 268 select on
+   * something Testing Library has no query for by design — the `className` a
+   * component computes (15 sites assert it directly), the `lucide-*` icon a
+   * button is showing (13), `cmdk` / `vaul` / `data-slot` internals of the
+   * libraries the UI is built from (27), the component's own root via
+   * `:scope > div` (7), the inline `style` positioning the picker menu (4), and
+   * `input[type="file"]`, which has no ARIA role (3). The other 190 could move
+   * onto `getByRole`, but the rule would still need a disable in most of those
+   * 19 files afterwards, which says less than this comment does.
+   */
   'testing-library/no-node-access': 'off',
-  // 38. CLAUDE.md's "never nest `act` around `user-event`" is this rule, but the
-  // mount-time `await act(async () => {})` in the local `render` helpers reads
-  // the same to it, so the two need separating first.
-  'testing-library/no-unnecessary-act': 'off',
-  // 37, all naming (`view` / `mounted` rather than `view = render()`).
-  'testing-library/render-result-naming-convention': 'off',
   // 106 and 21, both off because their fixes do not say the same thing as the
   // assertions they replace. `toHaveTextContent` matches a substring, so it
   // weakens every `expect(el.textContent).toBe(x)` it rewrites; `toHaveStyle`
@@ -256,6 +280,18 @@ export default defineConfig([
       testingLibrary.configs['flat/react'],
       jestDom.configs['flat/recommended'],
     ],
+    settings: {
+      // Naming the module turns off the plugin's aggressive reporting, which
+      // otherwise treats any `render` as Testing Library's. That heuristic is
+      // for suites whose entry points cannot be enumerated; this one imports
+      // from exactly two, `@testing-library/react` and `user-event`, and the
+      // plugin finds the second on its own. Without this line the two rules
+      // #280 switched on report 28 sites that have nothing to do with Testing
+      // Library: `scrape-guess.test.ts`'s own `render(html, selector)` helper,
+      // and the `root.render(…)` that `use-media-query` and `distinct_id` drive
+      // a React root with by hand.
+      'testing-library/utils-module': '@testing-library/react',
+    },
     rules: {
       // Vitest's `expect` takes an optional message as its second argument, and
       // these tests use it to say which case failed.
@@ -283,5 +319,5 @@ export default defineConfig([
   },
 
   // Last, so it wins over the shared configs above that switch these on.
-  { files: ['**/*.{ts,tsx}'], rules: DEFERRED },
+  { files: ['**/*.{ts,tsx}'], rules: { ...DEFERRED, ...OFF_ON_MERITS } },
 ])

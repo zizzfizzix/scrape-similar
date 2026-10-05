@@ -5,7 +5,8 @@ import { FullDataViewApp } from '@/entrypoints/full-data-view/FullDataViewApp'
 import { ANALYTICS_CONSENT_STORAGE_KEY } from '@/utils/consent'
 import type { ScrapeConfig, ScrapedRow, SidePanelConfig } from '@/utils/types'
 import { spyOnBrowser } from '@@/tests/support/fake-browser'
-import { type RenderResult, act, render as renderComponent, waitFor } from '@testing-library/react'
+import { renderSettled } from '@@/tests/support/settle'
+import { type RenderResult, act, waitFor } from '@testing-library/react'
 import log from 'loglevel'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
@@ -89,18 +90,14 @@ const openTabs = async (tabs: TabSpec[]) => {
   }
 }
 
-/** Render, and let mount-time storage reads settle before asserting. */
-const render = async () => {
-  const rendered = renderComponent(
+const render = () =>
+  renderSettled(
     <ConsentProvider>
       <ThemeProvider>
         <FullDataViewApp />
       </ThemeProvider>
     </ConsentProvider>,
   )
-  await act(async () => {})
-  return rendered
-}
 
 /** Give storage watchers and awaited effects a macrotask to run. */
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0))

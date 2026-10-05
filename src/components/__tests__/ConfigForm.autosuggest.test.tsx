@@ -9,13 +9,8 @@ import {
 } from '@/utils/storage'
 import type { Preset, ScrapeConfig } from '@/utils/types'
 import { setLastError } from '@@/tests/support/fake-browser'
-import {
-  type RenderResult,
-  act,
-  fireEvent,
-  render as renderComponent,
-  waitFor,
-} from '@testing-library/react'
+import { renderSettled, settleEffects } from '@@/tests/support/settle'
+import { type RenderResult, act, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
@@ -66,16 +61,12 @@ const baseProps = (): ConfigFormProps => ({
   highlightMatchCount: 3,
 })
 
-/** Render, and let mount-time storage reads settle before asserting. */
-const render = async (overrides: Partial<ConfigFormProps> = {}) => {
-  const rendered = renderComponent(
+const render = (overrides: Partial<ConfigFormProps> = {}) =>
+  renderSettled(
     <TooltipProvider>
       <ConfigForm {...baseProps()} {...overrides} />
     </TooltipProvider>,
   )
-  await act(async () => {})
-  return rendered
-}
 
 const mainSelectorInput = () =>
   view.container.querySelector<HTMLTextAreaElement>('textarea#mainSelector')!
@@ -95,8 +86,7 @@ const press = (key: string) =>
 
 const focusField = () => act(() => mainSelectorInput().focus())
 
-const type = (value: string) =>
-  act(() => fireEvent.change(mainSelectorInput(), { target: { value: value } }))
+const type = (value: string) => fireEvent.change(mainSelectorInput(), { target: { value: value } })
 
 beforeEach(async () => {
   fakeBrowser.reset()
@@ -399,7 +389,7 @@ describe('the autosuggest dropdown', () => {
         mainSelectorInput().blur()
       })
       await new Promise((resolve) => setTimeout(resolve, 200))
-      await act(async () => {})
+      await settleEffects()
 
       expect(suggestionItems()).not.toHaveLength(0)
       expect(onChange).not.toHaveBeenCalled()
@@ -419,7 +409,7 @@ describe('the autosuggest dropdown', () => {
         mainSelectorInput().blur()
       })
       await new Promise((resolve) => setTimeout(resolve, 200))
-      await act(async () => {})
+      await settleEffects()
 
       expect(onChange).not.toHaveBeenCalled()
     })
@@ -433,7 +423,7 @@ describe('the autosuggest dropdown', () => {
       await act(() => mainSelectorInput().blur())
       await focusField()
       await new Promise((resolve) => setTimeout(resolve, 200))
-      await act(async () => {})
+      await settleEffects()
 
       expect(onChange).not.toHaveBeenCalled()
     })
