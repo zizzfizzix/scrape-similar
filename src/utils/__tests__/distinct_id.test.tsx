@@ -57,7 +57,7 @@ describe('PostHog distinct id consistency', () => {
   })
 
   afterEach(async () => {
-    await storage.removeItem(distinctId.DISTINCT_ID_KEY)
+    await storage.removeItem(distinctIdItem.key)
   })
 
   it('uses the same distinct id across background and helper retrieval', async () => {

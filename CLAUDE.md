@@ -69,13 +69,21 @@ The background's `setupMessageListener` (`background/handlers/messages.ts`) hand
 
 ### Storage
 
-Use **WXT storage** (`storage.defineItem`, `storage.getItem`, `storage.setItem`) — never `chrome.storage.*` directly. Storage areas are encoded in the key prefix:
+Use **WXT storage items** — never `chrome.storage.*`, and never raw `storage.getItem` / `setItem` / `removeItem` / `watch` with a string key. Every key is declared once in `src/utils/storage.ts` with `storage.defineItem`, along with its value type and its `fallback`; code reads and writes through the item (`debugModeItem.getValue()`, `themeItem.watch(...)`). Per-tab keys go through factories (`sidePanelConfigItem(tabId)`, `demoScrapePendingItem(tabId)`) that define each tab's item once. A new key means a new item there, and keys never change once shipped, because existing installs hold their data under them. Storage areas are encoded in the key prefix:
 
-- `sync:user_presets` — synced preset list (versioned via `USER_PRESETS_VERSION` + `PRESET_MIGRATIONS` in `src/utils/storage.ts`). When changing the preset shape, bump `USER_PRESETS_VERSION` and add a migration.
+- `sync:user_presets` — synced preset list (`userPresetsItem`, versioned via `USER_PRESETS_VERSION` + `PRESET_MIGRATIONS`). When changing the preset shape, bump `USER_PRESETS_VERSION` and add a migration.
 - `local:event_queue` — analytics queue (see below).
-- `session:` — per-tab transient `SidePanelConfig`.
+- `session:sidepanel_config_<tabId>` — per-tab transient `SidePanelConfig`.
 
-System (built-in) presets live in `src/utils/system_presets.ts`; their enabled/disabled state is tracked separately under `SYSTEM_PRESET_STATUS_KEY`. Use `isSystemPreset` to distinguish from user presets.
+Three things about items that are easy to get wrong:
+
+- **A `fallback` is one shared object.** WXT returns it by reference whenever the key is unset, so mutating what an item returns can change the default for every later read. Copy before mutating; the `get*` helpers in `storage.ts` already return copies.
+- **`init` runs as soon as the item is defined**, not on first read. That is why `distinctIdItem` has none: an `init` would create a `distinct_id` in every context that imports the module, including for users who never opted in.
+- **Items type a value but do not validate it.** Keep runtime guards where a stored shape may not be the declared one (`isTheme`, `toSelectorList`, `toConsentState`).
+
+In React, read an item through `useStorageItem(item)` (`src/hooks/use-storage-item.ts`). It returns `[value, setValue]`; writers call the setter and let the watch update state. A removed key arrives as the item's fallback, so open pages reset to the default.
+
+System (built-in) presets live in `src/utils/system_presets.ts`; their enabled/disabled state is tracked separately in `systemPresetStatusItem`. Use `isSystemPreset` to distinguish from user presets.
 
 ### Path aliases
 

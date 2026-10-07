@@ -2,7 +2,6 @@
 import { ConsentProvider } from '@/components/consent-provider'
 import { ThemeProvider } from '@/components/theme-provider'
 import { FullDataViewApp } from '@/entrypoints/full-data-view/FullDataViewApp'
-import { ANALYTICS_CONSENT_STORAGE_KEY } from '@/utils/consent'
 import type { ScrapeConfig, ScrapedRow, SidePanelConfig } from '@/utils/types'
 import { spyOnBrowser } from '@@/tests/support/fake-browser'
 import { type RenderResult, act, render as renderComponent, waitFor } from '@testing-library/react'
@@ -39,7 +38,7 @@ vi.mock('sonner', async (importOriginal) => ({
 
 let view: RenderResult
 
-const consentKey = `sync:${ANALYTICS_CONSENT_STORAGE_KEY}` as const
+const consentKey = analyticsConsentItem.key
 
 const config: ScrapeConfig = {
   mainSelector: '//tr',

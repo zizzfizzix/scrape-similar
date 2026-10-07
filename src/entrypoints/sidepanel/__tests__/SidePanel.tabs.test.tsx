@@ -4,12 +4,10 @@ import { ThemeProvider } from '@/components/theme-provider'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { SidePanel } from '@/entrypoints/sidepanel/SidePanel'
 import { ANALYTICS_EVENTS } from '@/utils/analytics'
-import { ANALYTICS_CONSENT_STORAGE_KEY } from '@/utils/consent'
-import { getPresets, getRecentMainSelectors, userPresetsStorage } from '@/utils/storage'
+import { getPresets, getRecentMainSelectors, userPresetsItem } from '@/utils/storage'
 import { SYSTEM_PRESETS } from '@/utils/system_presets'
 import {
   MESSAGE_TYPES,
-  SYSTEM_PRESET_STATUS_KEY,
   type Message,
   type Preset,
   type ScrapeConfig,
@@ -124,8 +122,8 @@ const activateTab = (tabId: number) =>
 beforeEach(async () => {
   fakeBrowser.reset()
   setLastError(undefined)
-  await userPresetsStorage.setValue([])
-  await storage.setItem(`sync:${ANALYTICS_CONSENT_STORAGE_KEY}`, true)
+  await userPresetsItem.setValue([])
+  await storage.setItem(analyticsConsentItem.key, true)
   spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(undefined as never)
   contentScriptReplies({ success: true, matchCount: 3 })
   await attachToTab()
@@ -373,8 +371,8 @@ describe('reading the stored state', () => {
     // then let the stale read land.
     let release: ((value: SidePanelConfig | null) => void) | undefined
     const getItem = vi
-      .spyOn(storage, 'getItem')
-      .mockImplementationOnce(() => new Promise((resolve) => (release = resolve)) as never)
+      .spyOn(sidePanelConfigItem(OTHER_TAB_ID), 'getValue')
+      .mockImplementationOnce(() => new Promise((resolve) => (release = resolve)))
     tabsGetReplies({ id: OTHER_TAB_ID, url: 'https://example.org/list' })
     await activateTab(OTHER_TAB_ID)
     getItem.mockRestore()
@@ -394,9 +392,9 @@ describe('reading the stored state', () => {
     const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
     view = await render()
     tabsGetReplies({ id: OTHER_TAB_ID, url: 'https://example.org/list' })
-    vi.spyOn(storage, 'getItem').mockImplementationOnce(async () => {
+    vi.spyOn(sidePanelConfigItem(OTHER_TAB_ID), 'getValue').mockImplementationOnce(async () => {
       setLastError({ message: 'session storage unavailable' })
-      return null as never
+      return null
     })
 
     await activateTab(OTHER_TAB_ID)
@@ -464,7 +462,7 @@ describe('remembering the selector a scrape used', () => {
   })
 
   it('leaves a selector a preset already covers out of the recents', async () => {
-    await userPresetsStorage.setValue([
+    await userPresetsItem.setValue([
       {
         id: 'p1',
         name: 'Rows',
@@ -508,7 +506,7 @@ describe('remembering the selector a scrape used', () => {
   })
 
   it('ignores a preset with no selector while checking the recents', async () => {
-    await userPresetsStorage.setValue([
+    await userPresetsItem.setValue([
       {
         id: 'p0',
         name: 'Empty',
@@ -604,7 +602,7 @@ describe('presets', () => {
   }
 
   it('records loading a user preset', async () => {
-    await userPresetsStorage.setValue([userPreset])
+    await userPresetsItem.setValue([userPreset])
     view = await render()
 
     await loadPreset('Rows')
@@ -631,7 +629,7 @@ describe('presets', () => {
   })
 
   it('leaves the highlight alone for a preset with no selector', async () => {
-    await userPresetsStorage.setValue([
+    await userPresetsItem.setValue([
       { ...userPreset, config: { mainSelector: '', columns: config.columns } },
     ])
     view = await render()
@@ -662,7 +660,7 @@ describe('presets', () => {
     await attachToTab(PAGE_URL, { currentScrapeConfig: config, highlightMatchCount: 3 })
     view = await render()
     await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
-    vi.spyOn(userPresetsStorage, 'setValue').mockRejectedValue(new Error('quota exceeded'))
+    vi.spyOn(userPresetsItem, 'setValue').mockRejectedValue(new Error('quota exceeded'))
 
     await savePresetNamed('Mine')
 
@@ -670,7 +668,7 @@ describe('presets', () => {
   })
 
   it('deletes a user preset and says so', async () => {
-    await userPresetsStorage.setValue([userPreset])
+    await userPresetsItem.setValue([userPreset])
     view = await render()
 
     await deletePresetNamed('Rows')
@@ -684,9 +682,9 @@ describe('presets', () => {
   })
 
   it('reports a preset it could not delete', async () => {
-    await userPresetsStorage.setValue([userPreset])
+    await userPresetsItem.setValue([userPreset])
     view = await render()
-    vi.spyOn(userPresetsStorage, 'setValue').mockRejectedValue(new Error('quota exceeded'))
+    vi.spyOn(userPresetsItem, 'setValue').mockRejectedValue(new Error('quota exceeded'))
 
     await deletePresetNamed('Rows')
 
@@ -700,7 +698,7 @@ describe('presets', () => {
     await deletePresetNamed(systemPreset.name)
 
     await waitFor(async () =>
-      expect(await storage.getItem(`sync:${SYSTEM_PRESET_STATUS_KEY}`)).toEqual({
+      expect(await storage.getItem(systemPresetStatusItem.key)).toEqual({
         [systemPreset.id]: false,
       }),
     )
@@ -716,7 +714,7 @@ describe('presets', () => {
     await openPresetList()
 
     await act(async () => {
-      await userPresetsStorage.setValue([userPreset])
+      await userPresetsItem.setValue([userPreset])
     })
 
     await waitFor(() => expect(presetRow('Rows')).toBeDefined())
@@ -728,7 +726,7 @@ describe('presets', () => {
     await waitForPreset(systemPreset.name)
 
     await act(async () => {
-      await storage.setItem(`sync:${SYSTEM_PRESET_STATUS_KEY}`, { [systemPreset.id]: false })
+      await storage.setItem(systemPresetStatusItem.key, { [systemPreset.id]: false })
     })
 
     await waitFor(() => expect(presetRow(systemPreset.name)).toBeUndefined())
@@ -769,7 +767,7 @@ describe('presets', () => {
 
   it('falls back to the system presets when the user ones cannot be read', async () => {
     vi.spyOn(log, 'error').mockImplementation(() => {})
-    vi.spyOn(userPresetsStorage, 'getValue').mockRejectedValue(new Error('storage unavailable'))
+    vi.spyOn(userPresetsItem, 'getValue').mockRejectedValue(new Error('storage unavailable'))
 
     view = await render()
 

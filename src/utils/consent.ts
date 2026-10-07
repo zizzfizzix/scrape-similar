@@ -1,19 +1,16 @@
 import log from 'loglevel'
 
-export const ANALYTICS_CONSENT_STORAGE_KEY = 'analytics_consent'
-
 // Consent states: undefined = not asked, true = granted, false = declined
 export type ConsentState = boolean | undefined
+
+/** Reads a stored consent value, which older versions may have left as `''`. */
+export const toConsentState = (value: boolean | string | null): ConsentState =>
+  value === '' || value === null ? undefined : !!value
 
 // Helper to get the raw consent state (including undefined for "not asked")
 export const getConsentState = async (): Promise<ConsentState> => {
   try {
-    const value = await storage.getItem<boolean | null | string>(
-      `sync:${ANALYTICS_CONSENT_STORAGE_KEY}`,
-    )
-    const sanitizedConsentState =
-      value === '' || value === null || value === undefined ? undefined : !!value
-    return sanitizedConsentState
+    return toConsentState(await analyticsConsentItem.getValue())
   } catch (error) {
     log.error('Failed to get consent state from storage:', error)
     return undefined
@@ -23,7 +20,7 @@ export const getConsentState = async (): Promise<ConsentState> => {
 // Helper to persist consent
 export const setConsent = async (value: boolean): Promise<void> => {
   try {
-    await storage.setItem(`sync:${ANALYTICS_CONSENT_STORAGE_KEY}`, value)
+    await analyticsConsentItem.setValue(value)
   } catch (error) {
     log.error('Failed to set consent in storage:', error)
     throw error

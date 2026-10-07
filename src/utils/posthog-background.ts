@@ -69,7 +69,7 @@ export const getPostHogBackground = async (): Promise<PostHog | null> => {
       // Retrieve or generate the device ID from shared storage **before** initializing PostHog
       const distinctId: DistinctId = await getOrCreateDistinctId()
 
-      const isDebugModeEnabled = !!(await storage.getItem<boolean>('local:debugMode'))
+      const isDebugModeEnabled = await debugModeItem.getValue()
 
       // Initialize PostHog instance
       const posthogInstance = new PostHog()
@@ -105,8 +105,8 @@ export const getPostHogBackground = async (): Promise<PostHog | null> => {
 
       // React to debugMode changes in production to keep config in sync
       if (!isDevOrTest) {
-        storage.watch<boolean>('local:debugMode', (val) => {
-          posthogInstance.set_config({ debug: !!val })
+        debugModeItem.watch((isEnabled) => {
+          posthogInstance.set_config({ debug: isEnabled })
         })
       }
 

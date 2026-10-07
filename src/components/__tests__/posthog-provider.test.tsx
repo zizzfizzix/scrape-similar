@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-import { ANALYTICS_CONSENT_STORAGE_KEY } from '@/utils/consent'
 import { type RenderResult, act, render as renderComponent } from '@testing-library/react'
 import log from 'loglevel'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -51,7 +50,7 @@ const { ConsentProvider } = await import('@/components/consent-provider')
 
 let view: RenderResult
 
-const consentKey = `sync:${ANALYTICS_CONSENT_STORAGE_KEY}` as const
+const consentKey = analyticsConsentItem.key
 
 const exposedInstance = () =>
   (window as { __scrape_similar_posthog?: unknown }).__scrape_similar_posthog

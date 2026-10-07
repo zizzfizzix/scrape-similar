@@ -4,12 +4,10 @@ import { ThemeProvider } from '@/components/theme-provider'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { SidePanel } from '@/entrypoints/sidepanel/SidePanel'
 import { ANALYTICS_EVENTS } from '@/utils/analytics'
-import { ANALYTICS_CONSENT_STORAGE_KEY } from '@/utils/consent'
-import { getPresets, userPresetsStorage } from '@/utils/storage'
+import { getPresets, userPresetsItem } from '@/utils/storage'
 import { SYSTEM_PRESETS } from '@/utils/system_presets'
 import {
   MESSAGE_TYPES,
-  SYSTEM_PRESET_STATUS_KEY,
   type ScrapeConfig,
   type ScrapedRow,
   type SidePanelConfig,
@@ -106,9 +104,9 @@ const byText = (text: string): HTMLButtonElement => {
 beforeEach(async () => {
   fakeBrowser.reset()
   setLastError(undefined)
-  await userPresetsStorage.setValue([])
+  await userPresetsItem.setValue([])
   // The panel is behind the consent gate.
-  await storage.setItem(`sync:${ANALYTICS_CONSENT_STORAGE_KEY}`, true)
+  await storage.setItem(analyticsConsentItem.key, true)
   spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(undefined as never)
   contentScriptReplies({ success: true, matchCount: 3 })
   await attachToTab()
@@ -385,9 +383,7 @@ describe('SidePanel', () => {
         await Promise.resolve()
       })
 
-      const status = await storage.getItem<Record<string, boolean>>(
-        `sync:${SYSTEM_PRESET_STATUS_KEY}`,
-      )
+      const status = await storage.getItem<Record<string, boolean>>(systemPresetStatusItem.key)
       expect(Object.values(status ?? {})).toContain(false)
       expect(trackEvent).toHaveBeenCalledWith(
         ANALYTICS_EVENTS.PRESET_HIDE,
@@ -396,7 +392,7 @@ describe('SidePanel', () => {
     })
 
     it('re-enables the system presets when they are reset', async () => {
-      await storage.setItem(`sync:${SYSTEM_PRESET_STATUS_KEY}`, {
+      await storage.setItem(systemPresetStatusItem.key, {
         [SYSTEM_PRESETS[0]!.id]: false,
       })
       view = await render()
@@ -418,7 +414,7 @@ describe('SidePanel', () => {
 
       // The side panel clears every disable rather than removing the map.
       await waitFor(async () =>
-        expect(await storage.getItem(`sync:${SYSTEM_PRESET_STATUS_KEY}`)).toEqual({}),
+        expect(await storage.getItem(systemPresetStatusItem.key)).toEqual({}),
       )
       expect(toastMocks.toast.success).toHaveBeenCalledWith('System presets have been reset')
     })

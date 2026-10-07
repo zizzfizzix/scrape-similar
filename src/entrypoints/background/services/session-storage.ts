@@ -2,11 +2,6 @@ import { getStorageMutex } from '@/utils/session-mutex'
 import log from 'loglevel'
 
 /**
- * Generate session storage key for a specific tab
- */
-export const getSessionKey = (tabId: number): string => `sidepanel_config_${tabId}`
-
-/**
  * Atomically merge updates into a tab's session storage blob
  * Handles special logic for merging nested currentScrapeConfig
  */
@@ -14,10 +9,10 @@ export const applySidePanelDataUpdates = async (
   tabId: number,
   updates: Partial<SidePanelConfig>,
 ): Promise<void> => {
-  const sessionKey = getSessionKey(tabId)
-  const mutex = getStorageMutex(sessionKey)
+  const item = sidePanelConfigItem(tabId)
+  const mutex = getStorageMutex(item.key)
   await mutex.runExclusive(async () => {
-    const current = (await storage.getItem<SidePanelConfig>(`session:${sessionKey}`)) || {}
+    const current = (await item.getValue()) || {}
     // Shallow-merge top-level, but carefully merge nested config to avoid losing fields
     const next: SidePanelConfig = { ...current, ...updates }
     if (updates.currentScrapeConfig) {
@@ -37,7 +32,7 @@ export const applySidePanelDataUpdates = async (
       }
       next.currentScrapeConfig = merged
     }
-    await storage.setItem(`session:${sessionKey}`, next)
+    await item.setValue(next)
   })
 }
 
@@ -45,24 +40,20 @@ export const applySidePanelDataUpdates = async (
  * Get session state for a tab
  */
 export const getSessionState = async (tabId: number): Promise<SidePanelConfig | null> => {
-  const sessionKey = getSessionKey(tabId)
-  const mutex = getStorageMutex(sessionKey)
-  return await mutex.runExclusive(async () =>
-    storage.getItem<SidePanelConfig>(`session:${sessionKey}`),
-  )
+  const item = sidePanelConfigItem(tabId)
+  const mutex = getStorageMutex(item.key)
+  return await mutex.runExclusive(async () => item.getValue())
 }
 
 /**
  * Initialize default session state for a tab if it doesn't exist
  */
 export const initializeSessionState = async (tabId: number): Promise<void> => {
-  const sessionKey = getSessionKey(tabId)
-  const mutex = getStorageMutex(sessionKey)
-  const existing = await mutex.runExclusive(async () =>
-    storage.getItem<Partial<SidePanelConfig>>(`session:${sessionKey}`),
-  )
+  const item = sidePanelConfigItem(tabId)
+  const mutex = getStorageMutex(item.key)
+  const existing = await mutex.runExclusive(async () => item.getValue())
   if (!existing) {
-    const defaultPanelState: Partial<SidePanelConfig> = {
+    const defaultPanelState: SidePanelConfig = {
       initialSelectionText: undefined,
       elementDetails: undefined,
       selectionOptions: undefined,
@@ -70,7 +61,7 @@ export const initializeSessionState = async (tabId: number): Promise<void> => {
     }
     log.debug(`Initializing default session state for tab ${tabId}`)
     await mutex.runExclusive(async () => {
-      await storage.setItem(`session:${sessionKey}`, defaultPanelState)
+      await item.setValue(defaultPanelState)
     })
   }
 }
@@ -79,9 +70,8 @@ export const initializeSessionState = async (tabId: number): Promise<void> => {
  * Clear session state for a tab
  */
 export const clearSessionState = async (tabId: number): Promise<void> => {
-  const sessionKey = getSessionKey(tabId)
   try {
-    await storage.removeItem(`session:${sessionKey}`)
+    await sidePanelConfigItem(tabId).removeValue()
     log.debug(`Cleared session state for tab ${tabId}`)
   } catch (error) {
     log.error(`Error clearing session state for tab ${tabId}:`, error)

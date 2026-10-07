@@ -95,8 +95,9 @@ describe('setupMessageListener', () => {
 
     it('reports the error when the write fails', async () => {
       vi.spyOn(log, 'error').mockImplementation(() => {})
-      const { storage } = await import('wxt/utils/storage')
-      vi.spyOn(storage, 'setItem').mockRejectedValueOnce(new Error('quota exceeded'))
+      vi.spyOn(fakeBrowser.storage.session, 'set').mockRejectedValueOnce(
+        new Error('quota exceeded'),
+      )
 
       update({ tabId: 5, updates: { highlightMatchCount: 1 } })
       await settle()
