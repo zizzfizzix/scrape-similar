@@ -15,46 +15,65 @@ export const PRESET_MIGRATIONS: Record<number, (oldValue: unknown) => Preset[]> 
 // values stored by earlier versions still load. A `fallback` is returned by
 // reference on every read, so copy an array or object before mutating it - the
 // `get*` helpers below hand out copies for that reason.
+//
+// `/* @__PURE__ */` lets a bundle drop the items it never uses. `defineItem`
+// reads its key (and runs migrations) the moment it is called, so without it
+// every page the content script runs on would define and read all of them.
 
-export const userPresetsItem = storage.defineItem<Preset[]>('sync:user_presets', {
+export const userPresetsItem = /* @__PURE__ */ storage.defineItem<Preset[]>('sync:user_presets', {
   version: USER_PRESETS_VERSION,
   fallback: [],
   migrations: PRESET_MIGRATIONS,
 })
 
-export const systemPresetStatusItem = storage.defineItem<SystemPresetStatusMap>(
+export const systemPresetStatusItem = /* @__PURE__ */ storage.defineItem<SystemPresetStatusMap>(
   'sync:system_preset_status',
   { fallback: {} },
 )
 
-export const recentMainSelectorsItem = storage.defineItem<string[]>('local:recent_main_selectors', {
-  fallback: [],
-})
+export const recentMainSelectorsItem = /* @__PURE__ */ storage.defineItem<string[]>(
+  'local:recent_main_selectors',
+  {
+    fallback: [],
+  },
+)
 
-export const debugModeItem = storage.defineItem<boolean>('local:debugMode', { fallback: false })
-
-export const debugUnlockedItem = storage.defineItem<boolean>('local:debugUnlocked', {
+export const debugModeItem = /* @__PURE__ */ storage.defineItem<boolean>('local:debugMode', {
   fallback: false,
 })
 
-export const themeItem = storage.defineItem<Theme>('local:theme', { fallback: 'system' })
+export const debugUnlockedItem = /* @__PURE__ */ storage.defineItem<boolean>(
+  'local:debugUnlocked',
+  {
+    fallback: false,
+  },
+)
 
-export const eventQueueItem = storage.defineItem<QueuedEvent[]>('local:event_queue', {
-  fallback: [],
+export const themeItem = /* @__PURE__ */ storage.defineItem<Theme>('local:theme', {
+  fallback: 'system',
 })
+
+export const eventQueueItem = /* @__PURE__ */ storage.defineItem<QueuedEvent[]>(
+  'local:event_queue',
+  {
+    fallback: [],
+  },
+)
 
 /**
  * Older versions stored `null` or `''` here as well as a boolean, so the raw
  * value is typed loosely and `getConsentState` reads it into a `ConsentState`.
  */
-export const analyticsConsentItem = storage.defineItem<boolean | string>('sync:analytics_consent')
+export const analyticsConsentItem = /* @__PURE__ */ storage.defineItem<boolean | string>(
+  'sync:analytics_consent',
+)
 
 /**
  * Deliberately no `init`: WXT runs it as soon as the item is defined, which
  * would create an id in every context that imports this module. The id must
  * only exist once a user has opted in — see `setupUninstallUrl`.
  */
-export const distinctIdItem = storage.defineItem<DistinctId>('local:distinct_id')
+export const distinctIdItem = /* @__PURE__ */ storage.defineItem<DistinctId>('local:distinct_id')
 
 /**
  * `defineItem` reads its key once as soon as it is called, so a per-tab item is
