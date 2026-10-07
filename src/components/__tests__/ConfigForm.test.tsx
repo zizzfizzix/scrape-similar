@@ -2,9 +2,9 @@
 import { ConfigForm } from '@/components/ConfigForm'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ANALYTICS_EVENTS } from '@/utils/analytics'
-import { setRecentMainSelectors, userPresetsStorage } from '@/utils/storage'
+import { setRecentMainSelectors, userPresetsItem } from '@/utils/storage'
 import { SYSTEM_PRESETS } from '@/utils/system_presets'
-import { SYSTEM_PRESET_STATUS_KEY, type Preset, type ScrapeConfig } from '@/utils/types'
+import { type Preset, type ScrapeConfig } from '@/utils/types'
 import { stubOffsetWidth } from '@@/tests/support/dom'
 import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
 import {
@@ -110,7 +110,7 @@ beforeEach(async () => {
   setLastError(undefined)
   // jsdom measures everything as 0; restore that between tests that stub it.
   stubOffsetWidth(0)
-  await userPresetsStorage.setValue([])
+  await userPresetsItem.setValue([])
 })
 
 describe('ConfigForm', () => {
@@ -921,7 +921,7 @@ describe('ConfigForm', () => {
   })
 
   it('respects a hidden system preset', async () => {
-    await storage.setItem(`sync:${SYSTEM_PRESET_STATUS_KEY}`, {})
+    await storage.setItem(systemPresetStatusItem.key, {})
 
     view = await render()
 

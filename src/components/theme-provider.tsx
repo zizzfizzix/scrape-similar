@@ -1,11 +1,8 @@
-import { createContext, useContext, useEffect, useState } from 'react'
-
-type Theme = 'dark' | 'light' | 'system'
+import { useStorageItem } from '@/hooks/use-storage-item'
+import { createContext, useContext, useEffect } from 'react'
 
 interface ThemeProviderProps {
   children: React.ReactNode
-  defaultTheme?: Theme
-  themeStorageKey?: string
   /** Optional element to apply the theme classes to instead of document.documentElement */
   rootElement?: Element | null
 }
@@ -25,36 +22,12 @@ const initialState: ThemeProviderState = {
 const ThemeProviderContext = createContext<ThemeProviderState>(initialState)
 
 /** The stored value is whatever was last written there, not necessarily a theme. */
-const isTheme = (value: Theme | null): value is Theme =>
+const isTheme = (value: unknown): value is Theme =>
   value === 'light' || value === 'dark' || value === 'system'
 
-export function ThemeProvider({
-  children,
-  defaultTheme = 'system',
-  themeStorageKey = 'theme',
-  rootElement,
-  ...props
-}: ThemeProviderProps) {
-  const [theme, setTheme] = useState<Theme>(defaultTheme)
-
-  useEffect(() => {
-    storage.getItem<Theme>(`local:${themeStorageKey}`).then((stored) => {
-      if (isTheme(stored)) {
-        setTheme(stored)
-      }
-    })
-  }, [themeStorageKey])
-
-  useEffect(() => {
-    const unwatchTheme = storage.watch<Theme>(`local:${themeStorageKey}`, (newTheme) => {
-      if (isTheme(newTheme)) {
-        setTheme(newTheme)
-      }
-    })
-    return () => {
-      unwatchTheme()
-    }
-  }, [themeStorageKey])
+export function ThemeProvider({ children, rootElement, ...props }: ThemeProviderProps) {
+  const [storedTheme, setStoredTheme] = useStorageItem(themeItem)
+  const theme = isTheme(storedTheme) ? storedTheme : themeItem.fallback
 
   // Listen for system theme changes if theme is "system"
   useEffect(() => {
@@ -87,10 +60,7 @@ export function ThemeProvider({
 
   const value = {
     theme,
-    setTheme: (theme: Theme) => {
-      storage.setItem(`local:${themeStorageKey}`, theme)
-      setTheme(theme)
-    },
+    setTheme: setStoredTheme,
     rootElement,
   }
 

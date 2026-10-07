@@ -45,7 +45,7 @@ export const handleDemoScrape = async (
           ],
         }
 
-    await storage.setItem(`local:demo_scrape_pending_${tabId}`, demoConfig)
+    await demoScrapePendingItem(tabId).setValue(demoConfig)
 
     log.debug('🎬 Demo scrape setup complete - stored config for tab', tabId)
     sendResponse({ success: true })
@@ -121,7 +121,7 @@ export const executeDemoScrape = async (tabId: number, config: ScrapeConfig): Pr
  */
 export const clearDemoScrapeFlag = async (tabId: number): Promise<void> => {
   try {
-    await storage.removeItem(`local:demo_scrape_pending_${tabId}`)
+    await demoScrapePendingItem(tabId).removeValue()
   } catch (error) {
     log.error(`Error clearing demo scrape flag for tab ${tabId}:`, error)
   }

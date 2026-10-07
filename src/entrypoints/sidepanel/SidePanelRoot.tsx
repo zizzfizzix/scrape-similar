@@ -1,8 +1,7 @@
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { SidePanel } from '@/entrypoints/sidepanel/SidePanel'
-import { isDevOrTest } from '@/utils/modeTest'
-import log from 'loglevel'
-import React, { useEffect, useState } from 'react'
+import { useDebugMode } from '@/hooks/use-debug-mode'
+import React from 'react'
 
 /**
  * The side panel plus the debug-mode plumbing it is handed.
@@ -11,34 +10,12 @@ import React, { useEffect, useState } from 'react'
  * how the panel writes the flag back — can be exercised without a real root.
  */
 export const SidePanelRoot: React.FC = () => {
-  const [isDebugModeEnabled, setIsDebugModeEnabled] = useState(false)
-
-  useEffect(() => {
-    storage.getItem<boolean>('local:debugMode').then((val) => {
-      setIsDebugModeEnabled(!!val)
-      if (isDevOrTest) {
-        log.setLevel('trace')
-      } else {
-        log.setLevel(val ? 'trace' : 'error')
-      }
-    })
-    const unwatch = storage.watch<boolean>('local:debugMode', (val) => {
-      setIsDebugModeEnabled(!!val)
-      if (!isDevOrTest) {
-        log.setLevel(val ? 'trace' : 'error')
-      }
-    })
-    return () => unwatch()
-  }, [])
-
-  const handleDebugModeChange = (enabled: boolean) => {
-    storage.setItem('local:debugMode', enabled)
-  }
+  const [isDebugModeEnabled, setDebugModeEnabled] = useDebugMode()
 
   return (
     <ThemeProvider>
       <TooltipProvider>
-        <SidePanel debugMode={isDebugModeEnabled} onDebugModeChange={handleDebugModeChange} />
+        <SidePanel debugMode={isDebugModeEnabled} onDebugModeChange={setDebugModeEnabled} />
       </TooltipProvider>
     </ThemeProvider>
   )

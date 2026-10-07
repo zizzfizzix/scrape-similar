@@ -1,11 +1,11 @@
-import { ANALYTICS_CONSENT_STORAGE_KEY, getConsentState, setConsent } from '@/utils/consent'
+import { getConsentState, setConsent } from '@/utils/consent'
 import log from 'loglevel'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
 
 // Prefix used by consent utilities when interacting with storage
-const STORAGE_KEY = `sync:${ANALYTICS_CONSENT_STORAGE_KEY}`
+const STORAGE_KEY = analyticsConsentItem.key
 
 describe('consent utilities', () => {
   beforeEach(() => {
@@ -40,7 +40,7 @@ describe('consent utilities', () => {
   it('returns undefined and logs when the read is rejected', async () => {
     const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
     const failure = new Error('storage unavailable')
-    vi.spyOn(storage, 'getItem').mockRejectedValueOnce(failure)
+    vi.spyOn(analyticsConsentItem, 'getValue').mockRejectedValueOnce(failure)
 
     expect(await getConsentState()).toBeUndefined()
     expect(errorSpy).toHaveBeenCalledWith('Failed to get consent state from storage:', failure)
@@ -49,7 +49,7 @@ describe('consent utilities', () => {
   it('logs and rethrows when the write fails', async () => {
     const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
     const failure = new Error('quota exceeded')
-    vi.spyOn(storage, 'setItem').mockRejectedValueOnce(failure)
+    vi.spyOn(analyticsConsentItem, 'setValue').mockRejectedValueOnce(failure)
 
     await expect(setConsent(true)).rejects.toThrow(failure)
     expect(errorSpy).toHaveBeenCalledWith('Failed to set consent in storage:', failure)

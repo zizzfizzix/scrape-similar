@@ -3,15 +3,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
 
-import {
-  EVENT_QUEUE_STORAGE_KEY,
-  MAX_QUEUED_EVENTS,
-  queueEvent,
-  trackEvent,
-} from '@/utils/analytics'
+import { MAX_QUEUED_EVENTS, queueEvent, trackEvent } from '@/utils/analytics'
 import * as consent from '@/utils/consent'
 
-const QUEUE_KEY = `local:${EVENT_QUEUE_STORAGE_KEY}`
+const QUEUE_KEY = eventQueueItem.key
 
 describe('analytics utilities', () => {
   beforeEach(() => {
@@ -33,7 +28,7 @@ describe('analytics utilities', () => {
     it('logs and swallows a write failure', async () => {
       const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
       const failure = new Error('quota exceeded')
-      vi.spyOn(storage, 'setItem').mockRejectedValueOnce(failure)
+      vi.spyOn(eventQueueItem, 'setValue').mockRejectedValueOnce(failure)
 
       await expect(
         queueEvent({ name: 'test_event', props: {}, timestamp: Date.now() }),
