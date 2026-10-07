@@ -1,10 +1,6 @@
+import type { QueuedEvent } from '@/utils/analytics'
+import type { DistinctId } from '@/utils/distinct-id'
 import log from 'loglevel'
-
-// Storage keys
-export const STORAGE_KEYS = {
-  USER_PRESETS: 'user_presets',
-  RECENT_MAIN_SELECTORS: 'recent_main_selectors',
-}
 
 /** Current version for user presets storage and export/import file format. */
 export const USER_PRESETS_VERSION = 1
@@ -14,19 +10,80 @@ export const PRESET_MIGRATIONS: Record<number, (oldValue: unknown) => Preset[]> 
   // Future: 2: (old: PresetV1[]) => old.map(p => ({ ...p, newField: default }))
 }
 
-export const userPresetsStorage = storage.defineItem<Preset[]>(
-  `sync:${STORAGE_KEYS.USER_PRESETS}`,
-  {
-    version: USER_PRESETS_VERSION,
-    fallback: [],
-    migrations: PRESET_MIGRATIONS,
-  },
+// Every storage key the extension reads or writes is declared here, once, with
+// its type and its default. The keys are the ones the raw calls used before, so
+// values stored by earlier versions still load. A `fallback` is returned by
+// reference on every read, so copy an array or object before mutating it - the
+// `get*` helpers below hand out copies for that reason.
+
+export const userPresetsItem = storage.defineItem<Preset[]>('sync:user_presets', {
+  version: USER_PRESETS_VERSION,
+  fallback: [],
+  migrations: PRESET_MIGRATIONS,
+})
+
+export const systemPresetStatusItem = storage.defineItem<SystemPresetStatusMap>(
+  'sync:system_preset_status',
+  { fallback: {} },
+)
+
+export const recentMainSelectorsItem = storage.defineItem<string[]>('local:recent_main_selectors', {
+  fallback: [],
+})
+
+export const debugModeItem = storage.defineItem<boolean>('local:debugMode', { fallback: false })
+
+export const debugUnlockedItem = storage.defineItem<boolean>('local:debugUnlocked', {
+  fallback: false,
+})
+
+export const themeItem = storage.defineItem<Theme>('local:theme', { fallback: 'system' })
+
+export const eventQueueItem = storage.defineItem<QueuedEvent[]>('local:event_queue', {
+  fallback: [],
+})
+
+/**
+ * Older versions stored `null` or `''` here as well as a boolean, so the raw
+ * value is typed loosely and `getConsentState` reads it into a `ConsentState`.
+ */
+export const analyticsConsentItem = storage.defineItem<boolean | string>('sync:analytics_consent')
+
+/**
+ * Deliberately no `init`: WXT runs it as soon as the item is defined, which
+ * would create an id in every context that imports this module. The id must
+ * only exist once a user has opted in — see `setupUninstallUrl`.
+ */
+export const distinctIdItem = storage.defineItem<DistinctId>('local:distinct_id')
+
+/**
+ * `defineItem` reads its key once as soon as it is called, so a per-tab item is
+ * defined on first use and reused after that rather than redefined per call.
+ */
+const definePerTab = <Item>(define: (tabId: number) => Item) => {
+  const items = new Map<number, Item>()
+  return (tabId: number): Item => {
+    let item = items.get(tabId)
+    if (!item) {
+      item = define(tabId)
+      items.set(tabId, item)
+    }
+    return item
+  }
+}
+
+export const sidePanelConfigItem = definePerTab((tabId) =>
+  storage.defineItem<SidePanelConfig>(`session:sidepanel_config_${tabId}`),
+)
+
+export const demoScrapePendingItem = definePerTab((tabId) =>
+  storage.defineItem<ScrapeConfig>(`local:demo_scrape_pending_${tabId}`),
 )
 
 // Get presets from storage
 export const getPresets = async (): Promise<Preset[]> => {
   try {
-    return await userPresetsStorage.getValue()
+    return [...(await userPresetsItem.getValue())]
   } catch (error) {
     log.error('Error getting presets from storage:', error)
     return []
@@ -48,7 +105,7 @@ export const savePreset = async (preset: Preset): Promise<boolean> => {
       presets.push(preset)
     }
 
-    await userPresetsStorage.setValue(presets)
+    await userPresetsItem.setValue(presets)
     return true
   } catch (error) {
     log.error('Error saving preset to storage:', error)
@@ -62,7 +119,7 @@ export const deletePreset = async (presetId: string): Promise<boolean> => {
     const presets = await getPresets()
     const updatedPresets = presets.filter((p) => p.id !== presetId)
 
-    await userPresetsStorage.setValue(updatedPresets)
+    await userPresetsItem.setValue(updatedPresets)
     return true
   } catch (error) {
     log.error('Error deleting preset from storage:', error)
@@ -73,7 +130,7 @@ export const deletePreset = async (presetId: string): Promise<boolean> => {
 // Set all user presets (used by import). Replaces existing.
 export const setPresets = async (presets: Preset[]): Promise<boolean> => {
   try {
-    await userPresetsStorage.setValue(presets)
+    await userPresetsItem.setValue(presets)
     return true
   } catch (error) {
     log.error('Error setting presets in storage:', error)
@@ -90,8 +147,7 @@ export const initializeStorage = async (): Promise<void> => {
 // Get system preset status map from storage
 export const getSystemPresetStatus = async (): Promise<SystemPresetStatusMap> => {
   try {
-    const result = await storage.getItem<SystemPresetStatusMap>(`sync:${SYSTEM_PRESET_STATUS_KEY}`)
-    return result || {}
+    return { ...(await systemPresetStatusItem.getValue()) }
   } catch (error) {
     log.error('Error getting system preset status from storage:', error)
     return {}
@@ -101,7 +157,7 @@ export const getSystemPresetStatus = async (): Promise<SystemPresetStatusMap> =>
 // Set system preset status map in storage
 export const setSystemPresetStatus = async (statusMap: SystemPresetStatusMap): Promise<void> => {
   try {
-    await storage.setItem(`sync:${SYSTEM_PRESET_STATUS_KEY}`, statusMap)
+    await systemPresetStatusItem.setValue(statusMap)
   } catch (error) {
     log.error('Error setting system preset status in storage:', error)
   }
@@ -120,9 +176,14 @@ export const getAllPresets = async (): Promise<Preset[]> => {
 // Recent main selectors (local area, capped to 5)
 // -----------------------------------------------
 
+/** The item is typed, not validated: anything but a list reads as no recents. */
+export const toSelectorList = (stored: unknown): string[] =>
+  Array.isArray(stored) ? [...stored] : []
+
 export const getRecentMainSelectors = async (): Promise<string[]> => {
   try {
-    return (await storage.getItem<string[]>(`local:${STORAGE_KEYS.RECENT_MAIN_SELECTORS}`)) ?? []
+    const stored = await recentMainSelectorsItem.getValue()
+    return toSelectorList(stored)
   } catch (error) {
     log.error('Error getting recent main selectors:', error)
     return []
@@ -131,7 +192,7 @@ export const getRecentMainSelectors = async (): Promise<string[]> => {
 
 export const setRecentMainSelectors = async (selectors: string[]): Promise<void> => {
   try {
-    await storage.setItem(`local:${STORAGE_KEYS.RECENT_MAIN_SELECTORS}`, selectors)
+    await recentMainSelectorsItem.setValue(selectors)
   } catch (error) {
     log.error('Error setting recent main selectors:', error)
   }

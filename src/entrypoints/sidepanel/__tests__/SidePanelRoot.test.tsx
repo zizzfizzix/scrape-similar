@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-import { ANALYTICS_CONSENT_STORAGE_KEY } from '@/utils/consent'
 import { spyOnBrowser } from '@@/tests/support/fake-browser'
 import { type RenderResult, act, render as renderComponent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -28,7 +27,7 @@ const { SidePanelRoot } = await import('@/entrypoints/sidepanel/SidePanelRoot')
 
 let view: RenderResult
 
-const consentKey = `sync:${ANALYTICS_CONSENT_STORAGE_KEY}` as const
+const consentKey = analyticsConsentItem.key
 
 /** Give storage watchers a macrotask to fire. */
 const flushWatchers = (): Promise<void> => new Promise((resolve) => setTimeout(() => resolve(), 0))

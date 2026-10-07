@@ -1,7 +1,6 @@
 import {
   applySidePanelDataUpdates,
   clearSessionState,
-  getSessionKey,
   getSessionState,
   initializeSessionState,
 } from '@/entrypoints/background/services/session-storage'
@@ -12,13 +11,7 @@ import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
 
 const read = (tabId: number) =>
-  storage.getItem<SidePanelConfig>(`session:${getSessionKey(tabId)}`) as Promise<SidePanelConfig>
-
-describe('getSessionKey', () => {
-  it('namespaces the key by tab id', () => {
-    expect(getSessionKey(42)).toBe('sidepanel_config_42')
-  })
-})
+  storage.getItem<SidePanelConfig>(sidePanelConfigItem(tabId).key) as Promise<SidePanelConfig>
 
 describe('applySidePanelDataUpdates', () => {
   beforeEach(() => {
@@ -169,7 +162,7 @@ describe('clearSessionState', () => {
   it('logs and swallows storage failures', async () => {
     const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
     const failure = new Error('storage unavailable')
-    vi.spyOn(storage, 'removeItem').mockRejectedValueOnce(failure)
+    vi.spyOn(fakeBrowser.storage.session, 'remove').mockRejectedValueOnce(failure)
 
     await expect(clearSessionState(9)).resolves.toBeUndefined()
 

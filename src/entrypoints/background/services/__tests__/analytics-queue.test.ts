@@ -1,6 +1,4 @@
 import type { QueuedEvent } from '@/entrypoints/background/types'
-import { EVENT_QUEUE_STORAGE_KEY } from '@/utils/analytics'
-import { ANALYTICS_CONSENT_STORAGE_KEY } from '@/utils/consent'
 import log from 'loglevel'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
@@ -24,7 +22,7 @@ const createFakePostHog = () => {
   return instance
 }
 
-const queueKey = `local:${EVENT_QUEUE_STORAGE_KEY}` as const
+const queueKey = eventQueueItem.key
 const readQueue = () => storage.getItem<QueuedEvent[]>(queueKey)
 const event = (name: string, timestamp = 1_700_000_000_000): QueuedEvent => ({
   name,
@@ -133,7 +131,7 @@ describe('flushQueuedEvents', () => {
     const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
     await storage.setItem(queueKey, [event('a')])
     const failure = new Error('write failed')
-    vi.spyOn(storage, 'setItem').mockRejectedValueOnce(failure)
+    vi.spyOn(eventQueueItem, 'setValue').mockRejectedValueOnce(failure)
 
     await flushQueuedEvents()
 
@@ -181,7 +179,7 @@ describe('initializeAnalyticsQueue', () => {
     posthogMocks.getPostHogBackground.mockResolvedValue(ph)
     await storage.setItem(queueKey, [event('queued')])
     await flushWatchers()
-    await storage.setItem(`sync:${ANALYTICS_CONSENT_STORAGE_KEY}`, true)
+    await storage.setItem(analyticsConsentItem.key, true)
     await flushWatchers()
 
     expect(ph.capture).toHaveBeenCalledWith('queued', expect.anything(), expect.anything())
@@ -193,7 +191,7 @@ describe('initializeAnalyticsQueue', () => {
     await storage.setItem(queueKey, [event('discarded')])
     await flushWatchers()
 
-    await storage.setItem(`sync:${ANALYTICS_CONSENT_STORAGE_KEY}`, false)
+    await storage.setItem(analyticsConsentItem.key, false)
     await flushWatchers()
 
     expect(posthogMocks.resetPostHogInstance).toHaveBeenCalled()
@@ -202,11 +200,11 @@ describe('initializeAnalyticsQueue', () => {
 
   it('ignores a consent value that is cleared back to undecided', async () => {
     posthogMocks.getPostHogBackground.mockResolvedValue(null)
-    await storage.setItem(`sync:${ANALYTICS_CONSENT_STORAGE_KEY}`, true)
+    await storage.setItem(analyticsConsentItem.key, true)
     await initializeAnalyticsQueue()
     posthogMocks.getPostHogBackground.mockClear()
 
-    await storage.setItem(`sync:${ANALYTICS_CONSENT_STORAGE_KEY}`, '')
+    await storage.setItem(analyticsConsentItem.key, '')
     await flushWatchers()
 
     expect(posthogMocks.resetPostHogInstance).not.toHaveBeenCalled()

@@ -11,11 +11,10 @@ import {
   setPresets,
   setRecentMainSelectors,
   setSystemPresetStatus,
-  STORAGE_KEYS,
-  userPresetsStorage,
+  userPresetsItem,
 } from '@/utils/storage'
 import { SYSTEM_PRESETS } from '@/utils/system_presets'
-import { SYSTEM_PRESET_STATUS_KEY, type Preset } from '@/utils/types'
+import { type Preset } from '@/utils/types'
 import log from 'loglevel'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
@@ -34,7 +33,7 @@ beforeEach(async () => {
   fakeBrowser.reset()
   // The versioned storage item caches its value in memory, so fakeBrowser.reset()
   // alone leaves the previous test's presets visible. Write the empty list back.
-  await userPresetsStorage.setValue([])
+  await userPresetsItem.setValue([])
 })
 
 describe('savePreset', () => {
@@ -65,7 +64,7 @@ describe('savePreset', () => {
   it('reports failure when the write is rejected', async () => {
     const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
     const failure = new Error('quota exceeded')
-    vi.spyOn(userPresetsStorage, 'setValue').mockRejectedValueOnce(failure)
+    vi.spyOn(userPresetsItem, 'setValue').mockRejectedValueOnce(failure)
 
     expect(await savePreset(preset('a'))).toBe(false)
     expect(errorSpy).toHaveBeenCalledWith('Error saving preset to storage:', failure)
@@ -90,7 +89,7 @@ describe('deletePreset', () => {
   it('reports failure when the write is rejected', async () => {
     const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
     const failure = new Error('quota exceeded')
-    vi.spyOn(userPresetsStorage, 'setValue').mockRejectedValueOnce(failure)
+    vi.spyOn(userPresetsItem, 'setValue').mockRejectedValueOnce(failure)
 
     expect(await deletePreset('a')).toBe(false)
     expect(errorSpy).toHaveBeenCalledWith('Error deleting preset from storage:', failure)
@@ -101,7 +100,7 @@ describe('getPresets', () => {
   it('returns an empty list and logs when the read is rejected', async () => {
     const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
     const failure = new Error('storage unavailable')
-    vi.spyOn(userPresetsStorage, 'getValue').mockRejectedValueOnce(failure)
+    vi.spyOn(userPresetsItem, 'getValue').mockRejectedValueOnce(failure)
 
     expect(await getPresets()).toEqual([])
     expect(errorSpy).toHaveBeenCalledWith('Error getting presets from storage:', failure)
@@ -112,7 +111,7 @@ describe('setPresets', () => {
   it('reports failure when the write is rejected', async () => {
     const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
     const failure = new Error('quota exceeded')
-    vi.spyOn(userPresetsStorage, 'setValue').mockRejectedValueOnce(failure)
+    vi.spyOn(userPresetsItem, 'setValue').mockRejectedValueOnce(failure)
 
     expect(await setPresets([preset('a')])).toBe(false)
     expect(errorSpy).toHaveBeenCalledWith('Error setting presets in storage:', failure)
@@ -136,7 +135,7 @@ describe('initializeStorage', () => {
 
   it('logs and swallows a read failure', async () => {
     const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
-    vi.spyOn(userPresetsStorage, 'getValue').mockRejectedValue(new Error('storage unavailable'))
+    vi.spyOn(userPresetsItem, 'getValue').mockRejectedValue(new Error('storage unavailable'))
 
     await expect(initializeStorage()).resolves.toBeUndefined()
     expect(errorSpy).toHaveBeenCalled()
@@ -157,7 +156,7 @@ describe('system preset status', () => {
   it('returns an empty map and logs when the read is rejected', async () => {
     const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
     const failure = new Error('storage unavailable')
-    vi.spyOn(storage, 'getItem').mockRejectedValueOnce(failure)
+    vi.spyOn(systemPresetStatusItem, 'getValue').mockRejectedValueOnce(failure)
 
     expect(await getSystemPresetStatus()).toEqual({})
     expect(errorSpy).toHaveBeenCalledWith(
@@ -169,7 +168,7 @@ describe('system preset status', () => {
   it('logs and swallows a write failure', async () => {
     const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
     const failure = new Error('quota exceeded')
-    vi.spyOn(storage, 'setItem').mockRejectedValueOnce(failure)
+    vi.spyOn(systemPresetStatusItem, 'setValue').mockRejectedValueOnce(failure)
 
     await expect(setSystemPresetStatus({ 'system-1': false })).resolves.toBeUndefined()
     expect(errorSpy).toHaveBeenCalledWith('Error setting system preset status in storage:', failure)
@@ -192,7 +191,7 @@ describe('getAllPresets', () => {
 
   it('omits system presets explicitly disabled in the status map', async () => {
     const [first] = SYSTEM_PRESETS
-    await storage.setItem(`sync:${SYSTEM_PRESET_STATUS_KEY}`, { [first!.id]: false })
+    await storage.setItem(systemPresetStatusItem.key, { [first!.id]: false })
 
     const all = await getAllPresets()
 
@@ -202,16 +201,22 @@ describe('getAllPresets', () => {
 
   it('keeps system presets explicitly enabled in the status map', async () => {
     const [first] = SYSTEM_PRESETS
-    await storage.setItem(`sync:${SYSTEM_PRESET_STATUS_KEY}`, { [first!.id]: true })
+    await storage.setItem(systemPresetStatusItem.key, { [first!.id]: true })
 
     expect(ids(await getAllPresets())).toContain(first!.id)
   })
 })
 
 describe('recent main selectors', () => {
-  const read = () => storage.getItem<string[]>(`local:${STORAGE_KEYS.RECENT_MAIN_SELECTORS}`)
+  const read = () => storage.getItem<string[]>(recentMainSelectorsItem.key)
 
   it('starts out empty', async () => {
+    expect(await getRecentMainSelectors()).toEqual([])
+  })
+
+  it('reads a stored value that is not a list as no recents', async () => {
+    await storage.setItem(recentMainSelectorsItem.key, 'not-a-list')
+
     expect(await getRecentMainSelectors()).toEqual([])
   })
 
@@ -275,7 +280,7 @@ describe('recent main selectors', () => {
   it('returns an empty list and logs when the read is rejected', async () => {
     const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
     const failure = new Error('storage unavailable')
-    vi.spyOn(storage, 'getItem').mockRejectedValueOnce(failure)
+    vi.spyOn(recentMainSelectorsItem, 'getValue').mockRejectedValueOnce(failure)
 
     expect(await getRecentMainSelectors()).toEqual([])
     expect(errorSpy).toHaveBeenCalledWith('Error getting recent main selectors:', failure)
@@ -284,7 +289,7 @@ describe('recent main selectors', () => {
   it('logs and swallows a write failure', async () => {
     const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
     const failure = new Error('quota exceeded')
-    vi.spyOn(storage, 'setItem').mockRejectedValueOnce(failure)
+    vi.spyOn(recentMainSelectorsItem, 'setValue').mockRejectedValueOnce(failure)
 
     await expect(setRecentMainSelectors(['//a'])).resolves.toBeUndefined()
     expect(errorSpy).toHaveBeenCalledWith('Error setting recent main selectors:', failure)
@@ -293,7 +298,7 @@ describe('recent main selectors', () => {
   it('logs and swallows a failure while pushing', async () => {
     const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
     const failure = new Error('storage unavailable')
-    vi.spyOn(storage, 'getItem').mockRejectedValue(failure)
+    vi.spyOn(recentMainSelectorsItem, 'getValue').mockRejectedValue(failure)
 
     await expect(pushRecentMainSelector('//a')).resolves.toBeUndefined()
     expect(errorSpy).toHaveBeenCalledWith('Error getting recent main selectors:', failure)
@@ -303,9 +308,74 @@ describe('recent main selectors', () => {
     const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
     await setRecentMainSelectors(['//a'])
     const failure = new Error('quota exceeded')
-    vi.spyOn(storage, 'setItem').mockRejectedValue(failure)
+    vi.spyOn(recentMainSelectorsItem, 'setValue').mockRejectedValue(failure)
 
     await expect(removeRecentMainSelector('//a')).resolves.toBeUndefined()
     expect(errorSpy).toHaveBeenCalledWith('Error setting recent main selectors:', failure)
+  })
+})
+
+describe('storage items', () => {
+  beforeEach(() => {
+    fakeBrowser.reset()
+  })
+
+  // Existing installs hold their data under these keys; changing one orphans it.
+  it('keeps the keys earlier versions stored values under', () => {
+    expect({
+      userPresets: userPresetsItem.key,
+      systemPresetStatus: systemPresetStatusItem.key,
+      recentMainSelectors: recentMainSelectorsItem.key,
+      debugMode: debugModeItem.key,
+      debugUnlocked: debugUnlockedItem.key,
+      theme: themeItem.key,
+      eventQueue: eventQueueItem.key,
+      analyticsConsent: analyticsConsentItem.key,
+      distinctId: distinctIdItem.key,
+      sidePanelConfig: sidePanelConfigItem(42).key,
+      demoScrapePending: demoScrapePendingItem(42).key,
+    }).toEqual({
+      userPresets: 'sync:user_presets',
+      systemPresetStatus: 'sync:system_preset_status',
+      recentMainSelectors: 'local:recent_main_selectors',
+      debugMode: 'local:debugMode',
+      debugUnlocked: 'local:debugUnlocked',
+      theme: 'local:theme',
+      eventQueue: 'local:event_queue',
+      analyticsConsent: 'sync:analytics_consent',
+      distinctId: 'local:distinct_id',
+      sidePanelConfig: 'session:sidepanel_config_42',
+      demoScrapePending: 'local:demo_scrape_pending_42',
+    })
+  })
+
+  it('reads a value written under the old raw key', async () => {
+    await storage.setItem('local:debugMode', true)
+    await storage.setItem('session:sidepanel_config_7', { highlightMatchCount: 3 })
+
+    expect(await debugModeItem.getValue()).toBe(true)
+    expect(await sidePanelConfigItem(7).getValue()).toEqual({ highlightMatchCount: 3 })
+  })
+
+  it('reads an unset key as its default', async () => {
+    expect(await debugModeItem.getValue()).toBe(false)
+    expect(await themeItem.getValue()).toBe('system')
+    expect(await eventQueueItem.getValue()).toEqual([])
+    expect(await sidePanelConfigItem(7).getValue()).toBeNull()
+  })
+
+  it('defines each per-tab item once', () => {
+    expect(sidePanelConfigItem(1)).toBe(sidePanelConfigItem(1))
+    expect(sidePanelConfigItem(1)).not.toBe(sidePanelConfigItem(2))
+  })
+
+  it('hands out copies, so changing one does not change the default', async () => {
+    ;(await getPresets()).push(preset('leaked'))
+    ;(await getSystemPresetStatus()).leaked = false
+    ;(await getRecentMainSelectors()).push('//leaked')
+
+    expect(await getPresets()).toEqual([])
+    expect(await getSystemPresetStatus()).toEqual({})
+    expect(await getRecentMainSelectors()).toEqual([])
   })
 })

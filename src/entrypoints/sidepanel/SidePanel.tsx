@@ -231,22 +231,23 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
         targetTabIdRef.current = newTabId
         setTargetTabId(newTabId)
         setTabUrl(newTabUrl)
-        const sessionKey = `sidepanel_config_${newTabId}`
-        storage.getItem<SidePanelConfig>(`session:${sessionKey}`).then((stored) => {
-          if (stored) {
-            log.debug('Initial data loaded from storage:', stored)
-            handleInitialData({
-              tabId: newTabId,
-              config: stored,
-            })
-          } else {
-            log.debug(`No initial data found in storage for tab ${newTabId}, using default state`)
-            handleInitialData({
-              tabId: newTabId,
-              config: createDefaultSidePanelState(),
-            })
-          }
-        })
+        sidePanelConfigItem(newTabId)
+          .getValue()
+          .then((stored) => {
+            if (stored) {
+              log.debug('Initial data loaded from storage:', stored)
+              handleInitialData({
+                tabId: newTabId,
+                config: stored,
+              })
+            } else {
+              log.debug(`No initial data found in storage for tab ${newTabId}, using default state`)
+              handleInitialData({
+                tabId: newTabId,
+                config: createDefaultSidePanelState(),
+              })
+            }
+          })
       } else {
         log.error('No active tab found in last focused window')
       }
@@ -324,35 +325,36 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
       })
 
       // Load data directly from storage for the new tab
-      const sessionKey = `sidepanel_config_${newTabId}`
-      storage.getItem<SidePanelConfig>(`session:${sessionKey}`).then((stored) => {
-        if (browser.runtime.lastError) {
-          log.error(
-            `Error loading data from storage for tab ${newTabId}:`,
-            browser.runtime.lastError,
-          )
-          return
-        }
+      sidePanelConfigItem(newTabId)
+        .getValue()
+        .then((stored) => {
+          if (browser.runtime.lastError) {
+            log.error(
+              `Error loading data from storage for tab ${newTabId}:`,
+              browser.runtime.lastError,
+            )
+            return
+          }
 
-        if (stored) {
-          log.debug(`Data loaded from storage for newly activated tab ${newTabId}:`, stored)
-          handleInitialData({
-            tabId: newTabId,
-            config: stored,
-          })
-        } else {
-          log.debug(
-            `No data found in storage for newly activated tab ${newTabId}, using default state`,
-          )
+          if (stored) {
+            log.debug(`Data loaded from storage for newly activated tab ${newTabId}:`, stored)
+            handleInitialData({
+              tabId: newTabId,
+              config: stored,
+            })
+          } else {
+            log.debug(
+              `No data found in storage for newly activated tab ${newTabId}, using default state`,
+            )
 
-          // Just use default state without saving it to storage
-          const defaultState = createDefaultSidePanelState()
-          handleInitialData({
-            tabId: newTabId,
-            config: defaultState,
-          })
-        }
-      })
+            // Just use default state without saving it to storage
+            const defaultState = createDefaultSidePanelState()
+            handleInitialData({
+              tabId: newTabId,
+              config: defaultState,
+            })
+          }
+        })
     }
 
     // Listen for tab URL changes in the current tab
@@ -384,15 +386,15 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
   // ---------------------------------------------------------------------------
   useEffect(() => {
     if (!targetTabId) return
-    const key = `session:sidepanel_config_${targetTabId}` as const
+    const item = sidePanelConfigItem(targetTabId)
 
     // The tab's state is also read when the tab resolves, before this watcher
     // exists; the backfill picks up whatever landed in that gap - an auto-scrape
     // finishing while the panel is still starting up, say.
     return subscribeWithBackfill<SidePanelConfig>(
       {
-        watch: (onChange) => storage.watch<SidePanelConfig>(key, onChange),
-        read: () => storage.getItem<SidePanelConfig>(key),
+        watch: item.watch,
+        read: item.getValue,
       },
       (config) => handleInitialData({ tabId: targetTabId, config }),
     )
@@ -403,13 +405,9 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
   // presets are created, deleted or system-preset visibility changes elsewhere.
   // ---------------------------------------------------------------------------
   useEffect(() => {
-    const unwatchUserPresets = storage.watch<Preset[]>(
-      `sync:${STORAGE_KEYS.USER_PRESETS}` as const,
-      () => getAllPresets().then(setPresets),
-    )
-    const unwatchSystemPresetStatus = storage.watch<Record<string, boolean>>(
-      'sync:system_preset_status' as const,
-      () => getAllPresets().then(setPresets),
+    const unwatchUserPresets = userPresetsItem.watch(() => getAllPresets().then(setPresets))
+    const unwatchSystemPresetStatus = systemPresetStatusItem.watch(() =>
+      getAllPresets().then(setPresets),
     )
     return () => {
       unwatchUserPresets()

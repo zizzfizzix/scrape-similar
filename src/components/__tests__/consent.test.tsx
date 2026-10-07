@@ -4,7 +4,7 @@ import { ConsentCard } from '@/components/ConsentCard'
 import { ConsentContent } from '@/components/ConsentContent'
 import { ConsentModal } from '@/components/ConsentModal'
 import { ConsentWrapper } from '@/components/ConsentWrapper'
-import { ANALYTICS_CONSENT_STORAGE_KEY, getConsentState } from '@/utils/consent'
+import { getConsentState } from '@/utils/consent'
 import { type RenderResult, act, render as renderComponent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
@@ -14,7 +14,7 @@ import { storage } from 'wxt/utils/storage'
 
 let view: RenderResult
 
-const consentKey = `sync:${ANALYTICS_CONSENT_STORAGE_KEY}` as const
+const consentKey = analyticsConsentItem.key
 
 /** Give storage watchers a macrotask to fire. */
 const flushWatchers = () => new Promise((resolve) => setTimeout(resolve, 0))
@@ -68,7 +68,9 @@ describe('ConsentProvider', () => {
   })
 
   it('treats an unreadable store as undecided', async () => {
-    vi.spyOn(storage, 'getItem').mockRejectedValueOnce(new Error('storage unavailable'))
+    vi.spyOn(analyticsConsentItem, 'getValue').mockRejectedValueOnce(
+      new Error('storage unavailable'),
+    )
 
     view = await render(withProvider(<Probe />))
 
@@ -304,7 +306,7 @@ describe('ConsentWrapper', () => {
 
   it('renders nothing until the decision has loaded', async () => {
     // Never resolve the initial read, so the provider stays in its loading state.
-    vi.spyOn(storage, 'getItem').mockReturnValue(new Promise(() => {}))
+    vi.spyOn(analyticsConsentItem, 'getValue').mockReturnValue(new Promise(() => {}))
 
     view = await render(withProvider(<ConsentWrapper>{child}</ConsentWrapper>))
 

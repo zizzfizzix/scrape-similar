@@ -5,7 +5,6 @@ import {
   setupUninstallUrl,
 } from '@/entrypoints/background/listeners/install'
 import { ANALYTICS_EVENTS } from '@/utils/analytics'
-import * as distinctId from '@/utils/distinct-id'
 import { spyOnBrowser } from '@@/tests/support/fake-browser'
 import log from 'loglevel'
 import { beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
@@ -43,12 +42,12 @@ describe('setupUninstallUrl', () => {
 
   it('should read from storage when called with no arguments', async () => {
     const mockDistinctId = '01234567-89ab-cdef-0123-456789abcdef'
-    await storage.setItem(distinctId.DISTINCT_ID_KEY, mockDistinctId)
-    const getItemSpy = vi.spyOn(storage, 'getItem')
+    await storage.setItem(distinctIdItem.key, mockDistinctId)
+    const getValueSpy = vi.spyOn(distinctIdItem, 'getValue')
 
     await setupUninstallUrl()
 
-    expect(getItemSpy).toHaveBeenCalledWith(distinctId.DISTINCT_ID_KEY)
+    expect(getValueSpy).toHaveBeenCalled()
     expect(mockSetUninstallURL).toHaveBeenCalledWith(
       `https://eu.posthog.com/external_surveys/019bc3b5-6482-0000-f2c0-6f95de1b3d4f?distinct_id=${mockDistinctId}`,
     )
@@ -56,22 +55,22 @@ describe('setupUninstallUrl', () => {
 
   it('should NOT read from storage when called with explicit distinct_id', async () => {
     const mockDistinctId = '01234567-89ab-cdef-0123-456789abcdef'
-    const getItemSpy = vi.spyOn(storage, 'getItem')
+    const getValueSpy = vi.spyOn(distinctIdItem, 'getValue')
 
     await setupUninstallUrl(mockDistinctId)
 
-    expect(getItemSpy).not.toHaveBeenCalled()
+    expect(getValueSpy).not.toHaveBeenCalled()
     expect(mockSetUninstallURL).toHaveBeenCalledWith(
       `https://eu.posthog.com/external_surveys/019bc3b5-6482-0000-f2c0-6f95de1b3d4f?distinct_id=${mockDistinctId}`,
     )
   })
 
   it('should NOT read from storage when called with explicit null', async () => {
-    const getItemSpy = vi.spyOn(storage, 'getItem')
+    const getValueSpy = vi.spyOn(distinctIdItem, 'getValue')
 
     await setupUninstallUrl(null)
 
-    expect(getItemSpy).not.toHaveBeenCalled()
+    expect(getValueSpy).not.toHaveBeenCalled()
     expect(mockSetUninstallURL).toHaveBeenCalledWith(
       'https://eu.posthog.com/external_surveys/019bc3b5-6482-0000-f2c0-6f95de1b3d4f',
     )
@@ -94,7 +93,7 @@ describe('initializeUninstallUrl', () => {
 
   it('should set initial uninstall URL with distinct_id when it exists in storage', async () => {
     const mockDistinctId = '01234567-89ab-cdef-0123-456789abcdef'
-    await storage.setItem(distinctId.DISTINCT_ID_KEY, mockDistinctId)
+    await storage.setItem(distinctIdItem.key, mockDistinctId)
 
     await initializeUninstallUrl()
 
@@ -124,7 +123,7 @@ describe('initializeUninstallUrl', () => {
 
     // Simulate user opting in by adding distinct_id
     const mockDistinctId = '01234567-89ab-cdef-0123-456789abcdef'
-    await storage.setItem(distinctId.DISTINCT_ID_KEY, mockDistinctId)
+    await storage.setItem(distinctIdItem.key, mockDistinctId)
 
     // Wait for watcher to trigger
     await new Promise((resolve) => setTimeout(resolve, 10))
@@ -136,7 +135,7 @@ describe('initializeUninstallUrl', () => {
 
   it('should update uninstall URL when distinct_id is removed from storage', async () => {
     const mockDistinctId = '01234567-89ab-cdef-0123-456789abcdef'
-    await storage.setItem(distinctId.DISTINCT_ID_KEY, mockDistinctId)
+    await storage.setItem(distinctIdItem.key, mockDistinctId)
 
     // Initialize with distinct_id
     await initializeUninstallUrl()
@@ -148,7 +147,7 @@ describe('initializeUninstallUrl', () => {
     mockSetUninstallURL.mockClear()
 
     // Simulate user opting out by removing distinct_id
-    await storage.removeItem(distinctId.DISTINCT_ID_KEY)
+    await storage.removeItem(distinctIdItem.key)
 
     // Wait for watcher to trigger
     await new Promise((resolve) => setTimeout(resolve, 10))
@@ -160,7 +159,7 @@ describe('initializeUninstallUrl', () => {
 
   it('should handle setUninstallURL failures gracefully', async () => {
     const mockDistinctId = '01234567-89ab-cdef-0123-456789abcdef'
-    await storage.setItem(distinctId.DISTINCT_ID_KEY, mockDistinctId)
+    await storage.setItem(distinctIdItem.key, mockDistinctId)
     mockSetUninstallURL.mockRejectedValue(new Error('API error'))
 
     // Should not throw

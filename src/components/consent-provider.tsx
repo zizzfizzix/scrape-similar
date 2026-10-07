@@ -1,6 +1,5 @@
-import React, { createContext, useContext, useEffect, useState } from 'react'
-// `storage` is provided globally by WXT
 import { setConsent as persistConsent } from '@/utils/consent'
+import React, { createContext, useContext, useEffect, useState } from 'react'
 
 interface ConsentValue {
   loading: boolean
@@ -19,16 +18,7 @@ export const ConsentProvider: React.FC<{ children: React.ReactNode }> = ({ child
     // `undefined`, so there is no rejection to catch here.
     getConsentState().then(setConsentState)
 
-    const unwatch = storage.watch<boolean | string | null>(
-      `sync:${ANALYTICS_CONSENT_STORAGE_KEY}`,
-      (value: boolean | string | null) => {
-        const sanitizedConsentState: ConsentState =
-          value === '' || value == null ? undefined : !!value
-        setConsentState(sanitizedConsentState)
-      },
-    )
-
-    return unwatch
+    return analyticsConsentItem.watch((value) => setConsentState(toConsentState(value)))
   }, [])
 
   const setConsent = async (value: boolean): Promise<void> => {

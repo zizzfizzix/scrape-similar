@@ -475,13 +475,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
 
   // Watch local storage for recents updates and refresh state
   useEffect(() => {
-    const unwatch = storage.watch<string[]>(
-      `local:${STORAGE_KEYS.RECENT_MAIN_SELECTORS}` as const,
-      (list) => {
-        setRecentSelectors(Array.isArray(list) ? list : [])
-      },
-    )
-    return () => unwatch()
+    return recentMainSelectorsItem.watch((list) => setRecentSelectors(toSelectorList(list)))
   }, [])
 
   const recentSuggestions = React.useMemo(

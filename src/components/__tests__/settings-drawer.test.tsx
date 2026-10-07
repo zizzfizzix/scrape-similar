@@ -4,7 +4,7 @@ import { SettingsDrawer } from '@/components/settings-drawer'
 import { ThemeProvider } from '@/components/theme-provider'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ANALYTICS_EVENTS } from '@/utils/analytics'
-import { userPresetsStorage } from '@/utils/storage'
+import { userPresetsItem } from '@/utils/storage'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -33,7 +33,7 @@ const openDrawer = () => userEvent.click(screen.getByRole('button', { name: 'Set
 
 beforeEach(async () => {
   fakeBrowser.reset()
-  await userPresetsStorage.setValue([])
+  await userPresetsItem.setValue([])
 })
 
 describe('SettingsDrawer', () => {

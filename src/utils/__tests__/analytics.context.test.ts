@@ -21,9 +21,9 @@ import * as consent from '@/utils/consent'
 import * as contextDetection from '@/utils/context-detection'
 import * as posthogBg from '@/utils/posthog-background'
 
-import { EVENT_QUEUE_STORAGE_KEY, trackEvent } from '@/utils/analytics'
+import { trackEvent } from '@/utils/analytics'
 
-const QUEUE_KEY = `local:${EVENT_QUEUE_STORAGE_KEY}`
+const QUEUE_KEY = eventQueueItem.key
 const EVENT_NAME = 'contextual_event'
 
 // Helper to get the last queued event

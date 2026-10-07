@@ -4,10 +4,9 @@ import { Settings } from '@/components/Settings'
 import { ThemeProvider } from '@/components/theme-provider'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ANALYTICS_EVENTS } from '@/utils/analytics'
-import { ANALYTICS_CONSENT_STORAGE_KEY } from '@/utils/consent'
 import { HIDDEN_UNLOCK_WINDOW_MS, PRESET_EXPORT_FILENAME } from '@/utils/preset-transfer'
-import { getPresets, setPresets, userPresetsStorage } from '@/utils/storage'
-import { SYSTEM_PRESET_STATUS_KEY, type Preset } from '@/utils/types'
+import { getPresets, setPresets, userPresetsItem } from '@/utils/storage'
+import { type Preset } from '@/utils/types'
 import { act, render as renderComponent, type RenderResult } from '@testing-library/react'
 import userEventBase from '@testing-library/user-event'
 import log from 'loglevel'
@@ -101,7 +100,7 @@ const chooseFile = (contents: string) =>
 
 beforeEach(async () => {
   fakeBrowser.reset()
-  await userPresetsStorage.setValue([])
+  await userPresetsItem.setValue([])
 })
 
 describe('Settings', () => {
@@ -140,13 +139,13 @@ describe('Settings', () => {
 
   describe('system presets', () => {
     it('clears the hidden-preset state and notifies the caller', async () => {
-      await storage.setItem(`sync:${SYSTEM_PRESET_STATUS_KEY}`, { 'system-1': false })
+      await storage.setItem(systemPresetStatusItem.key, { 'system-1': false })
       const onResetSystemPresets = vi.fn()
       view = await render({ onResetSystemPresets })
 
       await userEvent.click(rowByLabel('System presets').querySelector('button')!)
 
-      expect(await storage.getItem(`sync:${SYSTEM_PRESET_STATUS_KEY}`)).toBeNull()
+      expect(await storage.getItem(systemPresetStatusItem.key)).toBeNull()
       expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.SYSTEM_PRESETS_RESET)
       expect(onResetSystemPresets).toHaveBeenCalled()
     })
@@ -162,7 +161,7 @@ describe('Settings', () => {
     it('logs when the reset cannot be written', async () => {
       const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
       const failure = new Error('storage unavailable')
-      vi.spyOn(storage, 'removeItem').mockRejectedValueOnce(failure)
+      vi.spyOn(systemPresetStatusItem, 'removeValue').mockRejectedValueOnce(failure)
       view = await render()
 
       await userEvent.click(rowByLabel('System presets').querySelector('button')!)
@@ -296,7 +295,7 @@ describe('Settings', () => {
       const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
       view = await render()
       await chooseFile(validFile)
-      vi.spyOn(userPresetsStorage, 'setValue').mockRejectedValueOnce(new Error('quota exceeded'))
+      vi.spyOn(userPresetsItem, 'setValue').mockRejectedValueOnce(new Error('quota exceeded'))
 
       await act(() => {
         const confirmButton = [...document.querySelectorAll('button')].find(
@@ -344,7 +343,7 @@ describe('Settings', () => {
 
   describe('analytics consent', () => {
     it('reflects a granted consent', async () => {
-      await storage.setItem(`sync:${ANALYTICS_CONSENT_STORAGE_KEY}`, true)
+      await storage.setItem(analyticsConsentItem.key, true)
 
       view = await render()
 
@@ -353,7 +352,7 @@ describe('Settings', () => {
     })
 
     it('reflects a declined consent', async () => {
-      await storage.setItem(`sync:${ANALYTICS_CONSENT_STORAGE_KEY}`, false)
+      await storage.setItem(analyticsConsentItem.key, false)
 
       view = await render()
 
@@ -368,11 +367,11 @@ describe('Settings', () => {
 
       await act(() => view.container.querySelector<HTMLElement>('[role="switch"]')!.click())
 
-      expect(await storage.getItem(`sync:${ANALYTICS_CONSENT_STORAGE_KEY}`)).toBe(true)
+      expect(await storage.getItem(analyticsConsentItem.key)).toBe(true)
     })
 
     it('hides the row until the stored decision has loaded', async () => {
-      vi.spyOn(storage, 'getItem').mockReturnValue(new Promise(() => {}))
+      vi.spyOn(analyticsConsentItem, 'getValue').mockReturnValue(new Promise(() => {}))
 
       view = await render()
 

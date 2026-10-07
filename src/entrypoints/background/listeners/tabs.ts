@@ -20,7 +20,7 @@ export const setupTabUpdatedListener = (): void => {
   browser.tabs.onUpdated.addListener(
     async (tabId: number, changeInfo: Browser.tabs.OnUpdatedInfo, tab: Browser.tabs.Tab) => {
       if (changeInfo.status === 'complete') {
-        const demoData = await storage.getItem<ScrapeConfig>(`local:demo_scrape_pending_${tabId}`)
+        const demoData = await demoScrapePendingItem(tabId).getValue()
 
         if (demoData && tab.url?.includes('wikipedia.org/wiki/')) {
           log.debug('🎬 Demo scrape pending detected for tab', tabId, '- triggering auto-scrape')

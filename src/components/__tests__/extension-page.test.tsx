@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
 import { ExtensionPageRoot, mountExtensionPage } from '@/components/extension-page'
-import { ANALYTICS_CONSENT_STORAGE_KEY } from '@/utils/consent'
 import log from 'loglevel'
 import { act } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -28,7 +27,7 @@ const withRootElement = (id: string) => {
 
 beforeEach(async () => {
   fakeBrowser.reset()
-  await storage.setItem(`sync:${ANALYTICS_CONSENT_STORAGE_KEY}`, true)
+  await storage.setItem(analyticsConsentItem.key, true)
 })
 
 afterEach(async () => {

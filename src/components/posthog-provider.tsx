@@ -79,7 +79,7 @@ async function initializePostHog(): Promise<void> {
       // Retrieve or generate the device ID from shared storage **before** initializing PostHog
       const distinctId = await getOrCreateDistinctId()
 
-      const isDebugModeEnabled = !!(await storage.getItem<boolean>('local:debugMode'))
+      const isDebugModeEnabled = await debugModeItem.getValue()
 
       // Initialize PostHog instance
       const posthogInstance = new PostHog()
@@ -161,13 +161,13 @@ export const PostHogWrapper: React.FC<PostHogWrapperProps> = ({ children }) => {
   useEffect(() => {
     if (isDevOrTest) return
 
-    const unwatch = storage.watch<boolean>('local:debugMode', (val) => {
+    const unwatch = debugModeItem.watch((isEnabled) => {
       if (isPostHogInitialized()) {
-        ;(window as any).__scrape_similar_posthog.set_config({ debug: !!val })
+        ;(window as any).__scrape_similar_posthog.set_config({ debug: isEnabled })
       }
     })
 
-    // `storage.watch` always hands back an unsubscribe function.
+    // `watch` always hands back an unsubscribe function.
     return unwatch
   }, [])
 

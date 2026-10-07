@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-import { ANALYTICS_CONSENT_STORAGE_KEY } from '@/utils/consent'
 import { type RenderResult, act, render as renderComponent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import log from 'loglevel'
@@ -29,7 +28,7 @@ const { TooltipProvider } = await import('@/components/ui/tooltip')
 
 let view: RenderResult
 
-const consentKey = `sync:${ANALYTICS_CONSENT_STORAGE_KEY}` as const
+const consentKey = analyticsConsentItem.key
 
 /** Give storage watchers a macrotask to fire. */
 const flushWatchers = () => new Promise((resolve) => setTimeout(resolve, 0))

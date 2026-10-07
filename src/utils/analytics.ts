@@ -5,7 +5,6 @@ import { version } from '@@/package.json' with { type: 'json' }
 import { Mutex } from 'async-mutex'
 import log from 'loglevel'
 
-export const EVENT_QUEUE_STORAGE_KEY = 'event_queue'
 export const MAX_QUEUED_EVENTS = 1000 // Prevent unbounded growth
 
 // Mutex to prevent concurrent queue operations
@@ -20,7 +19,7 @@ export interface QueuedEvent {
 export const queueEvent = async (event: QueuedEvent): Promise<void> => {
   return queueMutex.runExclusive(async () => {
     try {
-      const queue = (await storage.getItem<QueuedEvent[]>(`local:${EVENT_QUEUE_STORAGE_KEY}`)) || []
+      const queue = [...(await eventQueueItem.getValue())]
 
       // Prevent unbounded queue growth
       if (queue.length >= MAX_QUEUED_EVENTS) {
@@ -30,7 +29,7 @@ export const queueEvent = async (event: QueuedEvent): Promise<void> => {
       }
 
       queue.push(event)
-      await storage.setItem(`local:${EVENT_QUEUE_STORAGE_KEY}`, queue)
+      await eventQueueItem.setValue(queue)
 
       log.debug(`Queued event: ${event.name}`, { queueLength: queue.length })
     } catch (error) {
