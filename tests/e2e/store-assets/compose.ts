@@ -78,8 +78,8 @@ export const WIDE_SHOT_SIZE = { width: 1088, height: 680 }
 
 /** Page and side panel capture sizes {@link browserShot} frames side by side. */
 export const BROWSER_SHOT_SIZES = {
-  page: { width: 696, height: 620 },
-  panel: { width: 440, height: 620 },
+  page: { width: 696, height: 660 },
+  panel: { width: 440, height: 660 },
 }
 
 /** 1280×800: headline on the left, a side panel capture on the right. */
@@ -105,7 +105,7 @@ export const sideShot = (page: Page, o: ShotCopy) =>
 const topCopy = (o: ShotCopy) => `<div class="copy"><h1>${o.title}</h1><p>${o.text}</p></div>`
 
 const TOP_COPY_CSS = `
-  main { display: flex; flex-direction: column; align-items: center; height: 100%; padding-top: 60px; gap: 36px; }
+  main { display: flex; flex-direction: column; align-items: center; height: 100%; padding-top: 44px; gap: 28px; }
   .copy { text-align: center; display: flex; flex-direction: column; gap: 14px; max-width: 960px; }
   h1 { font-size: 46px; } p { font-size: 21px; }
   .shot { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }

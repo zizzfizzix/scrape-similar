@@ -76,25 +76,34 @@ const expectGeistLoaded = (page: Page) =>
     .toBe(true)
 
 /**
- * Scrolls `target` to the top of its scroll container and waits until it stays
- * there: the side panel smooth-scrolls its results into view on its own, which
- * can land after a single scroll call.
+ * Scrolls `target` to the top, or with `block: 'end'` to just above the sticky
+ * footer, and waits until it stays there: the side panel smooth-scrolls its
+ * results into view on its own, which can land after a single scroll call.
  */
-const pinToTop = async (target: Locator) => {
+const pin = async (target: Locator, block: 'start' | 'end') => {
   let previousTop: number | undefined
   await expect
     .poll(async () => {
-      const top = await target.evaluate(async (element) => {
-        element.scrollIntoView({ block: 'start', behavior: 'instant' })
+      const top = await target.evaluate(async (element, block) => {
+        const footer = document.querySelector('[data-slot="footer"]')
+        element.style.scrollMarginBottom = `${footer?.getBoundingClientRect().height ?? 0}px`
+        element.scrollIntoView({ block, behavior: 'instant' })
         await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
         return element.getBoundingClientRect().top
-      })
+      }, block)
       const isSettled = top === previousTop
       previousTop = top
       return isSettled
     })
     .toBe(true)
 }
+
+/**
+ * Moves the pointer off the side panel's content: the data table shows its
+ * "Open in full view" button only while hovered, and the pointer otherwise
+ * stays where the last click left it.
+ */
+const parkPointer = (sidePanel: Page) => sidePanel.mouse.move(0, 0)
 
 /**
  * Screenshots `page` until two consecutive captures match, then writes the last
@@ -199,15 +208,18 @@ test('store assets', async ({ browser, context, serviceWorker, openSidePanel }, 
       }).length,
   )
   expect(frozenCount).toBe(DEMO_TARGET_PAGE_FACTS.tableRows)
-  await pinToTop(extractedData)
+  await parkPointer(sidePanel)
+  await pin(sidePanel.getByText(/^Page \d+ of \d+$/), 'end')
+  await expect(extractedData).toBeInViewport({ ratio: 1 })
   await captureSteady(page, raw('page-scraped'))
   await captureSteady(sidePanel, raw('panel-scraped'))
 
   // Export menu.
   await sidePanel.setViewportSize(SIDE_SHOT_SIZE)
-  await pinToTop(extractedData)
+  await pin(extractedData, 'start')
   await sidePanel.getByRole('button', { name: /^export$/i }).click()
   await expect(sidePanel.getByRole('menuitem', { name: /google sheets/i })).toBeVisible()
+  await parkPointer(sidePanel)
   await settle(sidePanel)
   await captureSteady(sidePanel, raw('export'))
   await sidePanel.keyboard.press('Escape')
