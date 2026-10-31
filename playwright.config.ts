@@ -28,4 +28,10 @@ export default defineConfig({
   use: {
     trace: 'retain-on-failure',
   },
+  projects: [
+    { name: 'e2e', testIgnore: /store-assets\// },
+    // Regenerates the Chrome Web Store images rather than testing anything, so
+    // it only runs when named: `pnpm store-assets`.
+    { name: 'store-assets', testMatch: /store-assets\/.*\.spec\.ts/ },
+  ],
 })

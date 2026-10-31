@@ -98,6 +98,26 @@ pnpm wxt submit --chrome-zip .output/*-chrome.zip --firefox-zip .output/*-firefo
 
 _For the full list of available commands (`build -b`, `zip -b`, `submit`, etc.) consult the [official WXT docs](https://wxt.dev/guide/installation.html)._
 
+### Chrome Web Store assets
+
+```bash
+pnpm store-assets
+```
+
+Builds the extension in test mode, drives it with Playwright against the local fixture pages, and writes every store image at the size the store requires to `docs/store-assets/`. It also refreshes `public/img/screenshot-context-menu.png`, which the onboarding shows. Rerun it after any visible UI change and commit the output.
+
+| File                         | Size     | Store slot            |
+| ---------------------------- | -------- | --------------------- |
+| `1-scrape.png` … `5-*.png`   | 1280×800 | Screenshots           |
+| `promo-small-440x280.png`    | 440×280  | Small promo tile      |
+| `promo-marquee-1400x560.png` | 1400×560 | Marquee promo tile    |
+| `store-icon-128.png`         | 128×128  | Store icon (96px art) |
+
+- Analytics consent is set to off before any UI loads, so the run sends nothing to PostHog.
+- The theme is pinned to light, and the scrape target is served at a fixed `https://example.com/` URL, so the captures do not depend on the machine's preferences or the fixture server's port. Text is set in Geist, which the extension pages bundle and the composition inlines, so captures match across operating systems; the run fails if an extension page falls back to another font.
+- Chrome draws its context menu natively, outside the page, so that image is a drawn menu laid over a real capture of the page. Its entry titles come from the extension's own `initializeContextMenus`.
+- The run is its own Playwright project, `store-assets`. `pnpm test:e2e` runs only the `e2e` project and never regenerates the images.
+
 ### Browser Extension Development Mode
 
 Most modern browsers allow loading unpacked extensions while in developer/debug mode:

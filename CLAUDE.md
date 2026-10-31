@@ -29,7 +29,8 @@ pnpm fmt-check          # Prettier check (CI gate + pre-commit)
 
 pnpm test               # Vitest unit tests (jsdom). Single file: pnpm test path/to/file.test.ts
 pnpm test:coverage      # Unit tests + v8 coverage; fails below the thresholds (what CI runs)
-pnpm test:e2e           # Playwright E2E. Requires `pnpm build:test` first to produce .output/
+pnpm test:e2e           # Playwright E2E (`e2e` project). Requires `pnpm build:test` first to produce .output/
+pnpm store-assets       # test build + `store-assets` Playwright project -> docs/store-assets/ (commit the output)
 
 pnpm update:shadcn      # rerun bash scripts/update-shadcn.sh to refresh shadcn-ui components
 ```
