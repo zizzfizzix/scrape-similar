@@ -77,25 +77,37 @@ const expectGeistLoaded = (page: Page) =>
 
 /**
  * Scrolls `target` to the top, or with `block: 'end'` to just above the sticky
- * footer, and waits until it stays there: the side panel smooth-scrolls its
- * results into view on its own, which can land after a single scroll call.
+ * footer, waits until it stays there (the side panel smooth-scrolls its results
+ * into view on its own, which can land after a single scroll call), and fails
+ * if the container could not scroll far enough to put it there.
  */
 const pin = async (target: Locator, block: 'start' | 'end') => {
-  let previousTop: number | undefined
+  let previous: string | undefined
+  let placement = { top: 0, bottom: 0, footerTop: 0 }
   await expect
     .poll(async () => {
-      const top = await target.evaluate(async (element, block) => {
-        const footer = document.querySelector('[data-slot="footer"]')
-        element.style.scrollMarginBottom = `${footer?.getBoundingClientRect().height ?? 0}px`
+      placement = await target.evaluate(async (element, block) => {
+        const footerHeight =
+          document.querySelector('[data-slot="footer"]')?.getBoundingClientRect().height ?? 0
+        element.style.scrollMarginBottom = `${footerHeight}px`
         element.scrollIntoView({ block, behavior: 'instant' })
         await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
-        return element.getBoundingClientRect().top
+        const { top, bottom } = element.getBoundingClientRect()
+        return { top, bottom, footerTop: window.innerHeight - footerHeight }
       }, block)
-      const isSettled = top === previousTop
-      previousTop = top
+      const current = JSON.stringify(placement)
+      const isSettled = current === previous
+      previous = current
       return isSettled
     })
     .toBe(true)
+  if (block === 'start') {
+    expect(placement.top, 'pinned element did not reach the top').toBe(0)
+  } else {
+    expect(placement.bottom, 'pinned element is under the footer').toBeLessThanOrEqual(
+      placement.footerTop,
+    )
+  }
 }
 
 /**
@@ -216,7 +228,9 @@ test('store assets', async ({ browser, context, serviceWorker, openSidePanel }, 
 
   // Export menu.
   await sidePanel.setViewportSize(SIDE_SHOT_SIZE)
-  await pin(extractedData, 'start')
+  // At this height the heading cannot reach the top, so the frame starts at the
+  // Scrape button above it instead of cutting through it.
+  await pin(sidePanel.getByRole('button', { name: /^scrape$/i }), 'start')
   await sidePanel.getByRole('button', { name: /^export$/i }).click()
   await expect(sidePanel.getByRole('menuitem', { name: /google sheets/i })).toBeVisible()
   await parkPointer(sidePanel)
