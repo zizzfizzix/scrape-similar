@@ -1,6 +1,6 @@
 import { MESSAGE_TYPES } from '@/utils/types'
 import pkg from '@@/package.json' with { type: 'json' }
-import type { BrowserContext, Page } from '@playwright/test'
+import type { BrowserContext, Locator, Page } from '@playwright/test'
 import fs from 'fs'
 import path from 'path'
 import { DEMO_TARGET_PAGE, DEMO_TARGET_PAGE_FACTS, expect, test, TestHelpers } from '../fixtures'
@@ -57,19 +57,62 @@ const serveStorePage = (context: BrowserContext) => {
 const settle = (page: Page) => page.evaluate(() => document.fonts.ready)
 
 /**
- * Fails when an extension page renders in the fallback font, so a page that
- * stops loading Geist cannot slip into the store images unnoticed.
+ * Fails when an extension page's body is not set in Geist, or Geist did not
+ * load. Checked on body rather than any element because portalled content
+ * (menus, dialogs) inherits from it, while the side panel's own root sets the
+ * font explicitly and would pass on its own.
  */
 const expectGeistLoaded = (page: Page) =>
   expect
     .poll(() =>
-      page.evaluate(() =>
-        Array.from(document.fonts).some(
-          (face) => face.family.includes('Geist Variable') && face.status === 'loaded',
-        ),
+      page.evaluate(
+        () =>
+          getComputedStyle(document.body).fontFamily.startsWith('"Geist Variable"') &&
+          Array.from(document.fonts).some(
+            (face) => face.family.includes('Geist Variable') && face.status === 'loaded',
+          ),
       ),
     )
     .toBe(true)
+
+/**
+ * Scrolls `target` to the top of its scroll container and waits until it stays
+ * there: the side panel smooth-scrolls its results into view on its own, which
+ * can land after a single scroll call.
+ */
+const pinToTop = async (target: Locator) => {
+  let previousTop: number | undefined
+  await expect
+    .poll(async () => {
+      const top = await target.evaluate(async (element) => {
+        element.scrollIntoView({ block: 'start', behavior: 'instant' })
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+        return element.getBoundingClientRect().top
+      })
+      const isSettled = top === previousTop
+      previousTop = top
+      return isSettled
+    })
+    .toBe(true)
+}
+
+/**
+ * Screenshots `page` until two consecutive captures match, then writes the last
+ * one. Extension pages keep settling for a moment after their content is
+ * visible (late layout, transitions), and a single capture can catch that.
+ */
+const captureSteady = async (page: Page, file: string) => {
+  let previous: Buffer | undefined
+  await expect
+    .poll(async () => {
+      const current = await page.screenshot({ animations: 'disabled' })
+      const isSteady = previous?.equals(current) ?? false
+      if (isSteady) fs.writeFileSync(file, current)
+      previous = current
+      return isSteady
+    })
+    .toBe(true)
+}
 
 test('store assets', async ({ browser, context, serviceWorker, openSidePanel }, testInfo) => {
   test.setTimeout(120_000)
@@ -102,7 +145,7 @@ test('store assets', async ({ browser, context, serviceWorker, openSidePanel }, 
     'rgb(255, 107, 107)',
   )
   await settle(page)
-  await page.screenshot({ path: raw('picker'), animations: 'disabled' })
+  await captureSteady(page, raw('picker'))
   await page.keyboard.press('Escape')
   await expect(page.locator('html.scrape-similar-picker-active')).toHaveCount(0)
 
@@ -123,7 +166,6 @@ test('store assets', async ({ browser, context, serviceWorker, openSidePanel }, 
   await sidePanel.getByRole('button', { name: /^scrape$/i }).click()
   const extractedData = sidePanel.getByRole('heading', { name: /extracted data/i })
   await expect(extractedData).toBeVisible()
-  await extractedData.evaluate((heading) => heading.scrollIntoView({ block: 'start' }))
   await settle(sidePanel)
   await expectGeistLoaded(sidePanel)
   // The match highlight is a 3s animation that ends with no outline at all.
@@ -157,16 +199,17 @@ test('store assets', async ({ browser, context, serviceWorker, openSidePanel }, 
       }).length,
   )
   expect(frozenCount).toBe(DEMO_TARGET_PAGE_FACTS.tableRows)
-  await page.screenshot({ path: raw('page-scraped'), animations: 'disabled' })
-  await sidePanel.screenshot({ path: raw('panel-scraped'), animations: 'disabled' })
+  await pinToTop(extractedData)
+  await captureSteady(page, raw('page-scraped'))
+  await captureSteady(sidePanel, raw('panel-scraped'))
 
   // Export menu.
   await sidePanel.setViewportSize(SIDE_SHOT_SIZE)
-  await extractedData.evaluate((heading) => heading.scrollIntoView({ block: 'start' }))
+  await pinToTop(extractedData)
   await sidePanel.getByRole('button', { name: /^export$/i }).click()
   await expect(sidePanel.getByRole('menuitem', { name: /google sheets/i })).toBeVisible()
   await settle(sidePanel)
-  await sidePanel.screenshot({ path: raw('export'), animations: 'disabled' })
+  await captureSteady(sidePanel, raw('export'))
   await sidePanel.keyboard.press('Escape')
 
   // Full data view.
@@ -176,7 +219,7 @@ test('store assets', async ({ browser, context, serviceWorker, openSidePanel }, 
   await expect(fullView.locator('tbody tr')).toHaveCount(DEMO_TARGET_PAGE_FACTS.tableRows)
   await settle(fullView)
   await expectGeistLoaded(fullView)
-  await fullView.screenshot({ path: raw('full-view'), animations: 'disabled' })
+  await captureSteady(fullView, raw('full-view'))
 
   // Chrome draws its context menu natively, so it is composed over the page.
   const titles = await readContextMenuTitles()

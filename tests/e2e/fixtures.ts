@@ -518,7 +518,9 @@ export const test = base.extend<
       userDataDirs.push(userDataDir)
       return await chromium.launchPersistentContext(userDataDir, {
         channel: 'chromium',
-        headless: !!process.env.CI,
+        // Headed Chrome rasterises on the GPU, which shifts a few antialiased
+        // pixels between runs; the committed store images need a stable capture.
+        headless: !!process.env.CI || !!process.env.STORE_ASSETS,
         args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`],
       })
     }
