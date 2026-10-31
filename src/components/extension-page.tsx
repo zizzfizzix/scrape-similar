@@ -1,3 +1,7 @@
+// Only the extension's own pages load the fonts. The content script's UI lives in
+// a shadow root, where @font-face does not apply, so it keeps the fallback.
+import '@fontsource-variable/geist'
+import '@fontsource-variable/geist-mono'
 import log from 'loglevel'
 import React, { type ReactNode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'

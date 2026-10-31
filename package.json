@@ -27,6 +27,8 @@
     "update:shadcn": "bash scripts/update-shadcn.sh"
   },
   "dependencies": {
+    "@fontsource-variable/geist": "^5.3.0",
+    "@fontsource-variable/geist-mono": "^5.3.0",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/react-table": "^9.1.2",
     "async-mutex": "^0.5.0",
