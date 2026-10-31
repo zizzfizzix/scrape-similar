@@ -54,12 +54,6 @@ const serveStorePage = (context: BrowserContext) => {
   )
 }
 
-const readExtensionName = () => {
-  const manifestPath = path.join(ROOT, '.output/chrome-mv3-test/manifest.json')
-  const manifest: { name: string } = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
-  return manifest.name
-}
-
 const settle = (page: Page) => page.evaluate(() => document.fonts.ready)
 
 /**
@@ -80,10 +74,10 @@ const expectGeistLoaded = (page: Page) =>
 test('store assets', async ({ browser, context, serviceWorker, openSidePanel }, testInfo) => {
   test.setTimeout(120_000)
   const raw = (name: string) => testInfo.outputPath(`${name}.png`)
-  const extensionName = readExtensionName()
 
   // Consent off keeps PostHog from ever starting; light theme pins the captures.
   await TestHelpers.dismissAnalyticsConsent(serviceWorker)
+  const extensionName = await serviceWorker.evaluate(() => chrome.runtime.getManifest().name)
   await serviceWorker.evaluate(() => chrome.storage.local.set({ theme: 'light' }))
   await serveStorePage(context)
 
@@ -99,10 +93,16 @@ test('store assets', async ({ browser, context, serviceWorker, openSidePanel }, 
   await page.setViewportSize(WIDE_SHOT_SIZE)
   await sidePanel.getByLabel(/open visual picker/i).click()
   await page.bringToFront()
-  await page.getByRole('link', { name: 'China' }).hover()
   await expect(page.locator('html.scrape-similar-picker-active')).toHaveCount(1)
+  await page.getByRole('link', { name: 'China' }).hover()
+  // The class above is set before the banner mounts and the hover is processed;
+  // the outline on the last match only exists once both have happened.
+  await expect(page.getByRole('link', { name: 'Japan' })).toHaveCSS(
+    'outline-color',
+    'rgb(255, 107, 107)',
+  )
   await settle(page)
-  await page.screenshot({ path: raw('picker') })
+  await page.screenshot({ path: raw('picker'), animations: 'disabled' })
   await page.keyboard.press('Escape')
   await expect(page.locator('html.scrape-similar-picker-active')).toHaveCount(0)
 
@@ -126,8 +126,13 @@ test('store assets', async ({ browser, context, serviceWorker, openSidePanel }, 
   await extractedData.evaluate((heading) => heading.scrollIntoView({ block: 'start' }))
   await settle(sidePanel)
   await expectGeistLoaded(sidePanel)
-  // The match highlight is a 3s animation that ends with no outline at all, so
-  // it is replayed and frozen halfway, past the keyframes that scale the rows.
+  // The match highlight is a 3s animation that ends with no outline at all.
+  // Earlier highlights (selector validation, the scrape) are let run out, then
+  // it is replayed and each row is given the outline of the animation's
+  // halfway keyframe as a static style, so no running animation reaches the capture.
+  await expect
+    .poll(() => page.evaluate(() => document.getAnimations().length), { timeout: 10_000 })
+    .toBe(0)
   await serviceWorker.evaluate(
     async ({ url, selector, type }) => {
       const [tab] = await chrome.tabs.query({ url })
@@ -136,15 +141,24 @@ test('store assets', async ({ browser, context, serviceWorker, openSidePanel }, 
     },
     { url: STORE_PAGE_URL, selector: ROW_SELECTOR, type: MESSAGE_TYPES.HIGHLIGHT_ELEMENTS },
   )
-  await expect.poll(() => page.evaluate(() => document.getAnimations().length)).toBeGreaterThan(0)
-  await page.evaluate(() =>
-    document.getAnimations().forEach((animation) => {
-      animation.pause()
-      animation.currentTime = 1500
-    }),
+  const frozenCount = await page.evaluate(
+    () =>
+      document.getAnimations().filter((animation) => {
+        const effect = animation.effect
+        if (!(effect instanceof KeyframeEffect) || !(effect.target instanceof HTMLElement)) {
+          return false
+        }
+        const halfway = effect.getKeyframes().find((keyframe) => keyframe.computedOffset === 0.5)
+        if (!halfway) return false
+        effect.target.style.outline = String(halfway.outline)
+        effect.target.style.outlineOffset = String(halfway.outlineOffset)
+        animation.cancel()
+        return true
+      }).length,
   )
-  await page.screenshot({ path: raw('page-scraped') })
-  await sidePanel.screenshot({ path: raw('panel-scraped') })
+  expect(frozenCount).toBe(DEMO_TARGET_PAGE_FACTS.tableRows)
+  await page.screenshot({ path: raw('page-scraped'), animations: 'disabled' })
+  await sidePanel.screenshot({ path: raw('panel-scraped'), animations: 'disabled' })
 
   // Export menu.
   await sidePanel.setViewportSize(SIDE_SHOT_SIZE)
@@ -152,7 +166,7 @@ test('store assets', async ({ browser, context, serviceWorker, openSidePanel }, 
   await sidePanel.getByRole('button', { name: /^export$/i }).click()
   await expect(sidePanel.getByRole('menuitem', { name: /google sheets/i })).toBeVisible()
   await settle(sidePanel)
-  await sidePanel.screenshot({ path: raw('export') })
+  await sidePanel.screenshot({ path: raw('export'), animations: 'disabled' })
   await sidePanel.keyboard.press('Escape')
 
   // Full data view.
@@ -162,7 +176,7 @@ test('store assets', async ({ browser, context, serviceWorker, openSidePanel }, 
   await expect(fullView.locator('tbody tr')).toHaveCount(DEMO_TARGET_PAGE_FACTS.tableRows)
   await settle(fullView)
   await expectGeistLoaded(fullView)
-  await fullView.screenshot({ path: raw('full-view') })
+  await fullView.screenshot({ path: raw('full-view'), animations: 'disabled' })
 
   // Chrome draws its context menu natively, so it is composed over the page.
   const titles = await readContextMenuTitles()

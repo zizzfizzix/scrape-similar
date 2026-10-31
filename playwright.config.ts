@@ -30,8 +30,11 @@ export default defineConfig({
   },
   projects: [
     { name: 'e2e', testIgnore: /store-assets\// },
-    // Regenerates the Chrome Web Store images rather than testing anything, so
-    // it only runs when named: `pnpm store-assets`.
-    { name: 'store-assets', testMatch: /store-assets\/.*\.spec\.ts/ },
+    // Regenerates the committed Chrome Web Store images rather than testing
+    // anything. A bare `playwright test` runs every project, so this one only
+    // exists when `pnpm store-assets` opts in.
+    ...(process.env.STORE_ASSETS
+      ? [{ name: 'store-assets', testMatch: /store-assets\/.*\.spec\.ts/ }]
+      : []),
   ],
 })
