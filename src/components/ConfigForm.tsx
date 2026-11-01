@@ -564,8 +564,6 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
           const all = await getAllPresets()
           if (!isSelectorAPreset(mainSelectorDraft, all)) {
             await pushRecentMainSelector(mainSelectorDraft)
-            const updated = await getRecentMainSelectors()
-            setRecentSelectors(updated)
           }
           if (hasUncommittedChanges) {
             // First Enter after changes: validate selector via highlight
@@ -860,12 +858,9 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
                                     e.preventDefault()
                                     e.stopPropagation()
                                     removeRecentMainSelector(selector).then(() => {
-                                      getRecentMainSelectors().then((updated) => {
-                                        setRecentSelectors(updated)
-                                        // Keep dropdown open and move focus back to Command root
-                                        requestAnimationFrame(() => {
-                                          commandRef.current?.focus()
-                                        })
+                                      // Keep dropdown open and move focus back to Command root
+                                      requestAnimationFrame(() => {
+                                        commandRef.current?.focus()
                                       })
                                     })
                                   }}
