@@ -1,6 +1,8 @@
 // Storage operations settle in milliseconds; a wait this long means a holder is
 // stuck, and failing the write beats hanging every context that shares the key.
-export const STORAGE_LOCK_TIMEOUT_MS = 30_000
+// Kept well under the ~30 s idle limit after which Chrome stops the service
+// worker, so a waiting background write still fails and logs before then.
+export const STORAGE_LOCK_TIMEOUT_MS = 10_000
 
 /**
  * Runs `task` while holding the Web Lock named after a storage item's key (e.g.

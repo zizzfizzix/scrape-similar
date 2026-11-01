@@ -18,7 +18,15 @@ export const getOrCreateDistinctId = async (): Promise<DistinctId> => {
     const stored = await readStoredDistinctId()
     if (stored) return stored
     log.warn('Failed to access storage for distinct_id, generating a new one', err)
-    return generateDistinctId()
+    const created = generateDistinctId()
+    // Stored without the lock, best effort, so contexts that start later adopt
+    // this id rather than each minting their own.
+    try {
+      await distinctIdItem.setValue(created)
+    } catch {
+      // Storage is failing too; this context keeps an id of its own.
+    }
+    return created
   }
 }
 
