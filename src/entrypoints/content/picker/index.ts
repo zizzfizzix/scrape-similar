@@ -175,8 +175,6 @@ export interface PickerSelection {
   config: ScrapeConfig
   /** Every element `config.mainSelector` matches. */
   matches: HTMLElement[]
-  /** Whether `config.mainSelector` matches the clicked element or one of its ancestors. */
-  isWithinMatch: boolean
   /** Details of the clicked element, shown in the side panel. */
   elementDetails: { xpath: string; text: string; html: string }
 }
@@ -185,9 +183,11 @@ export interface PickerSelection {
  * Resolve a clicked element into the config to scrape with.
  *
  * `mainSelector` is the candidate level the user settled on, so the scrape
- * covers every sibling rather than just the one clicked. The columns are built
- * for the nearest ancestor-or-self of the clicked element that selector
- * matches, since they are evaluated relative to each match.
+ * covers every sibling rather than just the one clicked. The columns are
+ * evaluated relative to each match, so they are built for a match: the nearest
+ * ancestor-or-self of the clicked element, or the first match when the click
+ * lands outside all of them (a gap between highlighted items after a level
+ * change in the context menu, which stops hover updates).
  */
 export const buildPickerSelection = (
   element: HTMLElement,
@@ -198,19 +198,18 @@ export const buildPickerSelection = (
   const matches = evaluateXPath(selectedSelector)
 
   const matchSet = new Set(matches)
-  let selectedElement: HTMLElement | null = element
-  while (selectedElement && !matchSet.has(selectedElement)) {
-    selectedElement = selectedElement.parentElement
+  let matchedAncestor: HTMLElement | null = element
+  while (matchedAncestor && !matchSet.has(matchedAncestor)) {
+    matchedAncestor = matchedAncestor.parentElement
   }
 
   return {
     xpath,
     config: {
       mainSelector: selectedSelector,
-      columns: buildColumnsForElement(selectedElement ?? element),
+      columns: buildColumnsForElement(matchedAncestor ?? matches[0] ?? element),
     },
     matches,
-    isWithinMatch: selectedElement !== null,
     elementDetails: {
       xpath,
       text: element.textContent || '',
@@ -275,18 +274,7 @@ export const handlePickerClick = async (
 
   log.debug('Picker mode: element selected', el)
 
-  let selection = buildPickerSelection(el, state)
-  // The candidates were built for the last hovered element, which is stale when
-  // the hover update has not run or the click was synthetic. A chosen level
-  // that covers the click is kept, so a click anywhere inside the highlighted
-  // match confirms it; one that does not would pair the selector with columns
-  // for an unrelated element, so the click gets candidates of its own.
-  if (!selection.isWithinMatch) {
-    state.selectorCandidates = generateSelectorCandidates(el)
-    state.selectedCandidateIndex = chooseDefaultCandidateIndex(state.selectorCandidates)
-    selection = buildPickerSelection(el, state)
-  }
-  const { config, matches, elementDetails } = selection
+  const { config, matches, elementDetails } = buildPickerSelection(el, state)
 
   trackEvent(ANALYTICS_EVENTS.PICKER_ELEMENT_SELECT, {
     elements_matched: matches.length,

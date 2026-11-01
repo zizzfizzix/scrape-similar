@@ -172,8 +172,10 @@ test.describe('Visual Element Picker', () => {
       // leave the cursor over a different row.
       await expect(testPage.getByRole('button', { name: 'Close picker' })).toBeVisible()
 
-      // The last row, so a click resolved to any other element would not land on a link.
-      const link = testPage.getByRole('link', { name: 'Japan', exact: true })
+      const link = testPage.getByRole('link', {
+        name: DEMO_TARGET_PAGE_FACTS.lastCountry,
+        exact: true,
+      })
       await link.hover()
       // The picker resolves the hovered element's selector candidates in a frame callback.
       await testPage.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)))
@@ -187,7 +189,9 @@ test.describe('Visual Element Picker', () => {
       await expect(
         sidePanel.getByText(`${DEMO_TARGET_PAGE_FACTS.tableRows} rows with data`),
       ).toBeVisible()
-      await expect(sidePanel.locator('tbody tr').first()).toContainText('India')
+      await expect(sidePanel.locator('tbody tr').first()).toContainText(
+        DEMO_TARGET_PAGE_FACTS.firstCountry,
+      )
     })
   })
 })

@@ -9,7 +9,6 @@ import {
   handlePickerMouseMove,
   removeCrosshairCursor,
 } from '@/entrypoints/content/picker'
-import { generateSelectorCandidates } from '@/entrypoints/content/picker/candidates'
 import { createState, type ContentScriptState } from '@/entrypoints/content/state'
 import { ANALYTICS_EVENTS } from '@/utils/analytics'
 import { scrapePage } from '@/utils/scraper'
@@ -507,7 +506,6 @@ describe('handlePickerClick', () => {
     state.pickerModeActive = true
     state.selectorCandidates = ['//li[1]', '//li']
     state.selectedCandidateIndex = 1
-    state.currentHoveredElement = document.querySelector('#first')
     sendMessage = backgroundReplies({ success: true })
   })
 
@@ -616,8 +614,8 @@ describe('handlePickerClick', () => {
   })
 
   it('keeps the chosen level for a click on another element it matches', async () => {
-    // The hover stays on #first while the level menu is open, and the click
-    // that confirms the level lands elsewhere in the highlighted matches.
+    // The candidates were built for #first; the click confirming the level
+    // lands on another of the highlighted matches.
     await click([document.querySelectorAll('li')[1]!]).result
 
     expect(state.selectorCandidates).toEqual(['//li[1]', '//li'])
@@ -628,22 +626,30 @@ describe('handlePickerClick', () => {
     })
   })
 
-  it('builds candidates for a click the chosen level does not cover', async () => {
-    document.body.innerHTML = '<ul><li id="first">a</li><li>b</li></ul><p id="other">x</p>'
-    state.selectorCandidates = ['//p']
-    state.selectedCandidateIndex = 0
-    state.currentHoveredElement = document.querySelector('#other')
+  it('keeps the chosen level and builds its columns for a click outside its matches', async () => {
+    document.body.innerHTML =
+      '<ul><li id="first"><a href="/a">a</a></li><li><a href="/b">b</a></li></ul><p id="gap">x</p>'
+    state.selectorCandidates = ['//li[1]/a', '//li/a', '//li']
+    state.selectedCandidateIndex = 1
 
-    await click([document.querySelector('#first')!]).result
+    await click([document.querySelector('#gap')!]).result
 
-    expect(state.selectorCandidates).toEqual(
-      generateSelectorCandidates(document.querySelector('#first')!),
-    )
-    expect(storedConfig()?.columns).toEqual([{ name: 'List Item', selector: '.' }])
-    expect(highlightMocks.highlightMatchingElements).toHaveBeenCalledWith(
-      [...document.querySelectorAll('li')],
-      { shouldScroll: false },
-    )
+    expect(state.selectorCandidates).toEqual(['//li[1]/a', '//li/a', '//li'])
+    expect(state.selectedCandidateIndex).toBe(1)
+    expect(storedConfig()).toEqual({
+      mainSelector: '//li/a',
+      columns: [
+        { name: 'Anchor text', selector: '.' },
+        { name: 'URL', selector: '@href' },
+        { name: 'Rel', selector: '@rel' },
+        { name: 'Target', selector: '@target' },
+      ],
+    })
+    expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.PICKER_ELEMENT_SELECT, {
+      elements_matched: 2,
+      selector_level: 1,
+      total_levels: 3,
+    })
   })
 
   it('stops before the tab id is known', async () => {
