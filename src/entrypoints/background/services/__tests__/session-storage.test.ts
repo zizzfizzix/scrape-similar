@@ -159,12 +159,14 @@ describe('clearSessionState', () => {
     expect(await getSessionState(1)).toBeNull()
   })
 
-  it('drops the cached item for the tab', async () => {
+  it('drops the cached item and mutex for the tab', async () => {
     const item = sidePanelConfigItem(1)
+    const mutex = getStorageMutex(item.key)
 
     await clearSessionState(1)
 
     expect(sidePanelConfigItem(1)).not.toBe(item)
+    expect(getStorageMutex(item.key)).not.toBe(mutex)
   })
 
   it('logs and swallows storage failures', async () => {

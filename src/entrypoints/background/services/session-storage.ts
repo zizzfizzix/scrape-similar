@@ -1,4 +1,4 @@
-import { getStorageMutex } from '@/utils/session-mutex'
+import { forgetStorageMutex, getStorageMutex } from '@/utils/session-mutex'
 import log from 'loglevel'
 
 /**
@@ -71,8 +71,10 @@ export const initializeSessionState = async (tabId: number): Promise<void> => {
  */
 export const clearSessionState = async (tabId: number): Promise<void> => {
   try {
-    await sidePanelConfigItem(tabId).removeValue()
+    const item = sidePanelConfigItem(tabId)
+    await item.removeValue()
     sidePanelConfigItem.forget(tabId)
+    forgetStorageMutex(item.key)
     log.debug(`Cleared session state for tab ${tabId}`)
   } catch (error) {
     log.error(`Error clearing session state for tab ${tabId}:`, error)
