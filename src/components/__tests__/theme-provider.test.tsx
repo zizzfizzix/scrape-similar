@@ -159,9 +159,13 @@ describe('ThemeProvider', () => {
       if (currentTheme() === 'dark') classWhenTextChanged ??= document.documentElement.className
     })
     observer.observe(view.container, { subtree: true, childList: true, characterData: true })
-    onTestFinished(() => observer.disconnect())
-
-    await expectTheme('dark')
+    try {
+      await expectTheme('dark')
+    } finally {
+      // Testing Library unmounts before `onTestFinished` runs, and the unmount
+      // would fire this observer against an emptied container.
+      observer.disconnect()
+    }
     expect(classWhenTextChanged).toBe('dark')
   })
 
