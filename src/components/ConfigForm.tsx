@@ -573,10 +573,10 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
         highlightMatchCount,
         highlightError,
       })
+      setMainSelectorDraft(value)
       if (isValueValidated) {
         onScrape()
       } else {
-        setMainSelectorDraft(value)
         setIsAutosuggestOpen(false)
         commitMainSelector(value)
         mainSelectorInputRef.current?.blur()
