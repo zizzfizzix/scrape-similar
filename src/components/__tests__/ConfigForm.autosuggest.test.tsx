@@ -93,6 +93,10 @@ const press = (key: string) =>
     )
   })
 
+/** jsdom runs frame callbacks in the order they were queued, so this one runs after the form's. */
+const nextFrame = () =>
+  act(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())))
+
 const focusField = () => act(() => mainSelectorInput().focus())
 
 const type = (value: string) =>
@@ -371,6 +375,100 @@ describe('the autosuggest dropdown', () => {
         expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ mainSelector: '//span' }))
       })
       expect(onChange).not.toHaveBeenCalledWith(expect.objectContaining({ mainSelector: '//sp' }))
+    })
+  })
+
+  /**
+   * cmdk scrolls its selection too, but only on mount and from its own
+   * navigation, never from the controlled `value` prop. These tests mount it
+   * with nothing selected and press keys in the textarea, so every call the
+   * spy records comes from the form, and the counts can be exact.
+   */
+  describe('keeping the highlighted entry in view', () => {
+    const spyOnScroll = () => vi.spyOn(Element.prototype, 'scrollIntoView')
+
+    const scrolledEntries = (scroll: ReturnType<typeof spyOnScroll>) =>
+      scroll.mock.contexts.map((el) => (el as HTMLElement).textContent)
+
+    it('scrolls to the first entry when ArrowDown opens the dropdown', async () => {
+      view = await render({ presets })
+      await focusField()
+      await press('Escape')
+      const scroll = spyOnScroll()
+
+      await press('ArrowDown')
+      await nextFrame()
+
+      expect(scroll).toHaveBeenCalledExactlyOnceWith({ block: 'nearest' })
+      expect(scrolledEntries(scroll)).toEqual([expect.stringContaining('Table rows')])
+    })
+
+    it('scrolls to the last entry when ArrowUp opens the dropdown', async () => {
+      view = await render({ presets })
+      await focusField()
+      await press('Escape')
+      const scroll = spyOnScroll()
+
+      await press('ArrowUp')
+      await nextFrame()
+
+      expect(scroll).toHaveBeenCalledExactlyOnceWith({ block: 'nearest' })
+      expect(scrolledEntries(scroll)).toEqual([expect.stringContaining('All links')])
+    })
+
+    it('follows the highlight as it moves through an open dropdown', async () => {
+      view = await render({ presets })
+      await focusField()
+      const scroll = spyOnScroll()
+
+      await press('ArrowDown')
+      await nextFrame()
+      await press('ArrowDown')
+      await nextFrame()
+      await press('ArrowUp')
+      await nextFrame()
+
+      expect(scrolledEntries(scroll)).toEqual([
+        expect.stringContaining('Table rows'),
+        expect.stringContaining('All links'),
+        expect.stringContaining('Table rows'),
+      ])
+      expect(scroll.mock.calls).toEqual(Array(3).fill([{ block: 'nearest' }]))
+    })
+
+    it('scrolls nothing when the dropdown opens with nothing to suggest', async () => {
+      view = await render({ presets: [] })
+      await focusField()
+      await press('Escape')
+      const scroll = spyOnScroll()
+
+      await press('ArrowDown')
+      await nextFrame()
+
+      expect(view.container.textContent).toContain('No suggestions found')
+      expect(scroll).not.toHaveBeenCalled()
+    })
+
+    it('scrolls nothing when the dropdown closes before the frame runs', async () => {
+      view = await render({ presets })
+      await focusField()
+      await press('Escape')
+      const scroll = spyOnScroll()
+      // Holding the frames back is what guarantees Escape lands first; awaiting
+      // `act` between the presses can let a real frame through.
+      const heldFrames: FrameRequestCallback[] = []
+      vi.spyOn(globalThis, 'requestAnimationFrame').mockImplementation((callback) => {
+        heldFrames.push(callback)
+        return heldFrames.length
+      })
+
+      await press('ArrowDown')
+      await press('Escape')
+      expect(heldFrames).not.toHaveLength(0)
+      await act(() => heldFrames.forEach((callback) => callback(performance.now())))
+
+      expect(suggestionItems()).toHaveLength(0)
+      expect(scroll).not.toHaveBeenCalled()
     })
   })
 
