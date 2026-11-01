@@ -80,7 +80,6 @@ export const TabPanel = memo(function TabPanel({
       setHighlightMatchCount(stored.highlightMatchCount ?? undefined)
       setHighlightError(stored.highlightError ?? undefined)
       setIsPickerModeActive(stored.pickerModeActive ?? false)
-      setStoredConfigVersion((version) => version + 1)
     },
     [tabId],
   )
@@ -94,6 +93,7 @@ export const TabPanel = memo(function TabPanel({
     return subscribeWithBackfill<SidePanelConfig>(
       { watch: item.watch, read: item.getValue },
       applyStoredState,
+      () => setStoredConfigVersion((version) => version + 1),
     )
   }, [tabId, applyStoredState])
 

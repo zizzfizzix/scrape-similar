@@ -1189,6 +1189,59 @@ describe('one panel per tab', () => {
     )
   })
 
+  it('finishes a held blur commit in a tab with nothing stored', async () => {
+    await storage.removeItem(`session:sidepanel_config_${OTHER_TAB_ID}`)
+    view = await render()
+    await switchTo(OTHER_TAB_ID)
+    await waitFor(() => expect(mainSelectorInput().value).toBe(''))
+    fireEvent.change(mainSelectorInput(), { target: { value: '//li' } })
+    act(() => {
+      mainSelectorInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
+    })
+    await switchTo(TAB_ID)
+    const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
+      undefined as never,
+    )
+
+    await switchTo(OTHER_TAB_ID)
+
+    await waitFor(() =>
+      expect(sidePanelWrites(sendMessage)[0]).toEqual({
+        tabId: OTHER_TAB_ID,
+        updates: expect.objectContaining({
+          currentScrapeConfig: expect.objectContaining({ mainSelector: '//li' }),
+        }),
+      }),
+    )
+  })
+
+  it('drops a held blur commit once the field is focused again', async () => {
+    view = await render()
+    await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
+    fireEvent.change(mainSelectorInput(), { target: { value: '//li' } })
+    act(() => {
+      mainSelectorInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
+    })
+    let release: ((value: SidePanelConfig | null) => void) | undefined
+    await switchTo(OTHER_TAB_ID)
+    const getItem = vi
+      .spyOn(sidePanelConfigItem(TAB_ID), 'getValue')
+      .mockImplementationOnce(() => new Promise((resolve) => (release = resolve)))
+    await switchTo(TAB_ID)
+    getItem.mockRestore()
+    const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
+      undefined as never,
+    )
+
+    // Back in the field before the read lands: the user is editing again.
+    act(() => mainSelectorInput().focus())
+    await act(async () => {
+      release!({ currentScrapeConfig: config, highlightMatchCount: 3 })
+    })
+
+    expect(sidePanelWrites(sendMessage)).toEqual([])
+  })
+
   it('closes the suggestions of a tab hidden mid-edit', async () => {
     view = await render()
     await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))

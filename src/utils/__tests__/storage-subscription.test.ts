@@ -117,4 +117,38 @@ describe('subscribeWithBackfill', () => {
     expect(onValue).not.toHaveBeenCalled()
     expect(unwatch).toHaveBeenCalledOnce()
   })
+
+  it('reports catching up after the read, even when it found nothing', async () => {
+    const { source, finishRead } = makeSource()
+    const onCaughtUp = vi.fn()
+
+    subscribeWithBackfill(source, vi.fn(), onCaughtUp)
+    expect(onCaughtUp).not.toHaveBeenCalled()
+    await finishRead(null)
+
+    expect(onCaughtUp).toHaveBeenCalledOnce()
+  })
+
+  it('reports catching up after a newer watched value', async () => {
+    const { source, write, finishRead } = makeSource()
+    const onValue = vi.fn()
+    const onCaughtUp = vi.fn()
+
+    subscribeWithBackfill(source, onValue, onCaughtUp)
+    write({ label: 'newer' })
+    await finishRead({ label: 'older' })
+
+    expect(onValue).toHaveBeenCalledExactlyOnceWith({ label: 'newer' })
+    expect(onCaughtUp).toHaveBeenCalledOnce()
+  })
+
+  it('does not report catching up once unsubscribed', async () => {
+    const { source, finishRead } = makeSource()
+    const onCaughtUp = vi.fn()
+
+    subscribeWithBackfill(source, vi.fn(), onCaughtUp)()
+    await finishRead({ label: 'stored' })
+
+    expect(onCaughtUp).not.toHaveBeenCalled()
+  })
 })

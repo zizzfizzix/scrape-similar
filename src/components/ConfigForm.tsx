@@ -68,7 +68,7 @@ const ZERO_FOUND_FEEDBACK_MS = 1500
 interface ConfigFormProps {
   /** The tab the form belongs to; `null` while there is none. */
   tabId: number | null
-  /** Changes each time the panel applies its stored state. */
+  /** Changes each time the panel has finished reading its stored state. */
   storedConfigVersion: number
   config: ScrapeConfig
   onChange: (config: ScrapeConfig) => void
@@ -275,10 +275,13 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
   const blurCommitTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   /** The committed selector a pending blur was armed against; `null` when none is. */
   const pendingBlurRef = useRef<string | null>(null)
+  /** A blur pending when a side panel tab was hidden, finished once it is shown. */
+  const heldBlurRef = useRef<{ committedAtBlur: string; storedVersion: number } | null>(null)
 
   const cancelBlurCommit = () => {
     clearTimeout(blurCommitTimerRef.current)
     pendingBlurRef.current = null
+    heldBlurRef.current = null
   }
 
   const commitMainSelector = (draft: string) => {
@@ -477,11 +480,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
   // its delay is held over the hide rather than dropped with the draft
   // uncommitted. It finishes once the panel has re-read its storage on show,
   // so the commit builds on config written while the tab was hidden.
-  const heldBlurRef = useRef<{ committedAtBlur: string; storedVersion: number } | null>(null)
-  const storedVersionRef = useRef(storedConfigVersion)
-  useEffect(() => {
-    storedVersionRef.current = storedConfigVersion
-  }, [storedConfigVersion])
+  const readStoredVersion = useEffectEvent(() => storedConfigVersion)
 
   const finishHeldBlurCommit = useEffectEvent(() => {
     const held = heldBlurRef.current
@@ -494,10 +493,10 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
   useEffect(
     () => () => {
       const committedAtBlur = pendingBlurRef.current
-      if (committedAtBlur !== null) {
-        heldBlurRef.current = { committedAtBlur, storedVersion: storedVersionRef.current }
-      }
       cancelBlurCommit()
+      if (committedAtBlur !== null) {
+        heldBlurRef.current = { committedAtBlur, storedVersion: readStoredVersion() }
+      }
       setIsAutosuggestOpen(false)
     },
     [],
