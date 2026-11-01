@@ -378,10 +378,7 @@ describe('the autosuggest dropdown', () => {
     })
   })
 
-  /**
-   * The scroll runs in a frame callback the selection assertions above do not
-   * wait for, so these tests drain the frame before asserting on it (#297).
-   */
+  /** The scroll runs in a frame callback, so these tests drain the frame before asserting on it. */
   describe('keeping the highlighted entry in view', () => {
     const spyOnScroll = () => vi.spyOn(Element.prototype, 'scrollIntoView')
 
