@@ -144,6 +144,15 @@ describe('initializeSessionState', () => {
 
     expect(await getSessionState(1)).toEqual({ initialSelectionText: 'keep me' })
   })
+
+  it('keeps an update queued while it reads the existing state', async () => {
+    await Promise.all([
+      initializeSessionState(1),
+      applySidePanelDataUpdates(1, { initialSelectionText: 'queued' }),
+    ])
+
+    expect(await getSessionState(1)).toEqual({ initialSelectionText: 'queued' })
+  })
 })
 
 describe('clearSessionState', () => {
