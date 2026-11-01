@@ -118,7 +118,10 @@ export const Settings = React.memo(
 
     const handleResetSystemPresets = useCallback(async () => {
       const isReset = await resetSystemPresetStatus()
-      if (!isReset) return
+      if (!isReset) {
+        toast.error("Error, system presets couldn't be reset")
+        return
+      }
       trackEvent(ANALYTICS_EVENTS.SYSTEM_PRESETS_RESET, { type: 'system' })
       if (onResetSystemPresets) onResetSystemPresets()
     }, [onResetSystemPresets])

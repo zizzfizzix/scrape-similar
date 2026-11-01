@@ -164,10 +164,12 @@ export const captureEvent = async (
       extension_version: version,
     }
 
-    // A content script cannot take the event queue's lock (it gets the page's
-    // lock manager), so its undecided-consent events are queued by the
-    // background it messages below.
-    if (consentState === undefined && context !== EXTENSION_CONTEXTS.CONTENT_SCRIPT) {
+    // Only the background and extension pages share the event queue's lock. A
+    // content script gets the page's lock manager, so the background it messages
+    // below queues for it; an unknown context is reported below, not queued.
+    const canQueueHere =
+      context !== EXTENSION_CONTEXTS.CONTENT_SCRIPT && context !== EXTENSION_CONTEXTS.UNKNOWN
+    if (consentState === undefined && canQueueHere) {
       await queueEvent({ name: eventName, props: eventProperties, timestamp: Date.now() })
       return
     }
@@ -209,7 +211,7 @@ export const captureEvent = async (
           })
           log.debug(`Tracked event (content script context): ${eventName}`, eventProperties)
         } catch (error) {
-          log.debug('Failed to send tracking message from content script:', error)
+          log.warn('Failed to send tracking message from content script:', error)
         }
         break
       }

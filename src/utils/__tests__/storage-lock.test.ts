@@ -14,7 +14,11 @@ describe('withStorageLock', () => {
 
     await withStorageLock({ key: 'sync:user_presets' }, async () => {})
 
-    expect(requestSpy).toHaveBeenCalledWith('sync:user_presets', expect.any(Function))
+    expect(requestSpy).toHaveBeenCalledWith(
+      'sync:user_presets',
+      { signal: expect.any(AbortSignal) },
+      expect.any(Function),
+    )
   })
 
   it("resolves with the task's result", async () => {
@@ -72,5 +76,32 @@ describe('withStorageLock', () => {
     await expect(
       withStorageLock({ key: 'session:throwing-test' }, async () => 'recovered'),
     ).resolves.toBe('recovered')
+  })
+
+  it('gives up on a lock that is not granted in time', async () => {
+    let release = () => {}
+    const held = withStorageLock(
+      { key: 'session:stuck' },
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve
+        }),
+    )
+    vi.spyOn(AbortSignal, 'timeout').mockReturnValueOnce(AbortSignal.abort(new Error('timed out')))
+
+    await expect(withStorageLock({ key: 'session:stuck' }, async () => 'ran')).rejects.toThrow(
+      'timed out',
+    )
+    release()
+    await held
+  })
+
+  it('fails with a reason where Web Locks are unavailable', async () => {
+    // A script on an http:// page has no `navigator.locks`: they need a secure context.
+    Object.defineProperty(navigator, 'locks', { value: undefined, configurable: true })
+
+    await expect(withStorageLock({ key: 'local:event_queue' }, async () => {})).rejects.toThrow(
+      'Web Locks are unavailable here, so local:event_queue cannot be locked',
+    )
   })
 })

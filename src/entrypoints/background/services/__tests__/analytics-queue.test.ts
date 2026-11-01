@@ -54,10 +54,11 @@ describe('configurePostHogRateLimit', () => {
 })
 
 describe('flushQueuedEvents', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     fakeBrowser.reset()
     posthogMocks.getPostHogBackground.mockReset()
     posthogMocks.resetPostHogInstance.mockReset()
+    await storage.setItem(analyticsConsentItem.key, true)
   })
 
   it('does nothing when the queue is empty', async () => {
@@ -102,8 +103,8 @@ describe('flushQueuedEvents', () => {
     })
   })
 
-  it('keeps the queue intact when PostHog is unavailable', async () => {
-    posthogMocks.getPostHogBackground.mockResolvedValue(null)
+  it('leaves the queue and its lock alone while consent is undecided', async () => {
+    await storage.removeItem(analyticsConsentItem.key)
     await storage.setItem(queueKey, [event('kept')])
     const requestSpy = vi.spyOn(navigator.locks, 'request')
 
@@ -114,12 +115,34 @@ describe('flushQueuedEvents', () => {
     expect(requestSpy).not.toHaveBeenCalled()
   })
 
-  it('sends nothing when consent is withdrawn while it waits for the lock', async () => {
-    const ph = createFakePostHog()
-    posthogMocks.getPostHogBackground.mockResolvedValueOnce(ph).mockResolvedValueOnce(null)
+  it('keeps the queue intact when PostHog is unavailable', async () => {
+    posthogMocks.getPostHogBackground.mockResolvedValue(null)
     await storage.setItem(queueKey, [event('kept')])
 
     await flushQueuedEvents()
+
+    expect(await readQueue()).toEqual([event('kept')])
+  })
+
+  it('sends nothing when consent is withdrawn while it waits for the lock', async () => {
+    const ph = createFakePostHog()
+    posthogMocks.getPostHogBackground.mockResolvedValue(ph)
+    await storage.setItem(queueKey, [event('kept')])
+    let release = () => {}
+    const held = navigator.locks.request(
+      queueKey,
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve
+        }),
+    )
+
+    const flushing = flushQueuedEvents()
+    await flushMicrotasks()
+    // The decline handler resets the instance while the flush waits.
+    posthogMocks.getPostHogBackground.mockResolvedValue(null)
+    release()
+    await Promise.all([held, flushing])
 
     expect(ph.capture).not.toHaveBeenCalled()
     expect(await readQueue()).toEqual([event('kept')])
@@ -178,6 +201,7 @@ describe('initializeAnalyticsQueue', () => {
   it('flushes anything already queued on startup', async () => {
     const ph = createFakePostHog()
     posthogMocks.getPostHogBackground.mockResolvedValue(ph)
+    await storage.setItem(analyticsConsentItem.key, true)
     await storage.setItem(queueKey, [event('startup')])
 
     await initializeAnalyticsQueue()
@@ -228,6 +252,7 @@ describe('initializeAnalyticsQueue', () => {
   it('flushes when new events land in the queue', async () => {
     const ph = createFakePostHog()
     posthogMocks.getPostHogBackground.mockResolvedValue(ph)
+    await storage.setItem(analyticsConsentItem.key, true)
     await initializeAnalyticsQueue()
 
     await storage.setItem(queueKey, [event('late')])

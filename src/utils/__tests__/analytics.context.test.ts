@@ -139,9 +139,19 @@ describe('captureEvent – context specific behaviour', () => {
     expect(await getQueuedEvent()).toBeUndefined()
   })
 
+  it('does not queue an undecided-consent event from an unknown context', async () => {
+    currentContext = contextDetection.EXTENSION_CONTEXTS.UNKNOWN
+    vi.spyOn(consent, 'getConsentState').mockResolvedValue(undefined)
+    vi.spyOn(log, 'warn').mockImplementation(() => {})
+
+    await captureEvent(EVENT_NAME)
+
+    expect(await getQueuedEvent()).toBeUndefined()
+  })
+
   it('swallows a send failure from content-script context', async () => {
     currentContext = contextDetection.EXTENSION_CONTEXTS.CONTENT_SCRIPT
-    const debugSpy = vi.spyOn(log, 'debug').mockImplementation(() => {})
+    const warnSpy = vi.spyOn(log, 'warn').mockImplementation(() => {})
     const failure = new Error('receiving end does not exist')
     // `sendMessage` rejects rather than throwing, which is only caught because
     // the call is awaited.
@@ -149,7 +159,7 @@ describe('captureEvent – context specific behaviour', () => {
 
     await expect(captureEvent(EVENT_NAME)).resolves.toBeUndefined()
 
-    expect(debugSpy).toHaveBeenCalledWith(
+    expect(warnSpy).toHaveBeenCalledWith(
       'Failed to send tracking message from content script:',
       failure,
     )

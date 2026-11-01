@@ -169,7 +169,11 @@ describe('Settings', () => {
         'Error resetting system preset status in storage:',
         failure,
       )
-      expect(trackEvent).not.toHaveBeenCalledWith(ANALYTICS_EVENTS.SYSTEM_PRESETS_RESET)
+      expect(trackEvent).not.toHaveBeenCalledWith(
+        ANALYTICS_EVENTS.SYSTEM_PRESETS_RESET,
+        expect.anything(),
+      )
+      expect(toastMocks.toast.error).toHaveBeenCalledWith("Error, system presets couldn't be reset")
     })
   })
 

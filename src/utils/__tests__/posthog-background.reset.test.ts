@@ -10,6 +10,7 @@ vi.mock('posthog-js/dist/module.no-external', () => {
     init() {}
     set_config() {}
     capture() {}
+    opt_out_capturing = vi.fn()
   }
   return { PostHog }
 })
@@ -17,6 +18,7 @@ vi.mock('posthog-js/dist/exception-autocapture.js', () => ({}))
 vi.mock('posthog-js/dist/tracing-headers.js', () => ({}))
 
 const { getPostHogBackground, resetPostHogInstance } = await import('@/utils/posthog-background')
+const { PostHog } = await import('posthog-js/dist/module.no-external')
 
 describe('getPostHogBackground', () => {
   beforeEach(() => {
@@ -78,6 +80,20 @@ describe('resetPostHogInstance', () => {
     resetPostHogInstance()
     consentSpy.mockResolvedValue(false)
 
+    expect(await getPostHogBackground()).toBeNull()
+  })
+
+  it('discards an instance whose initialisation a reset overtook', async () => {
+    vi.spyOn(consent, 'getConsentState').mockResolvedValue(true)
+    const optOut = vi.spyOn(PostHog.prototype, 'init')
+
+    const initialising = getPostHogBackground()
+    resetPostHogInstance()
+
+    expect(await initialising).toBeNull()
+    const discarded = optOut.mock.contexts[0] as unknown as { opt_out_capturing: () => void }
+    expect(discarded.opt_out_capturing).toHaveBeenCalled()
+    vi.spyOn(consent, 'getConsentState').mockResolvedValue(false)
     expect(await getPostHogBackground()).toBeNull()
   })
 })

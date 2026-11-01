@@ -29,7 +29,6 @@ const sendQueuedEvents = async (ph: PostHog): Promise<void> => {
   try {
     log.debug(`Flushing ${queue.length} queued events...`)
 
-    // Process events sequentially to avoid overwhelming PostHog
     for (const event of queue) {
       try {
         ph.capture(
@@ -59,15 +58,16 @@ const sendQueuedEvents = async (ph: PostHog): Promise<void> => {
  */
 export const flushQueuedEvents = async (): Promise<void> => {
   try {
-    // Without consent there is no instance. Checking before the lock keeps a
-    // flush that cannot send from holding up every page's queueEvent.
-    if (!(await getPostHogBackground())) {
-      log.debug('PostHog not initialized, leaving queued events for later')
+    // Checked before the lock, so a flush that cannot send does not hold up
+    // every page's queueEvent.
+    const consentState = await getConsentState()
+    if (consentState !== true) {
+      log.debug('No analytics consent, leaving queued events for later')
       return
     }
     await withStorageLock(eventQueueItem, async () => {
-      // Asked again under the lock: a consent decline while this waited resets
-      // the instance, and no event may be sent after it.
+      // Asked under the lock: a consent decline while this waited resets the
+      // instance, and no event may be sent after it.
       const ph = await getPostHogBackground()
       if (ph) await sendQueuedEvents(ph)
     })
@@ -96,9 +96,7 @@ export const initializeAnalyticsQueue = async (): Promise<void> => {
         // Consent declined - reset PostHog instance and clear the queue safely
         resetPostHogInstance()
 
-        await withStorageLock(eventQueueItem, async () => {
-          await eventQueueItem.setValue([])
-        })
+        await withStorageLock(eventQueueItem, () => eventQueueItem.setValue([]))
 
         log.debug('User declined consent - reset PostHog and cleared event queue')
       }

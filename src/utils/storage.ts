@@ -142,16 +142,15 @@ export const deletePreset = async (presetId: string): Promise<boolean> => {
 }
 
 /** Replaces every user preset; used by import. */
-export const setPresets = async (presets: Preset[]): Promise<boolean> =>
-  withStorageLock(userPresetsItem, async () => {
-    try {
-      await userPresetsItem.setValue(presets)
-      return true
-    } catch (error) {
-      log.error('Error setting presets in storage:', error)
-      return false
-    }
-  })
+export const setPresets = async (presets: Preset[]): Promise<boolean> => {
+  try {
+    await withStorageLock(userPresetsItem, () => userPresetsItem.setValue(presets))
+    return true
+  } catch (error) {
+    log.error('Error setting presets in storage:', error)
+    return false
+  }
+}
 
 // Initialize storage with default values. With defineItem fallback, empty is handled; no-op for compatibility.
 // `getPresets` swallows its own failures, so there is nothing here left to catch.
@@ -184,16 +183,15 @@ export const hideSystemPreset = async (presetId: string): Promise<boolean> => {
 }
 
 /** Shows every system preset again; resolves `false` when storage refused the write. */
-export const resetSystemPresetStatus = async (): Promise<boolean> =>
-  withStorageLock(systemPresetStatusItem, async () => {
-    try {
-      await systemPresetStatusItem.removeValue()
-      return true
-    } catch (error) {
-      log.error('Error resetting system preset status in storage:', error)
-      return false
-    }
-  })
+export const resetSystemPresetStatus = async (): Promise<boolean> => {
+  try {
+    await withStorageLock(systemPresetStatusItem, () => systemPresetStatusItem.removeValue())
+    return true
+  } catch (error) {
+    log.error('Error resetting system preset status in storage:', error)
+    return false
+  }
+}
 
 // Merge system presets with user presets, respecting status map
 export const getAllPresets = async (): Promise<Preset[]> => {
