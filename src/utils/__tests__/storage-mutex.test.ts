@@ -1,4 +1,4 @@
-import { forgetStorageMutex, getStorageMutex } from '@/utils/session-mutex'
+import { forgetStorageMutex, getStorageMutex } from '@/utils/storage-mutex'
 import { describe, expect, it } from 'vitest'
 
 describe('getStorageMutex', () => {

@@ -1,4 +1,4 @@
-import { forgetStorageMutex, getStorageMutex } from '@/utils/session-mutex'
+import { forgetStorageMutex, getStorageMutex } from '@/utils/storage-mutex'
 import log from 'loglevel'
 
 /**

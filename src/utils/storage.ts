@@ -1,5 +1,6 @@
 import type { QueuedEvent } from '@/utils/analytics'
 import type { DistinctId } from '@/utils/distinct-id'
+import { getStorageMutex } from '@/utils/storage-mutex'
 import log from 'loglevel'
 
 /** Current version for user presets storage and export/import file format. */
@@ -216,7 +217,14 @@ export const getRecentMainSelectors = async (): Promise<string[]> => {
   }
 }
 
-export const setRecentMainSelectors = async (selectors: string[]): Promise<void> => {
+// Serialises writes to the key within one extension context; overlapping
+// read-modify-writes otherwise read the same list and the last write drops the
+// others' changes. Looked up per call: a module-scope lookup reads the item and
+// keeps it in every bundle that imports this file, the content script included.
+const recentMainSelectorsMutex = () => getStorageMutex(recentMainSelectorsItem.key)
+
+// Callers hold the recents mutex, which is not re-entrant.
+const writeRecentMainSelectors = async (selectors: string[]): Promise<void> => {
   try {
     await recentMainSelectorsItem.setValue(selectors)
   } catch (error) {
@@ -224,20 +232,24 @@ export const setRecentMainSelectors = async (selectors: string[]): Promise<void>
   }
 }
 
-// Both helpers this calls report their own storage failures and resolve, so a
-// `catch` here could never run.
+export const setRecentMainSelectors = async (selectors: string[]): Promise<void> =>
+  recentMainSelectorsMutex().runExclusive(() => writeRecentMainSelectors(selectors))
+
+// getRecentMainSelectors and writeRecentMainSelectors log their own storage
+// failures and resolve, so push and remove need no `catch`.
 export const pushRecentMainSelector = async (selector: string): Promise<void> => {
-  const current = await getRecentMainSelectors()
   const sanitized = selector.trim()
   if (!sanitized) return
-  const withoutDup = current.filter((s) => s !== sanitized)
-  const updated = [sanitized, ...withoutDup].slice(0, 5)
-  await setRecentMainSelectors(updated)
+  await recentMainSelectorsMutex().runExclusive(async () => {
+    const current = await getRecentMainSelectors()
+    const withoutDup = current.filter((s) => s !== sanitized)
+    await writeRecentMainSelectors([sanitized, ...withoutDup].slice(0, 5))
+  })
 }
 
-// Unreachable `catch` for the same reason as `pushRecentMainSelector`.
 export const removeRecentMainSelector = async (selector: string): Promise<void> => {
-  const current = await getRecentMainSelectors()
-  const updated = current.filter((s) => s !== selector)
-  await setRecentMainSelectors(updated)
+  await recentMainSelectorsMutex().runExclusive(async () => {
+    const current = await getRecentMainSelectors()
+    await writeRecentMainSelectors(current.filter((s) => s !== selector))
+  })
 }
