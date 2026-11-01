@@ -462,7 +462,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
    */
   const handleMainActionPress = () => {
     if (hasUncommittedChanges) {
-      commitMainSelectorNow(mainSelectorDraft)
+      commitMainSelectorNow(trimmedDraft)
       return
     }
 
@@ -581,20 +581,19 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
         if (suggestion?.kind === 'preset') handleAutosuggestSelect(suggestion.preset)
         return
       }
-      const value = trimmedDraft
-      if (!value) return
+      if (!trimmedDraft) return
 
       if (isMainSelectorValid) {
         scrapeCommittedMainSelector()
       } else {
-        commitMainSelectorNow(value)
+        commitMainSelectorNow(trimmedDraft)
       }
 
       reportRejection(
         (async () => {
           const all = await getAllPresets()
-          if (isSelectorAPreset(value, all)) return
-          await pushRecentMainSelector(value)
+          if (isSelectorAPreset(trimmedDraft, all)) return
+          await pushRecentMainSelector(trimmedDraft)
         })(),
       )
       return
