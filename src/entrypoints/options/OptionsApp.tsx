@@ -1,42 +1,11 @@
 import { Toaster } from '@/components/ui/sonner'
-import { isDevOrTest } from '@/utils/modeTest'
+import { useDebugMode } from '@/hooks/use-debug-mode'
 import { reportRejection } from '@/utils/report-rejection'
-import log from 'loglevel'
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useRef } from 'react'
 
 export const OptionsApp: React.FC = () => {
-  const [isDebugModeEnabled, setIsDebugModeEnabled] = useState(false)
+  const [isDebugModeEnabled, setDebugModeEnabled] = useDebugMode()
   const settingsRef = useRef<{ unlockDebugMode: () => void }>(null)
-
-  // Load debug mode from storage on mount
-  useEffect(() => {
-    reportRejection(
-      storage.getItem<boolean>('local:debugMode').then((val) => {
-        setIsDebugModeEnabled(!!val)
-        if (isDevOrTest) {
-          log.setLevel('trace')
-        } else {
-          log.setLevel(val ? 'trace' : 'error')
-        }
-      }),
-    )
-
-    const unwatch = storage.watch<boolean>('local:debugMode', (val) => {
-      setIsDebugModeEnabled(!!val)
-      if (!isDevOrTest) {
-        log.setLevel(val ? 'trace' : 'error')
-      }
-    })
-
-    return () => {
-      unwatch()
-    }
-  }, [])
-
-  const handleDebugModeChange = (enabled: boolean) => {
-    setIsDebugModeEnabled(enabled)
-    reportRejection(storage.setItem('local:debugMode', enabled))
-  }
 
   const handleTitleClick = () => {
     settingsRef.current?.unlockDebugMode()
@@ -57,7 +26,7 @@ export const OptionsApp: React.FC = () => {
                 <Settings
                   ref={settingsRef}
                   debugMode={isDebugModeEnabled}
-                  onDebugModeChange={handleDebugModeChange}
+                  onDebugModeChange={(enabled) => reportRejection(setDebugModeEnabled(enabled))}
                 />
               </div>
             </div>

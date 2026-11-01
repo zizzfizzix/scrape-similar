@@ -470,20 +470,18 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
   // Recent selectors state
   const [recentSelectors, setRecentSelectors] = useState<string[]>([])
 
-  useEffect(() => {
-    reportRejection(getRecentMainSelectors().then(setRecentSelectors))
-  }, [])
-
-  // Watch local storage for recents updates and refresh state
-  useEffect(() => {
-    const unwatch = storage.watch<string[]>(
-      `local:${STORAGE_KEYS.RECENT_MAIN_SELECTORS}` as const,
-      (list) => {
-        setRecentSelectors(Array.isArray(list) ? list : [])
-      },
-    )
-    return () => unwatch()
-  }, [])
+  useEffect(
+    () =>
+      subscribeWithBackfill(
+        {
+          watch: (onChange) =>
+            recentMainSelectorsItem.watch((list) => onChange(toSelectorList(list))),
+          read: getRecentMainSelectors,
+        },
+        setRecentSelectors,
+      ),
+    [],
+  )
 
   const recentSuggestions = React.useMemo(
     () => filterRecentSelectors(recentSelectors, presets, mainSelectorDraft || ''),
@@ -568,8 +566,6 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
             const all = await getAllPresets()
             if (!isSelectorAPreset(mainSelectorDraft, all)) {
               await pushRecentMainSelector(mainSelectorDraft)
-              const updated = await getRecentMainSelectors()
-              setRecentSelectors(updated)
             }
             if (hasUncommittedChanges) {
               // First Enter after changes: validate selector via highlight
@@ -867,7 +863,6 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
                                     reportRejection(
                                       (async () => {
                                         await removeRecentMainSelector(selector)
-                                        setRecentSelectors(await getRecentMainSelectors())
                                         // Keep dropdown open and move focus back to Command root
                                         requestAnimationFrame(() => {
                                           commandRef.current?.focus()

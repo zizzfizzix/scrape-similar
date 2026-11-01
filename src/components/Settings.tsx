@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { ButtonGroup } from '@/components/ui/button-group'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useStorageItem } from '@/hooks/use-storage-item'
 import { downloadFile } from '@/utils/export-data'
 import {
   buildPresetExportJson,
@@ -17,7 +18,7 @@ import { reportRejection } from '@/utils/report-rejection'
 import { getPresets, setPresets } from '@/utils/storage'
 import log from 'loglevel'
 import { Clipboard, Import, Upload } from 'lucide-react'
-import React, { useCallback, useEffect, useId, useRef, useState } from 'react'
+import React, { useCallback, useId, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
 interface SettingsProps {
@@ -56,46 +57,17 @@ export const Settings = React.memo(
     className,
     ref,
   }: SettingsProps) => {
-    const [isDebugRowVisible, setIsDebugRowVisible] = useState(debugMode)
+    const [isDebugModeStored] = useStorageItem(debugModeItem)
+    const [isDebugUnlocked, setDebugUnlocked] = useStorageItem(debugUnlockedItem)
+    // The drawer mounts this on every open, when its own reads start at false;
+    // the prop is the parent's already-loaded flag, so the row does not appear
+    // a moment late.
+    const isDebugRowVisible = debugMode || isDebugModeStored || isDebugUnlocked
     const [importConfirm, setImportConfirm] = useState<ImportConfirmState>(CLOSED_IMPORT_CONFIRM)
     const fileInputRef = useRef<HTMLInputElement>(null)
     const { loading: isConsentLoading, state: consentState, setConsent } = useConsent()
     const clickCountRef = useRef(0)
     const timerRef = useRef<NodeJS.Timeout | null>(null)
-
-    // Keep local copies of storage flags so we can compute visibility without extra storage reads
-    const debugModeValRef = useRef(false)
-    const debugUnlockedValRef = useRef(false)
-
-    // Load debug flags from storage on mount
-    useEffect(() => {
-      reportRejection(
-        storage
-          .getItems(['local:debugMode', 'local:debugUnlocked'])
-          .then(([debugMode, debugUnlocked]) => {
-            debugModeValRef.current = !!debugMode?.value
-            debugUnlockedValRef.current = !!debugUnlocked?.value
-            setIsDebugRowVisible(debugModeValRef.current || debugUnlockedValRef.current)
-          }),
-      )
-    }, [])
-
-    // Listen for changes to either flag and update visibility
-    useEffect(() => {
-      const unwatchDebugMode = storage.watch<boolean>('local:debugMode', (val) => {
-        debugModeValRef.current = !!val
-        setIsDebugRowVisible(debugModeValRef.current || debugUnlockedValRef.current)
-      })
-      const unwatchDebugUnlocked = storage.watch<boolean>('local:debugUnlocked', (val) => {
-        debugUnlockedValRef.current = !!val
-        setIsDebugRowVisible(debugModeValRef.current || debugUnlockedValRef.current)
-      })
-
-      return () => {
-        unwatchDebugMode()
-        unwatchDebugUnlocked()
-      }
-    }, [])
 
     // Handler for clicking the title to unlock debug mode
     const handleTitleClick = () => {
@@ -108,15 +80,13 @@ export const Settings = React.memo(
         }, HIDDEN_UNLOCK_WINDOW_MS)
       }
       if (clickCountRef.current >= HIDDEN_UNLOCK_CLICKS) {
-        setIsDebugRowVisible(true)
         clickCountRef.current = 0
         // The first click of a run always arms this timer, so reaching the
         // unlock threshold means there is one to clear.
         clearTimeout(timerRef.current!)
         timerRef.current = null
 
-        // Save debug unlock state to storage
-        reportRejection(storage.setItem('local:debugUnlocked', true))
+        reportRejection(setDebugUnlocked(true))
 
         // Track hidden settings unlocked
         trackEvent(ANALYTICS_EVENTS.HIDDEN_SETTINGS_UNLOCK)
@@ -124,12 +94,11 @@ export const Settings = React.memo(
     }
 
     const handleDebugSwitch = (checked: boolean) => {
-      setIsDebugRowVisible(checked)
       if (onDebugModeChange) onDebugModeChange(checked)
 
-      // Clear unlock state when debug mode is turned off
+      // Turning debug mode off hides the row again until the next unlock
       if (!checked) {
-        reportRejection(storage.removeItem('local:debugUnlocked'))
+        reportRejection(debugUnlockedItem.removeValue())
       }
 
       // Track debug mode toggle
@@ -149,7 +118,7 @@ export const Settings = React.memo(
 
     const handleResetSystemPresets = useCallback(async () => {
       try {
-        await storage.removeItem('sync:system_preset_status')
+        await systemPresetStatusItem.removeValue()
         trackEvent(ANALYTICS_EVENTS.SYSTEM_PRESETS_RESET)
         if (onResetSystemPresets) onResetSystemPresets()
       } catch (error) {

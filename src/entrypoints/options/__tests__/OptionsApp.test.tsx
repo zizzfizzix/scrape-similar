@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-import { ANALYTICS_CONSENT_STORAGE_KEY } from '@/utils/consent'
 import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 import { renderSettled } from '@@/tests/support/settle'
 import { type RenderResult, act } from '@testing-library/react'
@@ -31,7 +30,7 @@ const { TooltipProvider } = await import('@/components/ui/tooltip')
 
 let view: RenderResult
 
-const consentKey = `sync:${ANALYTICS_CONSENT_STORAGE_KEY}` as const
+const consentKey = analyticsConsentItem.key
 
 const render = () =>
   renderSettled(

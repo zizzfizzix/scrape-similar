@@ -1,7 +1,6 @@
 import {
   applySidePanelDataUpdates,
   clearSessionState,
-  getSessionKey,
   getSessionState,
   initializeSessionState,
 } from '@/entrypoints/background/services/session-storage'
@@ -12,13 +11,7 @@ import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
 
 const read = (tabId: number) =>
-  storage.getItem<SidePanelConfig>(`session:${getSessionKey(tabId)}`) as Promise<SidePanelConfig>
-
-describe('getSessionKey', () => {
-  it('namespaces the key by tab id', () => {
-    expect(getSessionKey(42)).toBe('sidepanel_config_42')
-  })
-})
+  storage.getItem<SidePanelConfig>(sidePanelConfigItem(tabId).key) as Promise<SidePanelConfig>
 
 describe('applySidePanelDataUpdates', () => {
   beforeEach(() => {
@@ -166,13 +159,36 @@ describe('clearSessionState', () => {
     expect(await getSessionState(1)).toBeNull()
   })
 
+  it('removes the entry after an update already in flight', async () => {
+    const update = applySidePanelDataUpdates(1, { initialSelectionText: 'late' })
+
+    await Promise.all([update, clearSessionState(1)])
+
+    expect(await getSessionState(1)).toBeNull()
+  })
+
+  it('drops the cached item and mutex for the tab', async () => {
+    const item = sidePanelConfigItem(1)
+    const mutex = getStorageMutex(item.key)
+
+    await clearSessionState(1)
+
+    expect(sidePanelConfigItem(1)).not.toBe(item)
+    expect(getStorageMutex(item.key)).not.toBe(mutex)
+  })
+
   it('logs and swallows storage failures', async () => {
     const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
     const failure = new Error('storage unavailable')
-    vi.spyOn(storage, 'removeItem').mockRejectedValueOnce(failure)
+    vi.spyOn(fakeBrowser.storage.session, 'remove').mockRejectedValueOnce(failure)
+
+    const item = sidePanelConfigItem(9)
+    const mutex = getStorageMutex(item.key)
 
     await expect(clearSessionState(9)).resolves.toBeUndefined()
 
     expect(errorSpy).toHaveBeenCalledWith('Error clearing session state for tab 9:', failure)
+    expect(sidePanelConfigItem(9)).not.toBe(item)
+    expect(getStorageMutex(item.key)).not.toBe(mutex)
   })
 })

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { ANALYTICS_EVENTS } from '@/utils/analytics'
-import { ANALYTICS_CONSENT_STORAGE_KEY, getConsentState } from '@/utils/consent'
+import { getConsentState } from '@/utils/consent'
 import { MESSAGE_TYPES } from '@/utils/types'
 import { spyOnBrowser } from '@@/tests/support/fake-browser'
 import { renderSettled } from '@@/tests/support/settle'
@@ -43,7 +43,7 @@ const { TooltipProvider } = await import('@/components/ui/tooltip')
 let view: RenderResult
 let replace: ReturnType<typeof vi.fn>
 
-const consentKey = `sync:${ANALYTICS_CONSENT_STORAGE_KEY}` as const
+const consentKey = analyticsConsentItem.key
 
 const render = () =>
   renderSettled(
@@ -126,7 +126,7 @@ describe('OnboardingApp', () => {
   })
 
   it('renders nothing until the stored decision has loaded', async () => {
-    vi.spyOn(storage, 'getItem').mockReturnValue(new Promise(() => {}))
+    vi.spyOn(analyticsConsentItem, 'getValue').mockReturnValue(new Promise(() => {}))
 
     view = await render()
 

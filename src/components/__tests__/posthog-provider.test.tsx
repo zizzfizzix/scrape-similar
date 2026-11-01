@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-import { ANALYTICS_CONSENT_STORAGE_KEY } from '@/utils/consent'
 import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 import { renderSettled, settleEffects } from '@@/tests/support/settle'
 import { type RenderResult, act } from '@testing-library/react'
@@ -53,7 +52,7 @@ const { ConsentProvider } = await import('@/components/consent-provider')
 
 let view: RenderResult
 
-const consentKey = `sync:${ANALYTICS_CONSENT_STORAGE_KEY}` as const
+const consentKey = analyticsConsentItem.key
 
 const exposedInstance = () =>
   (window as { __scrape_similar_posthog?: unknown }).__scrape_similar_posthog

@@ -15,12 +15,6 @@ export type MessageHandler = (
  */
 export type AsyncMessageHandler = (...args: Parameters<MessageHandler>) => Promise<void>
 
-export interface QueuedEvent {
-  name: string
-  props: Record<string, any>
-  timestamp: number
-}
-
 export interface ExportResult {
   success: boolean
   url?: string

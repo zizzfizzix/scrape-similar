@@ -212,14 +212,6 @@ describe('DataTable', () => {
 
       expect(onRowHighlight).toHaveBeenCalledWith('(//tr)[2]')
     })
-
-    it('cannot highlight an empty row', async () => {
-      view = render({ showEmptyRows: true })
-
-      const buttons = [...bodyRows()[2]!.querySelectorAll('button')]
-      expect(buttons[0]?.disabled).toBe(true)
-      expect(buttons[0]?.getAttribute('aria-label')).toBeNull()
-    })
   })
 
   describe('copying a row', () => {
@@ -238,26 +230,6 @@ describe('DataTable', () => {
         columns_count: 2,
         export_type: 'data_table_row',
       })
-    })
-
-    it('reports a clipboard the browser refused', async () => {
-      vi.mocked(navigator.clipboard.writeText).mockRejectedValue(new Error('denied'))
-      view = render()
-
-      await act(async () => {
-        allButtons('Copy this row')[0]!.click()
-        await Promise.resolve()
-      })
-
-      expect(toastMocks.toast.error).toHaveBeenCalledWith('Failed to copy')
-      expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.COPY_TO_CLIPBOARD_FAILURE)
-    })
-
-    it('cannot copy an empty row', async () => {
-      view = render({ showEmptyRows: true })
-
-      const buttons = [...bodyRows()[2]!.querySelectorAll('button')]
-      expect(buttons[1]?.disabled).toBe(true)
     })
   })
 

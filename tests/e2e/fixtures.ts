@@ -45,12 +45,16 @@ export const DEMO_TARGET_URL =
 export const DEMO_TARGET_PAGE = 'wikitable-demo.html'
 
 /**
- * Facts about tests/e2e/fixtures/pages/wikitable-demo.html the onboarding demo
- * assertions rely on. Keep in sync when editing that file.
+ * Facts about tests/e2e/fixtures/pages/wikitable-demo.html the specs rely on.
+ * Keep in sync when editing that file.
  */
 export const DEMO_TARGET_PAGE_FACTS = {
   /** Data rows in the `wikitable`, excluding its header row. */
   tableRows: 12,
+  /** Country link text of the first data row. */
+  firstCountry: 'India',
+  /** Country link text of the last data row. */
+  lastCountry: 'Japan',
   /** Rows the baked demo config selects: `position() > 1 and position() <= 11`. */
   scrapedRows: 10,
   /** Cells of the first scraped row, in the demo config's column order. */

@@ -1,10 +1,8 @@
-import { EVENT_QUEUE_STORAGE_KEY, queueMutex } from '@/utils/analytics'
-import { ANALYTICS_CONSENT_STORAGE_KEY } from '@/utils/consent'
+import { queueMutex } from '@/utils/analytics'
 import { getPostHogBackground, resetPostHogInstance } from '@/utils/posthog-background'
 import { reportingListener } from '@/utils/report-rejection'
 import log from 'loglevel'
 import { PostHog } from 'posthog-js/dist/module.no-external'
-import type { QueuedEvent } from '../types'
 
 /**
  * Configure PostHog rate limiting
@@ -24,7 +22,7 @@ export const configurePostHogRateLimit = (ph: PostHog, eventsPerSecond: number =
 export const flushQueuedEvents = async (): Promise<void> => {
   return queueMutex.runExclusive(async () => {
     try {
-      const queue = (await storage.getItem<QueuedEvent[]>(`local:${EVENT_QUEUE_STORAGE_KEY}`)) || []
+      const queue = await eventQueueItem.getValue()
 
       if (queue.length === 0) {
         log.debug('No queued events to flush')
@@ -65,7 +63,7 @@ export const flushQueuedEvents = async (): Promise<void> => {
       configurePostHogRateLimit(ph)
 
       // Clear the queue after successful processing
-      await storage.setItem(`local:${EVENT_QUEUE_STORAGE_KEY}`, [])
+      await eventQueueItem.setValue([])
       log.debug(`Successfully flushed ${queue.length} buffered analytics events`)
     } catch (error) {
       const ph = await getPostHogBackground()
@@ -91,11 +89,9 @@ export const initializeAnalyticsQueue = async (): Promise<void> => {
   await flushQueuedEvents()
 
   // Listen for consent changes to (re)initialize PostHog and flush queued events
-  storage.watch<boolean | null | string>(
-    `sync:${ANALYTICS_CONSENT_STORAGE_KEY}`,
+  analyticsConsentItem.watch(
     reportingListener(async (value) => {
-      const sanitizedConsentState =
-        value === '' || value === null || value === undefined ? undefined : !!value
+      const sanitizedConsentState = toConsentState(value)
       if (sanitizedConsentState === true) {
         // Consent granted - initialize PostHog and flush queue
         await getPostHogBackground()
@@ -106,7 +102,7 @@ export const initializeAnalyticsQueue = async (): Promise<void> => {
 
         // Acquire the same mutex used by queueEvent / flushQueuedEvents to avoid races
         await queueMutex.runExclusive(async () => {
-          await storage.setItem(`local:${EVENT_QUEUE_STORAGE_KEY}`, [])
+          await eventQueueItem.setValue([])
         })
 
         log.debug('User declined consent - reset PostHog and cleared event queue')
@@ -115,10 +111,9 @@ export const initializeAnalyticsQueue = async (): Promise<void> => {
   )
 
   // Watch for new items added to the analytics queue in case consent was granted after startup
-  storage.watch<QueuedEvent[]>(
-    `local:${EVENT_QUEUE_STORAGE_KEY}`,
+  eventQueueItem.watch(
     reportingListener(async (queue) => {
-      if (queue && queue.length > 0) {
+      if (queue.length > 0) {
         await flushQueuedEvents()
       }
     }),

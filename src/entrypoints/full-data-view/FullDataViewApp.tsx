@@ -1,3 +1,4 @@
+import { RowActionsCell } from '@/components/RowActionsCell'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -27,7 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { reportingListener, reportRejection } from '@/utils/report-rejection'
 
 import {
@@ -37,6 +38,7 @@ import {
   type TabData,
   visibleRows,
 } from '@/entrypoints/full-data-view/tab-data'
+import { useDebugMode } from '@/hooks/use-debug-mode'
 import { calculateOptimalColumnWidth, FULL_DATA_VIEW_COLUMN_METRICS } from '@/utils/column-width'
 import {
   type CellContext,
@@ -71,8 +73,6 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronsUpDown,
-  Clipboard,
-  Highlighter,
   Search,
 } from 'lucide-react'
 import React, { useEffect, useMemo, useState } from 'react'
@@ -142,7 +142,7 @@ export const FullDataViewApp: React.FC = () => {
     const loadTabsData = async () => {
       try {
         const tabsWithData = await collectTabsWithData(await browser.tabs.query({}), (tabId) =>
-          storage.getItem<SidePanelConfig>(`session:sidepanel_config_${tabId}`),
+          sidePanelConfigItem(tabId).getValue(),
         )
 
         setAllTabsData(tabsWithData)
@@ -161,25 +161,7 @@ export const FullDataViewApp: React.FC = () => {
     reportRejection(loadTabsData())
   }, [currentTabId, reloadRequest])
 
-  useEffect(() => {
-    reportRejection(
-      storage.getItem<boolean>('local:debugMode').then((val) => {
-        if (isDevOrTest) {
-          log.setLevel('trace')
-        } else {
-          log.setLevel(val ? 'trace' : 'error')
-        }
-      }),
-    )
-
-    const unwatch = storage.watch<boolean>('local:debugMode', (val) => {
-      if (!isDevOrTest) {
-        log.setLevel(val ? 'trace' : 'error')
-      }
-    })
-
-    return () => unwatch()
-  }, [])
+  useDebugMode()
 
   // Update document title when current tab changes
   useEffect(() => {
@@ -196,9 +178,7 @@ export const FullDataViewApp: React.FC = () => {
 
     // Function to set up a watcher for a specific tab
     const setupSingleTabWatcher = (tabId: number) => {
-      const sessionKey = `sidepanel_config_${tabId}`
-      const unwatch = storage.watch<SidePanelConfig>(
-        `session:${sessionKey}`,
+      const unwatch = sidePanelConfigItem(tabId).watch(
         reportingListener(async (newValue) => {
           // Update only the specific tab that changed, preserve user's current selection
           const tabInfo = await browser.tabs.get(tabId).catch(() => null)
@@ -417,6 +397,7 @@ export const FullDataViewApp: React.FC = () => {
       currentTabData.scrapeResult.columnOrder && currentTabData.scrapeResult.columnOrder.length > 0
         ? currentTabData.scrapeResult.columnOrder
         : currentTabData.config.columns.map((col) => col.name)
+    const columnKeys = getColumnKeys(columnsOrder, currentTabData.config.columns)
 
     const baseColumns: ColumnDef<FullDataViewFeatures, ScrapedRow>[] = [
       {
@@ -482,82 +463,17 @@ export const FullDataViewApp: React.FC = () => {
       {
         id: 'actions',
         header: 'Actions',
-        cell: ({ row }: CellContext<FullDataViewFeatures, ScrapedRow>) => {
-          const isEmpty = row.original.metadata.isEmpty
-          const originalIndex = row.original.metadata.originalIndex
-          const columnKeys = getColumnKeys(columnsOrder, currentTabData.config.columns)
-
-          const highlightButton = (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-6"
-              aria-label={isEmpty ? undefined : 'Highlight this element'}
-              disabled={isEmpty}
-              onClick={
-                isEmpty
-                  ? undefined
-                  : () => {
-                      const rowSelector = `(${currentTabData.config.mainSelector})[${originalIndex + 1}]`
-                      reportRejection(handleRowHighlight(rowSelector, currentTabData.tabId))
-                    }
-              }
-            >
-              <Highlighter className="size-4" />
-            </Button>
-          )
-
-          const copyRow = async () => {
-            const tsvContent = rowToTsv(row.original, columnKeys)
-            try {
-              await navigator.clipboard.writeText(tsvContent)
-              toast.success('Copied row to clipboard')
-              trackEvent(ANALYTICS_EVENTS.COPY_TO_CLIPBOARD_TRIGGER, {
-                rows_copied: 1,
-                columns_count: columnKeys.length,
-                export_type: 'full_data_view_row',
-              })
-            } catch {
-              toast.error('Failed to copy')
-              trackEvent(ANALYTICS_EVENTS.COPY_TO_CLIPBOARD_FAILURE)
+        cell: ({ row }: CellContext<FullDataViewFeatures, ScrapedRow>) => (
+          <RowActionsCell
+            row={row.original}
+            mainSelector={currentTabData.config.mainSelector}
+            columnKeys={columnKeys}
+            exportType="full_data_view_row"
+            onHighlight={(rowSelector) =>
+              reportRejection(handleRowHighlight(rowSelector, currentTabData.tabId))
             }
-          }
-
-          const copyButton = (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-6"
-              aria-label={isEmpty ? undefined : 'Copy this row'}
-              disabled={isEmpty}
-              onClick={isEmpty ? undefined : () => reportRejection(copyRow())}
-            >
-              <Clipboard className="size-4" />
-            </Button>
-          )
-
-          if (isEmpty) {
-            return (
-              <div className="flex gap-1">
-                {highlightButton}
-                {copyButton}
-              </div>
-            )
-          }
-
-          return (
-            <div className="flex gap-1">
-              <Tooltip>
-                <TooltipTrigger asChild>{highlightButton}</TooltipTrigger>
-                <TooltipContent>Highlight this element</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>{copyButton}</TooltipTrigger>
-                <TooltipContent>Copy this row</TooltipContent>
-              </Tooltip>
-            </div>
-          )
-        },
+          />
+        ),
         size: 75,
         minSize: 75,
         maxSize: 100,

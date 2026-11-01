@@ -16,3 +16,12 @@ export const getStorageMutex = (key: string): Mutex => {
   }
   return mutex
 }
+
+/**
+ * Drops the mutex for a key that is no longer in use. A held mutex is kept: a
+ * caller arriving after the delete would get a fresh one and run alongside the
+ * holder.
+ */
+export const forgetStorageMutex = (key: string): void => {
+  if (!mutexMap.get(key)?.isLocked()) mutexMap.delete(key)
+}

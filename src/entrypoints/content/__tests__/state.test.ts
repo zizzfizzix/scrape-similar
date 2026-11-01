@@ -20,7 +20,6 @@ describe('createState', () => {
     expect(state.highlightedElements.size).toBe(0)
     expect(state.currentHoveredElement).toBeNull()
     expect(state.currentXPath).toBe('')
-    expect(state.currentGuessedConfig).toBeNull()
     expect(state.selectorCandidates).toEqual([])
     expect(state.selectedCandidateIndex).toBe(0)
     expect(state.mouseUpdateScheduled).toBe(false)

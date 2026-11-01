@@ -1,6 +1,5 @@
 import { ANALYTICS_EVENTS, trackEvent } from '@/utils/analytics'
 import type { DistinctId } from '@/utils/distinct-id'
-import { DISTINCT_ID_KEY } from '@/utils/distinct-id'
 import { reportingListener, reportRejection } from '@/utils/report-rejection'
 import { initializeStorage } from '@/utils/storage'
 import log from 'loglevel'
@@ -25,7 +24,7 @@ export const setupUninstallUrl = async (distinctId?: DistinctId | null): Promise
     // ternary arm miscounts the rest of the function — see `coverage-hazards.ts`.
     let resolvedDistinctId = distinctId
     if (resolvedDistinctId === undefined) {
-      resolvedDistinctId = await storage.getItem<DistinctId>(DISTINCT_ID_KEY)
+      resolvedDistinctId = await distinctIdItem.getValue()
     }
 
     let uninstallUrl = UNINSTALL_SURVEY_URL
@@ -55,7 +54,7 @@ export const initializeUninstallUrl = async (): Promise<void> => {
   await setupUninstallUrl()
 
   // Watch for distinct_id changes and update URL accordingly
-  storage.watch<DistinctId>(DISTINCT_ID_KEY, (distinctId) => {
+  distinctIdItem.watch((distinctId) => {
     log.debug('distinct_id changed in storage, updating uninstall URL')
     // Pass the distinctId from the watcher to avoid redundant storage read.
     reportRejection(setupUninstallUrl(distinctId))
