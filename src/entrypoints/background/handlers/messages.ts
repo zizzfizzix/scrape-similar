@@ -1,3 +1,4 @@
+import { reportRejection } from '@/utils/report-rejection'
 import log from 'loglevel'
 import { applySidePanelDataUpdates } from '../services/session-storage'
 import { handleContentScriptMessage } from './content-script'
@@ -55,7 +56,7 @@ export const setupMessageListener = (): void => {
         log.debug('🔵 Routing to handleContentScriptMessage - sender has tab:', sender.tab.id)
         log.debug('🔵 Sender URL:', sender.url)
         log.debug('🔵 Message type:', message.type)
-        handleContentScriptMessage(message, sender, sendResponse)
+        reportRejection(handleContentScriptMessage(message, sender, sendResponse))
       }
       // Handle messages from UI (side panel, popup, extension pages like onboarding)
       else {
@@ -63,7 +64,7 @@ export const setupMessageListener = (): void => {
         log.debug('🟡 Sender URL:', sender.url)
         log.debug('🟡 Message type:', message.type)
         log.debug('🟡 Is extension page:', isExtensionPage)
-        handleUiMessage(message, sender, sendResponse)
+        reportRejection(handleUiMessage(message, sender, sendResponse))
       }
 
       // Return true to indicate async response possibility

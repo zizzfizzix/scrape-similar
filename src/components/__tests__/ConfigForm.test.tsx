@@ -59,7 +59,7 @@ const baseProps = (): ConfigFormProps => ({
   initialOptions: null,
   presets: [],
   onLoadPreset: () => {},
-  onSavePreset: () => {},
+  onSavePreset: async () => {},
   onDeletePreset: () => {},
   showPresets: false,
   setShowPresets: () => {},
@@ -697,7 +697,7 @@ describe('ConfigForm', () => {
       })
 
       it('saves under the typed name, closes the drawer and says so', async () => {
-        const onSavePreset = vi.fn()
+        const onSavePreset = vi.fn().mockResolvedValue(undefined)
         view = await render({ onSavePreset })
         const nameField = await openSaveDrawer()
 
@@ -711,8 +711,36 @@ describe('ConfigForm', () => {
         await waitFor(() => expect(toastMocks.toast.success).toHaveBeenCalled())
       })
 
+      it('keeps the drawer open and the button busy until the save finishes', async () => {
+        let finishSave = () => {}
+        const onSavePreset = vi.fn(
+          () =>
+            new Promise<void>((resolve) => {
+              finishSave = resolve
+            }),
+        )
+        view = await render({ onSavePreset })
+        const nameField = await openSaveDrawer()
+        fireEvent.change(nameField, { target: { value: 'Slow preset' } })
+
+        await act(async () => {
+          drawerButton('Save').click()
+          await Promise.resolve()
+        })
+
+        expect(drawerButton('Save').disabled).toBe(true)
+        expect(toastMocks.toast.success).not.toHaveBeenCalled()
+
+        await act(async () => {
+          finishSave()
+          await Promise.resolve()
+        })
+
+        await waitFor(() => expect(toastMocks.toast.success).toHaveBeenCalled())
+      })
+
       it('saves on Enter in the name field', async () => {
-        const onSavePreset = vi.fn()
+        const onSavePreset = vi.fn().mockResolvedValue(undefined)
         view = await render({ onSavePreset })
         const nameField = await openSaveDrawer()
         fireEvent.change(nameField, { target: { value: 'From the keyboard' } })
@@ -728,7 +756,7 @@ describe('ConfigForm', () => {
       })
 
       it('ignores Enter while the name is blank', async () => {
-        const onSavePreset = vi.fn()
+        const onSavePreset = vi.fn().mockResolvedValue(undefined)
         view = await render({ onSavePreset })
         const nameField = await openSaveDrawer()
 

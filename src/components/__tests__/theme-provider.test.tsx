@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { ThemeProvider, useTheme } from '@/components/theme-provider'
+import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 import { act, render as renderComponent, waitFor, type RenderResult } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -7,9 +8,6 @@ import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
 
 let view: RenderResult
-
-/** Give storage watchers a macrotask to fire. */
-const flushWatchers = () => new Promise((resolve) => setTimeout(resolve, 0))
 
 /** A controllable `(prefers-color-scheme: dark)` reply. */
 const stubPrefersDark = (matches: boolean) => {
@@ -255,7 +253,7 @@ describe('ThemeProvider', () => {
 
     await act(async () => {
       await storage.setItem('local:theme', 'dark')
-      await flushWatchers()
+      await flushMicrotasks()
     })
 
     await expectTheme('dark')
@@ -270,7 +268,7 @@ describe('ThemeProvider', () => {
 
     await act(async () => {
       await storage.setItem('local:theme', 'neon')
-      await flushWatchers()
+      await flushMicrotasks()
     })
 
     await expectTheme('light')
@@ -286,7 +284,7 @@ describe('ThemeProvider', () => {
 
     await act(async () => {
       await storage.removeItem('local:theme')
-      await flushWatchers()
+      await flushMicrotasks()
     })
 
     await expectTheme('dark')

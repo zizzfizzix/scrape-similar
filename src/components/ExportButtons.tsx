@@ -19,6 +19,7 @@ import {
   XLSX_MIME_TYPE,
 } from '@/utils/export-data'
 import { getColumnKeys } from '@/utils/getColumnKeys'
+import { reportRejection } from '@/utils/report-rejection'
 import { rowsToTsv } from '@/utils/tsv'
 import type { ScrapeConfig, ScrapedRow, ScrapeResult } from '@/utils/types'
 import { MESSAGE_TYPES } from '@/utils/types'
@@ -245,7 +246,7 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onSelect={handleCopyTsv}>
+        <DropdownMenuItem onSelect={() => reportRejection(handleCopyTsv())}>
           <Clipboard className="h-4 w-4" />
           Copy {exportText} to clipboard
         </DropdownMenuItem>
@@ -265,7 +266,7 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
           <Sheet className="h-4 w-4" />
           {isExporting ? 'Exporting…' : `Export ${exportText} to Google Sheets`}
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={handleXlsxExport}>
+        <DropdownMenuItem onSelect={() => reportRejection(handleXlsxExport())}>
           <FileSpreadsheet className="h-4 w-4" />
           Save {exportText} to Excel (.xlsx)
         </DropdownMenuItem>

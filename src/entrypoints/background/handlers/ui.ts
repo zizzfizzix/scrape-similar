@@ -1,6 +1,6 @@
 import log from 'loglevel'
 import { handleDemoScrape } from '../services/demo-scrape'
-import type { MessageHandler } from '../types'
+import type { AsyncMessageHandler, MessageHandler } from '../types'
 import { handleExportToSheets } from './sheets-export'
 
 /**
@@ -51,7 +51,7 @@ const uiHandlers: Record<string, MessageHandler> = {
 /**
  * Main UI message dispatcher
  */
-export const handleUiMessage: MessageHandler = async (message, sender, sendResponse) => {
+export const handleUiMessage: AsyncMessageHandler = async (message, sender, sendResponse) => {
   log.debug('🟡 handleUiMessage processing:', message.type)
 
   const handler = uiHandlers[message.type]

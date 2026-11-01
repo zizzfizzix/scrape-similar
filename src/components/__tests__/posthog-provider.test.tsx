@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { ANALYTICS_CONSENT_STORAGE_KEY } from '@/utils/consent'
+import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 import { renderSettled, settleEffects } from '@@/tests/support/settle'
 import { type RenderResult, act } from '@testing-library/react'
 import log from 'loglevel'
@@ -56,9 +57,6 @@ const consentKey = `sync:${ANALYTICS_CONSENT_STORAGE_KEY}` as const
 
 const exposedInstance = () =>
   (window as { __scrape_similar_posthog?: unknown }).__scrape_similar_posthog
-
-/** Give storage watchers a macrotask to fire. */
-const flushWatchers = () => new Promise((resolve) => setTimeout(resolve, 0))
 
 const render = () =>
   renderSettled(
@@ -146,7 +144,7 @@ describe('PostHogWrapper', () => {
 
     await act(async () => {
       await storage.setItem(consentKey, true)
-      await flushWatchers()
+      await flushMicrotasks()
     })
 
     expect(posthogMock.instances).toHaveLength(1)
@@ -215,7 +213,7 @@ describe('PostHogWrapper', () => {
 
     await act(async () => {
       await storage.setItem(consentKey, false)
-      await flushWatchers()
+      await flushMicrotasks()
     })
 
     expect(exposedInstance()).toBeUndefined()
@@ -228,7 +226,7 @@ describe('PostHogWrapper', () => {
 
     await act(async () => {
       await storage.removeItem(consentKey)
-      await flushWatchers()
+      await flushMicrotasks()
     })
 
     expect(exposedInstance()).toBeUndefined()
@@ -252,7 +250,7 @@ describe('PostHogWrapper', () => {
 
     await act(async () => {
       await storage.setItem('local:debugMode', true)
-      await flushWatchers()
+      await flushMicrotasks()
     })
 
     expect(instance.set_config).toHaveBeenCalledWith({ debug: true })
@@ -263,7 +261,7 @@ describe('PostHogWrapper', () => {
 
     await act(async () => {
       await storage.setItem('local:debugMode', true)
-      await flushWatchers()
+      await flushMicrotasks()
     })
 
     expect(posthogMock.instances).toHaveLength(0)

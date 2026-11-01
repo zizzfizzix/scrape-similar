@@ -11,6 +11,7 @@ import {
   type SidePanelConfig,
 } from '@/utils/types'
 import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
+import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 import { renderSettled } from '@@/tests/support/settle'
 import { type RenderResult, act, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -90,13 +91,10 @@ const render = () =>
 const renderLoaded = async () => {
   view = await render()
   await act(async () => {
-    await flush()
+    await flushMicrotasks()
   })
   return view
 }
-
-/** Give storage watchers and awaited effects a macrotask to run. */
-const flush = () => new Promise((resolve) => setTimeout(resolve, 0))
 
 const text = () => view.container.textContent ?? ''
 const bodyRows = () => [...view.container.querySelectorAll('tbody tr')]
@@ -146,7 +144,7 @@ describe('FullDataViewApp', () => {
     await openSingleTab()
     await act(async () => {
       byText('Retry').click()
-      await flush()
+      await flushMicrotasks()
     })
 
     expect(text()).toContain('Populations')
@@ -294,7 +292,7 @@ describe('FullDataViewApp', () => {
 
       await act(async () => {
         allButtons('Highlight this element')[1]!.click()
-        await flush()
+        await flushMicrotasks()
       })
 
       expect(update).toHaveBeenCalledWith(1, { active: true })
@@ -320,7 +318,7 @@ describe('FullDataViewApp', () => {
 
       await act(async () => {
         allButtons('Highlight this element')[0]!.click()
-        await flush()
+        await flushMicrotasks()
       })
 
       expect(toastMocks.toast.error).toHaveBeenCalledWith(expect.stringContaining('content script'))
@@ -339,7 +337,7 @@ describe('FullDataViewApp', () => {
 
       await act(async () => {
         allButtons('Highlight this element')[0]!.click()
-        await flush()
+        await flushMicrotasks()
       })
 
       expect(toastMocks.toast.error).not.toHaveBeenCalled()
@@ -352,7 +350,7 @@ describe('FullDataViewApp', () => {
 
       await act(async () => {
         allButtons('Highlight this element')[0]!.click()
-        await flush()
+        await flushMicrotasks()
       })
 
       expect(toastMocks.toast.error).toHaveBeenCalledWith('Failed to activate tab for highlighting')
@@ -364,7 +362,7 @@ describe('FullDataViewApp', () => {
 
       await act(async () => {
         allButtons('Copy this row')[0]!.click()
-        await flush()
+        await flushMicrotasks()
       })
 
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith('1\tPoland')
@@ -383,7 +381,7 @@ describe('FullDataViewApp', () => {
 
       await act(async () => {
         allButtons('Copy this row')[0]!.click()
-        await flush()
+        await flushMicrotasks()
       })
 
       expect(toastMocks.toast.error).toHaveBeenCalledWith('Failed to copy')
@@ -646,7 +644,7 @@ describe('FullDataViewApp', () => {
 
       await act(async () => {
         byText('Back to Tab').click()
-        await flush()
+        await flushMicrotasks()
       })
 
       expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.FULL_DATA_VIEW_BACK_TO_TAB)
@@ -666,7 +664,7 @@ describe('FullDataViewApp', () => {
 
       await act(async () => {
         byText('Back to Tab').click()
-        await flush()
+        await flushMicrotasks()
       })
 
       expect(remove).toHaveBeenCalledWith(99)
@@ -682,7 +680,7 @@ describe('FullDataViewApp', () => {
 
       await act(async () => {
         byText('Back to Tab').click()
-        await flush()
+        await flushMicrotasks()
       })
 
       expect(remove).not.toHaveBeenCalled()
@@ -696,7 +694,7 @@ describe('FullDataViewApp', () => {
 
       await act(async () => {
         byText('Back to Tab').click()
-        await flush()
+        await flushMicrotasks()
       })
 
       expect(toastMocks.toast.error).toHaveBeenCalledWith('Failed to switch back to tab')
