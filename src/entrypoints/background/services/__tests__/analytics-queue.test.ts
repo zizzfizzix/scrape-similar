@@ -114,6 +114,17 @@ describe('flushQueuedEvents', () => {
     expect(requestSpy).not.toHaveBeenCalled()
   })
 
+  it('sends nothing when consent is withdrawn while it waits for the lock', async () => {
+    const ph = createFakePostHog()
+    posthogMocks.getPostHogBackground.mockResolvedValueOnce(ph).mockResolvedValueOnce(null)
+    await storage.setItem(queueKey, [event('kept')])
+
+    await flushQueuedEvents()
+
+    expect(ph.capture).not.toHaveBeenCalled()
+    expect(await readQueue()).toEqual([event('kept')])
+  })
+
   it('keeps flushing the rest of the queue when one capture throws', async () => {
     const ph = createFakePostHog()
     posthogMocks.getPostHogBackground.mockResolvedValue(ph)

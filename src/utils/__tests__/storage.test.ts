@@ -416,7 +416,7 @@ describe('recent main selectors', () => {
     const setSpy = vi.spyOn(recentMainSelectorsItem, 'setValue')
 
     await expect(pushRecentMainSelector('//a')).resolves.toBeUndefined()
-    expect(errorSpy).toHaveBeenCalledWith('Error setting recent main selectors:', failure)
+    expect(errorSpy).toHaveBeenCalledWith('Error updating recent main selectors:', failure)
     // A failed read must not be written back as an empty list.
     expect(setSpy).not.toHaveBeenCalled()
   })
@@ -428,7 +428,7 @@ describe('recent main selectors', () => {
     vi.spyOn(recentMainSelectorsItem, 'setValue').mockRejectedValue(failure)
 
     await expect(removeRecentMainSelector('//a')).resolves.toBeUndefined()
-    expect(errorSpy).toHaveBeenCalledWith('Error setting recent main selectors:', failure)
+    expect(errorSpy).toHaveBeenCalledWith('Error updating recent main selectors:', failure)
   })
 
   it('keeps every selector from concurrent pushes, in call order', async () => {

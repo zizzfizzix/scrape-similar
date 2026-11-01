@@ -3,7 +3,7 @@
 
 import { reportRejection } from '@/utils/report-rejection'
 import { eventQueueItem } from '@/utils/storage'
-import { withStorageLock } from '@/utils/storage-lock'
+import { updateStorageItem } from '@/utils/storage-lock'
 import { version } from '@@/package.json' with { type: 'json' }
 import log from 'loglevel'
 
@@ -16,26 +16,18 @@ export interface QueuedEvent {
 }
 
 export const queueEvent = async (event: QueuedEvent): Promise<void> => {
-  return withStorageLock(eventQueueItem, async () => {
-    try {
-      const queue = [...(await eventQueueItem.getValue())]
-
-      // Prevent unbounded queue growth
-      if (queue.length >= MAX_QUEUED_EVENTS) {
-        log.warn(`Event queue full (${queue.length}/${MAX_QUEUED_EVENTS}), dropping oldest events`)
-        // Remove oldest events to make room (FIFO)
-        queue.splice(0, queue.length - MAX_QUEUED_EVENTS + 1)
-      }
-
-      queue.push(event)
-      await eventQueueItem.setValue(queue)
-
-      log.debug(`Queued event: ${event.name}`, { queueLength: queue.length })
-    } catch (error) {
-      log.error('Failed to queue event:', error)
-      // Don't throw - we don't want to break the calling code
-    }
-  })
+  try {
+    const queue = await updateStorageItem(eventQueueItem, (current) => {
+      if (current.length < MAX_QUEUED_EVENTS) return [...current, event]
+      log.warn(`Event queue full (${current.length}/${MAX_QUEUED_EVENTS}), dropping oldest events`)
+      // FIFO: drop the oldest events to make room
+      return [...current.slice(current.length - MAX_QUEUED_EVENTS + 1), event]
+    })
+    log.debug(`Queued event: ${event.name}`, { queueLength: queue.length })
+  } catch (error) {
+    // Callers track and move on; a failed queue write must not break them.
+    log.error('Failed to queue event:', error)
+  }
 }
 
 export const ANALYTICS_EVENTS = {

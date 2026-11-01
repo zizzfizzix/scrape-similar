@@ -1,4 +1,4 @@
-import { withStorageLock } from '@/utils/storage-lock'
+import { updateStorageItem, withStorageLock } from '@/utils/storage-lock'
 import log from 'loglevel'
 
 /**
@@ -9,9 +9,8 @@ export const applySidePanelDataUpdates = async (
   tabId: number,
   updates: Partial<SidePanelConfig>,
 ): Promise<void> => {
-  const item = sidePanelConfigItem(tabId)
-  await withStorageLock(item, async () => {
-    const current = (await item.getValue()) || {}
+  await updateStorageItem(sidePanelConfigItem(tabId), (stored) => {
+    const current = stored || {}
     // Shallow-merge top-level, but carefully merge nested config to avoid losing fields
     const next: SidePanelConfig = { ...current, ...updates }
     if (updates.currentScrapeConfig) {
@@ -31,7 +30,7 @@ export const applySidePanelDataUpdates = async (
       }
       next.currentScrapeConfig = merged
     }
-    await item.setValue(next)
+    return next
   })
 }
 

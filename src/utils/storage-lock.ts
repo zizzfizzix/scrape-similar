@@ -16,3 +16,31 @@
  */
 export const withStorageLock = <T>(item: { key: string }, task: () => Promise<T>): Promise<T> =>
   navigator.locks.request(item.key, task)
+
+interface UpdatableItem<T> {
+  key: string
+  getValue: () => Promise<T>
+  setValue: (value: T) => Promise<void>
+}
+
+/**
+ * Replaces an item's value with `update(current)` under its lock, and resolves
+ * the value it ends up holding. A failed read rejects before anything is
+ * written, so the update never runs on a stand-in for a value that could not be
+ * read. An `update` that returns `current` itself writes nothing.
+ *
+ * `current` may be the item's shared fallback, so `update` must return a new
+ * value rather than mutate it.
+ */
+export const updateStorageItem = <T, U extends T = T>(
+  item: UpdatableItem<T>,
+  update: (current: T) => U,
+): Promise<U> =>
+  withStorageLock(item, async () => {
+    const current = await item.getValue()
+    const next = update(current)
+    if (!Object.is(next, current)) {
+      await item.setValue(next)
+    }
+    return next
+  })
