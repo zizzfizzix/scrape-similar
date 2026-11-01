@@ -1,4 +1,11 @@
-import { expect, SCRAPE_TARGET_PAGE, test, TestHelpers } from './fixtures'
+import {
+  DEMO_TARGET_PAGE,
+  DEMO_TARGET_PAGE_FACTS,
+  expect,
+  SCRAPE_TARGET_PAGE,
+  test,
+  TestHelpers,
+} from './fixtures'
 
 test.describe('Visual Element Picker', () => {
   test.describe('Enabling Picker Mode', () => {
@@ -144,6 +151,47 @@ test.describe('Visual Element Picker', () => {
       // Verify scrape occurred (sidepanel should have data table)
       const dataTable = sidePanel.getByRole('heading', { name: /extracted data/i })
       await expect(dataTable).toBeVisible()
+    })
+
+    test('clicking a link in a table cell scrapes a row per link', async ({
+      openSidePanel,
+      context,
+      serviceWorker,
+      fixturePageUrl,
+    }) => {
+      await TestHelpers.dismissAnalyticsConsent(serviceWorker)
+      const sidePanel = await openSidePanel()
+
+      const testPage = await context.newPage()
+      await testPage.goto(fixturePageUrl(DEMO_TARGET_PAGE))
+      await testPage.bringToFront()
+
+      await sidePanel.getByLabel(/open visual picker/i).click()
+      await testPage.bringToFront()
+      // Mounting the banner pushes the page down, so hovering any earlier would
+      // leave the cursor over a different row.
+      await expect(testPage.getByRole('button', { name: 'Close picker' })).toBeVisible()
+
+      const link = testPage.getByRole('link', {
+        name: DEMO_TARGET_PAGE_FACTS.lastCountry,
+        exact: true,
+      })
+      await link.hover()
+      // The picker resolves the hovered element's selector candidates in a frame callback.
+      await testPage.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)))
+      await link.click()
+
+      await expect(sidePanel.getByRole('heading', { name: /extracted data/i })).toBeVisible()
+      await expect(sidePanel.locator('#mainSelector')).toHaveValue(/\/td\/a$/)
+      await expect(sidePanel.getByRole('columnheader', { name: 'Anchor text' })).toBeVisible()
+      await expect(sidePanel.getByRole('columnheader', { name: 'URL' })).toBeVisible()
+      await expect(sidePanel.getByRole('switch', { name: /show.*empty rows/i })).toBeHidden()
+      await expect(
+        sidePanel.getByText(`${DEMO_TARGET_PAGE_FACTS.tableRows} rows with data`),
+      ).toBeVisible()
+      await expect(sidePanel.locator('tbody tr').first()).toContainText(
+        DEMO_TARGET_PAGE_FACTS.firstCountry,
+      )
     })
   })
 })

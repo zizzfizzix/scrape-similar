@@ -11,7 +11,8 @@ import {
 } from '@/entrypoints/content/picker'
 import { createState, type ContentScriptState } from '@/entrypoints/content/state'
 import { ANALYTICS_EVENTS } from '@/utils/analytics'
-import { MESSAGE_TYPES } from '@/utils/types'
+import { scrapePage } from '@/utils/scraper'
+import { MESSAGE_TYPES, type ScrapeConfig } from '@/utils/types'
 import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
 import log from 'loglevel'
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
@@ -113,29 +114,93 @@ describe('buildPickerSelection', () => {
   it('uses the selected candidate as the main selector', () => {
     state.selectorCandidates = ['//li[1]', '//li']
     state.selectedCandidateIndex = 1
-    state.currentGuessedConfig = {
-      mainSelector: 'ignored',
-      columns: [{ name: 'Item', selector: '.' }],
-    }
 
     const selection = buildPickerSelection(element(), state)
 
-    expect(selection.config).toEqual({
-      mainSelector: '//li',
-      columns: [{ name: 'Item', selector: '.' }],
-    })
+    expect(selection.config.mainSelector).toBe('//li')
+    expect(selection.matches).toEqual([...document.querySelectorAll('li')])
+  })
+
+  it('builds the columns for the ancestor the selected candidate matches', () => {
+    document.body.innerHTML = '<ul><li><b id="inner">a</b></li><li><b>b</b></li></ul>'
+    state.selectorCandidates = ['//li/b', '//li']
+    state.selectedCandidateIndex = 1
+
+    const selection = buildPickerSelection(document.querySelector<HTMLElement>('#inner')!, state)
+
+    expect(selection.config.columns).toEqual([{ name: 'List Item', selector: '.' }])
+  })
+
+  it('builds the columns for the nearest ancestor when the candidate matches nested ones', () => {
+    document.body.innerHTML =
+      '<div data-outer="1"><div data-inner="1"><span id="leaf">a</span></div></div>'
+    state.selectorCandidates = ['//span', '//div']
+    state.selectedCandidateIndex = 1
+
+    const selection = buildPickerSelection(document.querySelector<HTMLElement>('#leaf')!, state)
+
+    expect(selection.config.columns).toEqual([
+      { name: 'Text', selector: '.' },
+      { name: 'data-inner', selector: '@data-inner' },
+    ])
   })
 
   it('falls back to the element’s own path when there is no candidate', () => {
     const selection = buildPickerSelection(element(), state)
 
     expect(selection.config.mainSelector).toBe(selection.xpath)
+    expect(selection.config.columns).toEqual([{ name: 'List Item', selector: '.' }])
   })
 
-  it('guesses the columns when none are cached', () => {
+  it('builds the columns for the clicked element when the candidate does not match it', () => {
+    state.selectorCandidates = ['//p']
+    state.selectedCandidateIndex = 0
+
     const selection = buildPickerSelection(element(), state)
 
-    expect(selection.config.columns).toEqual([{ name: 'List Item', selector: '.' }])
+    expect(selection.config).toEqual({
+      mainSelector: '//p',
+      columns: [{ name: 'List Item', selector: '.' }],
+    })
+  })
+
+  describe('in a table cell', () => {
+    beforeEach(() => {
+      document.body.innerHTML = `
+        <table>
+          <tr><th>Rank</th><th>Country</th></tr>
+          <tr><td>1</td><td><a id="china" href="/china">China</a></td></tr>
+          <tr><td>2</td><td><a href="/india">India</a></td></tr>
+        </table>`
+    })
+    const link = () => document.querySelector<HTMLElement>('#china')!
+    const scrapedData = (config: ScrapeConfig) => scrapePage(config).map((row) => row.data)
+
+    it('builds the columns for the link when the link level is chosen', () => {
+      state.selectorCandidates = ['//td/a', '//tr']
+      state.selectedCandidateIndex = 0
+
+      const { config } = buildPickerSelection(link(), state)
+
+      expect(config.mainSelector).toBe('//td/a')
+      expect(scrapedData(config)).toEqual([
+        expect.objectContaining({ 'Anchor text': 'China', URL: '/china' }),
+        expect.objectContaining({ 'Anchor text': 'India', URL: '/india' }),
+      ])
+    })
+
+    it('builds the table columns when the row level is chosen', () => {
+      state.selectorCandidates = ['//td/a', '//tr[td]']
+      state.selectedCandidateIndex = 1
+
+      const { config } = buildPickerSelection(link(), state)
+
+      expect(config.columns.map((column) => column.name)).toEqual(['Rank', 'Country'])
+      expect(scrapedData(config)).toEqual([
+        { col1: '1', col2: 'China' },
+        { col1: '2', col2: 'India' },
+      ])
+    })
   })
 
   it('reports the clicked element’s text and markup', () => {
@@ -225,14 +290,6 @@ describe('handlePickerMouseMove', () => {
         state.currentXPath,
         state,
       )
-    })
-
-    it('caches the guessed config for the eventual click', () => {
-      hover(document.querySelector('#first'))
-
-      move(10, 20)
-
-      expect(state.currentGuessedConfig?.columns).toEqual([{ name: 'List Item', selector: '.' }])
     })
 
     it('does nothing when the update runs after picker mode was turned off', () => {
@@ -426,8 +483,7 @@ describe('handlePickerClick', () => {
 
   const click = (path: EventTarget[] = [document.querySelector('#first')!]) => {
     const event = {
-      clientX: 10,
-      clientY: 20,
+      target: path[0],
       composedPath: () => path,
       preventDefault: vi.fn(),
       stopPropagation: vi.fn(),
@@ -435,12 +491,21 @@ describe('handlePickerClick', () => {
     return { event, result: handlePickerClick(event as unknown as MouseEvent, state, disable) }
   }
 
+  /** The config the click stored for the side panel. */
+  const storedConfig = () =>
+    sendMessage.mock.calls
+      .map(
+        ([message]) =>
+          message as { payload?: { updates?: { currentScrapeConfig?: ScrapeConfig } } },
+      )
+      .find((message) => message.payload?.updates?.currentScrapeConfig)?.payload?.updates
+      ?.currentScrapeConfig
+
   beforeEach(() => {
     disable = vi.fn<(source?: string) => void>()
     state.pickerModeActive = true
     state.selectorCandidates = ['//li[1]', '//li']
     state.selectedCandidateIndex = 1
-    vi.spyOn(document, 'elementFromPoint').mockReturnValue(document.querySelector('#first'))
     sendMessage = backgroundReplies({ success: true })
   })
 
@@ -539,22 +604,52 @@ describe('handlePickerClick', () => {
     expect(event.preventDefault).not.toHaveBeenCalled()
   })
 
-  it('stops when the click landed on no element', async () => {
-    vi.spyOn(document, 'elementFromPoint').mockReturnValue(null)
+  it('stops when the click landed on a non-HTML node', async () => {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+    document.body.append(svg)
 
-    await click().result
+    await click([svg]).result
 
     expect(sendMessage).not.toHaveBeenCalled()
   })
 
-  it('stops when the click landed on a non-HTML node', async () => {
-    vi.spyOn(document, 'elementFromPoint').mockReturnValue(
-      document.createElementNS('http://www.w3.org/2000/svg', 'svg') as unknown as Element,
-    )
+  it('keeps the chosen level for a click on another element it matches', async () => {
+    // The candidates were built for #first; the click confirming the level
+    // lands on another of the highlighted matches.
+    await click([document.querySelectorAll('li')[1]!]).result
 
-    await click().result
+    expect(state.selectorCandidates).toEqual(['//li[1]', '//li'])
+    expect(state.selectedCandidateIndex).toBe(1)
+    expect(storedConfig()).toEqual({
+      mainSelector: '//li',
+      columns: [{ name: 'List Item', selector: '.' }],
+    })
+  })
 
-    expect(sendMessage).not.toHaveBeenCalled()
+  it('keeps the chosen level and builds its columns for a click outside its matches', async () => {
+    document.body.innerHTML =
+      '<ul><li id="first"><a href="/a">a</a></li><li><a href="/b">b</a></li></ul><p id="gap">x</p>'
+    state.selectorCandidates = ['//li[1]/a', '//li/a', '//li']
+    state.selectedCandidateIndex = 1
+
+    await click([document.querySelector('#gap')!]).result
+
+    expect(state.selectorCandidates).toEqual(['//li[1]/a', '//li/a', '//li'])
+    expect(state.selectedCandidateIndex).toBe(1)
+    expect(storedConfig()).toEqual({
+      mainSelector: '//li/a',
+      columns: [
+        { name: 'Anchor text', selector: '.' },
+        { name: 'URL', selector: '@href' },
+        { name: 'Rel', selector: '@rel' },
+        { name: 'Target', selector: '@target' },
+      ],
+    })
+    expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.PICKER_ELEMENT_SELECT, {
+      elements_matched: 2,
+      selector_level: 1,
+      total_levels: 3,
+    })
   })
 
   it('stops before the tab id is known', async () => {

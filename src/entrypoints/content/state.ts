@@ -1,5 +1,3 @@
-import type { ScrapeConfig } from '@/utils/types'
-
 export interface ElementDetails {
   xpath: string
   text: string
@@ -48,7 +46,6 @@ export interface PickerState {
   highlightedElements: Map<HTMLElement, OriginalStyles>
   currentHoveredElement: HTMLElement | null
   currentXPath: string
-  currentGuessedConfig: ScrapeConfig | null
   selectorCandidates: string[]
   selectedCandidateIndex: number
   mouseUpdateScheduled: boolean
@@ -96,7 +93,6 @@ export const createState = (): ContentScriptState => ({
   highlightedElements: new Map(),
   currentHoveredElement: null,
   currentXPath: '',
-  currentGuessedConfig: null,
   selectorCandidates: [],
   selectedCandidateIndex: 0,
   mouseUpdateScheduled: false,
