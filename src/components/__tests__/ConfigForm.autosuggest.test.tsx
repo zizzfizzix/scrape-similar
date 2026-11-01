@@ -667,7 +667,7 @@ describe('the autosuggest dropdown', () => {
       view = await render({ presets: [], onChange, onHighlight })
       await focusField()
       await type('//h1')
-      holdPresetRead()
+      const releasePresetRead = holdPresetRead()
 
       await press('Enter')
 
@@ -675,6 +675,7 @@ describe('the autosuggest dropdown', () => {
       expect(onHighlight).toHaveBeenCalledWith('//h1')
       expect(mainSelectorInput()).not.toHaveFocus()
       expect(suggestionItems()).toHaveLength(0)
+      await releasePresetRead()
     })
 
     it('commits once, not again when the blur it causes falls due', async () => {
@@ -712,12 +713,13 @@ describe('the autosuggest dropdown', () => {
         config: { ...config, mainSelector: '//tr' },
       })
       await focusField()
-      holdPresetRead()
+      const releasePresetRead = holdPresetRead()
 
       await press('Enter')
 
       expect(onScrape).toHaveBeenCalledTimes(1)
       expect(onHighlight).not.toHaveBeenCalled()
+      await releasePresetRead()
     })
 
     it('keeps focus on a field the user went back to after Enter', async () => {

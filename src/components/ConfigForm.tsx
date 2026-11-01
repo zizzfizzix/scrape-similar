@@ -250,7 +250,6 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
     setBeginAdornmentWidth(beginAdornmentRef.current!.offsetWidth)
   }, [])
 
-  // Commit the trimmed draft main selector to parent state and trigger highlight
   const commitMainSelector = (draft: string) => {
     const value = draft.trim()
     setMainSelectorDraft(value)
@@ -435,8 +434,10 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
     }, 150)
   }
 
-  // Commits now instead of after the blur handler's defer, and cancels that commit.
+  // blur() runs the blur handler synchronously, so the deferred commit it
+  // schedules is cancelled straight after.
   const commitMainSelectorNow = (draft: string) => {
+    mainSelectorInputRef.current?.blur()
     clearTimeout(blurCommitTimerRef.current)
     setIsAutosuggestOpen(false)
     commitMainSelector(draft)
@@ -576,9 +577,6 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
         setMainSelectorDraft(value)
         onScrape()
       } else {
-        // blur() runs the blur handler synchronously, scheduling the deferred
-        // commit that commitMainSelectorNow cancels.
-        mainSelectorInputRef.current?.blur()
         commitMainSelectorNow(value)
       }
 
