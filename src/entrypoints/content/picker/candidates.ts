@@ -12,7 +12,14 @@ export const generateSelectorCandidates = (
   const candidates = new Set<string>()
   let node: HTMLElement | null = start
   let levels = 0
-  while (node && node !== document.body && levels <= maxLevels) {
+  // Neither <body> nor <html> describes a repeated element, and a click that
+  // resolves to them selects nothing.
+  while (
+    node &&
+    node !== document.body &&
+    node !== document.documentElement &&
+    levels <= maxLevels
+  ) {
     candidates.add(minimizeXPath(node))
     node = node.parentElement as HTMLElement | null
     levels += 1

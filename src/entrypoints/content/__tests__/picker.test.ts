@@ -8,6 +8,7 @@ import {
   handlePickerKeyDown,
   handlePickerMouseMove,
   removeCrosshairCursor,
+  type PickerSelection,
 } from '@/entrypoints/content/picker'
 import { createState, type ContentScriptState } from '@/entrypoints/content/state'
 import { ANALYTICS_EVENTS } from '@/utils/analytics'
@@ -129,6 +130,7 @@ describe('buildPickerSelection', () => {
     const selection = buildPickerSelection(document.querySelector<HTMLElement>('#inner')!, state)
 
     expect(selection.config.columns).toEqual([{ name: 'List Item', selector: '.' }])
+    expect(selection.elementDetails.html).toBe('<b id="inner">a</b>')
   })
 
   it('builds the columns for the nearest ancestor when the candidate matches nested ones', () => {
@@ -162,6 +164,21 @@ describe('buildPickerSelection', () => {
       mainSelector: '//p',
       columns: [{ name: 'List Item', selector: '.' }],
     })
+  })
+
+  it('builds the columns for the clicked element when it is one of the matches', () => {
+    document.body.innerHTML = `
+      <ul>
+        <li><a href="/a">a</a></li>
+        <li><a id="b" href="/b" data-id="7">b</a></li>
+        <li><a href="/c">c</a></li>
+      </ul>`
+    state.selectorCandidates = ['//li/a']
+    state.selectedCandidateIndex = 0
+
+    const selection = buildPickerSelection(document.querySelector<HTMLElement>('#b')!, state)
+
+    expect(selection.config.columns).toContainEqual({ name: 'data-id', selector: '@data-id' })
   })
 
   describe('in a table cell', () => {
@@ -341,8 +358,11 @@ describe('handlePickerMouseMove', () => {
       expect(bannerMocks.updatePickerBannerContent).toHaveBeenCalledWith(0, '', state)
     })
 
-    it('clears the selection when no selector describes the element', () => {
-      hover(document.body)
+    it.each([
+      ['the body', () => document.body],
+      ['the root element', () => document.documentElement],
+    ])('clears the selection when hovering %s, which no selector describes', (_, element) => {
+      hover(element())
 
       move(10, 20)
 
@@ -491,18 +511,24 @@ describe('handlePickerClick', () => {
     return { event, result: handlePickerClick(event as unknown as MouseEvent, state, disable) }
   }
 
-  /** The config the click stored for the side panel. */
-  const storedConfig = () =>
+  interface StoredSelection {
+    currentScrapeConfig?: ScrapeConfig
+    elementDetails?: PickerSelection['elementDetails']
+  }
+
+  /** The config and element details the click stored for the side panel. */
+  const storedSelection = () =>
     sendMessage.mock.calls
-      .map(
-        ([message]) =>
-          message as { payload?: { updates?: { currentScrapeConfig?: ScrapeConfig } } },
-      )
+      .map(([message]) => message as { payload?: { updates?: StoredSelection } })
       .find((message) => message.payload?.updates?.currentScrapeConfig)?.payload?.updates
-      ?.currentScrapeConfig
+
+  const storedConfig = () => storedSelection()?.currentScrapeConfig
 
   beforeEach(() => {
-    disable = vi.fn<(source?: string) => void>()
+    // Mirrors disablePickerMode, which forgets the hovered element.
+    disable = vi.fn<(source?: string) => void>(() => {
+      state.currentHoveredElement = null
+    })
     state.pickerModeActive = true
     state.selectorCandidates = ['//li[1]', '//li']
     state.selectedCandidateIndex = 1
@@ -618,11 +644,87 @@ describe('handlePickerClick', () => {
     // lands on another of the highlighted matches.
     await click([document.querySelectorAll('li')[1]!]).result
 
-    expect(state.selectorCandidates).toEqual(['//li[1]', '//li'])
-    expect(state.selectedCandidateIndex).toBe(1)
     expect(storedConfig()).toEqual({
       mainSelector: '//li',
       columns: [{ name: 'List Item', selector: '.' }],
+    })
+  })
+
+  it('takes the clicked element from the event, not from the click point', async () => {
+    const second = document.querySelectorAll('li')[1]!
+    vi.spyOn(document, 'elementFromPoint').mockReturnValue(second)
+
+    await click().result
+
+    expect(storedSelection()?.elementDetails).toEqual({
+      xpath: expect.any(String),
+      text: 'a',
+      html: '<li id="first">a</li>',
+    })
+  })
+
+  it('takes the hovered element when the press and release landed on different elements', async () => {
+    document.body.innerHTML = '<ul><li id="first">a</li><li id="second" data-id="7">b</li></ul>'
+    state.currentHoveredElement = document.querySelector('#second')
+
+    await click([document.querySelector('ul')!]).result
+
+    expect(storedSelection()?.elementDetails?.html).toBe('<li id="second" data-id="7">b</li>')
+    expect(storedConfig()?.columns).toContainEqual({ name: 'data-id', selector: '@data-id' })
+  })
+
+  it('takes the hovered element when a drag across the page released on it', async () => {
+    state.currentHoveredElement = document.querySelector('#first')
+
+    await click([document.body]).result
+
+    expect(storedSelection()?.elementDetails?.html).toBe('<li id="first">a</li>')
+  })
+
+  it.each([
+    ['the body', () => document.body],
+    ['the root element', () => document.documentElement],
+  ])('stays on when nothing hovered lies under a click on %s', async (_, target) => {
+    const { event, result } = click([target()])
+    await result
+
+    expect(event.preventDefault).toHaveBeenCalled()
+    expect(disable).not.toHaveBeenCalled()
+    expect(sendMessage).not.toHaveBeenCalled()
+  })
+
+  it('takes the event target when it does not contain the hovered element', async () => {
+    state.currentHoveredElement = document.querySelector('#first')
+
+    await click([document.querySelectorAll('li')[1]!]).result
+
+    expect(storedSelection()?.elementDetails?.html).toBe('<li>b</li>')
+  })
+
+  it('highlights and counts the matches present once the config is stored', async () => {
+    const reply = (message: unknown, callback?: (r: unknown) => void) => {
+      const updates = (message as { payload?: { updates?: StoredSelection } }).payload?.updates
+      // The page re-renders while the config is stored.
+      if (updates?.currentScrapeConfig)
+        document.querySelector('ul')!.append(document.createElement('li'))
+      callback?.({ success: true })
+      return Promise.resolve({ success: true })
+    }
+    sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockImplementation(reply)
+
+    await click().result
+
+    expect(highlightMocks.highlightMatchingElements).toHaveBeenCalledWith(
+      [...document.querySelectorAll('li')],
+      { shouldScroll: false },
+    )
+    expect(sendMessage).toHaveBeenCalledWith({
+      type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
+      payload: { tabId: 3, updates: { highlightMatchCount: 3, highlightError: null } },
+    })
+    expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.ELEMENTS_HIGHLIGHT, {
+      elements_count: 3,
+      is_row_highlight: false,
     })
   })
 
@@ -634,8 +736,6 @@ describe('handlePickerClick', () => {
 
     await click([document.querySelector('#gap')!]).result
 
-    expect(state.selectorCandidates).toEqual(['//li[1]/a', '//li/a', '//li'])
-    expect(state.selectedCandidateIndex).toBe(1)
     expect(storedConfig()).toEqual({
       mainSelector: '//li/a',
       columns: [

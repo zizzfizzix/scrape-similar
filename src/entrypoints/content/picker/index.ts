@@ -265,11 +265,21 @@ export const handlePickerClick = async (
   event.preventDefault()
   event.stopPropagation()
 
-  disablePickerMode('element_selected')
+  // Resolved before disabling picker mode, which forgets the hovered element.
+  const target = event.target
+  const hoveredElement = state.currentHoveredElement
+  // A press and release on different elements targets their common ancestor,
+  // so the last element hover processed is taken when the target contains it.
+  const el =
+    target instanceof HTMLElement && hoveredElement && target.contains(hoveredElement)
+      ? hoveredElement
+      : target
+  // Nothing selectable is under the release (empty page margin, or a drag
+  // ending over the banner, which targets <body>), so the picker stays on, as
+  // hovering offers no selector for either element.
+  if (el === document.body || el === document.documentElement) return
 
-  // Hit-testing the click point here would land on the wrong element: disabling
-  // picker mode removes the banner's margin and shifts the page.
-  const el = event.target
+  disablePickerMode('element_selected')
   if (!(el instanceof HTMLElement)) return
 
   log.debug('Picker mode: element selected', el)
@@ -293,8 +303,11 @@ export const handlePickerClick = async (
     // scrape below turns up nothing.
     await storeSidePanelUpdates(tabId, { currentScrapeConfig: config, elementDetails })
 
+    // Re-evaluated rather than reusing `matches`: the page can re-render while
+    // the config is stored, and the highlight should agree with the scrape below.
+    const elementsToHighlight = evaluateXPath(config.mainSelector)
     // Highlight without scrolling: the user is already looking at the element.
-    highlightMatchingElements(matches, { shouldScroll: false })
+    highlightMatchingElements(elementsToHighlight, { shouldScroll: false })
 
     // Persist validation state so the UI marks the selector as validated. Not
     // awaited: nothing below depends on the side panel having caught up.
@@ -304,7 +317,7 @@ export const handlePickerClick = async (
         payload: {
           tabId,
           updates: {
-            highlightMatchCount: matches.length,
+            highlightMatchCount: elementsToHighlight.length,
             highlightError: null,
           },
         },
@@ -312,7 +325,7 @@ export const handlePickerClick = async (
     )
 
     trackEvent(ANALYTICS_EVENTS.ELEMENTS_HIGHLIGHT, {
-      elements_count: matches.length,
+      elements_count: elementsToHighlight.length,
       is_row_highlight: false,
     })
 
