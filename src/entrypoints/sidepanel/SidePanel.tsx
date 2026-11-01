@@ -141,7 +141,8 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
   // The window this panel belongs to: `undefined` until known, `null` when it
   // could not be read, in which case activations in every window are followed.
   const windowIdRef = useRef<number | null | undefined>(undefined)
-  const pendingActivationRef = useRef<{ tabId: number; windowId: number } | null>(null)
+  // The last tab activated in each window before this panel knew its own.
+  const pendingActivationsRef = useRef(new Map<number, number>())
 
   const reloadPresets = useCallback(() => reportRejection(getAllPresets().then(setPresets)), [])
 
@@ -162,9 +163,11 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
 
     const resolveWindow = (windowId: number | null) => {
       windowIdRef.current = windowId
-      const pending = pendingActivationRef.current
-      pendingActivationRef.current = null
-      if (pending && (windowId === null || pending.windowId === windowId)) activate(pending.tabId)
+      const pending = pendingActivationsRef.current
+      // With its window unknown, the latest activation anywhere is the best guess.
+      const tabId = windowId === null ? [...pending.values()].at(-1) : pending.get(windowId)
+      pending.clear()
+      if (tabId !== undefined) activate(tabId)
     }
 
     // Use `currentWindow: true` instead of `lastFocusedWindow: true` because the
@@ -191,7 +194,9 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
     const tabActivationListener = ({ tabId, windowId }: { tabId: number; windowId: number }) => {
       log.debug(`SidePanel detected tab activation: ${tabId}`)
       if (windowIdRef.current === undefined) {
-        pendingActivationRef.current = { tabId, windowId }
+        // Re-inserted so the map's order stays the order of activation.
+        pendingActivationsRef.current.delete(windowId)
+        pendingActivationsRef.current.set(windowId, tabId)
       } else if (windowIdRef.current === null || windowId === windowIdRef.current) {
         activate(tabId)
       }

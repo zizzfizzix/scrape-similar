@@ -288,6 +288,51 @@ describe('following the active tab', () => {
     expect(get).not.toHaveBeenCalled()
   })
 
+  it('keeps an early activation in its own window over a later one elsewhere', async () => {
+    let answerQuery: (() => void) | undefined
+    spyOnBrowser(fakeBrowser.tabs, 'query').mockImplementation(
+      (_query: unknown, callback?: (tabs: Browser.tabs.Tab[]) => void) => {
+        const tabs = [{ id: TAB_ID, windowId: WINDOW_ID, url: PAGE_URL } as Browser.tabs.Tab]
+        answerQuery = () => callback?.(tabs)
+        return Promise.resolve(tabs)
+      },
+    )
+    await storage.setItem(`session:sidepanel_config_${OTHER_TAB_ID}`, {
+      currentScrapeConfig: { ...config, mainSelector: '//li' },
+    })
+    const get = tabsGetReplies({ id: OTHER_TAB_ID, url: 'https://example.org/list' })
+    view = await render()
+
+    await activateTab(OTHER_TAB_ID)
+    await activateTab(OTHER_TAB_ID + 1, WINDOW_ID + 1)
+    act(() => answerQuery!())
+
+    await waitFor(() => expect(mainSelectorInput().value).toBe('//li'))
+    expect(get).toHaveBeenCalledTimes(1)
+    expect(get).toHaveBeenCalledWith(OTHER_TAB_ID, expect.any(Function))
+  })
+
+  it('takes the latest early activation when it cannot tell which window it is in', async () => {
+    vi.spyOn(log, 'error').mockImplementation(() => {})
+    let answerQuery: (() => void) | undefined
+    spyOnBrowser(fakeBrowser.tabs, 'query').mockImplementation(
+      (_query: unknown, callback?: (tabs: Browser.tabs.Tab[]) => void) => {
+        answerQuery = () => callback?.([])
+        return Promise.resolve([])
+      },
+    )
+    const get = tabsGetReplies({ id: OTHER_TAB_ID, url: 'https://example.org/list' })
+    view = await render()
+
+    await activateTab(OTHER_TAB_ID + 1, WINDOW_ID + 1)
+    await activateTab(OTHER_TAB_ID + 2, WINDOW_ID + 1)
+    await activateTab(OTHER_TAB_ID)
+    act(() => answerQuery!())
+
+    expect(get).toHaveBeenCalledTimes(1)
+    expect(get).toHaveBeenCalledWith(OTHER_TAB_ID, expect.any(Function))
+  })
+
   it('follows every window when it cannot tell which one it is in', async () => {
     vi.spyOn(log, 'error').mockImplementation(() => {})
     attachToNothing()
@@ -1112,7 +1157,7 @@ describe('one panel per tab', () => {
     expect(shownSuggestions()).toHaveLength(0)
   })
 
-  it('drops a blur commit still pending when its tab is hidden', async () => {
+  it('holds a blur commit pending at hide until its tab is shown, then commits it there', async () => {
     view = await render()
     await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
     fireEvent.change(mainSelectorInput(), { target: { value: '//li' } })
@@ -1128,8 +1173,23 @@ describe('one panel per tab', () => {
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 200))
     })
-
     expect(sidePanelWrites(sendMessage)).toEqual([])
+
+    await switchTo(TAB_ID)
+
+    await waitFor(() =>
+      expect(sidePanelWrites(sendMessage)[0]).toEqual({
+        tabId: TAB_ID,
+        updates: expect.objectContaining({
+          currentScrapeConfig: expect.objectContaining({ mainSelector: '//li' }),
+        }),
+      }),
+    )
+    // The highlight that follows the commit is stored for the same tab.
+    expect(sidePanelWrites(sendMessage)).toEqual([
+      expect.objectContaining({ tabId: TAB_ID }),
+      expect.objectContaining({ tabId: TAB_ID }),
+    ])
   })
 
   it('keeps an open save drawer and its typed name with its own tab', async () => {

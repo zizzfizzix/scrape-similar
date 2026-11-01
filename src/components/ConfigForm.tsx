@@ -59,7 +59,7 @@ import {
   Wand,
   X,
 } from 'lucide-react'
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useEffectEvent, useRef, useState } from 'react'
 
 // How long the "0 found" feedback stays on the scrape button after a scrape
 // that returned no rows.
@@ -270,20 +270,17 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
    * Holding the timer lets those cases cancel a blur that no longer applies.
    */
   const blurCommitTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  /** The committed selector a pending blur was armed against; `null` when none is. */
+  const pendingBlurRef = useRef<string | null>(null)
 
-  // Also runs when a side panel tab is hidden, which drops the blur that would
-  // have closed the suggestions.
-  useEffect(
-    () => () => {
-      clearTimeout(blurCommitTimerRef.current)
-      setIsAutosuggestOpen(false)
-    },
-    [],
-  )
+  const cancelBlurCommit = () => {
+    clearTimeout(blurCommitTimerRef.current)
+    pendingBlurRef.current = null
+  }
 
   const commitMainSelector = (draft: string) => {
     // A blur commit still pending holds the draft from before this commit.
-    clearTimeout(blurCommitTimerRef.current)
+    cancelBlurCommit()
     const value = draft.trim()
     setMainSelectorDraft(value)
     const latest = latestConfigRef.current
@@ -411,52 +408,78 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
     // Drawers and dialogs restore focus to their trigger when they close, which
     // blurs the textarea; the user clicks straight back in and keeps typing, and
     // without this the pending timer closes the suggestions under them.
-    clearTimeout(blurCommitTimerRef.current)
+    cancelBlurCommit()
     // The flag only guards the cancelled commit; left set, it would skip the
     // next blur's.
     isSelectingFromAutosuggestRef.current = false
     openAutosuggest()
   }
 
+  const finishBlurCommit = (committedAtBlur: string) => {
+    // Don't commit if we're selecting from autosuggest (mousedown was triggered)
+    if (isSelectingFromAutosuggestRef.current) {
+      isSelectingFromAutosuggestRef.current = false
+      return
+    }
+
+    // If focus moved into the autosuggest dropdown, keep it open
+    const active = document.activeElement as HTMLElement | null
+    const hasMovedIntoDropdown = !!(active && autosuggestRef.current?.contains(active))
+    if (hasMovedIntoDropdown) return
+
+    setIsAutosuggestOpen(false)
+    // The parent replaced the selector after the blur (preset load, tab
+    // switch, storage restore), so the draft belongs to the old one. A
+    // replacement with an identical selector is not detected.
+    if (latestConfigRef.current.mainSelector !== committedAtBlur) return
+    // Re-highlighting a validated selector scrolls the page back to its first
+    // match and replays the highlight. One without a result is highlighted
+    // again, which is how a failed highlight gets retried.
+    const value = mainSelectorDraft.trim()
+    const isValidatedAndUnchanged =
+      value === committedAtBlur.trim() &&
+      isMainSelectorValidated({
+        mainSelector: value,
+        hasUncommittedChanges: false,
+        ...latestHighlightRef.current,
+      })
+    if (isValidatedAndUnchanged) {
+      setMainSelectorDraft(value)
+      return
+    }
+    commitMainSelector(value)
+  }
+
   // Handle main selector blur with delay to allow for clicks
   const handleMainSelectorBlur = () => {
-    clearTimeout(blurCommitTimerRef.current)
+    cancelBlurCommit()
     const committedAtBlur = latestConfigRef.current.mainSelector
+    pendingBlurRef.current = committedAtBlur
     blurCommitTimerRef.current = setTimeout(() => {
-      // Don't commit if we're selecting from autosuggest (mousedown was triggered)
-      if (isSelectingFromAutosuggestRef.current) {
-        isSelectingFromAutosuggestRef.current = false
-        return
-      }
-
-      // If focus moved into the autosuggest dropdown, keep it open
-      const active = document.activeElement as HTMLElement | null
-      const hasMovedIntoDropdown = !!(active && autosuggestRef.current?.contains(active))
-      if (hasMovedIntoDropdown) return
-
-      setIsAutosuggestOpen(false)
-      // The parent replaced the selector after the blur (preset load, tab
-      // switch, storage restore), so the draft belongs to the old one. A
-      // replacement with an identical selector is not detected.
-      if (latestConfigRef.current.mainSelector !== committedAtBlur) return
-      // Re-highlighting a validated selector scrolls the page back to its first
-      // match and replays the highlight. One without a result is highlighted
-      // again, which is how a failed highlight gets retried.
-      const value = mainSelectorDraft.trim()
-      const isValidatedAndUnchanged =
-        value === committedAtBlur.trim() &&
-        isMainSelectorValidated({
-          mainSelector: value,
-          hasUncommittedChanges: false,
-          ...latestHighlightRef.current,
-        })
-      if (isValidatedAndUnchanged) {
-        setMainSelectorDraft(value)
-        return
-      }
-      commitMainSelector(value)
+      pendingBlurRef.current = null
+      finishBlurCommit(committedAtBlur)
     }, 150)
   }
+
+  const replayBlurCommit = useEffectEvent((committedAtBlur: string) =>
+    finishBlurCommit(committedAtBlur),
+  )
+
+  // Hiding a side panel tab runs the cleanup and showing it runs the effect
+  // again. Switching tabs blurs the field, so a blur still waiting out its
+  // delay is held over the hide and finished once the tab is shown, in its
+  // own tab, rather than dropped with the draft uncommitted.
+  useEffect(() => {
+    const committedAtBlur = pendingBlurRef.current
+    if (committedAtBlur !== null) {
+      pendingBlurRef.current = null
+      replayBlurCommit(committedAtBlur)
+    }
+    return () => {
+      clearTimeout(blurCommitTimerRef.current)
+      setIsAutosuggestOpen(false)
+    }
+  }, [])
 
   const commitMainSelectorNow = (draft: string) => {
     mainSelectorInputRef.current?.blur()
