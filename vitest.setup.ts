@@ -1,6 +1,8 @@
 // React Testing Library's DOM matchers (`toBeInTheDocument`, `toHaveValue`,
 // `toBeDisabled`, ...), registered for every test file.
 import '@testing-library/jest-dom/vitest'
+import { beforeEach } from 'vitest'
+import { createLockManager } from './tests/support/web-locks'
 
 // JSDom + Vitest don't play well with each other. Long story short - default
 // TextEncoder produces Uint8Array objects that are _different_ from the global
@@ -85,3 +87,9 @@ if (typeof window !== 'undefined') {
     } as unknown as typeof window.ResizeObserver
   }
 }
+
+// A fresh manager per test, so a task one test leaves unsettled cannot hold a
+// key that a later test locks.
+beforeEach(() => {
+  Object.defineProperty(navigator, 'locks', { value: createLockManager(), configurable: true })
+})

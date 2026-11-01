@@ -4,13 +4,13 @@ import {
   getPresets,
   getRecentMainSelectors,
   getSystemPresetStatus,
+  hideSystemPreset,
   initializeStorage,
   pushRecentMainSelector,
   removeRecentMainSelector,
+  resetSystemPresetStatus,
   savePreset,
   setPresets,
-  setRecentMainSelectors,
-  setSystemPresetStatus,
   userPresetsItem,
 } from '@/utils/storage'
 import { SYSTEM_PRESETS } from '@/utils/system_presets'
@@ -119,6 +119,30 @@ describe('setPresets', () => {
   })
 })
 
+describe('preset writes after a failed read', () => {
+  beforeEach(() => {
+    vi.spyOn(log, 'error').mockImplementation(() => {})
+  })
+
+  it('does not save over the stored presets', async () => {
+    await setPresets([preset('a')])
+    vi.spyOn(userPresetsItem, 'getValue').mockRejectedValueOnce(new Error('unavailable'))
+
+    expect(await savePreset(preset('b'))).toBe(false)
+
+    expect(ids(await getPresets())).toEqual(['a'])
+  })
+
+  it('does not delete from the stored presets', async () => {
+    await setPresets([preset('a'), preset('b')])
+    vi.spyOn(userPresetsItem, 'getValue').mockRejectedValueOnce(new Error('unavailable'))
+
+    expect(await deletePreset('a')).toBe(false)
+
+    expect(ids(await getPresets())).toEqual(['a', 'b'])
+  })
+})
+
 describe('overlapping preset writes', () => {
   it('keeps every preset from concurrent saves, in call order', async () => {
     await Promise.all(['a', 'b', 'c'].map((id) => savePreset(preset(id))))
@@ -186,10 +210,30 @@ describe('system preset status', () => {
     expect(await getSystemPresetStatus()).toEqual({})
   })
 
-  it('round-trips a status map', async () => {
-    await setSystemPresetStatus({ 'system-1': false })
+  it('records a hidden system preset', async () => {
+    await hideSystemPreset('system-1')
 
     expect(await getSystemPresetStatus()).toEqual({ 'system-1': false })
+  })
+
+  it('keeps every preset hidden by overlapping calls', async () => {
+    await Promise.all([hideSystemPreset('system-1'), hideSystemPreset('system-2')])
+
+    expect(await getSystemPresetStatus()).toEqual({ 'system-1': false, 'system-2': false })
+  })
+
+  it('shows every system preset again after a reset', async () => {
+    await hideSystemPreset('system-1')
+
+    await resetSystemPresetStatus()
+
+    expect(await getSystemPresetStatus()).toEqual({})
+  })
+
+  it('applies a reset queued behind a hide, in call order', async () => {
+    await Promise.all([hideSystemPreset('system-1'), resetSystemPresetStatus()])
+
+    expect(await getSystemPresetStatus()).toEqual({})
   })
 
   it('returns an empty map and logs when the read is rejected', async () => {
@@ -209,8 +253,31 @@ describe('system preset status', () => {
     const failure = new Error('quota exceeded')
     vi.spyOn(systemPresetStatusItem, 'setValue').mockRejectedValueOnce(failure)
 
-    await expect(setSystemPresetStatus({ 'system-1': false })).resolves.toBeUndefined()
+    await expect(hideSystemPreset('system-1')).resolves.toBe(false)
     expect(errorSpy).toHaveBeenCalledWith('Error setting system preset status in storage:', failure)
+  })
+
+  it('keeps the other hidden presets when the read fails', async () => {
+    vi.spyOn(log, 'error').mockImplementation(() => {})
+    await hideSystemPreset('system-1')
+    vi.spyOn(systemPresetStatusItem, 'getValue').mockRejectedValueOnce(new Error('unavailable'))
+
+    await expect(hideSystemPreset('system-2')).resolves.toBe(false)
+
+    vi.mocked(systemPresetStatusItem.getValue).mockRestore()
+    expect(await getSystemPresetStatus()).toEqual({ 'system-1': false })
+  })
+
+  it('logs and swallows a reset failure', async () => {
+    const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
+    const failure = new Error('storage unavailable')
+    vi.spyOn(systemPresetStatusItem, 'removeValue').mockRejectedValueOnce(failure)
+
+    await expect(resetSystemPresetStatus()).resolves.toBe(false)
+    expect(errorSpy).toHaveBeenCalledWith(
+      'Error resetting system preset status in storage:',
+      failure,
+    )
   })
 })
 
@@ -266,7 +333,7 @@ describe('recent main selectors', () => {
   })
 
   it('round-trips a list', async () => {
-    await setRecentMainSelectors(['//a', '//div'])
+    await recentMainSelectorsItem.setValue(['//a', '//div'])
 
     expect(await getRecentMainSelectors()).toEqual(['//a', '//div'])
   })
@@ -307,7 +374,7 @@ describe('recent main selectors', () => {
   })
 
   it('removes a selector', async () => {
-    await setRecentMainSelectors(['//a', '//div'])
+    await recentMainSelectorsItem.setValue(['//a', '//div'])
 
     await removeRecentMainSelector('//a')
 
@@ -315,7 +382,7 @@ describe('recent main selectors', () => {
   })
 
   it('leaves the list alone when removing a selector that is not there', async () => {
-    await setRecentMainSelectors(['//a'])
+    await recentMainSelectorsItem.setValue(['//a'])
 
     await removeRecentMainSelector('//missing')
 
@@ -331,32 +398,27 @@ describe('recent main selectors', () => {
     expect(errorSpy).toHaveBeenCalledWith('Error getting recent main selectors:', failure)
   })
 
-  it('logs and swallows a write failure', async () => {
-    const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
-    const failure = new Error('quota exceeded')
-    vi.spyOn(recentMainSelectorsItem, 'setValue').mockRejectedValueOnce(failure)
-
-    await expect(setRecentMainSelectors(['//a'])).resolves.toBeUndefined()
-    expect(errorSpy).toHaveBeenCalledWith('Error setting recent main selectors:', failure)
-  })
-
   it('logs and swallows a failure while pushing', async () => {
     const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
     const failure = new Error('storage unavailable')
+    await recentMainSelectorsItem.setValue(['//kept'])
     vi.spyOn(recentMainSelectorsItem, 'getValue').mockRejectedValue(failure)
+    const setSpy = vi.spyOn(recentMainSelectorsItem, 'setValue')
 
     await expect(pushRecentMainSelector('//a')).resolves.toBeUndefined()
-    expect(errorSpy).toHaveBeenCalledWith('Error getting recent main selectors:', failure)
+    expect(errorSpy).toHaveBeenCalledWith('Error updating recent main selectors:', failure)
+    // A failed read must not be written back as an empty list.
+    expect(setSpy).not.toHaveBeenCalled()
   })
 
   it('logs and swallows a failure while removing', async () => {
     const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
-    await setRecentMainSelectors(['//a'])
+    await recentMainSelectorsItem.setValue(['//a'])
     const failure = new Error('quota exceeded')
     vi.spyOn(recentMainSelectorsItem, 'setValue').mockRejectedValue(failure)
 
     await expect(removeRecentMainSelector('//a')).resolves.toBeUndefined()
-    expect(errorSpy).toHaveBeenCalledWith('Error setting recent main selectors:', failure)
+    expect(errorSpy).toHaveBeenCalledWith('Error updating recent main selectors:', failure)
   })
 
   it('keeps every selector from concurrent pushes, in call order', async () => {
@@ -366,19 +428,11 @@ describe('recent main selectors', () => {
   })
 
   it('applies a push and a remove that race each other', async () => {
-    await setRecentMainSelectors(['//a', '//b'])
+    await recentMainSelectorsItem.setValue(['//a', '//b'])
 
     await Promise.all([pushRecentMainSelector('//c'), removeRecentMainSelector('//a')])
 
     expect(await getRecentMainSelectors()).toEqual(['//c', '//b'])
-  })
-
-  it('applies an explicit set queued behind a push, in call order', async () => {
-    await setRecentMainSelectors(['//a'])
-
-    await Promise.all([pushRecentMainSelector('//b'), setRecentMainSelectors(['//x'])])
-
-    expect(await getRecentMainSelectors()).toEqual(['//x'])
   })
 })
 

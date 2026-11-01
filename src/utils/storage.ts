@@ -1,6 +1,6 @@
 import type { QueuedEvent } from '@/utils/analytics'
 import type { DistinctId } from '@/utils/distinct-id'
-import { getStorageMutex } from '@/utils/storage-mutex'
+import { updateStorageItem, withStorageLock } from '@/utils/storage-lock'
 import log from 'loglevel'
 
 /** Current version for user presets storage and export/import file format. */
@@ -117,53 +117,40 @@ export const getPresets = async (): Promise<Preset[]> => {
   }
 }
 
-// Serialises writes to the key within one extension context. Looked up per
-// call: a module-scope lookup reads the item and keeps it in every bundle that
-// imports this file, the content script included.
-const userPresetsMutex = () => getStorageMutex(userPresetsItem.key)
+export const savePreset = async (preset: Preset): Promise<boolean> => {
+  try {
+    await updateStorageItem(userPresetsItem, (presets) =>
+      presets.some((p) => p.id === preset.id)
+        ? presets.map((p) => (p.id === preset.id ? preset : p))
+        : [...presets, preset],
+    )
+    return true
+  } catch (error) {
+    log.error('Error saving preset to storage:', error)
+    return false
+  }
+}
 
-export const savePreset = async (preset: Preset): Promise<boolean> =>
-  userPresetsMutex().runExclusive(async () => {
-    try {
-      const presets = await getPresets()
-      const existingIndex = presets.findIndex((p) => p.id === preset.id)
-      if (existingIndex !== -1) {
-        presets[existingIndex] = preset
-      } else {
-        presets.push(preset)
-      }
-
-      await userPresetsItem.setValue(presets)
-      return true
-    } catch (error) {
-      log.error('Error saving preset to storage:', error)
-      return false
-    }
-  })
-
-export const deletePreset = async (presetId: string): Promise<boolean> =>
-  userPresetsMutex().runExclusive(async () => {
-    try {
-      const presets = await getPresets()
-      await userPresetsItem.setValue(presets.filter((p) => p.id !== presetId))
-      return true
-    } catch (error) {
-      log.error('Error deleting preset from storage:', error)
-      return false
-    }
-  })
+export const deletePreset = async (presetId: string): Promise<boolean> => {
+  try {
+    await updateStorageItem(userPresetsItem, (presets) => presets.filter((p) => p.id !== presetId))
+    return true
+  } catch (error) {
+    log.error('Error deleting preset from storage:', error)
+    return false
+  }
+}
 
 /** Replaces every user preset; used by import. */
-export const setPresets = async (presets: Preset[]): Promise<boolean> =>
-  userPresetsMutex().runExclusive(async () => {
-    try {
-      await userPresetsItem.setValue(presets)
-      return true
-    } catch (error) {
-      log.error('Error setting presets in storage:', error)
-      return false
-    }
-  })
+export const setPresets = async (presets: Preset[]): Promise<boolean> => {
+  try {
+    await withStorageLock(userPresetsItem, () => userPresetsItem.setValue(presets))
+    return true
+  } catch (error) {
+    log.error('Error setting presets in storage:', error)
+    return false
+  }
+}
 
 // Initialize storage with default values. With defineItem fallback, empty is handled; no-op for compatibility.
 // `getPresets` swallows its own failures, so there is nothing here left to catch.
@@ -181,12 +168,28 @@ export const getSystemPresetStatus = async (): Promise<SystemPresetStatusMap> =>
   }
 }
 
-// Set system preset status map in storage
-export const setSystemPresetStatus = async (statusMap: SystemPresetStatusMap): Promise<void> => {
+/** Resolves `false` when storage refused the read or the write. */
+export const hideSystemPreset = async (presetId: string): Promise<boolean> => {
   try {
-    await systemPresetStatusItem.setValue(statusMap)
+    await updateStorageItem(systemPresetStatusItem, (statusMap) => ({
+      ...statusMap,
+      [presetId]: false,
+    }))
+    return true
   } catch (error) {
     log.error('Error setting system preset status in storage:', error)
+    return false
+  }
+}
+
+/** Shows every system preset again; resolves `false` when storage refused the write. */
+export const resetSystemPresetStatus = async (): Promise<boolean> => {
+  try {
+    await withStorageLock(systemPresetStatusItem, () => systemPresetStatusItem.removeValue())
+    return true
+  } catch (error) {
+    log.error('Error resetting system preset status in storage:', error)
+    return false
   }
 }
 
@@ -217,39 +220,25 @@ export const getRecentMainSelectors = async (): Promise<string[]> => {
   }
 }
 
-// Serialises writes to the key within one extension context; overlapping
-// read-modify-writes otherwise read the same list and the last write drops the
-// others' changes. Looked up per call: a module-scope lookup reads the item and
-// keeps it in every bundle that imports this file, the content script included.
-const recentMainSelectorsMutex = () => getStorageMutex(recentMainSelectorsItem.key)
-
-// Callers hold the recents mutex, which is not re-entrant.
-const writeRecentMainSelectors = async (selectors: string[]): Promise<void> => {
+// Overlapping read-modify-writes would otherwise read the same list, and the
+// last write would drop the others' changes.
+const updateRecentMainSelectors = async (
+  update: (current: string[]) => string[],
+): Promise<void> => {
   try {
-    await recentMainSelectorsItem.setValue(selectors)
+    await updateStorageItem(recentMainSelectorsItem, (stored) => update(toSelectorList(stored)))
   } catch (error) {
-    log.error('Error setting recent main selectors:', error)
+    log.error('Error updating recent main selectors:', error)
   }
 }
 
-export const setRecentMainSelectors = async (selectors: string[]): Promise<void> =>
-  recentMainSelectorsMutex().runExclusive(() => writeRecentMainSelectors(selectors))
-
-// getRecentMainSelectors and writeRecentMainSelectors log their own storage
-// failures and resolve, so push and remove need no `catch`.
 export const pushRecentMainSelector = async (selector: string): Promise<void> => {
   const sanitized = selector.trim()
   if (!sanitized) return
-  await recentMainSelectorsMutex().runExclusive(async () => {
-    const current = await getRecentMainSelectors()
-    const withoutDup = current.filter((s) => s !== sanitized)
-    await writeRecentMainSelectors([sanitized, ...withoutDup].slice(0, 5))
-  })
+  await updateRecentMainSelectors((current) =>
+    [sanitized, ...current.filter((s) => s !== sanitized)].slice(0, 5),
+  )
 }
 
-export const removeRecentMainSelector = async (selector: string): Promise<void> => {
-  await recentMainSelectorsMutex().runExclusive(async () => {
-    const current = await getRecentMainSelectors()
-    await writeRecentMainSelectors(current.filter((s) => s !== selector))
-  })
-}
+export const removeRecentMainSelector = async (selector: string): Promise<void> =>
+  updateRecentMainSelectors((current) => current.filter((s) => s !== selector))

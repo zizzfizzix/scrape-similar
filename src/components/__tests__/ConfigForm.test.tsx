@@ -2,7 +2,7 @@
 import { ConfigForm } from '@/components/ConfigForm'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ANALYTICS_EVENTS, ANALYTICS_SOURCES } from '@/utils/analytics'
-import { setRecentMainSelectors, userPresetsItem } from '@/utils/storage'
+import { recentMainSelectorsItem, userPresetsItem } from '@/utils/storage'
 import { SYSTEM_PRESETS } from '@/utils/system_presets'
 import { type Preset, type ScrapeConfig } from '@/utils/types'
 import { stubOffsetWidth } from '@@/tests/support/dom'
@@ -859,7 +859,7 @@ describe('ConfigForm', () => {
     })
 
     it('suggests presets and recent selectors when the field is focused', async () => {
-      await setRecentMainSelectors(['//span'])
+      await recentMainSelectorsItem.setValue(['//span'])
       view = await render({ presets, config: { ...config, mainSelector: '' } })
 
       await act(() => mainSelectorInput().focus())
