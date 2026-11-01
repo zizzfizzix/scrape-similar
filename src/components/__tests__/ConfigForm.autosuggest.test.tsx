@@ -427,6 +427,7 @@ describe('the autosuggest dropdown', () => {
         expect.stringContaining('All links'),
         expect.stringContaining('Table rows'),
       ])
+      expect(scroll.mock.calls).toEqual(Array(3).fill([{ block: 'nearest' }]))
     })
 
     it('scrolls nothing when the dropdown opens with nothing to suggest', async () => {
