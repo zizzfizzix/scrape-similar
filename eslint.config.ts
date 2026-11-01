@@ -36,8 +36,8 @@ const TEST_FILES = [
   '**/__tests__/**/*.{ts,tsx}',
   '**/*.test.{ts,tsx}',
   'vitest.setup.ts',
-  // The harness modules the tests mount through, held to the same rules as
-  // their callers.
+  // The harness modules the tests import, held to the same rules as their
+  // callers.
   'tests/support/**/*.{ts,tsx}',
 ]
 
