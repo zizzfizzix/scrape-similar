@@ -41,6 +41,7 @@ const loadModule = async ({
       set_config(config: Record<string, unknown>) {
         setConfigCalls.push(config)
       }
+      stopExceptionAutocapture() {}
     }
     return { PostHog }
   })
@@ -102,6 +103,16 @@ describe('getPostHogBackground initialization', () => {
 
     await storage.setItem('local:debugMode', false)
     expect(setConfigCalls).toContainEqual({ debug: false })
+  })
+
+  it('stops following debugMode once the instance is reset', async () => {
+    const { getPostHogBackground, resetPostHogInstance } = await loadModule({ isDevOrTest: false })
+    await getPostHogBackground()
+
+    resetPostHogInstance()
+    await storage.setItem('local:debugMode', true)
+
+    expect(setConfigCalls).not.toContainEqual({ debug: true })
   })
 
   it('does not watch debugMode in dev or test builds', async () => {

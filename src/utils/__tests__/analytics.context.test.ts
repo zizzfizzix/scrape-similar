@@ -139,14 +139,14 @@ describe('captureEvent – context specific behaviour', () => {
     expect(await getQueuedEvent()).toBeUndefined()
   })
 
-  it('does not queue an undecided-consent event from an unknown context', async () => {
+  // Firefox's background and extension pages detect as unknown.
+  it('queues an undecided-consent event from an unknown context', async () => {
     currentContext = contextDetection.EXTENSION_CONTEXTS.UNKNOWN
     vi.spyOn(consent, 'getConsentState').mockResolvedValue(undefined)
-    vi.spyOn(log, 'warn').mockImplementation(() => {})
 
     await captureEvent(EVENT_NAME)
 
-    expect(await getQueuedEvent()).toBeUndefined()
+    expect((await getQueuedEvent())?.name).toBe(EVENT_NAME)
   })
 
   it('swallows a send failure from content-script context', async () => {

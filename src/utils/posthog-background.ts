@@ -16,16 +16,29 @@ let initializationPromise: Promise<PostHog | null> | null = null
 // Bumped by every reset, so an initialisation the reset overtook can tell its
 // instance is no longer wanted.
 let generation = 0
+const stopWatchingDebugMode = new WeakMap<PostHog, () => void>()
+
+// Dropping the reference is not enough: the instance's exception handlers stay
+// installed and keep sending, and its debug-mode watch keeps it alive. Opting
+// out instead would persist under the token and silence every later instance.
+const retire = (instance: PostHog) => {
+  instance.stopExceptionAutocapture()
+  stopWatchingDebugMode.get(instance)?.()
+}
 
 /**
  * Reset PostHog instance - used when consent is revoked
  */
 export const resetPostHogInstance = () => {
   generation += 1
+  if (posthogInstance) retire(posthogInstance)
   posthogInstance = null
-  initializationPromise = null // Also reset initialization promise
+  initializationPromise = null
   log.debug('PostHog background instance reset due to consent revocation')
 }
+
+/** The initialised instance, if any, without starting an initialisation. */
+export const currentPostHogBackground = (): PostHog | null => posthogInstance
 
 const initializePostHog = async (): Promise<PostHog | null> => {
   // Respect user consent
@@ -92,9 +105,12 @@ const initializePostHog = async (): Promise<PostHog | null> => {
 
     // React to debugMode changes in production to keep config in sync
     if (!isDevOrTest) {
-      debugModeItem.watch((isEnabled) => {
-        posthogInstance.set_config({ debug: isEnabled })
-      })
+      stopWatchingDebugMode.set(
+        posthogInstance,
+        debugModeItem.watch((isEnabled) => {
+          posthogInstance.set_config({ debug: isEnabled })
+        }),
+      )
     }
 
     log.debug('PostHog background service worker initialized successfully')
@@ -127,7 +143,7 @@ export const getPostHogBackground = async (): Promise<PostHog | null> => {
     // Consent was withdrawn while this initialised: keeping the instance would
     // let it capture (exceptions included) after the user said no.
     if (generation !== startedIn) {
-      instance?.opt_out_capturing()
+      if (instance) retire(instance)
       return null
     }
     posthogInstance = instance

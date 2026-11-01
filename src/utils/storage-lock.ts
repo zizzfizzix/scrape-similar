@@ -1,3 +1,7 @@
+// Storage operations settle in milliseconds; a wait this long means a holder is
+// stuck, and failing the write beats hanging every context that shares the key.
+export const STORAGE_LOCK_TIMEOUT_MS = 30_000
+
 /**
  * Runs `task` while holding the Web Lock named after a storage item's key (e.g.
  * 'session:sidepanel_config_<tabId>', 'local:event_queue'), for read-modify-write
@@ -14,10 +18,6 @@
  * The lock is not re-entrant: a task that requests the same key again waits on
  * itself forever.
  */
-// Storage operations settle in milliseconds; a wait this long means a holder is
-// stuck, and failing the write beats hanging every context that shares the key.
-export const STORAGE_LOCK_TIMEOUT_MS = 30_000
-
 export const withStorageLock = async <T>(
   item: { key: string },
   task: () => Promise<T>,

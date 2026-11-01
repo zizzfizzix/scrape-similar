@@ -38,8 +38,9 @@ export const applySidePanelDataUpdates = async (
  * Get session state for a tab
  */
 export const getSessionState = async (tabId: number): Promise<SidePanelConfig | null> => {
-  const item = sidePanelConfigItem(tabId)
-  return await item.getValue()
+  // Unlocked: a single read is atomic, but it can return the state from before
+  // a merge already waiting on this tab's lock.
+  return await sidePanelConfigItem(tabId).getValue()
 }
 
 /**

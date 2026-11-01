@@ -1,4 +1,8 @@
-import { getPostHogBackground, resetPostHogInstance } from '@/utils/posthog-background'
+import {
+  currentPostHogBackground,
+  getPostHogBackground,
+  resetPostHogInstance,
+} from '@/utils/posthog-background'
 import { reportingListener } from '@/utils/report-rejection'
 import { withStorageLock } from '@/utils/storage-lock'
 import log from 'loglevel'
@@ -16,13 +20,19 @@ export const configurePostHogRateLimit = (ph: PostHog, eventsPerSecond: number =
   })
 }
 
-const sendQueuedEvents = async (ph: PostHog): Promise<void> => {
+// Called under the queue lock.
+const sendQueuedEvents = async (): Promise<void> => {
   const queue = await eventQueueItem.getValue()
 
   if (queue.length === 0) {
     log.debug('No queued events to flush')
     return
   }
+
+  // Taken after the last await: a consent decline resets the instance, and
+  // nothing may be sent through one it has reset.
+  const ph = currentPostHogBackground()
+  if (!ph) return
 
   // Set rate limiting to match the queue length temporarily so PostHog doesn't drop events
   configurePostHogRateLimit(ph, queue.length)
@@ -58,19 +68,13 @@ const sendQueuedEvents = async (ph: PostHog): Promise<void> => {
  */
 export const flushQueuedEvents = async (): Promise<void> => {
   try {
-    // Checked before the lock, so a flush that cannot send does not hold up
-    // every page's queueEvent.
-    const consentState = await getConsentState()
-    if (consentState !== true) {
-      log.debug('No analytics consent, leaving queued events for later')
+    // Initialised before the lock, so pages queueing events do not wait on it,
+    // and a flush that cannot send never takes the lock.
+    if (!(await getPostHogBackground())) {
+      log.debug('PostHog not initialized, leaving queued events for later')
       return
     }
-    await withStorageLock(eventQueueItem, async () => {
-      // Asked under the lock: a consent decline while this waited resets the
-      // instance, and no event may be sent after it.
-      const ph = await getPostHogBackground()
-      if (ph) await sendQueuedEvents(ph)
-    })
+    await withStorageLock(eventQueueItem, sendQueuedEvents)
   } catch (error) {
     log.error('Error flushing queued events:', error)
   }

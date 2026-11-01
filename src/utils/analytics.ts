@@ -164,12 +164,11 @@ export const captureEvent = async (
       extension_version: version,
     }
 
-    // Only the background and extension pages share the event queue's lock. A
-    // content script gets the page's lock manager, so the background it messages
-    // below queues for it; an unknown context is reported below, not queued.
-    const canQueueHere =
-      context !== EXTENSION_CONTEXTS.CONTENT_SCRIPT && context !== EXTENSION_CONTEXTS.UNKNOWN
-    if (consentState === undefined && canQueueHere) {
+    // A content script cannot take the event queue's lock (it gets the page's
+    // lock manager), so the background it messages below queues for it. An
+    // unknown context still queues: Firefox's background and extension pages
+    // detect as unknown.
+    if (consentState === undefined && context !== EXTENSION_CONTEXTS.CONTENT_SCRIPT) {
       await queueEvent({ name: eventName, props: eventProperties, timestamp: Date.now() })
       return
     }
