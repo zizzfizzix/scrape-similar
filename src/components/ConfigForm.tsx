@@ -249,13 +249,15 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
     setBeginAdornmentWidth(beginAdornmentRef.current!.offsetWidth)
   }, [])
 
-  // Commit the draft main selector to parent state and trigger highlight
-  const commitMainSelector = (value: string) => {
+  // Commit the trimmed draft main selector to parent state and trigger highlight
+  const commitMainSelector = (draft: string) => {
+    const value = draft.trim()
+    setMainSelectorDraft(value)
     const latest = latestConfigRef.current
     if (value !== latest.mainSelector) {
       onChange({ ...latest, mainSelector: value })
     }
-    if (value.trim()) {
+    if (value) {
       onHighlight(value)
     }
   }
@@ -374,7 +376,6 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
 
   // Handle recent selector selection
   const handleRecentSelectorSelect = (selector: string) => {
-    setMainSelectorDraft(selector)
     commitMainSelector(selector)
     setIsAutosuggestOpen(false)
     mainSelectorInputRef.current?.focus()
@@ -433,6 +434,13 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
     }, 150)
   }
 
+  // Commits now instead of after the blur handler's defer, and cancels that commit.
+  const commitMainSelectorNow = (draft: string) => {
+    clearTimeout(blurCommitTimerRef.current)
+    setIsAutosuggestOpen(false)
+    commitMainSelector(draft)
+  }
+
   /**
    * Cancelling the pending blur commit is what makes validating here work: the
    * press blurs the textarea first, and that commit is deferred by 150ms so a
@@ -441,9 +449,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
    */
   const handleMainActionPress = () => {
     if (hasUncommittedChanges) {
-      clearTimeout(blurCommitTimerRef.current)
-      setIsAutosuggestOpen(false)
-      commitMainSelector(mainSelectorDraft)
+      commitMainSelectorNow(mainSelectorDraft)
       return
     }
 
@@ -573,16 +579,14 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
         highlightMatchCount,
         highlightError,
       })
-      setMainSelectorDraft(value)
       if (isValueValidated) {
+        setMainSelectorDraft(value)
         onScrape()
       } else {
-        setIsAutosuggestOpen(false)
-        commitMainSelector(value)
+        // blur() runs the blur handler synchronously, scheduling the deferred
+        // commit that commitMainSelectorNow cancels.
         mainSelectorInputRef.current?.blur()
-        // blur() runs the blur handler synchronously; its deferred commit
-        // would repeat the one above.
-        clearTimeout(blurCommitTimerRef.current)
+        commitMainSelectorNow(value)
       }
 
       reportRejection(

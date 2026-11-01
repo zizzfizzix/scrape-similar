@@ -503,6 +503,19 @@ describe('the autosuggest dropdown', () => {
       )
     })
 
+    it('commits the draft without its surrounding whitespace', async () => {
+      const onChange = vi.fn()
+      view = await render({ presets: [], onChange })
+      await focusField()
+      await type('  //h2 ')
+
+      await act(() => mainSelectorInput().blur())
+      await waitFor(() =>
+        expect(onChange).toHaveBeenCalledWith({ ...config, mainSelector: '//h2' }),
+      )
+      expect(mainSelectorInput().value).toBe('//h2')
+    })
+
     it('keeps the dropdown open when focus moves into it', async () => {
       const onChange = vi.fn()
       view = await render({ presets, onChange })

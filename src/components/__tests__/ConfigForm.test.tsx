@@ -306,6 +306,19 @@ describe('ConfigForm', () => {
         expect(trackEvent).not.toHaveBeenCalledWith(ANALYTICS_EVENTS.SCRAPE_BUTTON_PRESS)
       })
 
+      it('validates the selector without its surrounding whitespace', async () => {
+        const onHighlight = vi.fn()
+        const onChange = vi.fn()
+        view = await render({ onHighlight, onChange })
+        await editSelector('  //li ')
+
+        await pressActionButton('Validate selector')
+
+        expect(onChange).toHaveBeenCalledWith({ ...config, mainSelector: '//li' })
+        expect(onHighlight).toHaveBeenCalledWith('//li')
+        expect(mainSelectorInput().value).toBe('//li')
+      })
+
       it('pre-empts the deferred blur commit rather than validating twice', async () => {
         const onHighlight = vi.fn()
         view = await render({ onHighlight })
