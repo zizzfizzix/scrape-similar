@@ -16,8 +16,7 @@ export const ConsentProvider: React.FC<{ children: React.ReactNode }> = ({ child
   useEffect(
     () =>
       // Each state is wrapped because "not asked yet" is `undefined`, and the
-      // subscription skips a nullish value. `getConsentState` reports its own
-      // storage failures and resolves, so there is no rejection to catch.
+      // subscription skips a nullish value.
       subscribeWithBackfill<{ state: ConsentState }>(
         {
           watch: (onChange) =>

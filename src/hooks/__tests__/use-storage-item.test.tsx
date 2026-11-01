@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { useDebugMode } from '@/hooks/use-debug-mode'
 import { useStorageItem } from '@/hooks/use-storage-item'
+import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import log from 'loglevel'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -13,9 +14,6 @@ vi.mock('@/utils/modeTest', () => ({
     return modeFlags.isDevOrTest
   },
 }))
-
-/** Give storage watchers a macrotask to fire. */
-const flushWatchers = () => new Promise((resolve) => setTimeout(resolve, 0))
 
 beforeEach(() => {
   fakeBrowser.reset()
@@ -37,7 +35,7 @@ describe('useStorageItem', () => {
 
     await act(async () => {
       await storage.setItem('local:debugMode', true)
-      await flushWatchers()
+      await flushMicrotasks()
     })
 
     expect(result.current[0]).toBe(true)
@@ -48,7 +46,7 @@ describe('useStorageItem', () => {
 
     await act(async () => {
       await result.current[1](true)
-      await flushWatchers()
+      await flushMicrotasks()
     })
 
     expect(result.current[0]).toBe(true)
@@ -62,7 +60,7 @@ describe('useStorageItem', () => {
 
     await act(async () => {
       await storage.removeItem('local:debugMode')
-      await flushWatchers()
+      await flushMicrotasks()
     })
 
     expect(result.current[0]).toBe(false)
@@ -91,7 +89,7 @@ describe('useStorageItem', () => {
 
     await act(async () => {
       await storage.setItem('local:debugUnlocked', true)
-      await flushWatchers()
+      await flushMicrotasks()
     })
     expect(result.current[0]).toBe(true)
   })
@@ -112,7 +110,7 @@ describe('useDebugMode', () => {
 
     await act(async () => {
       await result.current[1](true)
-      await flushWatchers()
+      await flushMicrotasks()
     })
 
     expect(result.current[0]).toBe(true)

@@ -4,6 +4,7 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { getRecentMainSelectors, setRecentMainSelectors, userPresetsItem } from '@/utils/storage'
 import type { Preset, ScrapeConfig } from '@/utils/types'
 import { setLastError } from '@@/tests/support/fake-browser'
+import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 import {
   type RenderResult,
   act,
@@ -286,7 +287,7 @@ describe('the autosuggest dropdown', () => {
 
       await act(async () => {
         await storage.setItem(recentMainSelectorsItem.key, ['//fresh'])
-        await new Promise((resolve) => setTimeout(resolve, 0))
+        await flushMicrotasks()
       })
       await act(async () => resolveRead([]))
       await focusField()

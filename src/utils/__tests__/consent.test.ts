@@ -4,7 +4,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
 
-// Prefix used by consent utilities when interacting with storage
 const STORAGE_KEY = analyticsConsentItem.key
 
 describe('consent utilities', () => {
