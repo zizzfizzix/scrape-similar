@@ -78,8 +78,8 @@ export const distinctIdItem = /* @__PURE__ */ storage.defineItem<DistinctId>('lo
 /**
  * `defineItem` reads its key once as soon as it is called, so a per-tab item is
  * defined on first use and reused after that rather than redefined per call.
- * `forget` drops a closed tab's item so the cache does not grow with every tab
- * the context has seen.
+ * The background calls `forget` when a tab closes, so its cache holds only
+ * open tabs.
  */
 const definePerTab = <Item>(define: (tabId: number) => Item) => {
   const items = new Map<number, Item>()

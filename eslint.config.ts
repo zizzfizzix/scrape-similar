@@ -149,7 +149,7 @@ const DEFERRED = {
   '@typescript-eslint/no-floating-promises': 'off',
   // 36, nearly all `onClick={async () => …}`.
   '@typescript-eslint/no-misused-promises': 'off',
-  // 72: 26 in extension code, mostly the message-passing types, and 46 in unit
+  // 71: 25 in extension code, mostly the message-passing types, and 46 in unit
   // and e2e test scaffolding.
   '@typescript-eslint/no-explicit-any': 'off',
   // 265. The component tests reach into `container` deliberately; the rule wants

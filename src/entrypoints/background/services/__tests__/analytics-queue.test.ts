@@ -1,4 +1,4 @@
-import type { QueuedEvent } from '@/entrypoints/background/types'
+import type { QueuedEvent } from '@/utils/analytics'
 import log from 'loglevel'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'

@@ -453,6 +453,14 @@ describe('Settings', () => {
       expect(trackEvent).not.toHaveBeenCalledWith(ANALYTICS_EVENTS.HIDDEN_SETTINGS_UNLOCK)
     })
 
+    it('shows from the prop before its own read of the flag lands', async () => {
+      vi.spyOn(debugModeItem, 'getValue').mockReturnValue(new Promise(() => {}))
+
+      view = await render({ debugMode: true })
+
+      expect(view.container.textContent).toContain('Debug mode')
+    })
+
     it('reflects the debug mode prop', async () => {
       await storage.setItem('local:debugMode', true)
 
