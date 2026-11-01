@@ -94,11 +94,11 @@ const definePerTab = <Item>(define: (tabId: number) => Item) => {
   return Object.assign(get, { forget: (tabId: number) => void items.delete(tabId) })
 }
 
-export const sidePanelConfigItem = definePerTab((tabId) =>
+export const sidePanelConfigItem = /* @__PURE__ */ definePerTab((tabId) =>
   storage.defineItem<SidePanelConfig>(`session:sidepanel_config_${tabId}`),
 )
 
-export const demoScrapePendingItem = definePerTab((tabId) =>
+export const demoScrapePendingItem = /* @__PURE__ */ definePerTab((tabId) =>
   storage.defineItem<ScrapeConfig>(`local:demo_scrape_pending_${tabId}`),
 )
 
