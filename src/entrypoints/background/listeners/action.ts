@@ -22,7 +22,6 @@ export const setupActionListener = (): void => {
         })
         log.debug(`Side panel options set for tab ${tabId} via action click`)
 
-        // Track side panel opened via action click
         trackEvent(ANALYTICS_EVENTS.SIDE_PANEL_OPEN, {
           trigger: 'action_click',
         })

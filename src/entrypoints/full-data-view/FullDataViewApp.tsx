@@ -213,7 +213,6 @@ export const FullDataViewApp: React.FC = () => {
               if (currentTabId === tabId && newTab) {
                 setCurrentTabId(newTab.tabId)
                 setCurrentTabData(newTab)
-                // Update URL
                 const newUrl = new URL(window.location.href)
                 newUrl.searchParams.set('tabId', newTab.tabId.toString())
                 window.history.replaceState({}, '', newUrl.toString())
@@ -241,11 +240,9 @@ export const FullDataViewApp: React.FC = () => {
               const existingIndex = prev.findIndex((tabData) => tabData.tabId === tabId)
               let newTabs: TabData[]
               if (existingIndex >= 0) {
-                // Update existing tab
                 newTabs = [...prev]
                 newTabs[existingIndex] = updatedTabData
               } else {
-                // Add new tab
                 newTabs = [...prev, updatedTabData]
               }
 
@@ -255,7 +252,6 @@ export const FullDataViewApp: React.FC = () => {
               if (currentTabId === null && newTabs.length === 1) {
                 setCurrentTabId(updatedTabData.tabId)
                 setCurrentTabData(updatedTabData)
-                // Update URL
                 const newUrl = new URL(window.location.href)
                 newUrl.searchParams.set('tabId', updatedTabData.tabId.toString())
                 window.history.replaceState({}, '', newUrl.toString())

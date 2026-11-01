@@ -70,7 +70,6 @@ export const setupInstallListener = (): void => {
     reportingListener(async (details: Browser.runtime.InstalledDetails) => {
       log.debug('Scrape Similar extension installed')
 
-      // Initialize storage
       await initializeStorage()
 
       // Show onboarding on first install (no storage check)
@@ -86,7 +85,6 @@ export const setupInstallListener = (): void => {
         }
       }
 
-      // Create context menu items
       initializeContextMenus()
 
       // Set side panel behavior - make the action icon open/close the sidepanel
@@ -104,7 +102,6 @@ export const setupInstallListener = (): void => {
 
       log.debug('Service worker is running')
 
-      // Track extension installation/update
       trackEvent(ANALYTICS_EVENTS.EXTENSION_INSTALLATION)
     }),
   )

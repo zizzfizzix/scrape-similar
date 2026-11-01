@@ -32,7 +32,6 @@ export const setupTabUpdatedListener = (): void => {
             // Remove the flag first so we don't trigger again
             await clearDemoScrapeFlag(tabId)
 
-            // Execute the demo scrape
             await executeDemoScrape(tabId, demoData)
           }
         }

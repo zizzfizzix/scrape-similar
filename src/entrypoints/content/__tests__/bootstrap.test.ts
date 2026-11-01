@@ -40,11 +40,10 @@ vi.mock('@/entrypoints/content/picker', async (importOriginal) => ({
 const ctx = {} as ContentScriptContext
 
 /**
- * Delivers a message to every registered `runtime.onMessage` listener.
- * `trigger` resolves as soon as every listener has been called, handing back
- * what each returned — so an async listener is still running inside the array
- * it resolves to. Settling those too is what makes `await broadcast(...)` mean
- * "the content script has finished answering".
+ * Deliver a message to every registered `runtime.onMessage` listener. The
+ * content script's listeners answer through `sendResponse` and return
+ * synchronously; `trigger` is typed to resolve to promises, so `Promise.all`
+ * is what the caller awaits.
  */
 const broadcast = async (message: Message, sendResponse: (response: unknown) => void = () => {}) =>
   Promise.all(await fakeBrowser.runtime.onMessage.trigger(message, {}, sendResponse))
