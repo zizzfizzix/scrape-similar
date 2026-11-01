@@ -26,7 +26,6 @@ import {
   buildSuggestionIds,
   filterPresetsByQuery,
   filterRecentSelectors,
-  isSelectorAPreset,
   nextSuggestionIndex,
   RECENT_SUGGESTION_PREFIX,
   resolveSuggestion,
@@ -621,14 +620,6 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
       } else {
         commitMainSelectorNow(trimmedDraft)
       }
-
-      reportRejection(
-        (async () => {
-          const all = await getAllPresets()
-          if (isSelectorAPreset(trimmedDraft, all)) return
-          await pushRecentMainSelector(trimmedDraft)
-        })(),
-      )
       return
     }
 

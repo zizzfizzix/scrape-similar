@@ -14,6 +14,7 @@ import {
   type SidePanelConfig,
 } from '@/utils/types'
 import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
+import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 import { renderSettled } from '@@/tests/support/settle'
 import { act, fireEvent, waitFor, type RenderResult } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -440,7 +441,8 @@ describe('remembering the selector a scrape used', () => {
     return sendMessage
   }
 
-  const scraped = { data: { data: [], columnOrder: ['Rank'] }, success: true }
+  const row = { data: { Rank: '1' }, metadata: { originalIndex: 0, isEmpty: false } }
+  const scraped = { data: { data: [row], columnOrder: ['Rank'] }, success: true }
 
   it('adds a selector no preset covers to the recents', async () => {
     await withValidatedSelector()
@@ -512,6 +514,27 @@ describe('remembering the selector a scrape used', () => {
     await waitFor(async () => expect(await getRecentMainSelectors()).toEqual(['//tr']))
   })
 
+  it('leaves a selector that scraped no rows out of the recents', async () => {
+    await withValidatedSelector()
+    view = await render()
+    await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
+
+    await scrape({ data: { data: [], columnOrder: ['Rank'] }, success: true })
+
+    await waitFor(() => expect(view.container.textContent).toContain('0 found'))
+    expect(await getRecentMainSelectors()).toEqual([])
+  })
+
+  it('remembers the selector without its surrounding whitespace', async () => {
+    await withValidatedSelector('  //tr  ')
+    view = await render()
+    await waitFor(() => expect(mainSelectorInput().value).toBe('  //tr  '))
+
+    await scrape(scraped)
+
+    await waitFor(async () => expect(await getRecentMainSelectors()).toEqual(['//tr']))
+  })
+
   it('reports no rows for a reply that carries no data at all', async () => {
     await withValidatedSelector()
     view = await render()
@@ -522,15 +545,72 @@ describe('remembering the selector a scrape used', () => {
     await waitFor(() => expect(view.container.textContent).toContain('0 found'))
   })
 
-  it('records the row count from a reply that does not claim success', async () => {
+  it('leaves the recents alone for a reply with rows that does not claim success', async () => {
     await withValidatedSelector()
     view = await render()
     await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
 
-    await scrape({ data: { data: [] } })
+    await scrape({ data: { data: [row] } })
 
     // No `success: true`, so nothing is remembered about the config used.
     await waitFor(async () => expect(await getRecentMainSelectors()).toEqual([]))
+  })
+})
+
+describe('remembering a validated selector', () => {
+  /** Commit an edited selector by leaving the field, which validates it. */
+  const validate = async (selector: string, response: unknown) => {
+    await attachToTab(PAGE_URL, { currentScrapeConfig: config })
+    view = await render()
+    await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
+    const sendMessage = contentScriptReplies(response)
+
+    fireEvent.change(mainSelectorInput(), { target: { value: selector } })
+    await act(async () => {
+      mainSelectorInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
+      // Outlast the 150ms blur defer.
+      await new Promise((resolve) => setTimeout(resolve, 200))
+    })
+    return sendMessage
+  }
+
+  it('adds a selector that matched elements to the recents', async () => {
+    await validate('//td', { success: true, matchCount: 3 })
+
+    await waitFor(async () => expect(await getRecentMainSelectors()).toEqual(['//td']))
+  })
+
+  it('leaves a selector that matched nothing out of the recents', async () => {
+    const sendMessage = await validate('//td', { success: true, matchCount: 0 })
+    await act(flushMicrotasks)
+
+    expect(sendMessage).toHaveBeenCalledTimes(1)
+    expect(await getRecentMainSelectors()).toEqual([])
+  })
+
+  it('leaves a selector that failed to parse out of the recents', async () => {
+    const sendMessage = await validate('//td[', { success: false, error: 'Invalid XPath' })
+    await act(flushMicrotasks)
+
+    expect(sendMessage).toHaveBeenCalledTimes(1)
+    expect(await getRecentMainSelectors()).toEqual([])
+  })
+
+  it('leaves a selector a preset already covers out of the recents', async () => {
+    await userPresetsItem.setValue([
+      {
+        id: 'p1',
+        name: 'Cells',
+        config: { ...config, mainSelector: '//td' },
+        createdAt: 1_700_000_000_000,
+      },
+    ])
+
+    const sendMessage = await validate('//td', { success: true, matchCount: 3 })
+    await act(flushMicrotasks)
+
+    expect(sendMessage).toHaveBeenCalledTimes(1)
+    expect(await getRecentMainSelectors()).toEqual([])
   })
 })
 

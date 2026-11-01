@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Toaster } from '@/components/ui/sonner'
+import { isSelectorAPreset } from '@/utils/autosuggest'
 import { reportRejection } from '@/utils/report-rejection'
 import {
   buildConfigChangeUpdates,
@@ -462,25 +463,17 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
           log.error('Error during scrape:', response.error)
           return
         }
-        // Successful scrape – remember the config used to produce current results
+        const rowCount = response?.data?.data?.length ?? 0
         if (response?.success === true) {
           setResultProducingConfig(configAtScrapeTime)
           saveSidePanelState(tabId, { resultProducingConfig: configAtScrapeTime })
-          // Persist recent main selector (local only) if it is not a preset selector
-          reportRejection(
-            (async () => {
-              const selectorUsed = configAtScrapeTime.mainSelector.trim()
-              const allPresets = await getAllPresets()
-              const isPresetSelector = allPresets.some(
-                (p) => p.config.mainSelector.trim() === selectorUsed,
-              )
-              if (!isPresetSelector) {
-                await pushRecentMainSelector(selectorUsed)
-              }
-            })(),
-          )
+          // Selectors validated by the picker, the context menu or an earlier session
+          // never reach handleHighlight, so the scrape feeds the recents as well.
+          if (rowCount > 0 && !isSelectorAPreset(configAtScrapeTime.mainSelector, presets)) {
+            reportRejection(pushRecentMainSelector(configAtScrapeTime.mainSelector))
+          }
         }
-        setLastScrapeRowCount(response?.data?.data?.length ?? 0)
+        setLastScrapeRowCount(rowCount)
       },
     )
   }
@@ -527,6 +520,11 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
             highlightMatchCount: response.matchCount,
             highlightError: null,
           })
+          // Only a selector that matched elements is remembered, so one that fails
+          // to parse or matches nothing never becomes a suggestion.
+          if (response.matchCount > 0 && !isSelectorAPreset(selector, presets)) {
+            reportRejection(pushRecentMainSelector(selector))
+          }
         }
       },
     )
