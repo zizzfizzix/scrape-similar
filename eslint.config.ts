@@ -273,6 +273,36 @@ export default defineConfig([
   },
 
   {
+    // Everything a side panel TabPanel renders. Every tab shares the shell's
+    // one <Toaster>, so a toast raised by a hidden tab's panel lands over the
+    // tab on screen; useShownToast holds it until its panel is shown.
+    // Hooks and utils too, since a panel can reach a toast through either.
+    files: [
+      'src/components/**/*.tsx',
+      'src/hooks/**/*.ts',
+      'src/utils/**/*.{ts,tsx}',
+      'src/entrypoints/sidepanel/TabPanel.tsx',
+    ],
+    // The settings drawer belongs to the shell, not to a tab, and the hook is
+    // the one place the toast is called from.
+    ignores: ['src/components/Settings.tsx', 'src/hooks/use-shown-toast.ts', ...TEST_FILES],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'sonner',
+              importNames: ['toast'],
+              message: 'Use useShownToast so a hidden side panel tab cannot toast over another.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+
+  {
     files: BOOTSTRAP_EXCLUSIONS,
     // Past this a bootstrap file has stopped being wiring, and whatever it has
     // grown is unmeasured: `coverage-exclusions.ts` leaves these out of the

@@ -66,9 +66,7 @@ export const initializeSessionState = async (tabId: number): Promise<void> => {
     if (existing) return existing
     log.debug(`Initializing default session state for tab ${tabId}`)
     return {
-      initialSelectionText: undefined,
       elementDetails: undefined,
-      selectionOptions: undefined,
       currentScrapeConfig: undefined,
     }
   })

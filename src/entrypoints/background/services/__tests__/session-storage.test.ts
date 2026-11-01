@@ -25,10 +25,10 @@ describe('applySidePanelDataUpdates', () => {
   })
 
   it('shallow-merges top-level fields with existing state', async () => {
-    await applySidePanelDataUpdates(1, { initialSelectionText: 'hello', highlightMatchCount: 1 })
+    await applySidePanelDataUpdates(1, { highlightError: 'hello', highlightMatchCount: 1 })
     await applySidePanelDataUpdates(1, { highlightMatchCount: 2 })
 
-    expect(await read(1)).toEqual({ initialSelectionText: 'hello', highlightMatchCount: 2 })
+    expect(await read(1)).toEqual({ highlightError: 'hello', highlightMatchCount: 2 })
   })
 
   it('keeps state for different tabs isolated', async () => {
@@ -97,13 +97,13 @@ describe('applySidePanelDataUpdates', () => {
 
   it('serialises concurrent updates so none are lost', async () => {
     await Promise.all([
-      applySidePanelDataUpdates(1, { initialSelectionText: 'a' }),
+      applySidePanelDataUpdates(1, { highlightError: 'a' }),
       applySidePanelDataUpdates(1, { highlightMatchCount: 3 }),
       applySidePanelDataUpdates(1, { pickerModeActive: true }),
     ])
 
     expect(await read(1)).toEqual({
-      initialSelectionText: 'a',
+      highlightError: 'a',
       highlightMatchCount: 3,
       pickerModeActive: true,
     })
@@ -120,17 +120,17 @@ describe('getSessionState', () => {
   })
 
   it('sees an update already in flight', async () => {
-    const update = applySidePanelDataUpdates(1, { initialSelectionText: 'pending' })
+    const update = applySidePanelDataUpdates(1, { highlightError: 'pending' })
 
     const [state] = await Promise.all([getSessionState(1), update])
 
-    expect(state).toEqual({ initialSelectionText: 'pending' })
+    expect(state).toEqual({ highlightError: 'pending' })
   })
 
   it('returns the stored state', async () => {
-    await applySidePanelDataUpdates(1, { initialSelectionText: 'hi' })
+    await applySidePanelDataUpdates(1, { highlightError: 'hi' })
 
-    expect(await getSessionState(1)).toEqual({ initialSelectionText: 'hi' })
+    expect(await getSessionState(1)).toEqual({ highlightError: 'hi' })
   })
 })
 
@@ -146,20 +146,20 @@ describe('initializeSessionState', () => {
   })
 
   it('leaves existing state untouched', async () => {
-    await applySidePanelDataUpdates(1, { initialSelectionText: 'keep me' })
+    await applySidePanelDataUpdates(1, { highlightError: 'keep me' })
 
     await initializeSessionState(1)
 
-    expect(await getSessionState(1)).toEqual({ initialSelectionText: 'keep me' })
+    expect(await getSessionState(1)).toEqual({ highlightError: 'keep me' })
   })
 
   it('keeps an update queued while it reads the existing state', async () => {
     await Promise.all([
       initializeSessionState(1),
-      applySidePanelDataUpdates(1, { initialSelectionText: 'queued' }),
+      applySidePanelDataUpdates(1, { highlightError: 'queued' }),
     ])
 
-    expect(await getSessionState(1)).toEqual({ initialSelectionText: 'queued' })
+    expect(await getSessionState(1)).toEqual({ highlightError: 'queued' })
   })
 })
 
@@ -172,7 +172,7 @@ describe('clearSessionState', () => {
   // closes a tab of its own.
 
   it('removes the tab entry', async () => {
-    await applySidePanelDataUpdates(11, { initialSelectionText: 'bye' })
+    await applySidePanelDataUpdates(11, { highlightError: 'bye' })
 
     await clearSessionState(11)
 
@@ -180,7 +180,7 @@ describe('clearSessionState', () => {
   })
 
   it('removes the entry after an update already in flight', async () => {
-    const update = applySidePanelDataUpdates(12, { initialSelectionText: 'late' })
+    const update = applySidePanelDataUpdates(12, { highlightError: 'late' })
 
     await Promise.all([update, clearSessionState(12)])
 
@@ -188,10 +188,10 @@ describe('clearSessionState', () => {
   })
 
   it('refuses an update that requests the lock after the clear', async () => {
-    await applySidePanelDataUpdates(13, { initialSelectionText: 'open' })
+    await applySidePanelDataUpdates(13, { highlightError: 'open' })
 
     const clear = clearSessionState(13)
-    const update = applySidePanelDataUpdates(13, { initialSelectionText: 'after close' })
+    const update = applySidePanelDataUpdates(13, { highlightError: 'after close' })
     await Promise.all([clear, update])
 
     expect(await read(13)).toBeNull()

@@ -11,6 +11,7 @@ import {
   screen,
   type RenderResult,
 } from '@testing-library/react'
+import { Activity } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 
@@ -206,7 +207,7 @@ describe('ExportButtons', () => {
     })
 
     it('uses the filename it was given', async () => {
-      view = render({ filename: 'My export' })
+      view = render({ buildFilename: () => 'My export' })
 
       await choose('Save all as CSV')
 
@@ -307,7 +308,7 @@ describe('ExportButtons', () => {
 
     it('asks the background to build the spreadsheet', async () => {
       const sendMessage = backgroundReplies({ success: true, url: 'https://docs.google.com/x' })
-      view = render({ filename: 'My export' })
+      view = render({ buildFilename: () => 'My export' })
 
       await choose('Export all to Google Sheets')
 
@@ -433,6 +434,34 @@ describe('ExportButtons', () => {
         'Exported to Google Sheets',
         expect.anything(),
       )
+      vi.useRealTimers()
+    })
+
+    it('gives up on time when hidden and shown again mid-export', async () => {
+      vi.useFakeTimers()
+      spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockImplementation(
+        () => new Promise(() => {}),
+      )
+      const inPanel = (mode: 'visible' | 'hidden') => (
+        <Activity mode={mode}>
+          <ExportButtons scrapeResult={scrapeResult} config={config} showEmptyRows={false} />
+        </Activity>
+      )
+      view = renderComponent(inPanel('visible'))
+      await choose('Export all to Google Sheets')
+
+      view.rerender(inPanel('hidden'))
+      await act(() => {
+        vi.advanceTimersByTime(SHEETS_EXPORT_TIMEOUT_MS - 1000)
+      })
+      view.rerender(inPanel('visible'))
+      expect(toastMocks.toast.error).not.toHaveBeenCalled()
+      // Only the time left runs once shown, not a fresh timeout.
+      await act(() => {
+        vi.advanceTimersByTime(1000)
+      })
+
+      expect(toastMocks.toast.error).toHaveBeenCalledWith('Export timed out - please try again')
       vi.useRealTimers()
     })
 

@@ -1,4 +1,4 @@
-import type { ScrapeConfig, SelectionOptions, SidePanelConfig } from '@/utils/types'
+import type { ScrapeConfig, SidePanelConfig } from '@/utils/types'
 import slugify from 'slugify'
 
 /**
@@ -65,27 +65,17 @@ export const buildExportFilename = (tabUrl: string | null, now: Date): string =>
   return `Data export for ${slug} at ${dateTime}`
 }
 
-/** The blank session state a tab starts from. */
-export const createDefaultSidePanelState = (): Partial<SidePanelConfig> => ({
-  initialSelectionText: undefined,
-  elementDetails: undefined,
-  selectionOptions: undefined,
-  currentScrapeConfig: undefined,
-  scrapeResult: undefined,
-})
-
 /**
- * The config and selection to show for a stored session state.
+ * The config to show for a stored session state.
  *
  * A stored config wins. Failing that, a right-click that recorded an element
  * seeds the main selector from it. Otherwise the panel starts blank.
  */
-export const resolveStoredConfig = (
-  state: SidePanelConfig,
-): { config: ScrapeConfig; options: SelectionOptions | null } => {
-  const { currentScrapeConfig, elementDetails, selectionOptions, initialSelectionText } = state
-
-  const config = currentScrapeConfig
+export const resolveStoredConfig = ({
+  currentScrapeConfig,
+  elementDetails,
+}: SidePanelConfig): ScrapeConfig =>
+  currentScrapeConfig
     ? {
         ...DEFAULT_SCRAPE_CONFIG,
         ...currentScrapeConfig,
@@ -98,15 +88,6 @@ export const resolveStoredConfig = (
     : elementDetails?.xpath
       ? { ...DEFAULT_SCRAPE_CONFIG, mainSelector: elementDetails.xpath }
       : DEFAULT_SCRAPE_CONFIG
-
-  const options: SelectionOptions | null =
-    selectionOptions ??
-    (elementDetails
-      ? { xpath: elementDetails.xpath, selectedText: initialSelectionText || elementDetails.text }
-      : null)
-
-  return { config, options }
-}
 
 /**
  * The tab a full-data-view URL was opened for, or null when it names none.
@@ -148,4 +129,40 @@ export const hasConfigDrifted = (current: ScrapeConfig, producing: ScrapeConfig)
       (column.key || column.name) !== (producingColumn.key || producingColumn.name)
     )
   })
+}
+
+/**
+ * `previous` when `next` holds the same data, otherwise `next`.
+ *
+ * Every storage read hands back a fresh object, and components that reset on a
+ * new reference (the results table returns to page 1) would reset on a write
+ * that changed nothing they show.
+ */
+export const reuseIfEqual = <T>(previous: T, next: T): T =>
+  hasSameData(previous, next) ? previous : next
+
+/** Keys holding a value; storage drops `undefined` properties, so they count as absent. */
+const definedKeys = (value: object): string[] =>
+  Object.keys(value).filter((key) => (value as Record<string, unknown>)[key] !== undefined)
+
+/**
+ * Structural equality over stored data, stopping at the first difference.
+ * Avoids serialising both sides, which for a large scrape result costs
+ * megabytes of strings on every storage write.
+ */
+const hasSameData = (a: unknown, b: unknown): boolean => {
+  if (Object.is(a, b)) return true
+  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false
+  if (Array.isArray(a) !== Array.isArray(b)) return false
+  // Storage keeps an array's undefined entries (as null), so every index counts.
+  if (Array.isArray(a)) {
+    const other = b as unknown[]
+    return a.length === other.length && a.every((item, index) => hasSameData(item, other[index]))
+  }
+  const keys = definedKeys(a)
+  const record = b as Record<string, unknown>
+  return (
+    keys.length === definedKeys(b).length &&
+    keys.every((key) => hasSameData((a as Record<string, unknown>)[key], record[key]))
+  )
 }

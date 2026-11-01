@@ -25,7 +25,7 @@ import {
   useTable,
 } from '@tanstack/react-table'
 import { ChevronLeft, ChevronRight, Expand } from 'lucide-react'
-import React, { useMemo, useState } from 'react'
+import React, { useId, useMemo, useState } from 'react'
 
 // The side panel table only needs column sizing/resizing; pagination is handled
 // with local component state and the rows are never sorted or filtered here.
@@ -58,6 +58,9 @@ export const DataTable: React.FC<DataTableProps> = ({
   // Use columnOrder if provided, otherwise fallback to config.columns order
   const columnsOrder =
     columnOrder && columnOrder.length > 0 ? columnOrder : config.columns.map((col) => col.name)
+
+  // Every tab's panel keeps a table, so a fixed id would label another tab's switch.
+  const showEmptyRowsId = useId()
 
   // Pagination state
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 })
@@ -199,11 +202,11 @@ export const DataTable: React.FC<DataTableProps> = ({
           <>
             <div className="flex items-center gap-2">
               <Switch
-                id="show-empty-rows"
+                id={showEmptyRowsId}
                 checked={showEmptyRows}
                 onCheckedChange={onShowEmptyRowsChange}
               />
-              <label htmlFor="show-empty-rows" className="text-sm font-medium">
+              <label htmlFor={showEmptyRowsId} className="text-sm font-medium">
                 Show {data.filter((r) => r.metadata.isEmpty).length} empty rows
               </label>
             </div>

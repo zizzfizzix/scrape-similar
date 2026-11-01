@@ -1,12 +1,12 @@
 import {
   buildConfigChangeUpdates,
   buildExportFilename,
-  createDefaultSidePanelState,
   DEFAULT_SCRAPE_CONFIG,
   hasConfigDrifted,
   isMainSelectorValidated,
   parseFullDataViewTabId,
   resolveStoredConfig,
+  reuseIfEqual,
 } from '@/utils/sidepanel-state'
 import type { ScrapeConfig } from '@/utils/types'
 import { describe, expect, it } from 'vitest'
@@ -142,22 +142,6 @@ describe('buildExportFilename', () => {
   })
 })
 
-describe('createDefaultSidePanelState', () => {
-  it('clears every field the panel restores from', () => {
-    expect(createDefaultSidePanelState()).toEqual({
-      initialSelectionText: undefined,
-      elementDetails: undefined,
-      selectionOptions: undefined,
-      currentScrapeConfig: undefined,
-      scrapeResult: undefined,
-    })
-  })
-
-  it('returns a fresh object each time', () => {
-    expect(createDefaultSidePanelState()).not.toBe(createDefaultSidePanelState())
-  })
-})
-
 describe('resolveStoredConfig', () => {
   const storedConfig: ScrapeConfig = {
     mainSelector: '//tr',
@@ -165,17 +149,17 @@ describe('resolveStoredConfig', () => {
   }
 
   it('starts blank when nothing is stored', () => {
-    expect(resolveStoredConfig({})).toEqual({ config: DEFAULT_SCRAPE_CONFIG, options: null })
+    expect(resolveStoredConfig({})).toEqual(DEFAULT_SCRAPE_CONFIG)
   })
 
   it('uses the stored config as-is', () => {
-    expect(resolveStoredConfig({ currentScrapeConfig: storedConfig }).config).toEqual(storedConfig)
+    expect(resolveStoredConfig({ currentScrapeConfig: storedConfig })).toEqual(storedConfig)
   })
 
   it('keeps the default columns when the stored config has none', () => {
     const config = resolveStoredConfig({
       currentScrapeConfig: { mainSelector: '//tr', columns: [] },
-    }).config
+    })
 
     expect(config).toEqual({ mainSelector: '//tr', columns: DEFAULT_SCRAPE_CONFIG.columns })
   })
@@ -183,7 +167,7 @@ describe('resolveStoredConfig', () => {
   it('keeps the default columns when the stored config’s columns are not a list', () => {
     const config = resolveStoredConfig({
       currentScrapeConfig: { mainSelector: '//tr' } as ScrapeConfig,
-    }).config
+    })
 
     expect(config.columns).toEqual(DEFAULT_SCRAPE_CONFIG.columns)
   })
@@ -191,7 +175,7 @@ describe('resolveStoredConfig', () => {
   it('seeds the selector from a right-clicked element when nothing is stored', () => {
     const config = resolveStoredConfig({
       elementDetails: { xpath: '/html/body/ul/li', text: 'a' },
-    }).config
+    })
 
     expect(config).toEqual({ ...DEFAULT_SCRAPE_CONFIG, mainSelector: '/html/body/ul/li' })
   })
@@ -200,7 +184,7 @@ describe('resolveStoredConfig', () => {
     const config = resolveStoredConfig({
       currentScrapeConfig: storedConfig,
       elementDetails: { xpath: '/html/body/ul/li', text: 'a' },
-    }).config
+    })
 
     expect(config.mainSelector).toBe('//tr')
   })
@@ -208,34 +192,9 @@ describe('resolveStoredConfig', () => {
   it('ignores element details with no xpath', () => {
     const config = resolveStoredConfig({
       elementDetails: { xpath: '' } as { xpath: string },
-    }).config
+    })
 
     expect(config).toEqual(DEFAULT_SCRAPE_CONFIG)
-  })
-
-  it('uses the stored selection options when present', () => {
-    const selectionOptions = { xpath: '//a', selectedText: 'link' }
-
-    expect(resolveStoredConfig({ selectionOptions }).options).toBe(selectionOptions)
-  })
-
-  it('builds selection options from a right-clicked element', () => {
-    expect(
-      resolveStoredConfig({ elementDetails: { xpath: '//li', text: 'first' } }).options,
-    ).toEqual({ xpath: '//li', selectedText: 'first' })
-  })
-
-  it('prefers the recorded selection text over the element text', () => {
-    expect(
-      resolveStoredConfig({
-        elementDetails: { xpath: '//li', text: 'element text' },
-        initialSelectionText: 'what the user highlighted',
-      }).options,
-    ).toEqual({ xpath: '//li', selectedText: 'what the user highlighted' })
-  })
-
-  it('reports no selection when nothing describes one', () => {
-    expect(resolveStoredConfig({ currentScrapeConfig: storedConfig }).options).toBeNull()
   })
 })
 
@@ -333,5 +292,49 @@ describe('hasConfigDrifted', () => {
     const empty: ScrapeConfig = { mainSelector: '//tr', columns: [] }
 
     expect(hasConfigDrifted(empty, empty)).toBe(false)
+  })
+})
+
+describe('reuseIfEqual', () => {
+  it('keeps the previous reference for equal data', () => {
+    const previous = { data: [{ a: '1' }] }
+
+    expect(reuseIfEqual(previous, { data: [{ a: '1' }] })).toBe(previous)
+  })
+
+  it('takes the next value when the data differs', () => {
+    const next = { data: [{ a: '2' }] }
+
+    expect(reuseIfEqual({ data: [{ a: '1' }] }, next)).toBe(next)
+  })
+
+  it('treats a key holding undefined as absent, as storage does', () => {
+    const previous: { data: { a: string; b?: string }[] } = { data: [{ a: '1', b: undefined }] }
+
+    expect(reuseIfEqual(previous, { data: [{ a: '1' }] })).toBe(previous)
+  })
+
+  it('takes the next value when a key is added', () => {
+    const next = { a: '1', b: '2' }
+
+    expect(reuseIfEqual<Record<string, string>>({ a: '1' }, next)).toBe(next)
+  })
+
+  it('tells an empty array from an empty object', () => {
+    const next = {}
+
+    expect(reuseIfEqual<unknown>([], next)).toBe(next)
+  })
+
+  it('tells arrays of different lengths apart even when the extra entry is undefined', () => {
+    const next = ['a']
+
+    expect(reuseIfEqual<(string | undefined)[]>(['a', undefined], next)).toBe(next)
+  })
+
+  it('tells null from an object', () => {
+    const next = { a: '1' }
+
+    expect(reuseIfEqual<object | null>(null, next)).toBe(next)
   })
 })

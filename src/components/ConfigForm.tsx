@@ -22,6 +22,7 @@ import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Textarea } from '@/components/ui/textarea'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useShownToast } from '@/hooks/use-shown-toast'
 import {
   buildSuggestionIds,
   filterPresetsByQuery,
@@ -58,21 +59,23 @@ import {
   Wand,
   X,
 } from 'lucide-react'
-import React, { useEffect, useRef, useState } from 'react'
-import { toast } from 'sonner'
+import React, { useEffect, useEffectEvent, useRef, useState } from 'react'
 
 // How long the "0 found" feedback stays on the scrape button after a scrape
 // that returned no rows.
 const ZERO_FOUND_FEEDBACK_MS = 1500
 
 interface ConfigFormProps {
+  /** The tab the form belongs to; `null` while there is none. */
+  tabId: number | null
+  /** Changes each time the panel has finished reading its stored state. */
+  storedConfigVersion: number
   config: ScrapeConfig
   onChange: (config: ScrapeConfig) => void
   onScrape: () => void
   onHighlight: (selector: string) => void
   onPickerMode: () => void
   isLoading: boolean
-  initialOptions: SelectionOptions | null
   presets: Preset[]
   onLoadPreset: (preset: Preset) => void
   onSavePreset: (name: string) => Promise<void>
@@ -88,6 +91,8 @@ interface ConfigFormProps {
 }
 
 export const ConfigForm: React.FC<ConfigFormProps> = ({
+  tabId,
+  storedConfigVersion,
   config,
   onChange,
   onScrape,
@@ -116,6 +121,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
   const [isSaveDrawerOpen, setIsSaveDrawerOpen] = useState(false)
   const [presetName, setPresetName] = useState('')
   const [isSaving, setIsSaving] = useState(false)
+  const notify = useShownToast()
   // State for Load Preset combobox
   const [isLoadPopoverOpen, setIsLoadPopoverOpen] = useState(false)
   const [search, setSearch] = useState('')
@@ -267,12 +273,20 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
    * Holding the timer lets those cases cancel a blur that no longer applies.
    */
   const blurCommitTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  /** The committed selector a pending blur was armed against; `null` when none is. */
+  const pendingBlurRef = useRef<string | null>(null)
+  /** A blur pending when a side panel tab was hidden, finished once it is shown. */
+  const heldBlurRef = useRef<{ committedAtBlur: string; storedVersion: number } | null>(null)
 
-  useEffect(() => () => clearTimeout(blurCommitTimerRef.current), [])
+  const cancelBlurCommit = () => {
+    clearTimeout(blurCommitTimerRef.current)
+    pendingBlurRef.current = null
+    heldBlurRef.current = null
+  }
 
   const commitMainSelector = (draft: string) => {
     // A blur commit still pending holds the draft from before this commit.
-    clearTimeout(blurCommitTimerRef.current)
+    cancelBlurCommit()
     const value = draft.trim()
     setMainSelectorDraft(value)
     const latest = latestConfigRef.current
@@ -305,9 +319,10 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
    * Guess the columns for the current selector.
    *
    * The button is disabled until the selector is non-blank, committed and
-   * validated, so the draft agrees with the config by the time this runs.
+   * validated, so the draft agrees with the config by the time this runs, and
+   * validating needs a tab, so one is attached.
    */
-  const handleGuessConfig = async () => {
+  const handleGuessConfig = () => {
     const selector = mainSelectorDraft.trim()
 
     // Track auto-generate config button press
@@ -315,35 +330,26 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
 
     setGuessButtonState('generating')
     try {
-      browser.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        const tab = tabs[0]
-        if (!tab?.id) {
-          setGuessButtonState('failure')
-          setTimeout(() => setGuessButtonState('idle'), 1500)
-          return
-        }
-        browser.tabs.sendMessage(
-          tab.id,
-          {
-            type: MESSAGE_TYPES.GUESS_CONFIG_FROM_SELECTOR,
-            payload: { mainSelector: selector },
-          },
-          (response) => {
-            if (response && response.success === true) {
-              setGuessButtonState('success')
-              setTimeout(() => setGuessButtonState('idle'), 1500)
-            } else {
-              setGuessButtonState('failure')
-              setTimeout(() => setGuessButtonState('idle'), 1500)
-            }
-          },
-        )
-      })
-    } catch {
+      browser.tabs.sendMessage(
+        tabId!,
+        { type: MESSAGE_TYPES.GUESS_CONFIG_FROM_SELECTOR, payload: { mainSelector: selector } },
+        (response) => {
+          setGuessButtonState(response?.success === true ? 'success' : 'failure')
+        },
+      )
+    } catch (error) {
+      log.error('Error asking for a guessed config:', error)
       setGuessButtonState('failure')
-      setTimeout(() => setGuessButtonState('idle'), 1500)
     }
   }
+
+  // An effect, so a result that lands while a side panel tab is hidden is
+  // still shown for its full time once the tab is shown again.
+  useEffect(() => {
+    if (guessButtonState !== 'success' && guessButtonState !== 'failure') return
+    const timer = setTimeout(() => setGuessButtonState('idle'), 1500)
+    return () => clearTimeout(timer)
+  }, [guessButtonState])
 
   // Save Preset handler. Both the Save button and the Enter shortcut in the
   // name field require a non-blank name, so there is nothing to re-check here.
@@ -353,7 +359,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
     setIsSaving(false)
     setPresetName('')
     setIsSaveDrawerOpen(false)
-    toast.success(
+    notify.success(
       <>
         Preset "<span className="ph_hidden">{presetName.trim()}</span>" saved
       </>,
@@ -420,52 +426,84 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
     // Drawers and dialogs restore focus to their trigger when they close, which
     // blurs the textarea; the user clicks straight back in and keeps typing, and
     // without this the pending timer closes the suggestions under them.
-    clearTimeout(blurCommitTimerRef.current)
+    cancelBlurCommit()
     // The flag only guards the cancelled commit; left set, it would skip the
     // next blur's.
     isSelectingFromAutosuggestRef.current = false
     openAutosuggest()
   }
 
-  // Handle main selector blur with delay to allow for clicks
-  const handleMainSelectorBlur = () => {
-    clearTimeout(blurCommitTimerRef.current)
-    const committedAtBlur = latestConfigRef.current.mainSelector
+  const finishBlurCommit = (committedAtBlur: string) => {
+    if (isSelectingFromAutosuggestRef.current) {
+      isSelectingFromAutosuggestRef.current = false
+      return
+    }
+
+    const active = document.activeElement as HTMLElement | null
+    const hasMovedIntoDropdown = !!(active && autosuggestRef.current?.contains(active))
+    if (hasMovedIntoDropdown) return
+
+    setIsAutosuggestOpen(false)
+    // The parent replaced the selector after the blur (preset load, tab
+    // switch, storage restore), so the draft belongs to the old one. A
+    // replacement with an identical selector is not detected.
+    if (latestConfigRef.current.mainSelector !== committedAtBlur) return
+    // Re-highlighting a validated selector scrolls the page back to its first
+    // match and replays the highlight. One without a result is highlighted
+    // again, which is how a failed highlight gets retried.
+    const value = mainSelectorDraft.trim()
+    const isValidatedAndUnchanged =
+      value === committedAtBlur.trim() &&
+      isMainSelectorValidated({
+        mainSelector: value,
+        hasUncommittedChanges: false,
+        ...latestHighlightRef.current,
+      })
+    if (isValidatedAndUnchanged) {
+      setMainSelectorDraft(value)
+      return
+    }
+    commitMainSelector(value)
+  }
+
+  const armBlurCommit = (committedAtBlur: string) => {
+    cancelBlurCommit()
+    pendingBlurRef.current = committedAtBlur
     blurCommitTimerRef.current = setTimeout(() => {
-      // Don't commit if we're selecting from autosuggest (mousedown was triggered)
-      if (isSelectingFromAutosuggestRef.current) {
-        isSelectingFromAutosuggestRef.current = false
-        return
-      }
-
-      // If focus moved into the autosuggest dropdown, keep it open
-      const active = document.activeElement as HTMLElement | null
-      const hasMovedIntoDropdown = !!(active && autosuggestRef.current?.contains(active))
-      if (hasMovedIntoDropdown) return
-
-      setIsAutosuggestOpen(false)
-      // The parent replaced the selector after the blur (preset load, tab
-      // switch, storage restore), so the draft belongs to the old one. A
-      // replacement with an identical selector is not detected.
-      if (latestConfigRef.current.mainSelector !== committedAtBlur) return
-      // Re-highlighting a validated selector scrolls the page back to its first
-      // match and replays the highlight. One without a result is highlighted
-      // again, which is how a failed highlight gets retried.
-      const value = mainSelectorDraft.trim()
-      const isValidatedAndUnchanged =
-        value === committedAtBlur.trim() &&
-        isMainSelectorValidated({
-          mainSelector: value,
-          hasUncommittedChanges: false,
-          ...latestHighlightRef.current,
-        })
-      if (isValidatedAndUnchanged) {
-        setMainSelectorDraft(value)
-        return
-      }
-      commitMainSelector(value)
+      pendingBlurRef.current = null
+      finishBlurCommit(committedAtBlur)
     }, 150)
   }
+
+  const handleMainSelectorBlur = () => armBlurCommit(latestConfigRef.current.mainSelector)
+
+  // Hiding a side panel tab runs effect cleanups and showing it runs the
+  // effects again. Switching tabs blurs the field, so a blur still waiting out
+  // its delay is held over the hide rather than dropped with the draft
+  // uncommitted. It finishes once the panel has re-read its storage on show,
+  // so the commit builds on config written while the tab was hidden.
+  const readStoredVersion = useEffectEvent(() => storedConfigVersion)
+
+  const finishHeldBlurCommit = useEffectEvent(() => {
+    const held = heldBlurRef.current
+    if (held === null || held.storedVersion === storedConfigVersion) return
+    heldBlurRef.current = null
+    finishBlurCommit(held.committedAtBlur)
+  })
+  useEffect(() => finishHeldBlurCommit(), [storedConfigVersion])
+
+  useEffect(
+    () => () => {
+      const committedAtBlur = pendingBlurRef.current
+      // Hidden again before the read on show landed: the earlier hold stands.
+      const held = heldBlurRef.current
+      cancelBlurCommit()
+      heldBlurRef.current =
+        committedAtBlur === null ? held : { committedAtBlur, storedVersion: readStoredVersion() }
+      setIsAutosuggestOpen(false)
+    },
+    [],
+  )
 
   const commitMainSelectorNow = (draft: string) => {
     mainSelectorInputRef.current?.blur()
@@ -1113,7 +1151,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  onClick={() => reportRejection(handleGuessConfig())}
+                  onClick={handleGuessConfig}
                   disabled={guessButtonState === 'generating' || !isMainSelectorValid}
                   aria-label="Auto-generate configuration from selector"
                 >

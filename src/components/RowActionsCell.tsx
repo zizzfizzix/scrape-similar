@@ -1,11 +1,11 @@
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useShownToast } from '@/hooks/use-shown-toast'
 import { ANALYTICS_EVENTS, trackEvent } from '@/utils/analytics'
 import { reportRejection } from '@/utils/report-rejection'
 import { rowToTsv } from '@/utils/tsv'
 import { Clipboard, Highlighter } from 'lucide-react'
 import React from 'react'
-import { toast } from 'sonner'
 
 interface RowActionsCellProps {
   row: ScrapedRow
@@ -24,6 +24,7 @@ export const RowActionsCell: React.FC<RowActionsCellProps> = ({
   onHighlight,
 }) => {
   const { isEmpty, originalIndex } = row.metadata
+  const notify = useShownToast()
 
   const highlightButton = (
     <Button
@@ -42,14 +43,14 @@ export const RowActionsCell: React.FC<RowActionsCellProps> = ({
     const tsvContent = rowToTsv(row, columnKeys)
     try {
       await navigator.clipboard.writeText(tsvContent)
-      toast.success('Copied row to clipboard')
+      notify.success('Copied row to clipboard')
       trackEvent(ANALYTICS_EVENTS.COPY_TO_CLIPBOARD_TRIGGER, {
         rows_copied: 1,
         columns_count: columnKeys.length,
         export_type: exportType,
       })
     } catch {
-      toast.error('Failed to copy')
+      notify.error('Failed to copy')
       trackEvent(ANALYTICS_EVENTS.COPY_TO_CLIPBOARD_FAILURE)
     }
   }

@@ -5,6 +5,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { useShownToast } from '@/hooks/use-shown-toast'
 import { ANALYTICS_EVENTS, trackEvent } from '@/utils/analytics'
 import {
   CSV_MIME_TYPE,
@@ -26,14 +27,14 @@ import { MESSAGE_TYPES } from '@/utils/types'
 import log from 'loglevel'
 import { ChevronsUpDown, Clipboard, FileDown, FileSpreadsheet, Sheet } from 'lucide-react'
 import React, { useEffect, useRef, useState } from 'react'
-import { toast } from 'sonner'
 
 interface ExportButtonsProps {
   scrapeResult: ScrapeResult
   config: ScrapeConfig
   showEmptyRows: boolean
   selectedRows?: ScrapedRow[]
-  filename?: string
+  /** Called at export time, so repeated exports get their own timestamp. */
+  buildFilename?: (now: Date) => string
   size?: 'sm' | 'default' | 'lg'
   variant?: 'default' | 'outline' | 'secondary' | 'ghost' | 'link' | 'destructive'
   className?: string
@@ -44,27 +45,35 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
   config,
   showEmptyRows,
   selectedRows,
-  filename,
+  buildFilename = defaultExportFilename,
   size = 'sm',
   variant = 'outline',
   className = '',
 }) => {
   const [isExporting, setIsExporting] = useState(false)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const notify = useShownToast()
 
-  /** Cancel the pending "export never replied" timer, if one is armed. */
-  const clearExportTimeout = () => {
-    clearTimeout(timeoutRef.current ?? undefined)
-    timeoutRef.current = null
-  }
+  const exportStartedAtRef = useRef(0)
 
-  // Cleanup timeout on unmount
+  // Reset the button if the background never replies (e.g. the service worker
+  // was torn down mid-export). An effect rather than a timer started on click,
+  // so a side panel tab hidden mid-export arms it again, for the time left,
+  // when shown.
   useEffect(() => {
-    return clearExportTimeout
-  }, [])
-
-  const exportFilename = filename || defaultExportFilename(new Date())
+    if (!isExporting) return
+    const elapsed = Date.now() - exportStartedAtRef.current
+    const timer = setTimeout(() => {
+      log.warn('🔥 ExportButtons: Export timeout - resetting button state')
+      setIsExporting(false)
+      setIsDropdownOpen(false)
+      notify.error('Export timed out - please try again')
+      trackEvent(ANALYTICS_EVENTS.EXPORT_TO_SHEETS_FAILURE, {
+        error: 'Export timeout',
+      })
+    }, SHEETS_EXPORT_TIMEOUT_MS - elapsed)
+    return () => clearTimeout(timer)
+  }, [isExporting, notify])
 
   const resolved = resolveExportRows({ scrapeResult, selectedRows, showEmptyRows })
   const dataToExport = resolved.rows
@@ -75,11 +84,12 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
 
   const handleGoogleSheetsExport = () => {
     if (!dataToExport.length) {
-      toast.error('No data to export')
+      notify.error('No data to export')
       return
     }
 
     log.debug('🔥 ExportButtons: Starting Google Sheets export')
+    exportStartedAtRef.current = Date.now()
     setIsExporting(true)
 
     // Track the export trigger immediately when user clicks, not dependent on success
@@ -91,7 +101,7 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
     const messagePayload = {
       type: MESSAGE_TYPES.EXPORT_TO_SHEETS,
       payload: {
-        filename: exportFilename,
+        filename: buildFilename(new Date()),
         scrapedData: dataToExport,
         columnOrder: scrapeResult.columnOrder,
         columnKeys: columnKeys,
@@ -100,26 +110,7 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
 
     log.debug('🔥 ExportButtons: Sending message:', messagePayload)
 
-    // Clear any existing timeout
-    clearExportTimeout()
-
-    // Reset the button if the background never replies (e.g. the service worker
-    // was torn down mid-export).
-    timeoutRef.current = setTimeout(() => {
-      log.warn('🔥 ExportButtons: Export timeout - resetting button state')
-      setIsExporting(false)
-      setIsDropdownOpen(false)
-      toast.error('Export timed out - please try again')
-      trackEvent(ANALYTICS_EVENTS.EXPORT_TO_SHEETS_FAILURE, {
-        error: 'Export timeout',
-      })
-      timeoutRef.current = null
-    }, SHEETS_EXPORT_TIMEOUT_MS)
-
     browser.runtime.sendMessage(messagePayload, (response) => {
-      // Clear the timeout since we got a response
-      clearExportTimeout()
-
       log.debug('🔥 ExportButtons: Received response:', response)
 
       // Always reset the exporting state
@@ -128,7 +119,7 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
 
       if (browser.runtime.lastError) {
         log.error('🔥 ExportButtons: Runtime error:', browser.runtime.lastError)
-        toast.error(`Connection error: ${browser.runtime.lastError.message}`)
+        notify.error(`Connection error: ${browser.runtime.lastError.message}`)
         trackEvent(ANALYTICS_EVENTS.EXPORT_TO_SHEETS_FAILURE, {
           error: browser.runtime.lastError.message,
         })
@@ -137,7 +128,7 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
 
       if (response?.success && response.url) {
         log.debug('🔥 ExportButtons: Export successful')
-        toast.success('Exported to Google Sheets', {
+        notify.success('Exported to Google Sheets', {
           description: (
             <span>
               <a
@@ -156,14 +147,14 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
 
       log.error('🔥 ExportButtons: Export failed - Full response:', response)
       const failure = describeSheetsExportFailure(response)
-      toast.error(failure.toast)
+      notify.error(failure.toast)
       trackEvent(ANALYTICS_EVENTS.EXPORT_TO_SHEETS_FAILURE, { error: failure.error })
     })
   }
 
   const handleCopyTsv = async () => {
     if (!dataToExport.length) {
-      toast.error('No data to copy')
+      notify.error('No data to copy')
       return
     }
 
@@ -176,10 +167,10 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
 
     try {
       await navigator.clipboard.writeText(rowsToTsv(dataToExport, columnKeys, columns))
-      toast.success('Copied to clipboard')
+      notify.success('Copied to clipboard')
       setIsDropdownOpen(false)
     } catch {
-      toast.error('Failed to copy')
+      notify.error('Failed to copy')
       setIsDropdownOpen(false)
       trackEvent(ANALYTICS_EVENTS.COPY_TO_CLIPBOARD_FAILURE)
     }
@@ -187,7 +178,7 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
 
   const handleCsvExport = () => {
     if (!dataToExport.length) {
-      toast.error('No data to export')
+      notify.error('No data to export')
       return
     }
 
@@ -199,11 +190,11 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
 
     try {
       const csv = rowsToCsv(dataToExport, columnKeys, columns)
-      downloadFile(csv, `${exportFilename}.csv`, CSV_MIME_TYPE)
-      toast.success('CSV file saved')
+      downloadFile(csv, `${buildFilename(new Date())}.csv`, CSV_MIME_TYPE)
+      notify.success('CSV file saved')
       setIsDropdownOpen(false)
     } catch (e) {
-      toast.error('Failed to save CSV')
+      notify.error('Failed to save CSV')
       setIsDropdownOpen(false)
       trackEvent(ANALYTICS_EVENTS.EXPORT_TO_CSV_FAILURE, {
         error: (e as Error).message,
@@ -213,7 +204,7 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
 
   const handleXlsxExport = async () => {
     if (!dataToExport.length) {
-      toast.error('No data to export')
+      notify.error('No data to export')
       return
     }
 
@@ -225,11 +216,11 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
 
     try {
       const buffer = await rowsToXlsxBuffer(dataToExport, columnKeys, columns)
-      downloadFile(buffer, `${exportFilename}.xlsx`, XLSX_MIME_TYPE)
-      toast.success('Excel file saved')
+      downloadFile(buffer, `${buildFilename(new Date())}.xlsx`, XLSX_MIME_TYPE)
+      notify.success('Excel file saved')
       setIsDropdownOpen(false)
     } catch (e) {
-      toast.error('Failed to save to Excel')
+      notify.error('Failed to save to Excel')
       setIsDropdownOpen(false)
       trackEvent(ANALYTICS_EVENTS.EXPORT_TO_XLSX_FAILURE, {
         error: (e as Error).message,

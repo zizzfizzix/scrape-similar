@@ -1,4 +1,5 @@
 import { subscribeWithBackfill } from '@/utils/storage-subscription'
+import log from 'loglevel'
 import { describe, expect, it, vi } from 'vitest'
 
 interface StoredValue {
@@ -116,5 +117,53 @@ describe('subscribeWithBackfill', () => {
 
     expect(onValue).not.toHaveBeenCalled()
     expect(unwatch).toHaveBeenCalledOnce()
+  })
+
+  it('reports catching up after the read, even when it found nothing', async () => {
+    const { source, finishRead } = makeSource()
+    const onCaughtUp = vi.fn()
+
+    subscribeWithBackfill(source, vi.fn(), onCaughtUp)
+    expect(onCaughtUp).not.toHaveBeenCalled()
+    await finishRead(null)
+
+    expect(onCaughtUp).toHaveBeenCalledOnce()
+  })
+
+  it('reports catching up after a newer watched value', async () => {
+    const { source, write, finishRead } = makeSource()
+    const onValue = vi.fn()
+    const onCaughtUp = vi.fn()
+
+    subscribeWithBackfill(source, onValue, onCaughtUp)
+    write({ label: 'newer' })
+    await finishRead({ label: 'older' })
+
+    expect(onValue).toHaveBeenCalledExactlyOnceWith({ label: 'newer' })
+    expect(onCaughtUp).toHaveBeenCalledOnce()
+  })
+
+  it('does not report catching up once unsubscribed', async () => {
+    const { source, finishRead } = makeSource()
+    const onCaughtUp = vi.fn()
+
+    subscribeWithBackfill(source, vi.fn(), onCaughtUp)()
+    await finishRead({ label: 'stored' })
+
+    expect(onCaughtUp).not.toHaveBeenCalled()
+  })
+
+  it('reports catching up after a read that failed', async () => {
+    const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
+    const onCaughtUp = vi.fn()
+
+    subscribeWithBackfill(
+      { watch: () => () => {}, read: () => Promise.reject(new Error('storage gone')) },
+      vi.fn(),
+      onCaughtUp,
+    )
+
+    await vi.waitFor(() => expect(onCaughtUp).toHaveBeenCalledOnce())
+    await vi.waitFor(() => expect(errorSpy).toHaveBeenCalled())
   })
 })
