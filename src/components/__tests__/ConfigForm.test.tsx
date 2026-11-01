@@ -186,7 +186,6 @@ describe('ConfigForm', () => {
     })
 
     it('does not highlight again when the field is left unchanged', async () => {
-      // #311: focusing and leaving the field re-highlighted the committed selector.
       vi.useFakeTimers()
       const onChange = vi.fn()
       const onHighlight = vi.fn()
@@ -217,6 +216,34 @@ describe('ConfigForm', () => {
       expect(onChange).not.toHaveBeenCalled()
       expect(onHighlight).not.toHaveBeenCalled()
       expect(mainSelectorInput().value).toBe('//tr')
+      vi.useRealTimers()
+    })
+
+    it('drops a blur commit when its parent replaces the selector first', async () => {
+      vi.useFakeTimers()
+      const onChange = vi.fn()
+      const onHighlight = vi.fn()
+      view = await render({ onChange, onHighlight })
+
+      fireEvent.change(mainSelectorInput(), { target: { value: '//li' } })
+      fireEvent.focusOut(mainSelectorInput())
+      view.rerender(
+        <TooltipProvider>
+          <ConfigForm
+            {...baseProps()}
+            onChange={onChange}
+            onHighlight={onHighlight}
+            config={{ ...config, mainSelector: '//section' }}
+          />
+        </TooltipProvider>,
+      )
+      act(() => {
+        vi.advanceTimersByTime(200)
+      })
+
+      expect(onChange).not.toHaveBeenCalled()
+      expect(onHighlight).not.toHaveBeenCalled()
+      expect(mainSelectorInput().value).toBe('//section')
       vi.useRealTimers()
     })
 
@@ -403,6 +430,31 @@ describe('ConfigForm', () => {
         await letTheBlurCommitFallDue()
 
         expect(onHighlight).toHaveBeenCalledTimes(1)
+      })
+
+      it('keeps a selector its parent sets right after validating', async () => {
+        const onChange = vi.fn()
+        const onHighlight = vi.fn()
+        view = await render({ onChange, onHighlight })
+        editSelector('//li')
+
+        await pressActionButton('Validate selector')
+        const replaced = { mainSelector: '//section', columns: [{ name: 'Other', selector: '.' }] }
+        view.rerender(
+          <TooltipProvider>
+            <ConfigForm
+              {...baseProps()}
+              onChange={onChange}
+              onHighlight={onHighlight}
+              config={replaced}
+            />
+          </TooltipProvider>,
+        )
+        await letTheBlurCommitFallDue()
+
+        expect(onChange).toHaveBeenCalledTimes(1)
+        expect(onHighlight).toHaveBeenCalledTimes(1)
+        expect(mainSelectorInput().value).toBe('//section')
       })
 
       it('scrapes a whitespace-only edit without highlighting again', async () => {

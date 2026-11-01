@@ -252,16 +252,23 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
     setBeginAdornmentWidth(beginAdornmentRef.current!.offsetWidth)
   }, [])
 
+  /**
+   * The blur handler defers so a click on a suggestion still lands, which means
+   * the input can be focused again - or the form gone - by the time it fires.
+   * Holding the timer lets those cases cancel a blur that no longer applies.
+   */
+  const blurCommitTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+  useEffect(() => () => clearTimeout(blurCommitTimerRef.current), [])
+
   const commitMainSelector = (draft: string) => {
+    // A blur commit still pending holds the draft from before this commit.
+    clearTimeout(blurCommitTimerRef.current)
     const value = draft.trim()
     setMainSelectorDraft(value)
     const latest = latestConfigRef.current
     if (value !== latest.mainSelector.trim()) {
-      const next = { ...latest, mainSelector: value }
-      // Written now rather than when the parent re-renders, so a blur commit
-      // already pending sees this one and does not repeat it.
-      latestConfigRef.current = next
-      onChange(next)
+      onChange({ ...latest, mainSelector: value })
     }
     if (value) {
       onHighlight(value)
@@ -387,15 +394,6 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
     mainSelectorInputRef.current?.focus()
   }
 
-  /**
-   * The blur handler defers so a click on a suggestion still lands, which means
-   * the input can be focused again - or the form gone - by the time it fires.
-   * Holding the timer lets those cases cancel a blur that no longer applies.
-   */
-  const blurCommitTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-
-  useEffect(() => () => clearTimeout(blurCommitTimerRef.current), [])
-
   // Opening never carries a selection over from the last time the list was
   // open; the arrow-key handlers below move off -1 once it is open. Refocusing
   // or typing into an already-open list is not an opening, and leaves the
@@ -423,6 +421,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
   // Handle main selector blur with delay to allow for clicks
   const handleMainSelectorBlur = () => {
     clearTimeout(blurCommitTimerRef.current)
+    const committedAtBlur = latestConfigRef.current.mainSelector
     blurCommitTimerRef.current = setTimeout(() => {
       // Don't commit if we're selecting from autosuggest (mousedown was triggered)
       if (isSelectingFromAutosuggestRef.current) {
@@ -436,10 +435,13 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
       if (hasMovedIntoDropdown) return
 
       setIsAutosuggestOpen(false)
+      // A preset load, tab switch or storage restore since the blur replaced
+      // the selector this draft was edited from.
+      if (latestConfigRef.current.mainSelector !== committedAtBlur) return
       // Committing an unchanged selector highlights the page again and resets
       // the match count while it re-validates.
       const value = mainSelectorDraft.trim()
-      if (value === latestConfigRef.current.mainSelector.trim()) {
+      if (value === committedAtBlur.trim()) {
         setMainSelectorDraft(value)
         return
       }
