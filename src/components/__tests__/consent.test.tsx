@@ -77,6 +77,34 @@ describe('ConsentProvider', () => {
     expect(probeText()).toBe(JSON.stringify({ loading: false }))
   })
 
+  it('keeps a decision written while the first read is still pending', async () => {
+    let resolveRead!: (value: boolean) => void
+    vi.spyOn(analyticsConsentItem, 'getValue').mockReturnValueOnce(
+      new Promise((resolve) => (resolveRead = resolve)),
+    )
+    view = renderComponent(withProvider(<Probe />))
+
+    await act(async () => {
+      await storage.setItem(consentKey, true)
+      await flushWatchers()
+    })
+    await act(async () => resolveRead(false))
+
+    expect(probeText()).toBe(JSON.stringify({ loading: false, state: true }))
+  })
+
+  it('returns to undecided when the stored decision is removed', async () => {
+    await storage.setItem(consentKey, true)
+    view = await render(withProvider(<Probe />))
+
+    await act(async () => {
+      await storage.removeItem(consentKey)
+      await flushWatchers()
+    })
+
+    expect(probeText()).toBe(JSON.stringify({ loading: false }))
+  })
+
   it('persists a decision made through the context', async () => {
     view = await render(withProvider(<Probe />))
 

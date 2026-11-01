@@ -276,6 +276,24 @@ describe('the autosuggest dropdown', () => {
 
       await waitFor(() => expect(suggestionItems()).toHaveLength(0))
     })
+
+    it('keeps a recent written while the first read is still pending', async () => {
+      let resolveRead!: (value: string[]) => void
+      vi.spyOn(recentMainSelectorsItem, 'getValue').mockReturnValueOnce(
+        new Promise((resolve) => (resolveRead = resolve)),
+      )
+      view = await render({ presets: [] })
+
+      await act(async () => {
+        await storage.setItem(recentMainSelectorsItem.key, ['//fresh'])
+        await new Promise((resolve) => setTimeout(resolve, 0))
+      })
+      await act(async () => resolveRead([]))
+      await focusField()
+
+      await waitFor(() => expect(suggestionItems()).toHaveLength(1))
+      expect(suggestionItems()[0]!.textContent).toContain('//fresh')
+    })
   })
 
   describe('choosing the highlighted entry with Enter', () => {

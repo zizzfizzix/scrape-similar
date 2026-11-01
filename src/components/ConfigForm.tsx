@@ -469,14 +469,18 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
   // Recent selectors state
   const [recentSelectors, setRecentSelectors] = useState<string[]>([])
 
-  useEffect(() => {
-    getRecentMainSelectors().then(setRecentSelectors)
-  }, [])
-
-  // Watch local storage for recents updates and refresh state
-  useEffect(() => {
-    return recentMainSelectorsItem.watch((list) => setRecentSelectors(toSelectorList(list)))
-  }, [])
+  useEffect(
+    () =>
+      subscribeWithBackfill(
+        {
+          watch: (onChange) =>
+            recentMainSelectorsItem.watch((list) => onChange(toSelectorList(list))),
+          read: getRecentMainSelectors,
+        },
+        setRecentSelectors,
+      ),
+    [],
+  )
 
   const recentSuggestions = React.useMemo(
     () => filterRecentSelectors(recentSelectors, presets, mainSelectorDraft || ''),
