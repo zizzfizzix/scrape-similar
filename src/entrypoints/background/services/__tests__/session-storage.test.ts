@@ -182,8 +182,13 @@ describe('clearSessionState', () => {
     const failure = new Error('storage unavailable')
     vi.spyOn(fakeBrowser.storage.session, 'remove').mockRejectedValueOnce(failure)
 
+    const item = sidePanelConfigItem(9)
+    const mutex = getStorageMutex(item.key)
+
     await expect(clearSessionState(9)).resolves.toBeUndefined()
 
     expect(errorSpy).toHaveBeenCalledWith('Error clearing session state for tab 9:', failure)
+    expect(sidePanelConfigItem(9)).not.toBe(item)
+    expect(getStorageMutex(item.key)).not.toBe(mutex)
   })
 })

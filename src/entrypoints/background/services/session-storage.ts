@@ -70,15 +70,16 @@ export const initializeSessionState = async (tabId: number): Promise<void> => {
  * Clear session state for a tab
  */
 export const clearSessionState = async (tabId: number): Promise<void> => {
+  const item = sidePanelConfigItem(tabId)
   try {
-    const item = sidePanelConfigItem(tabId)
     // Under the mutex, so an update still in flight lands before the removal
     // instead of re-creating the closed tab's config after it.
     await getStorageMutex(item.key).runExclusive(() => item.removeValue())
-    sidePanelConfigItem.forget(tabId)
-    forgetStorageMutex(item.key)
     log.debug(`Cleared session state for tab ${tabId}`)
   } catch (error) {
     log.error(`Error clearing session state for tab ${tabId}:`, error)
+  } finally {
+    sidePanelConfigItem.forget(tabId)
+    forgetStorageMutex(item.key)
   }
 }
