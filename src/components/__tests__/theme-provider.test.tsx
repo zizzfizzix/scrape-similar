@@ -109,7 +109,7 @@ describe('ThemeProvider', () => {
     )
 
     await expectTheme('light')
-    expect(document.documentElement).toHaveClass('light')
+    expect(document.documentElement.className).toBe('light')
   })
 
   it('replaces the previous theme class rather than stacking', async () => {
@@ -140,7 +140,7 @@ describe('ThemeProvider', () => {
     )
 
     await expectTheme('dark')
-    expect(root).toHaveClass('dark')
+    expect(root.className).toBe('dark')
     expect(document.documentElement.className).toBe('')
   })
 

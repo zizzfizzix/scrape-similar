@@ -26,7 +26,7 @@ const ThemeProviderContext = createContext<ThemeProviderState>(initialState)
 const isTheme = (value: unknown): value is Theme =>
   value === 'light' || value === 'dark' || value === 'system'
 
-const applyTheme = (rootElement: Element | null | undefined, theme: 'light' | 'dark') => {
+const applyTheme = (rootElement: Element | null | undefined, theme: Exclude<Theme, 'system'>) => {
   const root = rootElement ?? document.documentElement
   root.classList.remove('light', 'dark')
   root.classList.add(theme)
@@ -36,11 +36,14 @@ export function ThemeProvider({ children, rootElement, ...props }: ThemeProvider
   const [storedTheme, setStoredTheme] = useStorageItem(themeItem)
   const theme = isTheme(storedTheme) ? storedTheme : themeItem.fallback
 
-  // Both effects are layout effects so the class is set in the same commit
-  // that changes the theme; a passive effect can run after a frame has been
-  // painted with the new theme and the previous class.
+  // A layout effect sets the class in the same commit that changes the theme;
+  // a passive effect can run after a frame has been painted with the new theme
+  // and the previous class.
   useLayoutEffect(() => {
-    if (theme !== 'system') return
+    if (theme !== 'system') {
+      applyTheme(rootElement, theme)
+      return
+    }
 
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
     const handleChange = () => applyTheme(rootElement, mediaQuery.matches ? 'dark' : 'light')
@@ -51,11 +54,6 @@ export function ThemeProvider({ children, rootElement, ...props }: ThemeProvider
     return () => {
       mediaQuery.removeEventListener('change', handleChange)
     }
-  }, [theme, rootElement])
-
-  useLayoutEffect(() => {
-    if (theme === 'system') return
-    applyTheme(rootElement, theme)
   }, [theme, rootElement])
 
   const value = {
