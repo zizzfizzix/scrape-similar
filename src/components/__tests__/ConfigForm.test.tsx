@@ -223,6 +223,24 @@ describe('ConfigForm', () => {
       vi.useRealTimers()
     })
 
+    it('does not highlight again when the result arrives before the blur commits', async () => {
+      vi.useFakeTimers()
+      const onHighlight = vi.fn()
+      view = await render({ onHighlight, highlightMatchCount: undefined })
+
+      fireEvent.focusOut(mainSelectorInput())
+      view.rerender(
+        <TooltipProvider>
+          <ConfigForm {...baseProps()} onHighlight={onHighlight} highlightMatchCount={3} />
+        </TooltipProvider>,
+      )
+      act(() => {
+        vi.advanceTimersByTime(200)
+      })
+
+      expect(onHighlight).not.toHaveBeenCalled()
+    })
+
     it('trims a whitespace-only edit on blur without highlighting again', async () => {
       vi.useFakeTimers()
       const onChange = vi.fn()

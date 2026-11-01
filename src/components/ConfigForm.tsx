@@ -145,6 +145,12 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
     latestConfigRef.current = config
   }, [config])
 
+  // A highlight result can arrive between a blur and its deferred commit.
+  const latestHighlightRef = useRef({ highlightMatchCount, highlightError })
+  useEffect(() => {
+    latestHighlightRef.current = { highlightMatchCount, highlightError }
+  }, [highlightMatchCount, highlightError])
+
   /**
    * Local draft state for the main selector input. We keep the user’s typing
    * here and only propagate it to the parent (handleConfigChange) when the
@@ -439,11 +445,18 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
       // switch, storage restore), so the draft belongs to the old one. A
       // replacement with an identical selector is not detected.
       if (latestConfigRef.current.mainSelector !== committedAtBlur) return
-      // Re-highlighting a validated selector resets its match count while it
-      // re-validates. One without a result is highlighted again, which is how
-      // a failed highlight gets retried.
+      // Re-highlighting a validated selector scrolls the page back to its first
+      // match and replays the highlight. One without a result is highlighted
+      // again, which is how a failed highlight gets retried.
       const value = mainSelectorDraft.trim()
-      if (value === committedAtBlur.trim() && isMainSelectorValid) {
+      const isValidatedAndUnchanged =
+        value === committedAtBlur.trim() &&
+        isMainSelectorValidated({
+          mainSelector: value,
+          hasUncommittedChanges: false,
+          ...latestHighlightRef.current,
+        })
+      if (isValidatedAndUnchanged) {
         setMainSelectorDraft(value)
         return
       }
