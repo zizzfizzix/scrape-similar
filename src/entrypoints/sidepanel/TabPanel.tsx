@@ -257,6 +257,7 @@ export const TabPanel = memo(function TabPanel({
     <main className="flex-1 overflow-y-auto p-4 w-full min-w-0 box-border">
       <div className="flex flex-col gap-10 w-full min-w-0 box-border">
         <ConfigForm
+          tabId={tabId}
           config={config}
           onChange={handleConfigChange}
           onScrape={handleScrape}

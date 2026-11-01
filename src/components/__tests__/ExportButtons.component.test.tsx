@@ -437,7 +437,7 @@ describe('ExportButtons', () => {
       vi.useRealTimers()
     })
 
-    it('still gives up after being hidden and shown again mid-export', async () => {
+    it('gives up on time when hidden and shown again mid-export', async () => {
       vi.useFakeTimers()
       spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockImplementation(
         () => new Promise(() => {}),
@@ -452,12 +452,13 @@ describe('ExportButtons', () => {
 
       view.rerender(inPanel('hidden'))
       await act(() => {
-        vi.advanceTimersByTime(SHEETS_EXPORT_TIMEOUT_MS)
+        vi.advanceTimersByTime(SHEETS_EXPORT_TIMEOUT_MS - 1000)
       })
-      expect(toastMocks.toast.error).not.toHaveBeenCalled()
       view.rerender(inPanel('visible'))
+      expect(toastMocks.toast.error).not.toHaveBeenCalled()
+      // Only the time left runs once shown, not a fresh timeout.
       await act(() => {
-        vi.advanceTimersByTime(SHEETS_EXPORT_TIMEOUT_MS)
+        vi.advanceTimersByTime(1000)
       })
 
       expect(toastMocks.toast.error).toHaveBeenCalledWith('Export timed out - please try again')

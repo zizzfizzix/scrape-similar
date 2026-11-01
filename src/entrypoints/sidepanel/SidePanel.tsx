@@ -213,8 +213,9 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
     }
   }, [])
 
-  // Presets are shared by every tab; this also follows changes made from
-  // another extension page (a preset saved or a system preset hidden).
+  // Presets are shared by every tab. The watchers pick up every change, made
+  // here or from another extension page, so the handlers below only write;
+  // reloading in both places would re-render every live panel twice.
   useEffect(() => {
     reloadPresets()
     const unwatchUserPresets = userPresetsItem.watch(reloadPresets)
@@ -237,7 +238,6 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
     // is not something that can reach here.
     const isSaved = await savePreset(preset)
     if (isSaved) {
-      setPresets(await getAllPresets())
       log.debug('Preset saved successfully and UI updated')
       trackEvent(ANALYTICS_EVENTS.PRESET_SAVE, {
         type: 'user',
@@ -255,7 +255,6 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
       statusMap[preset.id] = false
       await setSystemPresetStatus(statusMap)
       toast.success(`System preset "${preset.name}" hidden.`)
-      setPresets(await getAllPresets())
       trackEvent(ANALYTICS_EVENTS.PRESET_HIDE, {
         type: 'system',
         preset_name: preset.name,
@@ -266,7 +265,6 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
     // `deletePreset` reports a storage failure as `false` rather than rejecting.
     const isDeleted = await deletePreset(preset.id)
     if (isDeleted) {
-      setPresets(await getAllPresets())
       toast.success(
         <>
           Preset "<span className="ph_hidden">{preset.name}</span>" deleted
@@ -286,7 +284,6 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
 
   const handleResetSystemPresets = async () => {
     await setSystemPresetStatus({})
-    setPresets(await getAllPresets())
     toast.success('System presets have been reset')
     trackEvent(ANALYTICS_EVENTS.SYSTEM_PRESETS_RESET, {
       type: 'system',

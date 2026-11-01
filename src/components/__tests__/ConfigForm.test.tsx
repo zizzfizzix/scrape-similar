@@ -51,6 +51,7 @@ const config: ScrapeConfig = {
 type ConfigFormProps = Parameters<typeof ConfigForm>[0]
 
 const baseProps = (): ConfigFormProps => ({
+  tabId: 4,
   config,
   onChange: () => {},
   onScrape: () => {},
@@ -631,33 +632,14 @@ describe('ConfigForm', () => {
         },
       )
 
-    const activeTabs = (tabs: Browser.tabs.Tab[]) =>
-      spyOnBrowser(fakeBrowser.tabs, 'query').mockImplementation(
-        (_query: unknown, callback?: (found: Browser.tabs.Tab[]) => void) => {
-          callback?.(tabs)
-          return Promise.resolve(tabs)
-        },
-      )
-
     const guessButton = () => button('Auto-generate configuration from selector')
 
-    it('asks the content script to guess from the current selector', async () => {
-      const sendMessage = spyOnBrowser(fakeBrowser.tabs, 'sendMessage').mockImplementation(
-        (_tabId: number, _message: unknown, callback?: (r: unknown) => void) => {
-          callback?.({ success: true })
-          return Promise.resolve({ success: true })
-        },
-      )
-      spyOnBrowser(fakeBrowser.tabs, 'query').mockImplementation(
-        (_query: unknown, callback?: (tabs: Browser.tabs.Tab[]) => void) => {
-          callback?.([{ id: 4 } as Browser.tabs.Tab])
-          return Promise.resolve([{ id: 4 } as Browser.tabs.Tab])
-        },
-      )
+    it('asks its own tab’s content script to guess from the current selector', async () => {
+      const sendMessage = contentScriptReplies({ success: true })
       view = await render()
 
       await act(async () => {
-        button('Auto-generate configuration from selector').click()
+        guessButton().click()
         await Promise.resolve()
       })
 
@@ -670,13 +652,13 @@ describe('ConfigForm', () => {
     })
 
     it('is not offered without a selector to guess from', async () => {
-      const query = spyOnBrowser(fakeBrowser.tabs, 'query')
+      const sendMessage = spyOnBrowser(fakeBrowser.tabs, 'sendMessage')
       view = await render({ config: { ...config, mainSelector: '' } })
 
       expect(guessButton().disabled).toBe(true)
       await userEvent.click(guessButton())
 
-      expect(query).not.toHaveBeenCalled()
+      expect(sendMessage).not.toHaveBeenCalled()
     })
 
     it('is not offered while the selector is still uncommitted', async () => {
@@ -690,7 +672,6 @@ describe('ConfigForm', () => {
     it('shows the success state and settles back to idle', async () => {
       vi.useFakeTimers()
       contentScriptReplies({ success: true })
-      activeTabs([{ id: 4 } as Browser.tabs.Tab])
       view = await render()
 
       await act(async () => {
@@ -710,35 +691,6 @@ describe('ConfigForm', () => {
 
     it('shows the failure state when the content script refuses', async () => {
       contentScriptReplies({ success: false })
-      activeTabs([{ id: 4 } as Browser.tabs.Tab])
-      view = await render()
-
-      await act(async () => {
-        guessButton().click()
-        await Promise.resolve()
-      })
-
-      expect(guessButton().querySelector('.lucide-x')).not.toBeNull()
-    })
-
-    it('shows the failure state when there is no active tab', async () => {
-      const sendMessage = spyOnBrowser(fakeBrowser.tabs, 'sendMessage')
-      activeTabs([])
-      view = await render()
-
-      await act(async () => {
-        guessButton().click()
-        await Promise.resolve()
-      })
-
-      expect(sendMessage).not.toHaveBeenCalled()
-      expect(guessButton().querySelector('.lucide-x')).not.toBeNull()
-    })
-
-    it('shows the failure state when the query itself throws', async () => {
-      spyOnBrowser(fakeBrowser.tabs, 'query').mockImplementation(() => {
-        throw new Error('no tabs permission')
-      })
       view = await render()
 
       await act(async () => {
@@ -751,9 +703,9 @@ describe('ConfigForm', () => {
 
     it('spins and stays disabled while the guess is in flight', async () => {
       let release: (() => void) | undefined
-      spyOnBrowser(fakeBrowser.tabs, 'query').mockImplementation(
-        (_query: unknown, callback?: (found: Browser.tabs.Tab[]) => void) => {
-          release = () => callback?.([])
+      spyOnBrowser(fakeBrowser.tabs, 'sendMessage').mockImplementation(
+        (_tabId: number, _message: unknown, callback?: (r: unknown) => void) => {
+          release = () => callback?.({ success: true })
           return new Promise(() => {})
         },
       )
@@ -773,7 +725,6 @@ describe('ConfigForm', () => {
     it('settles a failed guess back to idle', async () => {
       vi.useFakeTimers()
       contentScriptReplies({ success: false })
-      activeTabs([{ id: 4 } as Browser.tabs.Tab])
       view = await render()
 
       await act(async () => {
@@ -781,44 +732,6 @@ describe('ConfigForm', () => {
         await Promise.resolve()
       })
       expect(guessButton().querySelector('.lucide-x')).not.toBeNull()
-
-      await act(() => {
-        vi.advanceTimersByTime(1500)
-      })
-
-      expect(guessButton().querySelector('.lucide-wand')).not.toBeNull()
-      vi.useRealTimers()
-    })
-
-    it('settles back to idle after there was no tab', async () => {
-      vi.useFakeTimers()
-      activeTabs([])
-      view = await render()
-
-      await act(async () => {
-        guessButton().click()
-        await Promise.resolve()
-      })
-
-      await act(() => {
-        vi.advanceTimersByTime(1500)
-      })
-
-      expect(guessButton().querySelector('.lucide-wand')).not.toBeNull()
-      vi.useRealTimers()
-    })
-
-    it('settles back to idle after the query threw', async () => {
-      vi.useFakeTimers()
-      spyOnBrowser(fakeBrowser.tabs, 'query').mockImplementation(() => {
-        throw new Error('no tabs permission')
-      })
-      view = await render()
-
-      await act(async () => {
-        guessButton().click()
-        await Promise.resolve()
-      })
 
       await act(() => {
         vi.advanceTimersByTime(1500)

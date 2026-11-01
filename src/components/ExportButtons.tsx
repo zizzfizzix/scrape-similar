@@ -26,7 +26,7 @@ import type { ScrapeConfig, ScrapedRow, ScrapeResult } from '@/utils/types'
 import { MESSAGE_TYPES } from '@/utils/types'
 import log from 'loglevel'
 import { ChevronsUpDown, Clipboard, FileDown, FileSpreadsheet, Sheet } from 'lucide-react'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 
 interface ExportButtonsProps {
   scrapeResult: ScrapeResult
@@ -54,11 +54,15 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const notify = useShownToast()
 
+  const exportStartedAtRef = useRef(0)
+
   // Reset the button if the background never replies (e.g. the service worker
   // was torn down mid-export). An effect rather than a timer started on click,
-  // so a side panel tab hidden mid-export arms it again when shown.
+  // so a side panel tab hidden mid-export arms it again, for the time left,
+  // when shown.
   useEffect(() => {
     if (!isExporting) return
+    const elapsed = Date.now() - exportStartedAtRef.current
     const timer = setTimeout(() => {
       log.warn('🔥 ExportButtons: Export timeout - resetting button state')
       setIsExporting(false)
@@ -67,7 +71,7 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
       trackEvent(ANALYTICS_EVENTS.EXPORT_TO_SHEETS_FAILURE, {
         error: 'Export timeout',
       })
-    }, SHEETS_EXPORT_TIMEOUT_MS)
+    }, SHEETS_EXPORT_TIMEOUT_MS - elapsed)
     return () => clearTimeout(timer)
   }, [isExporting, notify])
 
@@ -85,6 +89,7 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
     }
 
     log.debug('🔥 ExportButtons: Starting Google Sheets export')
+    exportStartedAtRef.current = Date.now()
     setIsExporting(true)
 
     // Track the export trigger immediately when user clicks, not dependent on success

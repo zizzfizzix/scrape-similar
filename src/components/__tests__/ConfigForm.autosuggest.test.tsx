@@ -42,6 +42,7 @@ const config: ScrapeConfig = {
 type ConfigFormProps = Parameters<typeof ConfigForm>[0]
 
 const baseProps = (): ConfigFormProps => ({
+  tabId: 4,
   config,
   onChange: () => {},
   onScrape: () => {},

@@ -22,6 +22,7 @@ import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Textarea } from '@/components/ui/textarea'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useShownToast } from '@/hooks/use-shown-toast'
 import {
   buildSuggestionIds,
   filterPresetsByQuery,
@@ -59,13 +60,14 @@ import {
   X,
 } from 'lucide-react'
 import React, { useEffect, useRef, useState } from 'react'
-import { toast } from 'sonner'
 
 // How long the "0 found" feedback stays on the scrape button after a scrape
 // that returned no rows.
 const ZERO_FOUND_FEEDBACK_MS = 1500
 
 interface ConfigFormProps {
+  /** The tab the form belongs to; `null` while there is none. */
+  tabId: number | null
   config: ScrapeConfig
   onChange: (config: ScrapeConfig) => void
   onScrape: () => void
@@ -87,6 +89,7 @@ interface ConfigFormProps {
 }
 
 export const ConfigForm: React.FC<ConfigFormProps> = ({
+  tabId,
   config,
   onChange,
   onScrape,
@@ -115,6 +118,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
   const [isSaveDrawerOpen, setIsSaveDrawerOpen] = useState(false)
   const [presetName, setPresetName] = useState('')
   const [isSaving, setIsSaving] = useState(false)
+  const notify = useShownToast()
   // State for Load Preset combobox
   const [isLoadPopoverOpen, setIsLoadPopoverOpen] = useState(false)
   const [search, setSearch] = useState('')
@@ -312,44 +316,24 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
    * Guess the columns for the current selector.
    *
    * The button is disabled until the selector is non-blank, committed and
-   * validated, so the draft agrees with the config by the time this runs.
+   * validated, so the draft agrees with the config by the time this runs, and
+   * validating needs a tab, so one is attached.
    */
-  const handleGuessConfig = async () => {
+  const handleGuessConfig = () => {
     const selector = mainSelectorDraft.trim()
 
     // Track auto-generate config button press
     trackEvent(ANALYTICS_EVENTS.AUTO_GENERATE_CONFIG_BUTTON_PRESS)
 
     setGuessButtonState('generating')
-    try {
-      browser.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        const tab = tabs[0]
-        if (!tab?.id) {
-          setGuessButtonState('failure')
-          setTimeout(() => setGuessButtonState('idle'), 1500)
-          return
-        }
-        browser.tabs.sendMessage(
-          tab.id,
-          {
-            type: MESSAGE_TYPES.GUESS_CONFIG_FROM_SELECTOR,
-            payload: { mainSelector: selector },
-          },
-          (response) => {
-            if (response && response.success === true) {
-              setGuessButtonState('success')
-              setTimeout(() => setGuessButtonState('idle'), 1500)
-            } else {
-              setGuessButtonState('failure')
-              setTimeout(() => setGuessButtonState('idle'), 1500)
-            }
-          },
-        )
-      })
-    } catch {
-      setGuessButtonState('failure')
-      setTimeout(() => setGuessButtonState('idle'), 1500)
-    }
+    browser.tabs.sendMessage(
+      tabId!,
+      { type: MESSAGE_TYPES.GUESS_CONFIG_FROM_SELECTOR, payload: { mainSelector: selector } },
+      (response) => {
+        setGuessButtonState(response?.success === true ? 'success' : 'failure')
+        setTimeout(() => setGuessButtonState('idle'), 1500)
+      },
+    )
   }
 
   // Save Preset handler. Both the Save button and the Enter shortcut in the
@@ -360,7 +344,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
     setIsSaving(false)
     setPresetName('')
     setIsSaveDrawerOpen(false)
-    toast.success(
+    notify.success(
       <>
         Preset "<span className="ph_hidden">{presetName.trim()}</span>" saved
       </>,
@@ -1120,7 +1104,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  onClick={() => reportRejection(handleGuessConfig())}
+                  onClick={handleGuessConfig}
                   disabled={guessButtonState === 'generating' || !isMainSelectorValid}
                   aria-label="Auto-generate configuration from selector"
                 >
