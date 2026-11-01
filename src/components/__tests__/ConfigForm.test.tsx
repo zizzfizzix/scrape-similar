@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { ConfigForm } from '@/components/ConfigForm'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import { ANALYTICS_EVENTS } from '@/utils/analytics'
+import { ANALYTICS_EVENTS, SCRAPE_TRIGGERS } from '@/utils/analytics'
 import { setRecentMainSelectors, userPresetsItem } from '@/utils/storage'
 import { SYSTEM_PRESETS } from '@/utils/system_presets'
 import { type Preset, type ScrapeConfig } from '@/utils/types'
@@ -357,7 +357,9 @@ describe('ConfigForm', () => {
       await userEvent.click(byText('Scrape'))
 
       expect(onScrape).toHaveBeenCalled()
-      expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.SCRAPE_BUTTON_PRESS)
+      expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.SCRAPE_BUTTON_PRESS, {
+        trigger: SCRAPE_TRIGGERS.BUTTON,
+      })
     })
 
     it('offers to validate instead while the selector is unsaved', async () => {
@@ -410,7 +412,10 @@ describe('ConfigForm', () => {
         expect(onScrape).not.toHaveBeenCalled()
         expect(onHighlight).toHaveBeenCalledWith('//li')
         expect(onChange).toHaveBeenCalledWith({ ...config, mainSelector: '//li' })
-        expect(trackEvent).not.toHaveBeenCalledWith(ANALYTICS_EVENTS.SCRAPE_BUTTON_PRESS)
+        expect(trackEvent).not.toHaveBeenCalledWith(
+          ANALYTICS_EVENTS.SCRAPE_BUTTON_PRESS,
+          expect.anything(),
+        )
       })
 
       it('validates on a press held past the blur commit delay', async () => {
@@ -516,7 +521,9 @@ describe('ConfigForm', () => {
         await pressActionButton('Scrape')
 
         expect(onScrape).toHaveBeenCalled()
-        expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.SCRAPE_BUTTON_PRESS)
+        expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.SCRAPE_BUTTON_PRESS, {
+          trigger: SCRAPE_TRIGGERS.BUTTON,
+        })
       })
     })
 

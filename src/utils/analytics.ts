@@ -117,6 +117,17 @@ export const ANALYTICS_EVENTS = {
 } as const
 
 /**
+ * Values of the `trigger` property on `SCRAPE_BUTTON_PRESS`. The event keeps
+ * its name for keyboard scrapes so existing reports still count every scrape.
+ */
+export const SCRAPE_TRIGGERS = {
+  BUTTON: 'button',
+  KEYBOARD: 'keyboard',
+} as const
+
+export type ScrapeTrigger = (typeof SCRAPE_TRIGGERS)[keyof typeof SCRAPE_TRIGGERS]
+
+/**
  * The awaitable half of `trackEvent`, exported for the tests that assert on
  * where an event ended up. Production code calls `trackEvent`.
  *

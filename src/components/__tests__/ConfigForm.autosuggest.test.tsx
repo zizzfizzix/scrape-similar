@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { ConfigForm } from '@/components/ConfigForm'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { ANALYTICS_EVENTS, SCRAPE_TRIGGERS } from '@/utils/analytics'
 import { getRecentMainSelectors, setRecentMainSelectors, userPresetsItem } from '@/utils/storage'
 import type { Preset, ScrapeConfig } from '@/utils/types'
 import { setLastError } from '@@/tests/support/fake-browser'
@@ -615,6 +616,10 @@ describe('the autosuggest dropdown', () => {
 
       await waitFor(() => expect(onHighlight).toHaveBeenCalledWith('//h1'))
       expect(onScrape).not.toHaveBeenCalled()
+      expect(trackEvent).not.toHaveBeenCalledWith(
+        ANALYTICS_EVENTS.SCRAPE_BUTTON_PRESS,
+        expect.anything(),
+      )
     })
 
     describe('while an IME is composing', () => {
@@ -720,6 +725,9 @@ describe('the autosuggest dropdown', () => {
 
       expect(onScrape).toHaveBeenCalledTimes(1)
       expect(onHighlight).not.toHaveBeenCalled()
+      expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.SCRAPE_BUTTON_PRESS, {
+        trigger: SCRAPE_TRIGGERS.KEYBOARD,
+      })
     })
 
     it('keeps focus on a field the user went back to after Enter', async () => {

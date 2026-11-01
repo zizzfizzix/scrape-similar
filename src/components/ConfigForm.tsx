@@ -469,7 +469,8 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
     commitMainSelector(draft)
   }
 
-  const scrapeCommittedMainSelector = () => {
+  const scrapeCommittedMainSelector = (trigger: ScrapeTrigger) => {
+    trackEvent(ANALYTICS_EVENTS.SCRAPE_BUTTON_PRESS, { trigger })
     setIsAutosuggestOpen(false)
     setMainSelectorDraft(trimmedDraft)
     onScrape()
@@ -488,8 +489,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
       return
     }
 
-    trackEvent(ANALYTICS_EVENTS.SCRAPE_BUTTON_PRESS)
-    scrapeCommittedMainSelector()
+    scrapeCommittedMainSelector(SCRAPE_TRIGGERS.BUTTON)
   }
 
   // Keeps focus in the textarea while the button reads "Validate selector".
@@ -616,7 +616,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
       if (!trimmedDraft) return
 
       if (isMainSelectorValid) {
-        scrapeCommittedMainSelector()
+        scrapeCommittedMainSelector(SCRAPE_TRIGGERS.KEYBOARD)
       } else {
         commitMainSelectorNow(trimmedDraft)
       }
