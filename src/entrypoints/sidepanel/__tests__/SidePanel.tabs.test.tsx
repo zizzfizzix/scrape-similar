@@ -660,7 +660,7 @@ describe('presets', () => {
     })
   }
 
-  /** `getAllPresets` is the only reader of the status key, so this counts list loads. */
+  /** Outside hiding a system preset, only `getAllPresets` reads the status key, so this counts list loads. */
   const countPresetListLoads = () => vi.spyOn(systemPresetStatusItem, 'getValue')
 
   const deletePresetNamed = async (name: string) => {
