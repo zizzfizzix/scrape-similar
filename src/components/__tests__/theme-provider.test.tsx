@@ -144,6 +144,27 @@ describe('ThemeProvider', () => {
     expect(document.documentElement.className).toBe('')
   })
 
+  it('sets the class in the same commit that renders the theme', async () => {
+    await storage.setItem('local:theme', 'dark')
+    view = renderComponent(
+      <ThemeProvider>
+        <Probe />
+      </ThemeProvider>,
+    )
+
+    // A MutationObserver callback runs after React writes the DOM and before
+    // passive effects, so it sees the class only if a layout effect set it.
+    let classWhenTextChanged: string | undefined
+    const observer = new MutationObserver(() => {
+      if (currentTheme() === 'dark') classWhenTextChanged ??= document.documentElement.className
+    })
+    observer.observe(view.container, { subtree: true, childList: true, characterData: true })
+    onTestFinished(() => observer.disconnect())
+
+    await expectTheme('dark')
+    expect(classWhenTextChanged).toBe('dark')
+  })
+
   it('follows a dark system preference', async () => {
     stubPrefersDark(true)
 
