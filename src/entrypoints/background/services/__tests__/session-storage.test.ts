@@ -159,6 +159,14 @@ describe('clearSessionState', () => {
     expect(await getSessionState(1)).toBeNull()
   })
 
+  it('removes the entry after an update already in flight', async () => {
+    const update = applySidePanelDataUpdates(1, { initialSelectionText: 'late' })
+
+    await Promise.all([update, clearSessionState(1)])
+
+    expect(await getSessionState(1)).toBeNull()
+  })
+
   it('drops the cached item and mutex for the tab', async () => {
     const item = sidePanelConfigItem(1)
     const mutex = getStorageMutex(item.key)
