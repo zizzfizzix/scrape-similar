@@ -1,5 +1,6 @@
 import type { QueuedEvent } from '@/utils/analytics'
 import type { DistinctId } from '@/utils/distinct-id'
+import { getStorageMutex } from '@/utils/storage-mutex'
 import log from 'loglevel'
 
 /** Current version for user presets storage and export/import file format. */
@@ -216,7 +217,11 @@ export const getRecentMainSelectors = async (): Promise<string[]> => {
   }
 }
 
-export const setRecentMainSelectors = async (selectors: string[]): Promise<void> => {
+// Serialises every write to the key; overlapping read-modify-writes otherwise
+// read the same list and the last write drops the others' changes.
+const recentMainSelectorsMutex = getStorageMutex(recentMainSelectorsItem.key)
+
+const writeRecentMainSelectors = async (selectors: string[]): Promise<void> => {
   try {
     await recentMainSelectorsItem.setValue(selectors)
   } catch (error) {
@@ -224,20 +229,25 @@ export const setRecentMainSelectors = async (selectors: string[]): Promise<void>
   }
 }
 
+export const setRecentMainSelectors = async (selectors: string[]): Promise<void> =>
+  recentMainSelectorsMutex.runExclusive(() => writeRecentMainSelectors(selectors))
+
 // Both helpers this calls report their own storage failures and resolve, so a
 // `catch` here could never run.
 export const pushRecentMainSelector = async (selector: string): Promise<void> => {
-  const current = await getRecentMainSelectors()
   const sanitized = selector.trim()
   if (!sanitized) return
-  const withoutDup = current.filter((s) => s !== sanitized)
-  const updated = [sanitized, ...withoutDup].slice(0, 5)
-  await setRecentMainSelectors(updated)
+  await recentMainSelectorsMutex.runExclusive(async () => {
+    const current = await getRecentMainSelectors()
+    const withoutDup = current.filter((s) => s !== sanitized)
+    await writeRecentMainSelectors([sanitized, ...withoutDup].slice(0, 5))
+  })
 }
 
 // Unreachable `catch` for the same reason as `pushRecentMainSelector`.
 export const removeRecentMainSelector = async (selector: string): Promise<void> => {
-  const current = await getRecentMainSelectors()
-  const updated = current.filter((s) => s !== selector)
-  await setRecentMainSelectors(updated)
+  await recentMainSelectorsMutex.runExclusive(async () => {
+    const current = await getRecentMainSelectors()
+    await writeRecentMainSelectors(current.filter((s) => s !== selector))
+  })
 }

@@ -313,6 +313,28 @@ describe('recent main selectors', () => {
     await expect(removeRecentMainSelector('//a')).resolves.toBeUndefined()
     expect(errorSpy).toHaveBeenCalledWith('Error setting recent main selectors:', failure)
   })
+
+  it('keeps every selector from concurrent pushes, in call order', async () => {
+    await Promise.all(['//1', '//2', '//3'].map((selector) => pushRecentMainSelector(selector)))
+
+    expect(await getRecentMainSelectors()).toEqual(['//3', '//2', '//1'])
+  })
+
+  it('applies a push and a remove that race each other', async () => {
+    await setRecentMainSelectors(['//a', '//b'])
+
+    await Promise.all([pushRecentMainSelector('//c'), removeRecentMainSelector('//a')])
+
+    expect(await getRecentMainSelectors()).toEqual(['//c', '//b'])
+  })
+
+  it('applies an explicit set queued behind a push, in call order', async () => {
+    await setRecentMainSelectors(['//a'])
+
+    await Promise.all([pushRecentMainSelector('//b'), setRecentMainSelectors(['//x'])])
+
+    expect(await getRecentMainSelectors()).toEqual(['//x'])
+  })
 })
 
 describe('storage items', () => {
