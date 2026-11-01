@@ -463,24 +463,15 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
           log.error('Error during scrape:', response.error)
           return
         }
-        // Successful scrape – remember the config used to produce current results
+        const rowCount = response?.data?.data?.length ?? 0
         if (response?.success === true) {
           setResultProducingConfig(configAtScrapeTime)
           saveSidePanelState(tabId, { resultProducingConfig: configAtScrapeTime })
-        }
-        const rowCount = response?.data?.data?.length ?? 0
-        // Recents are written only here, so a selector that fails to parse or
-        // matches nothing never becomes a suggestion.
-        if (response?.success === true && rowCount > 0) {
-          reportRejection(
-            (async () => {
-              const selectorUsed = configAtScrapeTime.mainSelector.trim()
-              const allPresets = await getAllPresets()
-              if (!isSelectorAPreset(selectorUsed, allPresets)) {
-                await pushRecentMainSelector(selectorUsed)
-              }
-            })(),
-          )
+          // Only a scrape that returned rows feeds the recents, so a selector
+          // that fails to parse or matches nothing never becomes a suggestion.
+          if (rowCount > 0 && !isSelectorAPreset(configAtScrapeTime.mainSelector, presets)) {
+            reportRejection(pushRecentMainSelector(configAtScrapeTime.mainSelector))
+          }
         }
         setLastScrapeRowCount(rowCount)
       },

@@ -14,7 +14,6 @@ import {
   type SidePanelConfig,
 } from '@/utils/types'
 import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
-import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 import { renderSettled } from '@@/tests/support/settle'
 import { act, fireEvent, waitFor, type RenderResult } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -525,16 +524,14 @@ describe('remembering the selector a scrape used', () => {
     expect(await getRecentMainSelectors()).toEqual([])
   })
 
-  it('leaves a selector whose scrape failed out of the recents', async () => {
-    await withValidatedSelector()
+  it('remembers the selector without its surrounding whitespace', async () => {
+    await withValidatedSelector('  //tr  ')
     view = await render()
-    await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
+    await waitFor(() => expect(mainSelectorInput().value).toBe('  //tr  '))
 
-    const sendMessage = await scrape({ success: false, error: 'Invalid XPath' })
-    await act(flushMicrotasks)
+    await scrape(scraped)
 
-    expect(sendMessage).toHaveBeenCalledTimes(1)
-    expect(await getRecentMainSelectors()).toEqual([])
+    await waitFor(async () => expect(await getRecentMainSelectors()).toEqual(['//tr']))
   })
 
   it('reports no rows for a reply that carries no data at all', async () => {
