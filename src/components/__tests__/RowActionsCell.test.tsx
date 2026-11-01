@@ -17,7 +17,7 @@ const toastMocks = vi.hoisted(() => ({ toast: { success: vi.fn(), error: vi.fn()
 vi.mock('sonner', () => toastMocks)
 
 const filledRow: ScrapedRow = {
-  data: { rank: '1', country: 'Poland' },
+  data: { country: 'Poland', rank: '1' },
   metadata: { originalIndex: 4, isEmpty: false },
 }
 const emptyRow: ScrapedRow = {
