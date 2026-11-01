@@ -7,7 +7,7 @@ import { SYSTEM_PRESETS } from '@/utils/system_presets'
 import { type Preset, type ScrapeConfig } from '@/utils/types'
 import { stubOffsetWidth } from '@@/tests/support/dom'
 import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
-import { renderSettled } from '@@/tests/support/settle'
+import { renderSettled, settleEffects } from '@@/tests/support/settle'
 import {
   act,
   fireEvent,
@@ -820,6 +820,21 @@ describe('ConfigForm', () => {
         })
 
         expect(onSavePreset).toHaveBeenCalledWith('From the keyboard')
+      })
+
+      it.each([
+        ['the event reports the composition', { isComposing: true }],
+        ['Safari reports it only through keyCode 229', { keyCode: 229 }],
+      ])('leaves Enter to the IME when %s', async (_, composition) => {
+        const onSavePreset = vi.fn().mockResolvedValue(undefined)
+        view = await render({ onSavePreset })
+        const nameField = await openSaveDrawer()
+        fireEvent.change(nameField, { target: { value: '名前' } })
+
+        fireEvent.keyDown(nameField, { key: 'Enter', ...composition })
+        await settleEffects()
+
+        expect(onSavePreset).not.toHaveBeenCalled()
       })
 
       it('ignores Enter while the name is blank', async () => {
