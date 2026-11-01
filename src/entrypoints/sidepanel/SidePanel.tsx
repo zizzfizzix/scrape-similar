@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Toaster } from '@/components/ui/sonner'
+import { isSelectorAPreset } from '@/utils/autosuggest'
 import { reportRejection } from '@/utils/report-rejection'
 import {
   buildConfigChangeUpdates,
@@ -466,21 +467,22 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
         if (response?.success === true) {
           setResultProducingConfig(configAtScrapeTime)
           saveSidePanelState(tabId, { resultProducingConfig: configAtScrapeTime })
-          // Persist recent main selector (local only) if it is not a preset selector
+        }
+        const rowCount = response?.data?.data?.length ?? 0
+        // Recents are written only here, so a selector that fails to parse or
+        // matches nothing never becomes a suggestion.
+        if (response?.success === true && rowCount > 0) {
           reportRejection(
             (async () => {
               const selectorUsed = configAtScrapeTime.mainSelector.trim()
               const allPresets = await getAllPresets()
-              const isPresetSelector = allPresets.some(
-                (p) => p.config.mainSelector.trim() === selectorUsed,
-              )
-              if (!isPresetSelector) {
+              if (!isSelectorAPreset(selectorUsed, allPresets)) {
                 await pushRecentMainSelector(selectorUsed)
               }
             })(),
           )
         }
-        setLastScrapeRowCount(response?.data?.data?.length ?? 0)
+        setLastScrapeRowCount(rowCount)
       },
     )
   }

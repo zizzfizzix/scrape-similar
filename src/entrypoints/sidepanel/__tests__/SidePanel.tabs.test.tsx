@@ -14,6 +14,7 @@ import {
   type SidePanelConfig,
 } from '@/utils/types'
 import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
+import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 import { renderSettled } from '@@/tests/support/settle'
 import { act, fireEvent, waitFor, type RenderResult } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -440,7 +441,8 @@ describe('remembering the selector a scrape used', () => {
     return sendMessage
   }
 
-  const scraped = { data: { data: [], columnOrder: ['Rank'] }, success: true }
+  const row = { data: { Rank: '1' }, metadata: { originalIndex: 0, isEmpty: false } }
+  const scraped = { data: { data: [row], columnOrder: ['Rank'] }, success: true }
 
   it('adds a selector no preset covers to the recents', async () => {
     await withValidatedSelector()
@@ -512,6 +514,29 @@ describe('remembering the selector a scrape used', () => {
     await waitFor(async () => expect(await getRecentMainSelectors()).toEqual(['//tr']))
   })
 
+  it('leaves a selector that scraped no rows out of the recents', async () => {
+    await withValidatedSelector()
+    view = await render()
+    await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
+
+    await scrape({ data: { data: [], columnOrder: ['Rank'] }, success: true })
+
+    await waitFor(() => expect(view.container.textContent).toContain('0 found'))
+    expect(await getRecentMainSelectors()).toEqual([])
+  })
+
+  it('leaves a selector whose scrape failed out of the recents', async () => {
+    await withValidatedSelector()
+    view = await render()
+    await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
+
+    const sendMessage = await scrape({ success: false, error: 'Invalid XPath' })
+    await act(flushMicrotasks)
+
+    expect(sendMessage).toHaveBeenCalledTimes(1)
+    expect(await getRecentMainSelectors()).toEqual([])
+  })
+
   it('reports no rows for a reply that carries no data at all', async () => {
     await withValidatedSelector()
     view = await render()
@@ -527,7 +552,7 @@ describe('remembering the selector a scrape used', () => {
     view = await render()
     await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
 
-    await scrape({ data: { data: [] } })
+    await scrape({ data: { data: [row] } })
 
     // No `success: true`, so nothing is remembered about the config used.
     await waitFor(async () => expect(await getRecentMainSelectors()).toEqual([]))
