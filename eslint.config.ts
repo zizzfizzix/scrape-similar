@@ -185,8 +185,8 @@ const DEFERRED = {
   // unparseable code.
   'jest-dom/prefer-to-have-text-content': 'off',
   'jest-dom/prefer-to-have-style': 'off',
-  // 154, none in extension code: 150 in unit tests, almost all `await act(() =>
-  // el.focus())`-style calls whose callback returns nothing, and 4 in e2e. Not
+  // 154, none in extension code: 149 in unit tests, almost all `await act(() =>
+  // el.focus())`-style calls whose callback returns nothing, and 5 in e2e. Not
   // in any enabled set, so listed for the count rather than to switch it off.
   '@typescript-eslint/await-thenable': 'off',
 } as const

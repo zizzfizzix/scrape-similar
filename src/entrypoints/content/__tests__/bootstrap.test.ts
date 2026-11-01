@@ -40,10 +40,9 @@ vi.mock('@/entrypoints/content/picker', async (importOriginal) => ({
 const ctx = {} as ContentScriptContext
 
 /**
- * Deliver a message to every registered `runtime.onMessage` listener. The
- * content script's listeners answer through `sendResponse` and return
- * synchronously; `trigger` is typed to resolve to promises, so `Promise.all`
- * is what the caller awaits.
+ * Deliver a message to every registered `runtime.onMessage` listener. An
+ * `onMessage` listener may return a promise, so `trigger` resolves to whatever
+ * each returned and `Promise.all` settles any that are promises.
  */
 const broadcast = async (message: Message, sendResponse: (response: unknown) => void = () => {}) =>
   Promise.all(await fakeBrowser.runtime.onMessage.trigger(message, {}, sendResponse))
