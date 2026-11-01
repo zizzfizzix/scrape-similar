@@ -217,12 +217,13 @@ export const getRecentMainSelectors = async (): Promise<string[]> => {
   }
 }
 
-// Serialises every write to the key; overlapping read-modify-writes otherwise
-// read the same list and the last write drops the others' changes. Looked up
-// per call: a module-scope lookup reads the item and keeps it in every bundle
-// that imports this file, the content script included.
+// Serialises writes to the key within one extension context; overlapping
+// read-modify-writes otherwise read the same list and the last write drops the
+// others' changes. Looked up per call: a module-scope lookup reads the item and
+// keeps it in every bundle that imports this file, the content script included.
 const recentMainSelectorsMutex = () => getStorageMutex(recentMainSelectorsItem.key)
 
+// Callers hold the recents mutex, which is not re-entrant.
 const writeRecentMainSelectors = async (selectors: string[]): Promise<void> => {
   try {
     await recentMainSelectorsItem.setValue(selectors)
@@ -234,8 +235,8 @@ const writeRecentMainSelectors = async (selectors: string[]): Promise<void> => {
 export const setRecentMainSelectors = async (selectors: string[]): Promise<void> =>
   recentMainSelectorsMutex().runExclusive(() => writeRecentMainSelectors(selectors))
 
-// Both helpers this calls report their own storage failures and resolve, so a
-// `catch` here could never run.
+// getRecentMainSelectors and writeRecentMainSelectors log their own storage
+// failures and resolve, so push and remove need no `catch`.
 export const pushRecentMainSelector = async (selector: string): Promise<void> => {
   const sanitized = selector.trim()
   if (!sanitized) return
@@ -246,7 +247,6 @@ export const pushRecentMainSelector = async (selector: string): Promise<void> =>
   })
 }
 
-// Unreachable `catch` for the same reason as `pushRecentMainSelector`.
 export const removeRecentMainSelector = async (selector: string): Promise<void> => {
   await recentMainSelectorsMutex().runExclusive(async () => {
     const current = await getRecentMainSelectors()
