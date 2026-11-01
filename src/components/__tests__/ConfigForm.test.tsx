@@ -7,7 +7,7 @@ import { SYSTEM_PRESETS } from '@/utils/system_presets'
 import { type Preset, type ScrapeConfig } from '@/utils/types'
 import { stubOffsetWidth } from '@@/tests/support/dom'
 import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
-import { renderSettled } from '@@/tests/support/settle'
+import { renderSettled, settleEffects } from '@@/tests/support/settle'
 import {
   act,
   fireEvent,
@@ -800,7 +800,7 @@ describe('ConfigForm', () => {
         fireEvent.change(nameField, { target: { value: '名前' } })
 
         fireEvent.keyDown(nameField, { key: 'Enter', ...composition })
-        await act(() => Promise.resolve())
+        await settleEffects()
 
         expect(onSavePreset).not.toHaveBeenCalled()
       })
