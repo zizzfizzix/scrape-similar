@@ -503,10 +503,7 @@ describe('handlePickerClick', () => {
       ?.currentScrapeConfig
 
   beforeEach(() => {
-    // Mirrors disablePickerMode, which forgets the hovered element.
-    disable = vi.fn<(source?: string) => void>(() => {
-      state.currentHoveredElement = null
-    })
+    disable = vi.fn<(source?: string) => void>()
     state.pickerModeActive = true
     state.selectorCandidates = ['//li[1]', '//li']
     state.selectedCandidateIndex = 1
@@ -618,17 +615,20 @@ describe('handlePickerClick', () => {
     expect(sendMessage).not.toHaveBeenCalled()
   })
 
-  it('keeps the level chosen for the hovered element', async () => {
-    await click().result
+  it('keeps the chosen level for a click on another element it matches', async () => {
+    // The hover stays on #first while the level menu is open, and the click
+    // that confirms the level lands elsewhere in the highlighted matches.
+    await click([document.querySelectorAll('li')[1]!]).result
 
     expect(state.selectorCandidates).toEqual(['//li[1]', '//li'])
+    expect(state.selectedCandidateIndex).toBe(1)
     expect(storedConfig()).toEqual({
       mainSelector: '//li',
       columns: [{ name: 'List Item', selector: '.' }],
     })
   })
 
-  it('builds candidates for a clicked element other than the hovered one', async () => {
+  it('builds candidates for a click the chosen level does not cover', async () => {
     document.body.innerHTML = '<ul><li id="first">a</li><li>b</li></ul><p id="other">x</p>'
     state.selectorCandidates = ['//p']
     state.selectedCandidateIndex = 0

@@ -175,6 +175,8 @@ export interface PickerSelection {
   config: ScrapeConfig
   /** Every element `config.mainSelector` matches. */
   matches: HTMLElement[]
+  /** Whether `config.mainSelector` matches the clicked element or one of its ancestors. */
+  isWithinMatch: boolean
   /** Details of the clicked element, shown in the side panel. */
   elementDetails: { xpath: string; text: string; html: string }
 }
@@ -208,6 +210,7 @@ export const buildPickerSelection = (
       columns: buildColumnsForElement(selectedElement ?? element),
     },
     matches,
+    isWithinMatch: selectedElement !== null,
     elementDetails: {
       xpath,
       text: element.textContent || '',
@@ -263,26 +266,27 @@ export const handlePickerClick = async (
   event.preventDefault()
   event.stopPropagation()
 
-  // Read before disabling picker mode, which forgets the hovered element. The
-  // event's target stands in for hit-testing the click point, which would land
-  // on the wrong element once disabling removes the banner's margin.
-  const hoveredElement = state.currentHoveredElement
   disablePickerMode('element_selected')
 
+  // Hit-testing the click point here would land on the wrong element: disabling
+  // picker mode removes the banner's margin and shifts the page.
   const el = event.target
   if (!(el instanceof HTMLElement)) return
 
   log.debug('Picker mode: element selected', el)
 
-  // The candidates describe the hovered element. A click on anything else (the
-  // hover update has not run yet, or the click was synthetic) gets its own, so
-  // the selector and the columns come from the same element.
-  if (el !== hoveredElement) {
+  let selection = buildPickerSelection(el, state)
+  // The candidates were built for the last hovered element, which is stale when
+  // the hover update has not run or the click was synthetic. A chosen level
+  // that covers the click is kept, so a click anywhere inside the highlighted
+  // match confirms it; one that does not would pair the selector with columns
+  // for an unrelated element, so the click gets candidates of its own.
+  if (!selection.isWithinMatch) {
     state.selectorCandidates = generateSelectorCandidates(el)
     state.selectedCandidateIndex = chooseDefaultCandidateIndex(state.selectorCandidates)
+    selection = buildPickerSelection(el, state)
   }
-
-  const { config, matches, elementDetails } = buildPickerSelection(el, state)
+  const { config, matches, elementDetails } = selection
 
   trackEvent(ANALYTICS_EVENTS.PICKER_ELEMENT_SELECT, {
     elements_matched: matches.length,
