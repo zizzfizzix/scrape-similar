@@ -307,6 +307,24 @@ describe('the autosuggest dropdown', () => {
       expect(scrapeEvents()).toBe(0)
     })
 
+    it('applies a highlighted preset once while Enter is held', async () => {
+      const onLoadPreset = vi.fn()
+      const onScrape = vi.fn()
+      const onHighlight = vi.fn()
+      view = await render({ presets, onLoadPreset, onScrape, onHighlight })
+      await focusField()
+      await press('ArrowDown')
+      await waitFor(() => expect(selectedSuggestion()?.textContent).toContain('Table rows'))
+
+      await press('Enter')
+      await press('Enter', { repeat: true })
+
+      expect(onLoadPreset).toHaveBeenCalledTimes(1)
+      expect(onScrape).not.toHaveBeenCalled()
+      expect(onHighlight).not.toHaveBeenCalled()
+      expect(scrapeEvents()).toBe(0)
+    })
+
     it('commits a highlighted recent selector', async () => {
       const onChange = vi.fn()
       const onHighlight = vi.fn()
@@ -748,9 +766,11 @@ describe('the autosuggest dropdown', () => {
 
     it('does not scrape while a scrape is already running', async () => {
       const onScrape = vi.fn()
+      const onHighlight = vi.fn()
       view = await render({
         presets: [],
         onScrape,
+        onHighlight,
         isLoading: true,
         config: { ...config, mainSelector: '//tr' },
       })
@@ -760,13 +780,17 @@ describe('the autosuggest dropdown', () => {
 
       expect(onScrape).not.toHaveBeenCalled()
       expect(scrapeEvents()).toBe(0)
+      expect(onHighlight).not.toHaveBeenCalled()
+      expect(mainSelectorInput()).toHaveFocus()
     })
 
     it('does not scrape a config without columns', async () => {
       const onScrape = vi.fn()
+      const onHighlight = vi.fn()
       view = await render({
         presets: [],
         onScrape,
+        onHighlight,
         config: { mainSelector: '//tr', columns: [] },
       })
       await focusField()
@@ -775,6 +799,8 @@ describe('the autosuggest dropdown', () => {
 
       expect(onScrape).not.toHaveBeenCalled()
       expect(scrapeEvents()).toBe(0)
+      expect(onHighlight).not.toHaveBeenCalled()
+      expect(mainSelectorInput()).toHaveFocus()
     })
 
     it('keeps focus on a field the user went back to after Enter', async () => {

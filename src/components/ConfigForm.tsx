@@ -607,7 +607,8 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
     if (e.key === 'Enter') {
       // Always prevent newline insertion
       e.preventDefault()
-      // A held key would otherwise start a scrape per repeat.
+      // A held key would otherwise repeat the action: a scrape, a validation
+      // or applying the highlighted suggestion.
       if (e.repeat) return
       if (isAutosuggestOpen && selectedAutosuggestIndex >= 0) {
         const suggestion = resolveSuggestion(
