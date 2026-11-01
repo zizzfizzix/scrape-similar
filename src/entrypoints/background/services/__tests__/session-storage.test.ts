@@ -168,28 +168,65 @@ describe('clearSessionState', () => {
     fakeBrowser.reset()
   })
 
+  // A closed tab id stays closed for the life of the module, so each test
+  // closes a tab of its own.
+
   it('removes the tab entry', async () => {
-    await applySidePanelDataUpdates(1, { initialSelectionText: 'bye' })
+    await applySidePanelDataUpdates(11, { initialSelectionText: 'bye' })
 
-    await clearSessionState(1)
+    await clearSessionState(11)
 
-    expect(await getSessionState(1)).toBeNull()
+    expect(await getSessionState(11)).toBeNull()
   })
 
   it('removes the entry after an update already in flight', async () => {
-    const update = applySidePanelDataUpdates(1, { initialSelectionText: 'late' })
+    const update = applySidePanelDataUpdates(12, { initialSelectionText: 'late' })
 
-    await Promise.all([update, clearSessionState(1)])
+    await Promise.all([update, clearSessionState(12)])
 
-    expect(await getSessionState(1)).toBeNull()
+    expect(await getSessionState(12)).toBeNull()
+  })
+
+  it('refuses an update that requests the lock after the clear', async () => {
+    await applySidePanelDataUpdates(13, { initialSelectionText: 'open' })
+
+    const clear = clearSessionState(13)
+    const update = applySidePanelDataUpdates(13, { initialSelectionText: 'after close' })
+    await Promise.all([clear, update])
+
+    expect(await read(13)).toBeNull()
+  })
+
+  it('refuses an update that arrives after the clear has finished', async () => {
+    await clearSessionState(14)
+
+    await applySidePanelDataUpdates(14, { highlightMatchCount: 1 })
+
+    expect(await read(14)).toBeNull()
+  })
+
+  it('refuses to initialize state for a closed tab', async () => {
+    await clearSessionState(15)
+
+    await initializeSessionState(15)
+
+    expect(await read(15)).toBeNull()
+  })
+
+  it('leaves other tabs writable', async () => {
+    await clearSessionState(16)
+
+    await applySidePanelDataUpdates(17, { highlightMatchCount: 2 })
+
+    expect(await read(17)).toEqual({ highlightMatchCount: 2 })
   })
 
   it('drops the cached item for the tab', async () => {
-    const item = sidePanelConfigItem(1)
+    const item = sidePanelConfigItem(18)
 
-    await clearSessionState(1)
+    await clearSessionState(18)
 
-    expect(sidePanelConfigItem(1)).not.toBe(item)
+    expect(sidePanelConfigItem(18)).not.toBe(item)
   })
 
   it('logs and swallows storage failures', async () => {

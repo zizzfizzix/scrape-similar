@@ -1,6 +1,19 @@
 import { updateStorageItem, withStorageLock } from '@/utils/storage-lock'
 import log from 'loglevel'
 
+// Browsers never reuse a tab id within a session, so an id stays closed for as
+// long as this worker lives. A tab's id is added before its clear requests the
+// lock: an update that requests it later is refused, and one already waiting
+// lands before the removal. A restarted worker starts with an empty set, so an
+// update for a tab closed before the restart is written.
+const closedTabIds = new Set<number>()
+
+const isTabClosed = (tabId: number, operation: string): boolean => {
+  if (!closedTabIds.has(tabId)) return false
+  log.debug(`Dropped ${operation} for closed tab ${tabId}`)
+  return true
+}
+
 /**
  * Atomically merge updates into a tab's session storage blob
  * Handles special logic for merging nested currentScrapeConfig
@@ -9,6 +22,7 @@ export const applySidePanelDataUpdates = async (
   tabId: number,
   updates: Partial<SidePanelConfig>,
 ): Promise<void> => {
+  if (isTabClosed(tabId, 'side panel update')) return
   await updateStorageItem(sidePanelConfigItem(tabId), (stored) => {
     const current = stored || {}
     // Shallow-merge top-level, but carefully merge nested config to avoid losing fields
@@ -47,6 +61,7 @@ export const getSessionState = async (tabId: number): Promise<SidePanelConfig | 
  * Initialize default session state for a tab if it doesn't exist
  */
 export const initializeSessionState = async (tabId: number): Promise<void> => {
+  if (isTabClosed(tabId, 'session state initialization')) return
   await updateStorageItem(sidePanelConfigItem(tabId), (existing) => {
     if (existing) return existing
     log.debug(`Initializing default session state for tab ${tabId}`)
@@ -63,11 +78,9 @@ export const initializeSessionState = async (tabId: number): Promise<void> => {
  * Clear session state for a tab
  */
 export const clearSessionState = async (tabId: number): Promise<void> => {
+  closedTabIds.add(tabId)
   const item = sidePanelConfigItem(tabId)
   try {
-    // Under the lock, so an update already waiting for it lands before the
-    // removal. An update that arrives after the removal still re-creates the
-    // entry.
     await withStorageLock(item, () => item.removeValue())
     log.debug(`Cleared session state for tab ${tabId}`)
   } catch (error) {
