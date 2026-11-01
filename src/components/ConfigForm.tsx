@@ -455,6 +455,11 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
       return
     }
 
+    // Nothing to commit, so the blur commit the press scheduled would only
+    // highlight again while the scrape runs.
+    clearTimeout(blurCommitTimerRef.current)
+    setIsAutosuggestOpen(false)
+    setMainSelectorDraft(mainSelectorDraft.trim())
     trackEvent(ANALYTICS_EVENTS.SCRAPE_BUTTON_PRESS)
     onScrape()
   }

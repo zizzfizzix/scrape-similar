@@ -338,6 +338,20 @@ describe('ConfigForm', () => {
         expect(onHighlight).toHaveBeenCalledTimes(1)
       })
 
+      it('scrapes a whitespace-only edit without highlighting again', async () => {
+        const onScrape = vi.fn()
+        const onHighlight = vi.fn()
+        view = await render({ onScrape, onHighlight })
+        await editSelector(' //tr ')
+
+        await pressActionButton('Scrape')
+        await letTheBlurCommitFallDue()
+
+        expect(onScrape).toHaveBeenCalledTimes(1)
+        expect(onHighlight).not.toHaveBeenCalled()
+        expect(mainSelectorInput().value).toBe('//tr')
+      })
+
       it('scrapes once the edit has been committed', async () => {
         const onScrape = vi.fn()
         view = await render({ onScrape, config: { ...config, mainSelector: '//li' } })
