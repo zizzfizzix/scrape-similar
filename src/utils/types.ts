@@ -37,15 +37,8 @@ export interface Preset {
   createdAt: number
 }
 
-export interface SelectionOptions {
-  xpath: string
-  selectedText?: string
-}
-
 export interface SidePanelConfig {
-  initialSelectionText?: string
   elementDetails?: ElementDetailsPayload | null
-  selectionOptions?: SelectionOptions
   currentScrapeConfig?: ScrapeConfig
   scrapeResult?: ScrapeResult
   resultProducingConfig?: ScrapeConfig // Config that produced the current scrapeResult

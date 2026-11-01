@@ -54,9 +54,7 @@ export const initializeSessionState = async (tabId: number): Promise<void> => {
   const existing = await mutex.runExclusive(async () => item.getValue())
   if (!existing) {
     const defaultPanelState: SidePanelConfig = {
-      initialSelectionText: undefined,
       elementDetails: undefined,
-      selectionOptions: undefined,
       currentScrapeConfig: undefined,
     }
     log.debug(`Initializing default session state for tab ${tabId}`)

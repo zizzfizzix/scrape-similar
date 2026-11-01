@@ -25,10 +25,10 @@ describe('applySidePanelDataUpdates', () => {
   })
 
   it('shallow-merges top-level fields with existing state', async () => {
-    await applySidePanelDataUpdates(1, { initialSelectionText: 'hello', highlightMatchCount: 1 })
+    await applySidePanelDataUpdates(1, { highlightError: 'hello', highlightMatchCount: 1 })
     await applySidePanelDataUpdates(1, { highlightMatchCount: 2 })
 
-    expect(await read(1)).toEqual({ initialSelectionText: 'hello', highlightMatchCount: 2 })
+    expect(await read(1)).toEqual({ highlightError: 'hello', highlightMatchCount: 2 })
   })
 
   it('keeps state for different tabs isolated', async () => {
@@ -97,13 +97,13 @@ describe('applySidePanelDataUpdates', () => {
 
   it('serialises concurrent updates so none are lost', async () => {
     await Promise.all([
-      applySidePanelDataUpdates(1, { initialSelectionText: 'a' }),
+      applySidePanelDataUpdates(1, { highlightError: 'a' }),
       applySidePanelDataUpdates(1, { highlightMatchCount: 3 }),
       applySidePanelDataUpdates(1, { pickerModeActive: true }),
     ])
 
     expect(await read(1)).toEqual({
-      initialSelectionText: 'a',
+      highlightError: 'a',
       highlightMatchCount: 3,
       pickerModeActive: true,
     })
@@ -120,9 +120,9 @@ describe('getSessionState', () => {
   })
 
   it('returns the stored state', async () => {
-    await applySidePanelDataUpdates(1, { initialSelectionText: 'hi' })
+    await applySidePanelDataUpdates(1, { highlightError: 'hi' })
 
-    expect(await getSessionState(1)).toEqual({ initialSelectionText: 'hi' })
+    expect(await getSessionState(1)).toEqual({ highlightError: 'hi' })
   })
 })
 
@@ -138,11 +138,11 @@ describe('initializeSessionState', () => {
   })
 
   it('leaves existing state untouched', async () => {
-    await applySidePanelDataUpdates(1, { initialSelectionText: 'keep me' })
+    await applySidePanelDataUpdates(1, { highlightError: 'keep me' })
 
     await initializeSessionState(1)
 
-    expect(await getSessionState(1)).toEqual({ initialSelectionText: 'keep me' })
+    expect(await getSessionState(1)).toEqual({ highlightError: 'keep me' })
   })
 })
 
@@ -152,7 +152,7 @@ describe('clearSessionState', () => {
   })
 
   it('removes the tab entry', async () => {
-    await applySidePanelDataUpdates(1, { initialSelectionText: 'bye' })
+    await applySidePanelDataUpdates(1, { highlightError: 'bye' })
 
     await clearSessionState(1)
 
@@ -160,7 +160,7 @@ describe('clearSessionState', () => {
   })
 
   it('removes the entry after an update already in flight', async () => {
-    const update = applySidePanelDataUpdates(1, { initialSelectionText: 'late' })
+    const update = applySidePanelDataUpdates(1, { highlightError: 'late' })
 
     await Promise.all([update, clearSessionState(1)])
 

@@ -25,7 +25,7 @@ describe('setupTabRemovedListener', () => {
   })
 
   it('clears both the session state and the pending demo flag', async () => {
-    await storage.setItem('session:sidepanel_config_4', { initialSelectionText: 'x' })
+    await storage.setItem('session:sidepanel_config_4', { highlightError: 'x' })
 
     await fakeBrowser.tabs.onRemoved.trigger(4, { windowId: 1, isWindowClosing: false })
     await flushMicrotasks()
