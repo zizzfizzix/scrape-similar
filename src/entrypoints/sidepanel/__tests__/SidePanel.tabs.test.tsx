@@ -544,7 +544,7 @@ describe('remembering the selector a scrape used', () => {
     await waitFor(() => expect(view.container.textContent).toContain('0 found'))
   })
 
-  it('records the row count from a reply that does not claim success', async () => {
+  it('leaves the recents alone for a reply with rows that does not claim success', async () => {
     await withValidatedSelector()
     view = await render()
     await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
