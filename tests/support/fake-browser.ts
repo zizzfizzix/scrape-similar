@@ -22,24 +22,24 @@ export const setLastError = (lastError: { message?: string } | undefined): void 
   ;(fakeBrowser.runtime as { lastError?: { message?: string } }).lastError = lastError
 }
 
-type TabDetachListener = (tabId: number, detachInfo: Browser.tabs.OnDetachedInfo) => void
-const tabDetachListeners = new Set<TabDetachListener>()
+type TabAttachListener = (tabId: number, attachInfo: Browser.tabs.OnAttachedInfo) => void
+const tabAttachListeners = new Set<TabAttachListener>()
 
 /**
- * Give the fake a working `tabs.onDetached`, which it does not implement and
+ * Give the fake a working `tabs.onAttached`, which it does not implement and
  * the side panel listens to. Installed for every test file from `vitest.setup.ts`.
  */
-export const installTabDetachEvent = (): void => {
+export const installTabAttachEvent = (): void => {
   Object.assign(fakeBrowser.tabs, {
-    onDetached: {
-      addListener: (listener: TabDetachListener) => tabDetachListeners.add(listener),
-      removeListener: (listener: TabDetachListener) => tabDetachListeners.delete(listener),
-      hasListener: (listener: TabDetachListener) => tabDetachListeners.has(listener),
+    onAttached: {
+      addListener: (listener: TabAttachListener) => tabAttachListeners.add(listener),
+      removeListener: (listener: TabAttachListener) => tabAttachListeners.delete(listener),
+      hasListener: (listener: TabAttachListener) => tabAttachListeners.has(listener),
     },
   })
 }
 
-/** Fire `tabs.onDetached` for `tabId` leaving `oldWindowId`. */
-export const detachTab = (tabId: number, oldWindowId: number): void => {
-  for (const listener of tabDetachListeners) listener(tabId, { oldWindowId, oldPosition: 0 })
+/** Fire `tabs.onAttached` for `tabId` landing in `newWindowId`. */
+export const attachTab = (tabId: number, newWindowId: number): void => {
+  for (const listener of tabAttachListeners) listener(tabId, { newWindowId, newPosition: 0 })
 }
