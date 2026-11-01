@@ -220,6 +220,12 @@ describe('recent main selectors', () => {
     expect(await getRecentMainSelectors()).toEqual([])
   })
 
+  it('drops entries that are not strings', async () => {
+    await storage.setItem(recentMainSelectorsItem.key, ['//a', null, 42, { x: 1 }, '//div'])
+
+    expect(await getRecentMainSelectors()).toEqual(['//a', '//div'])
+  })
+
   it('round-trips a list', async () => {
     await setRecentMainSelectors(['//a', '//div'])
 
