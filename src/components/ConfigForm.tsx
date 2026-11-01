@@ -145,6 +145,12 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
     latestConfigRef.current = config
   }, [config])
 
+  // A highlight result can arrive between a blur and its deferred commit.
+  const latestHighlightRef = useRef({ highlightMatchCount, highlightError })
+  useEffect(() => {
+    latestHighlightRef.current = { highlightMatchCount, highlightError }
+  }, [highlightMatchCount, highlightError])
+
   /**
    * Local draft state for the main selector input. We keep the user’s typing
    * here and only propagate it to the parent (handleConfigChange) when the
@@ -252,7 +258,18 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
     setBeginAdornmentWidth(beginAdornmentRef.current!.offsetWidth)
   }, [])
 
+  /**
+   * The blur handler defers so a click on a suggestion still lands, which means
+   * the input can be focused again - or the form gone - by the time it fires.
+   * Holding the timer lets those cases cancel a blur that no longer applies.
+   */
+  const blurCommitTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+  useEffect(() => () => clearTimeout(blurCommitTimerRef.current), [])
+
   const commitMainSelector = (draft: string) => {
+    // A blur commit still pending holds the draft from before this commit.
+    clearTimeout(blurCommitTimerRef.current)
     const value = draft.trim()
     setMainSelectorDraft(value)
     const latest = latestConfigRef.current
@@ -383,15 +400,6 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
     mainSelectorInputRef.current?.focus()
   }
 
-  /**
-   * The blur handler defers so a click on a suggestion still lands, which means
-   * the input can be focused again - or the form gone - by the time it fires.
-   * Holding the timer lets those cases cancel a blur that no longer applies.
-   */
-  const blurCommitTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-
-  useEffect(() => () => clearTimeout(blurCommitTimerRef.current), [])
-
   // Opening never carries a selection over from the last time the list was
   // open; the arrow-key handlers below move off -1 once it is open. Refocusing
   // or typing into an already-open list is not an opening, and leaves the
@@ -419,6 +427,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
   // Handle main selector blur with delay to allow for clicks
   const handleMainSelectorBlur = () => {
     clearTimeout(blurCommitTimerRef.current)
+    const committedAtBlur = latestConfigRef.current.mainSelector
     blurCommitTimerRef.current = setTimeout(() => {
       // Don't commit if we're selecting from autosuggest (mousedown was triggered)
       if (isSelectingFromAutosuggestRef.current) {
@@ -432,34 +441,47 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
       if (hasMovedIntoDropdown) return
 
       setIsAutosuggestOpen(false)
-      commitMainSelector(mainSelectorDraft)
+      // The parent replaced the selector after the blur (preset load, tab
+      // switch, storage restore), so the draft belongs to the old one. A
+      // replacement with an identical selector is not detected.
+      if (latestConfigRef.current.mainSelector !== committedAtBlur) return
+      // Re-highlighting a validated selector scrolls the page back to its first
+      // match and replays the highlight. One without a result is highlighted
+      // again, which is how a failed highlight gets retried.
+      const value = mainSelectorDraft.trim()
+      const isValidatedAndUnchanged =
+        value === committedAtBlur.trim() &&
+        isMainSelectorValidated({
+          mainSelector: value,
+          hasUncommittedChanges: false,
+          ...latestHighlightRef.current,
+        })
+      if (isValidatedAndUnchanged) {
+        setMainSelectorDraft(value)
+        return
+      }
+      commitMainSelector(value)
     }, 150)
-  }
-
-  // Cancels a pending blur commit: one scheduled when a button press blurred
-  // the field, or the one blur() schedules synchronously on the commit path.
-  const settleMainSelectorField = () => {
-    clearTimeout(blurCommitTimerRef.current)
-    setIsAutosuggestOpen(false)
   }
 
   const commitMainSelectorNow = (draft: string) => {
     mainSelectorInputRef.current?.blur()
-    settleMainSelectorField()
+    setIsAutosuggestOpen(false)
     commitMainSelector(draft)
   }
 
   const scrapeCommittedMainSelector = () => {
-    settleMainSelectorField()
+    setIsAutosuggestOpen(false)
     setMainSelectorDraft(trimmedDraft)
     onScrape()
   }
 
   /**
-   * Cancelling the pending blur commit is what makes validating here work: the
-   * press blurs the textarea first, and that commit is deferred by 150ms so a
-   * click on a suggestion still lands, so scraping instead would carry the
-   * selector the user has just moved away from (#271).
+   * An edited selector is committed here instead of scraped, or the scrape
+   * would carry the selector the user has just moved away from (#271). A
+   * pointer press keeps focus in the textarea (handleMainActionMouseDown);
+   * commitMainSelector cancels any blur commit still pending, including the
+   * one the blur() in commitMainSelectorNow schedules.
    */
   const handleMainActionPress = () => {
     if (hasUncommittedChanges) {
