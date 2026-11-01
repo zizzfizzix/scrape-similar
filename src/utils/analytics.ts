@@ -2,6 +2,7 @@
 // Can be used in background scripts, content scripts, and UI contexts
 
 import { reportRejection } from '@/utils/report-rejection'
+import { eventQueueItem } from '@/utils/storage'
 import { getStorageMutex } from '@/utils/storage-mutex'
 import { version } from '@@/package.json' with { type: 'json' }
 import log from 'loglevel'

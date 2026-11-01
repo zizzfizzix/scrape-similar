@@ -218,8 +218,10 @@ export const getRecentMainSelectors = async (): Promise<string[]> => {
 }
 
 // Serialises every write to the key; overlapping read-modify-writes otherwise
-// read the same list and the last write drops the others' changes.
-const recentMainSelectorsMutex = getStorageMutex(recentMainSelectorsItem.key)
+// read the same list and the last write drops the others' changes. Looked up
+// per call: a module-scope lookup reads the item and keeps it in every bundle
+// that imports this file, the content script included.
+const recentMainSelectorsMutex = () => getStorageMutex(recentMainSelectorsItem.key)
 
 const writeRecentMainSelectors = async (selectors: string[]): Promise<void> => {
   try {
@@ -230,14 +232,14 @@ const writeRecentMainSelectors = async (selectors: string[]): Promise<void> => {
 }
 
 export const setRecentMainSelectors = async (selectors: string[]): Promise<void> =>
-  recentMainSelectorsMutex.runExclusive(() => writeRecentMainSelectors(selectors))
+  recentMainSelectorsMutex().runExclusive(() => writeRecentMainSelectors(selectors))
 
 // Both helpers this calls report their own storage failures and resolve, so a
 // `catch` here could never run.
 export const pushRecentMainSelector = async (selector: string): Promise<void> => {
   const sanitized = selector.trim()
   if (!sanitized) return
-  await recentMainSelectorsMutex.runExclusive(async () => {
+  await recentMainSelectorsMutex().runExclusive(async () => {
     const current = await getRecentMainSelectors()
     const withoutDup = current.filter((s) => s !== sanitized)
     await writeRecentMainSelectors([sanitized, ...withoutDup].slice(0, 5))
@@ -246,7 +248,7 @@ export const pushRecentMainSelector = async (selector: string): Promise<void> =>
 
 // Unreachable `catch` for the same reason as `pushRecentMainSelector`.
 export const removeRecentMainSelector = async (selector: string): Promise<void> => {
-  await recentMainSelectorsMutex.runExclusive(async () => {
+  await recentMainSelectorsMutex().runExclusive(async () => {
     const current = await getRecentMainSelectors()
     await writeRecentMainSelectors(current.filter((s) => s !== selector))
   })
