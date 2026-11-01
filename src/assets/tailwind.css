@@ -38,9 +38,9 @@
   --sidebar-accent-foreground: oklch(0 0 0);
   --sidebar-border: oklch(0.94 0 0);
   --sidebar-ring: oklch(0 0 0);
-  --font-sans: Geist, sans-serif;
+  --font-sans: 'Geist Variable', Geist, sans-serif;
   --font-serif: Georgia, serif;
-  --font-mono: Geist Mono, monospace;
+  --font-mono: 'Geist Mono Variable', 'Geist Mono', monospace;
   --shadow-color: hsl(0 0% 0%);
   --shadow-opacity: 0.18;
   --shadow-blur: 2px;
@@ -94,9 +94,9 @@
   --sidebar-border: oklch(0.32 0 0);
   --sidebar-ring: oklch(0.72 0 0);
   --radius: 0.5rem;
-  --font-sans: Geist, sans-serif;
+  --font-sans: 'Geist Variable', Geist, sans-serif;
   --font-serif: Georgia, serif;
-  --font-mono: Geist Mono, monospace;
+  --font-mono: 'Geist Mono Variable', 'Geist Mono', monospace;
   --shadow-color: hsl(0 0% 0%);
   --shadow-opacity: 0.18;
   --shadow-blur: 2px;
@@ -154,8 +154,8 @@
   --color-sidebar-ring: var(--sidebar-ring);
   /* Tailwind theme tokens to use in TypeScript */
   --max-w-2xl: theme(maxWidth.2xl);
-  --font-sans: Geist, sans-serif;
-  --font-mono: Geist Mono, monospace;
+  --font-sans: 'Geist Variable', Geist, sans-serif;
+  --font-mono: 'Geist Mono Variable', 'Geist Mono', monospace;
   --font-serif: Georgia, serif;
   --radius: 0.5rem;
   --tracking-tighter: calc(var(--tracking-normal) - 0.05em);
@@ -190,6 +190,12 @@
     @apply bg-background text-foreground;
     letter-spacing: var(--tracking-normal);
   }
+}
+
+/* Chrome injects an unlayered stylesheet into extension pages that sets the body
+   font to system-ui. Unlayered rules beat every @layer, so this one stays outside. */
+body {
+  font-family: var(--font-sans);
 }
 
 /* Scroll timeline keyframes */
