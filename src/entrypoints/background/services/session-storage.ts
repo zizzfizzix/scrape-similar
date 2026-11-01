@@ -67,7 +67,7 @@ export const clearSessionState = async (tabId: number): Promise<void> => {
   try {
     // Under the lock, so an update already waiting for it lands before the
     // removal. An update that arrives after the removal still re-creates the
-    // entry (#301).
+    // entry.
     await withStorageLock(item, () => item.removeValue())
     log.debug(`Cleared session state for tab ${tabId}`)
   } catch (error) {
