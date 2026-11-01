@@ -454,10 +454,18 @@ describe('the autosuggest dropdown', () => {
       await focusField()
       await press('Escape')
       const scroll = spyOnScroll()
+      // Holding the frames back is what guarantees Escape lands first; awaiting
+      // `act` between the presses can let a real frame through.
+      const heldFrames: FrameRequestCallback[] = []
+      vi.spyOn(globalThis, 'requestAnimationFrame').mockImplementation((callback) => {
+        heldFrames.push(callback)
+        return heldFrames.length
+      })
 
       await press('ArrowDown')
       await press('Escape')
-      await nextFrame()
+      expect(heldFrames).not.toHaveLength(0)
+      await act(() => heldFrames.forEach((callback) => callback(performance.now())))
 
       expect(suggestionItems()).toHaveLength(0)
       expect(scroll).not.toHaveBeenCalled()
