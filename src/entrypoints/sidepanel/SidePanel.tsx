@@ -467,8 +467,8 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
         if (response?.success === true) {
           setResultProducingConfig(configAtScrapeTime)
           saveSidePanelState(tabId, { resultProducingConfig: configAtScrapeTime })
-          // A selector restored from an earlier session is scraped without being
-          // validated again, so the scrape has to feed the recents as well.
+          // Selectors validated by the picker, the context menu or an earlier session
+          // never reach handleHighlight, so the scrape feeds the recents as well.
           if (rowCount > 0 && !isSelectorAPreset(configAtScrapeTime.mainSelector, presets)) {
             reportRejection(pushRecentMainSelector(configAtScrapeTime.mainSelector))
           }
