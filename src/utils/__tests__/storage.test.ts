@@ -15,6 +15,7 @@ import {
 } from '@/utils/storage'
 import { SYSTEM_PRESETS } from '@/utils/system_presets'
 import { type Preset } from '@/utils/types'
+import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 import log from 'loglevel'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
@@ -115,6 +116,44 @@ describe('setPresets', () => {
 
     expect(await setPresets([preset('a')])).toBe(false)
     expect(errorSpy).toHaveBeenCalledWith('Error setting presets in storage:', failure)
+  })
+})
+
+describe('overlapping preset writes', () => {
+  it('keeps every preset from concurrent saves, in call order', async () => {
+    await Promise.all(['a', 'b', 'c'].map((id) => savePreset(preset(id))))
+
+    expect(ids(await getPresets())).toEqual(['a', 'b', 'c'])
+  })
+
+  it('applies a save and a delete that race each other', async () => {
+    await setPresets([preset('a'), preset('b')])
+
+    await Promise.all([savePreset(preset('c')), deletePreset('a')])
+
+    expect(ids(await getPresets())).toEqual(['b', 'c'])
+  })
+
+  it('applies a save queued behind an import, in call order', async () => {
+    await setPresets([preset('a')])
+    const write = userPresetsItem.setValue.bind(userPresetsItem)
+    // Holds the import's write back a macrotask; an unguarded save would read ['a'] meanwhile.
+    vi.spyOn(userPresetsItem, 'setValue').mockImplementationOnce(async (value) => {
+      await flushMicrotasks()
+      await write(value)
+    })
+
+    await Promise.all([setPresets([preset('x')]), savePreset(preset('b'))])
+
+    expect(ids(await getPresets())).toEqual(['x', 'b'])
+  })
+
+  it('applies an import queued behind a save, in call order', async () => {
+    await setPresets([preset('a')])
+
+    await Promise.all([savePreset(preset('b')), setPresets([preset('x')])])
+
+    expect(ids(await getPresets())).toEqual(['x'])
   })
 })
 

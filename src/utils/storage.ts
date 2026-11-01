@@ -117,53 +117,53 @@ export const getPresets = async (): Promise<Preset[]> => {
   }
 }
 
-// Save a preset to storage
-export const savePreset = async (preset: Preset): Promise<boolean> => {
-  try {
-    const presets = await getPresets()
+// Serialises writes to the key within one extension context. Looked up per
+// call: a module-scope lookup reads the item and keeps it in every bundle that
+// imports this file, the content script included.
+const userPresetsMutex = () => getStorageMutex(userPresetsItem.key)
 
-    // Check if preset with same ID exists
-    const existingIndex = presets.findIndex((p) => p.id === preset.id)
-    if (existingIndex !== -1) {
-      // Update existing preset
-      presets[existingIndex] = preset
-    } else {
-      // Add new preset
-      presets.push(preset)
+export const savePreset = async (preset: Preset): Promise<boolean> =>
+  userPresetsMutex().runExclusive(async () => {
+    try {
+      const presets = await getPresets()
+      const existingIndex = presets.findIndex((p) => p.id === preset.id)
+      if (existingIndex !== -1) {
+        presets[existingIndex] = preset
+      } else {
+        presets.push(preset)
+      }
+
+      await userPresetsItem.setValue(presets)
+      return true
+    } catch (error) {
+      log.error('Error saving preset to storage:', error)
+      return false
     }
+  })
 
-    await userPresetsItem.setValue(presets)
-    return true
-  } catch (error) {
-    log.error('Error saving preset to storage:', error)
-    return false
-  }
-}
+export const deletePreset = async (presetId: string): Promise<boolean> =>
+  userPresetsMutex().runExclusive(async () => {
+    try {
+      const presets = await getPresets()
+      await userPresetsItem.setValue(presets.filter((p) => p.id !== presetId))
+      return true
+    } catch (error) {
+      log.error('Error deleting preset from storage:', error)
+      return false
+    }
+  })
 
-// Delete a preset from storage
-export const deletePreset = async (presetId: string): Promise<boolean> => {
-  try {
-    const presets = await getPresets()
-    const updatedPresets = presets.filter((p) => p.id !== presetId)
-
-    await userPresetsItem.setValue(updatedPresets)
-    return true
-  } catch (error) {
-    log.error('Error deleting preset from storage:', error)
-    return false
-  }
-}
-
-// Set all user presets (used by import). Replaces existing.
-export const setPresets = async (presets: Preset[]): Promise<boolean> => {
-  try {
-    await userPresetsItem.setValue(presets)
-    return true
-  } catch (error) {
-    log.error('Error setting presets in storage:', error)
-    return false
-  }
-}
+/** Replaces every user preset; used by import. */
+export const setPresets = async (presets: Preset[]): Promise<boolean> =>
+  userPresetsMutex().runExclusive(async () => {
+    try {
+      await userPresetsItem.setValue(presets)
+      return true
+    } catch (error) {
+      log.error('Error setting presets in storage:', error)
+      return false
+    }
+  })
 
 // Initialize storage with default values. With defineItem fallback, empty is handled; no-op for compatibility.
 // `getPresets` swallows its own failures, so there is nothing here left to catch.
