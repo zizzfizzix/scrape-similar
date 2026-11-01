@@ -33,12 +33,9 @@ export const filterRecentSelectors = (
   query: string,
 ): string[] => {
   const needle = query.toLowerCase().trim()
-  const presetSelectors = new Set(
-    presets.map((preset) => (preset.config.mainSelector || '').trim()).filter(Boolean),
-  )
 
   return recentSelectors
-    .filter((selector) => !presetSelectors.has(selector))
+    .filter((selector) => !isSelectorAPreset(selector, presets))
     .filter((selector) => !needle || selector.toLowerCase().includes(needle))
 }
 
