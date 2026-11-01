@@ -2,10 +2,7 @@
 // `toBeDisabled`, ...), registered for every test file.
 import '@testing-library/jest-dom/vitest'
 import { beforeEach } from 'vitest'
-import { installTabAttachEvent } from './tests/support/fake-browser'
 import { createLockManager } from './tests/support/web-locks'
-
-installTabAttachEvent()
 
 // JSDom + Vitest don't play well with each other. Long story short - default
 // TextEncoder produces Uint8Array objects that are _different_ from the global

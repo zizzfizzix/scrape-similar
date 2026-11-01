@@ -208,25 +208,18 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
 
     const tabRemovalListener = (tabId: number) => dispatch({ type: 'removed', tabId })
 
-    // A tab dropped into another window is that window's panel's from then on.
-    // One dragged out and dropped back here keeps its panel. With its own
-    // window unknown, the panel follows every window and keeps them all.
-    const tabAttachListener = (tabId: number, { newWindowId }: { newWindowId: number }) => {
-      const windowId = windowIdRef.current
-      if (typeof windowId === 'number' && newWindowId !== windowId) {
-        dispatch({ type: 'removed', tabId })
-      }
-    }
+    // A tab moved to another window keeps its hidden panel here until it
+    // closes or is evicted. Moves are not followed: Chrome moves a tab dragged
+    // out of the strip into a new window mid-drag, so a drag dropped straight
+    // back would lose its panel too.
 
     browser.tabs.onActivated.addListener(tabActivationListener)
     browser.tabs.onUpdated.addListener(tabUpdateListener)
     browser.tabs.onRemoved.addListener(tabRemovalListener)
-    browser.tabs.onAttached.addListener(tabAttachListener)
     return () => {
       browser.tabs.onActivated.removeListener(tabActivationListener)
       browser.tabs.onUpdated.removeListener(tabUpdateListener)
       browser.tabs.onRemoved.removeListener(tabRemovalListener)
-      browser.tabs.onAttached.removeListener(tabAttachListener)
     }
   }, [])
 

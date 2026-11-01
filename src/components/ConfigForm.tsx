@@ -329,13 +329,18 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
     trackEvent(ANALYTICS_EVENTS.AUTO_GENERATE_CONFIG_BUTTON_PRESS)
 
     setGuessButtonState('generating')
-    browser.tabs.sendMessage(
-      tabId!,
-      { type: MESSAGE_TYPES.GUESS_CONFIG_FROM_SELECTOR, payload: { mainSelector: selector } },
-      (response) => {
-        setGuessButtonState(response?.success === true ? 'success' : 'failure')
-      },
-    )
+    try {
+      browser.tabs.sendMessage(
+        tabId!,
+        { type: MESSAGE_TYPES.GUESS_CONFIG_FROM_SELECTOR, payload: { mainSelector: selector } },
+        (response) => {
+          setGuessButtonState(response?.success === true ? 'success' : 'failure')
+        },
+      )
+    } catch (error) {
+      log.error('Error asking for a guessed config:', error)
+      setGuessButtonState('failure')
+    }
   }
 
   // An effect, so a result that lands while a side panel tab is hidden is
@@ -429,13 +434,11 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
   }
 
   const finishBlurCommit = (committedAtBlur: string) => {
-    // Don't commit if we're selecting from autosuggest (mousedown was triggered)
     if (isSelectingFromAutosuggestRef.current) {
       isSelectingFromAutosuggestRef.current = false
       return
     }
 
-    // If focus moved into the autosuggest dropdown, keep it open
     const active = document.activeElement as HTMLElement | null
     const hasMovedIntoDropdown = !!(active && autosuggestRef.current?.contains(active))
     if (hasMovedIntoDropdown) return
@@ -472,7 +475,6 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
     }, 150)
   }
 
-  // Handle main selector blur with delay to allow for clicks
   const handleMainSelectorBlur = () => armBlurCommit(latestConfigRef.current.mainSelector)
 
   // Hiding a side panel tab runs effect cleanups and showing it runs the

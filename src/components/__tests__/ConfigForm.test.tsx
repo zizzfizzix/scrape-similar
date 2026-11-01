@@ -17,6 +17,7 @@ import {
   type RenderResult,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import log from 'loglevel'
 import { Activity, useState } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
@@ -726,6 +727,22 @@ describe('ConfigForm', () => {
 
       expect(guessButton().querySelector('.lucide-check')).not.toBeNull()
       vi.useRealTimers()
+    })
+
+    it('shows the failure state when the request cannot be sent', async () => {
+      const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
+      spyOnBrowser(fakeBrowser.tabs, 'sendMessage').mockImplementation(() => {
+        throw new Error('Invalid tab id')
+      })
+      view = await render()
+
+      await act(async () => {
+        guessButton().click()
+        await Promise.resolve()
+      })
+
+      expect(guessButton().querySelector('.lucide-x')).not.toBeNull()
+      expect(errorSpy).toHaveBeenCalledWith('Error asking for a guessed config:', expect.any(Error))
     })
 
     it('spins and stays disabled while the guess is in flight', async () => {

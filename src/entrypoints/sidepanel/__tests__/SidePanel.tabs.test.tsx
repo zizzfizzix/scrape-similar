@@ -14,7 +14,7 @@ import {
   type ScrapeConfig,
   type SidePanelConfig,
 } from '@/utils/types'
-import { attachTab, setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
+import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
 import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 import { renderSettled } from '@@/tests/support/settle'
 import { act, fireEvent, screen, waitFor, type RenderResult } from '@testing-library/react'
@@ -1450,35 +1450,6 @@ describe('one panel per tab', () => {
 
     await switchTo(TAB_ID)
     await waitFor(() => expect(mainSelectorInput().value).toBe('//td'))
-  })
-
-  it('keeps the panel of a tab dragged out and dropped back into its window', async () => {
-    view = await render()
-    await switchTo(OTHER_TAB_ID)
-
-    act(() => attachTab(TAB_ID, WINDOW_ID))
-
-    expect(allMainSelectorInputs()).toHaveLength(2)
-  })
-
-  it('drops the panel of a tab dropped into another window', async () => {
-    view = await render()
-    await switchTo(OTHER_TAB_ID)
-
-    act(() => attachTab(TAB_ID, WINDOW_ID + 1))
-
-    expect(allMainSelectorInputs()).toHaveLength(1)
-  })
-
-  it('keeps every panel when it cannot tell which window it is in', async () => {
-    vi.spyOn(log, 'error').mockImplementation(() => {})
-    attachToNothing()
-    view = await render()
-    await switchTo(OTHER_TAB_ID)
-
-    act(() => attachTab(OTHER_TAB_ID, WINDOW_ID + 1))
-
-    expect(allMainSelectorInputs()).toHaveLength(1)
   })
 
   it('drops the panel of a closed tab', async () => {

@@ -21,25 +21,3 @@ export const spyOnBrowser = <T extends object>(target: T, method: keyof T & stri
 export const setLastError = (lastError: { message?: string } | undefined): void => {
   ;(fakeBrowser.runtime as { lastError?: { message?: string } }).lastError = lastError
 }
-
-type TabAttachListener = (tabId: number, attachInfo: Browser.tabs.OnAttachedInfo) => void
-const tabAttachListeners = new Set<TabAttachListener>()
-
-/**
- * Give the fake a working `tabs.onAttached`, which it does not implement and
- * the side panel listens to. Installed for every test file from `vitest.setup.ts`.
- */
-export const installTabAttachEvent = (): void => {
-  Object.assign(fakeBrowser.tabs, {
-    onAttached: {
-      addListener: (listener: TabAttachListener) => tabAttachListeners.add(listener),
-      removeListener: (listener: TabAttachListener) => tabAttachListeners.delete(listener),
-      hasListener: (listener: TabAttachListener) => tabAttachListeners.has(listener),
-    },
-  })
-}
-
-/** Fire `tabs.onAttached` for `tabId` landing in `newWindowId`. */
-export const attachTab = (tabId: number, newWindowId: number): void => {
-  for (const listener of tabAttachListeners) listener(tabId, { newWindowId, newPosition: 0 })
-}
