@@ -23,10 +23,13 @@
     "prepare": "node scripts/install-git-hooks.mjs",
     "test": "vitest --run",
     "test:coverage": "vitest --run --coverage && node scripts/check-coverage-fidelity.mjs",
-    "test:e2e": "playwright test",
+    "test:e2e": "playwright test --project=e2e",
+    "store-assets": "wxt build --mode test && STORE_ASSETS=1 NODE_ENV=test playwright test --project=store-assets",
     "update:shadcn": "bash scripts/update-shadcn.sh"
   },
   "dependencies": {
+    "@fontsource-variable/geist": "^5.3.0",
+    "@fontsource-variable/geist-mono": "^5.3.0",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/react-table": "^9.1.2",
     "async-mutex": "^0.5.0",

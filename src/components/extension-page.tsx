@@ -1,3 +1,8 @@
+// Only the extension's own pages load the fonts. The content script's CSS is
+// injected into a shadow root, where Chrome ignores @font-face rules, so its UI
+// keeps the fallback.
+import '@fontsource-variable/geist'
+import '@fontsource-variable/geist-mono'
 import log from 'loglevel'
 import React, { type ReactNode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'

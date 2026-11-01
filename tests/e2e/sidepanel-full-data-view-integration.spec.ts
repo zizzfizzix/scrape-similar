@@ -24,13 +24,11 @@ test.describe('Sidepanel Full Data View Integration', () => {
     // Open full data view
     const fullDataViewPage = await TestHelpers.openFullDataView(sidePanel, context)
 
-    // Bring the full data view tab to front - this should cause the sidepanel to switch context
+    // Opening the full view closes the side panel, so reopen it over the full data view tab
     await fullDataViewPage.bringToFront()
 
     sidePanel = await openSidePanel()
 
-    // The same sidepanel should now detect that it's viewing a full data view tab
-    // and show the special controls
     await expect(sidePanel.getByRole('heading', { name: /full screen view active/i })).toBeVisible()
     await expect(sidePanel.getByRole('button', { name: /compact view/i })).toBeVisible()
     await expect(sidePanel.getByRole('button', { name: /hide sidepanel/i })).toBeVisible()
@@ -54,12 +52,11 @@ test.describe('Sidepanel Full Data View Integration', () => {
     // Open full data view
     const fullDataViewPage = await TestHelpers.openFullDataView(sidePanel, context)
 
-    // Bring the full data view tab to front - sidepanel should switch to show special controls
+    // Opening the full view closes the side panel, so reopen it over the full data view tab
     await fullDataViewPage.bringToFront()
 
     sidePanel = await openSidePanel()
 
-    // Wait for special controls to appear in the same sidepanel
     await expect(sidePanel.getByRole('heading', { name: /full screen view active/i })).toBeVisible()
 
     // Click compact view button
@@ -89,12 +86,11 @@ test.describe('Sidepanel Full Data View Integration', () => {
     // Open full data view
     const fullDataViewPage = await TestHelpers.openFullDataView(sidePanel, context)
 
-    // Bring the full data view tab to front - sidepanel should switch to show special controls
+    // Opening the full view closes the side panel, so reopen it over the full data view tab
     await fullDataViewPage.bringToFront()
 
     sidePanel = await openSidePanel()
 
-    // Wait for special controls to appear in the same sidepanel
     await expect(sidePanel.getByRole('heading', { name: 'Full Screen View Active' })).toBeVisible()
 
     const hideSidepanelButton = sidePanel.getByRole('button', { name: /hide sidepanel/i })
@@ -184,12 +180,11 @@ test.describe('Sidepanel Full Data View Integration', () => {
     // Open full data view
     const fullDataViewPage = await TestHelpers.openFullDataView(sidePanel, context)
 
-    // Bring the full data view tab to front - sidepanel should switch context
+    // Opening the full view closes the side panel, so reopen it over the full data view tab
     await fullDataViewPage.bringToFront()
 
     sidePanel = await openSidePanel()
 
-    // Should now show full data view controls in the same sidepanel
     await expect(sidePanel.getByRole('heading', { name: /full screen view active/i })).toBeVisible()
     await expect(sidePanel.getByRole('textbox', { name: /enter xpath selector/i })).toBeHidden()
 
