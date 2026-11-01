@@ -257,8 +257,6 @@ export const DataTable: React.FC<DataTableProps> = ({
 
     // Use type assertion since WXT will generate this entrypoint
     const fullViewUrl = browser.runtime.getURL(`/full-data-view.html?tabId=${tabId}`)
-    // Not awaited: the side panel closes on the next line, so there is nobody
-    // left to await it.
     reportRejection(browser.tabs.create({ url: fullViewUrl }))
 
     // Close the sidepanel window after opening the full view

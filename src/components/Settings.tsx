@@ -140,8 +140,6 @@ export const Settings = React.memo(
 
     const handleKeyboardShortcutClick = useCallback(() => {
       const url = 'chrome://extensions/shortcuts#:~:text=Scrape%20Similar'
-      // Not awaited: `window.open` below needs the user gesture this handler is
-      // still inside, which an await would spend.
       reportRejection(navigator.clipboard.writeText(url))
       window.open('about:blank', '_blank')
 
