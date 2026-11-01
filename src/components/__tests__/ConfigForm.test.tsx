@@ -266,6 +266,14 @@ describe('ConfigForm', () => {
       expect(byText('Validate selector')).toBeTruthy()
     })
 
+    it('still offers to scrape when the edit only adds surrounding whitespace', async () => {
+      view = await render()
+
+      fireEvent.change(mainSelectorInput(), { target: { value: ' //tr ' } })
+
+      expect(byText('Scrape')).toBeTruthy()
+    })
+
     describe('once the selector has been edited', () => {
       /**
        * Press the action button the way a pointer does: the press blurs the
@@ -306,6 +314,19 @@ describe('ConfigForm', () => {
         expect(trackEvent).not.toHaveBeenCalledWith(ANALYTICS_EVENTS.SCRAPE_BUTTON_PRESS)
       })
 
+      it('validates the selector without its surrounding whitespace', async () => {
+        const onHighlight = vi.fn()
+        const onChange = vi.fn()
+        view = await render({ onHighlight, onChange })
+        await editSelector('  //li ')
+
+        await pressActionButton('Validate selector')
+
+        expect(onChange).toHaveBeenCalledWith({ ...config, mainSelector: '//li' })
+        expect(onHighlight).toHaveBeenCalledWith('//li')
+        expect(mainSelectorInput().value).toBe('//li')
+      })
+
       it('pre-empts the deferred blur commit rather than validating twice', async () => {
         const onHighlight = vi.fn()
         view = await render({ onHighlight })
@@ -315,6 +336,20 @@ describe('ConfigForm', () => {
         await letTheBlurCommitFallDue()
 
         expect(onHighlight).toHaveBeenCalledTimes(1)
+      })
+
+      it('scrapes a whitespace-only edit without highlighting again', async () => {
+        const onScrape = vi.fn()
+        const onHighlight = vi.fn()
+        view = await render({ onScrape, onHighlight })
+        await editSelector(' //tr ')
+
+        await pressActionButton('Scrape')
+        await letTheBlurCommitFallDue()
+
+        expect(onScrape).toHaveBeenCalledTimes(1)
+        expect(onHighlight).not.toHaveBeenCalled()
+        expect(mainSelectorInput().value).toBe('//tr')
       })
 
       it('scrapes once the edit has been committed', async () => {

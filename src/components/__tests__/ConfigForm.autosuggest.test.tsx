@@ -18,6 +18,19 @@ vi.mock('@/utils/analytics', async (importOriginal) => ({
   trackEvent,
 }))
 
+/** While `pending` is set, preset reads wait for it, holding the recents bookkeeping open. */
+const presetRead = vi.hoisted(() => ({ pending: null as Promise<void> | null }))
+vi.mock('@/utils/storage', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/utils/storage')>()
+  return {
+    ...actual,
+    getAllPresets: async () => {
+      await presetRead.pending
+      return actual.getAllPresets()
+    },
+  }
+})
+
 const toastMocks = vi.hoisted(() => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 vi.mock('sonner', () => toastMocks)
 
@@ -89,6 +102,7 @@ const focusField = () => act(() => mainSelectorInput().focus())
 const type = (value: string) => fireEvent.change(mainSelectorInput(), { target: { value: value } })
 
 beforeEach(async () => {
+  presetRead.pending = null
   fakeBrowser.reset()
   setLastError(undefined)
   await userPresetsItem.setValue([])
@@ -489,6 +503,19 @@ describe('the autosuggest dropdown', () => {
       )
     })
 
+    it('commits the draft without its surrounding whitespace', async () => {
+      const onChange = vi.fn()
+      view = await render({ presets: [], onChange })
+      await focusField()
+      await type('  //h2 ')
+
+      await act(() => mainSelectorInput().blur())
+      await waitFor(() =>
+        expect(onChange).toHaveBeenCalledWith({ ...config, mainSelector: '//h2' }),
+      )
+      expect(mainSelectorInput().value).toBe('//h2')
+    })
+
     it('keeps the dropdown open when focus moves into it', async () => {
       const onChange = vi.fn()
       view = await render({ presets, onChange })
@@ -610,6 +637,196 @@ describe('the autosuggest dropdown', () => {
 
       await waitFor(() => expect(onHighlight).toHaveBeenCalledWith('//h1'))
       expect(onScrape).not.toHaveBeenCalled()
+    })
+
+    /**
+     * Hold the preset read the recents bookkeeping starts with, so the
+     * assertions see what the keypress did before any storage I/O finished.
+     */
+    const holdPresetRead = () => {
+      let release!: () => void
+      presetRead.pending = new Promise<void>((resolve) => {
+        release = resolve
+      })
+      return () =>
+        act(async () => {
+          release()
+          await new Promise((resolve) => setTimeout(resolve, 0))
+        })
+    }
+
+    /** Outlast the 150ms defer on the blur commit. */
+    const letTheBlurCommitFallDue = () =>
+      act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 200))
+      })
+
+    it('commits an edited selector on the keypress and leaves the field', async () => {
+      const onChange = vi.fn()
+      const onHighlight = vi.fn()
+      view = await render({ presets: [], onChange, onHighlight })
+      await focusField()
+      await type('//h1')
+      const releasePresetRead = holdPresetRead()
+
+      await press('Enter')
+
+      expect(onChange).toHaveBeenCalledWith({ ...config, mainSelector: '//h1' })
+      expect(onHighlight).toHaveBeenCalledWith('//h1')
+      expect(mainSelectorInput()).not.toHaveFocus()
+      expect(suggestionItems()).toHaveLength(0)
+      await releasePresetRead()
+    })
+
+    it('commits once, not again when the blur it causes falls due', async () => {
+      const onChange = vi.fn()
+      const onHighlight = vi.fn()
+      view = await render({ presets: [], onChange, onHighlight })
+      await focusField()
+      await type('//h1')
+
+      await press('Enter')
+      await letTheBlurCommitFallDue()
+
+      expect(onChange).toHaveBeenCalledTimes(1)
+      expect(onHighlight).toHaveBeenCalledTimes(1)
+    })
+
+    it('commits the selector without its surrounding whitespace', async () => {
+      const onChange = vi.fn()
+      view = await render({ presets: [], onChange })
+      await focusField()
+      await type('  //h1  ')
+
+      await press('Enter')
+
+      expect(onChange).toHaveBeenCalledWith({ ...config, mainSelector: '//h1' })
+    })
+
+    it('scrapes an unchanged, validated selector on the keypress', async () => {
+      const onScrape = vi.fn()
+      const onHighlight = vi.fn()
+      view = await render({
+        presets: [],
+        onScrape,
+        onHighlight,
+        config: { ...config, mainSelector: '//tr' },
+      })
+      await focusField()
+      const releasePresetRead = holdPresetRead()
+
+      await press('Enter')
+
+      expect(onScrape).toHaveBeenCalledTimes(1)
+      expect(onHighlight).not.toHaveBeenCalled()
+      await releasePresetRead()
+    })
+
+    it('keeps focus on a field the user went back to after Enter', async () => {
+      const onChange = vi.fn()
+      view = await render({ presets: [], onChange })
+      await focusField()
+      await type('//h1')
+      const releasePresetRead = holdPresetRead()
+
+      await press('Enter')
+      await focusField()
+      await type('//h2')
+      await releasePresetRead()
+
+      expect(mainSelectorInput()).toHaveFocus()
+      expect(mainSelectorInput().value).toBe('//h2')
+      expect(onChange).toHaveBeenCalledTimes(1)
+      expect(onChange).toHaveBeenCalledWith({ ...config, mainSelector: '//h1' })
+    })
+
+    it('remembers the selector as it was at Enter, not as later edited', async () => {
+      view = await render({ presets: [] })
+      await focusField()
+      await type('  //h1  ')
+      const releasePresetRead = holdPresetRead()
+
+      await press('Enter')
+      await focusField()
+      await type('//h2')
+      await releasePresetRead()
+
+      await waitFor(async () => expect(await getRecentMainSelectors()).toEqual(['//h1']))
+    })
+
+    it('trims the field when Enter scrapes, so leaving it commits nothing', async () => {
+      const onScrape = vi.fn()
+      const onChange = vi.fn()
+      view = await render({
+        presets: [],
+        onScrape,
+        onChange,
+        config: { ...config, mainSelector: '//tr' },
+      })
+      await focusField()
+      await type('//tr ')
+
+      await press('Enter')
+      await act(() => mainSelectorInput().blur())
+      await letTheBlurCommitFallDue()
+
+      expect(onScrape).toHaveBeenCalledTimes(1)
+      expect(mainSelectorInput().value).toBe('//tr')
+      expect(onChange).not.toHaveBeenCalled()
+    })
+
+    it('closes the dropdown when Enter scrapes', async () => {
+      const onScrape = vi.fn()
+      view = await render({ presets, onScrape, config: { ...config, mainSelector: '//tr' } })
+      await focusField()
+      expect(suggestionItems()).not.toHaveLength(0)
+
+      await press('Enter')
+
+      expect(onScrape).toHaveBeenCalledTimes(1)
+      expect(suggestionItems()).toHaveLength(0)
+    })
+
+    it('scrapes a validated selector that was committed with surrounding whitespace', async () => {
+      const onScrape = vi.fn()
+      const onChange = vi.fn()
+      view = await render({
+        presets: [],
+        onScrape,
+        onChange,
+        config: { ...config, mainSelector: ' //tr' },
+      })
+      await focusField()
+
+      await press('Enter')
+      await act(() => mainSelectorInput().blur())
+      await letTheBlurCommitFallDue()
+
+      expect(onScrape).toHaveBeenCalledTimes(1)
+      expect(onChange).not.toHaveBeenCalled()
+    })
+
+    it('still commits on a later blur after a suggestion click and an Enter', async () => {
+      const onChange = vi.fn()
+      await setRecentMainSelectors(['//span'])
+      view = await render({ presets: [], onChange })
+      await focusField()
+      await type('//sp')
+      const row = suggestionItems()[0]!
+      await act(() => {
+        row.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
+        mainSelectorInput().blur()
+        row.click()
+      })
+      await type('//h1')
+      await press('Enter')
+
+      await focusField()
+      await type('//h2')
+      await act(() => mainSelectorInput().blur())
+      await letTheBlurCommitFallDue()
+
+      expect(onChange).toHaveBeenLastCalledWith({ ...config, mainSelector: '//h2' })
     })
   })
 })

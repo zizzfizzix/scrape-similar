@@ -170,7 +170,9 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
   const beginAdornmentRef = useRef<HTMLDivElement>(null)
 
   // Derived flags
-  const hasUncommittedChanges = mainSelectorDraft !== config.mainSelector
+  const trimmedDraft = mainSelectorDraft.trim()
+  // Commits trim, so surrounding whitespace on either side is not a change.
+  const hasUncommittedChanges = trimmedDraft !== config.mainSelector.trim()
 
   // Show highlight/error badges only when a non-empty selector is committed
   const isMainSelectorValid = isMainSelectorValidated({
@@ -249,13 +251,14 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
     setBeginAdornmentWidth(beginAdornmentRef.current!.offsetWidth)
   }, [])
 
-  // Commit the draft main selector to parent state and trigger highlight
-  const commitMainSelector = (value: string) => {
+  const commitMainSelector = (draft: string) => {
+    const value = draft.trim()
+    setMainSelectorDraft(value)
     const latest = latestConfigRef.current
-    if (value !== latest.mainSelector) {
+    if (value !== latest.mainSelector.trim()) {
       onChange({ ...latest, mainSelector: value })
     }
-    if (value.trim()) {
+    if (value) {
       onHighlight(value)
     }
   }
@@ -374,7 +377,6 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
 
   // Handle recent selector selection
   const handleRecentSelectorSelect = (selector: string) => {
-    setMainSelectorDraft(selector)
     commitMainSelector(selector)
     setIsAutosuggestOpen(false)
     mainSelectorInputRef.current?.focus()
@@ -407,6 +409,9 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
     // blurs the textarea; the user clicks straight back in and keeps typing, and
     // without this the pending timer closes the suggestions under them.
     clearTimeout(blurCommitTimerRef.current)
+    // The flag only guards the cancelled commit; left set, it would skip the
+    // next blur's.
+    isSelectingFromAutosuggestRef.current = false
     openAutosuggest()
   }
 
@@ -430,6 +435,25 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
     }, 150)
   }
 
+  // Cancels a pending blur commit: one scheduled when a button press blurred
+  // the field, or the one blur() schedules synchronously on the commit path.
+  const settleMainSelectorField = () => {
+    clearTimeout(blurCommitTimerRef.current)
+    setIsAutosuggestOpen(false)
+  }
+
+  const commitMainSelectorNow = (draft: string) => {
+    mainSelectorInputRef.current?.blur()
+    settleMainSelectorField()
+    commitMainSelector(draft)
+  }
+
+  const scrapeCommittedMainSelector = () => {
+    settleMainSelectorField()
+    setMainSelectorDraft(trimmedDraft)
+    onScrape()
+  }
+
   /**
    * Cancelling the pending blur commit is what makes validating here work: the
    * press blurs the textarea first, and that commit is deferred by 150ms so a
@@ -438,14 +462,12 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
    */
   const handleMainActionPress = () => {
     if (hasUncommittedChanges) {
-      clearTimeout(blurCommitTimerRef.current)
-      setIsAutosuggestOpen(false)
-      commitMainSelector(mainSelectorDraft)
+      commitMainSelectorNow(trimmedDraft)
       return
     }
 
     trackEvent(ANALYTICS_EVENTS.SCRAPE_BUTTON_PRESS)
-    onScrape()
+    scrapeCommittedMainSelector()
   }
 
   // Handle main selector change with autosuggest (newline-less)
@@ -559,30 +581,21 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
         if (suggestion?.kind === 'preset') handleAutosuggestSelect(suggestion.preset)
         return
       }
-      if (mainSelectorDraft.trim()) {
-        // Save to recents if not a preset, then either validate (if changed) or scrape (if unchanged and valid)
-        reportRejection(
-          (async () => {
-            const all = await getAllPresets()
-            if (!isSelectorAPreset(mainSelectorDraft, all)) {
-              await pushRecentMainSelector(mainSelectorDraft)
-            }
-            if (hasUncommittedChanges) {
-              // First Enter after changes: validate selector via highlight
-              commitMainSelector(mainSelectorDraft)
-              mainSelectorInputRef.current?.blur()
-            } else {
-              // No changes: if valid, trigger scrape; otherwise, validate again
-              if (isMainSelectorValid) {
-                onScrape()
-              } else {
-                commitMainSelector(mainSelectorDraft)
-                mainSelectorInputRef.current?.blur()
-              }
-            }
-          })(),
-        )
+      if (!trimmedDraft) return
+
+      if (isMainSelectorValid) {
+        scrapeCommittedMainSelector()
+      } else {
+        commitMainSelectorNow(trimmedDraft)
       }
+
+      reportRejection(
+        (async () => {
+          const all = await getAllPresets()
+          if (isSelectorAPreset(trimmedDraft, all)) return
+          await pushRecentMainSelector(trimmedDraft)
+        })(),
+      )
       return
     }
 
