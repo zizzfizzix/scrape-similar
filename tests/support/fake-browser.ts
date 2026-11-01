@@ -21,3 +21,25 @@ export const spyOnBrowser = <T extends object>(target: T, method: keyof T & stri
 export const setLastError = (lastError: { message?: string } | undefined): void => {
   ;(fakeBrowser.runtime as { lastError?: { message?: string } }).lastError = lastError
 }
+
+type TabDetachListener = (tabId: number, detachInfo: Browser.tabs.OnDetachedInfo) => void
+const tabDetachListeners = new Set<TabDetachListener>()
+
+/**
+ * Give the fake a working `tabs.onDetached`, which it does not implement and
+ * the side panel listens to. Installed for every test file from `vitest.setup.ts`.
+ */
+export const installTabDetachEvent = (): void => {
+  Object.assign(fakeBrowser.tabs, {
+    onDetached: {
+      addListener: (listener: TabDetachListener) => tabDetachListeners.add(listener),
+      removeListener: (listener: TabDetachListener) => tabDetachListeners.delete(listener),
+      hasListener: (listener: TabDetachListener) => tabDetachListeners.has(listener),
+    },
+  })
+}
+
+/** Fire `tabs.onDetached` for `tabId` leaving `oldWindowId`. */
+export const detachTab = (tabId: number, oldWindowId: number): void => {
+  for (const listener of tabDetachListeners) listener(tabId, { oldWindowId, oldPosition: 0 })
+}

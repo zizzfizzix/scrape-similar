@@ -1,6 +1,9 @@
 // React Testing Library's DOM matchers (`toBeInTheDocument`, `toHaveValue`,
 // `toBeDisabled`, ...), registered for every test file.
 import '@testing-library/jest-dom/vitest'
+import { installTabDetachEvent } from './tests/support/fake-browser'
+
+installTabDetachEvent()
 
 // JSDom + Vitest don't play well with each other. Long story short - default
 // TextEncoder produces Uint8Array objects that are _different_ from the global

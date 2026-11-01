@@ -3,8 +3,8 @@ import { ConsentProvider } from '@/components/consent-provider'
 import { ThemeProvider } from '@/components/theme-provider'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { SidePanel } from '@/entrypoints/sidepanel/SidePanel'
+import { LIVE_TAB_PANEL_CAP } from '@/entrypoints/sidepanel/tab-panels'
 import { ANALYTICS_EVENTS } from '@/utils/analytics'
-import { LIVE_TAB_PANEL_CAP } from '@/utils/sidepanel-state'
 import { getPresets, getRecentMainSelectors, userPresetsItem } from '@/utils/storage'
 import { SYSTEM_PRESETS } from '@/utils/system_presets'
 import {
@@ -14,7 +14,7 @@ import {
   type ScrapeConfig,
   type SidePanelConfig,
 } from '@/utils/types'
-import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
+import { detachTab, setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
 import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 import { renderSettled } from '@@/tests/support/settle'
 import { act, fireEvent, screen, waitFor, type RenderResult } from '@testing-library/react'
@@ -1242,6 +1242,36 @@ describe('one panel per tab', () => {
     expect(sidePanelWrites(sendMessage)).toEqual([])
   })
 
+  it('keeps a held blur commit when its tab is hidden again before the read lands', async () => {
+    view = await render()
+    await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
+    fireEvent.change(mainSelectorInput(), { target: { value: '//li' } })
+    act(() => {
+      mainSelectorInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
+    })
+    await switchTo(OTHER_TAB_ID)
+    const getItem = vi
+      .spyOn(sidePanelConfigItem(TAB_ID), 'getValue')
+      .mockImplementationOnce(() => new Promise(() => {}))
+    await switchTo(TAB_ID)
+    getItem.mockRestore()
+    await switchTo(OTHER_TAB_ID)
+    const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
+      undefined as never,
+    )
+
+    await switchTo(TAB_ID)
+
+    await waitFor(() =>
+      expect(sidePanelWrites(sendMessage)[0]).toEqual({
+        tabId: TAB_ID,
+        updates: expect.objectContaining({
+          currentScrapeConfig: expect.objectContaining({ mainSelector: '//li' }),
+        }),
+      }),
+    )
+  })
+
   it('closes the suggestions of a tab hidden mid-edit', async () => {
     view = await render()
     await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
@@ -1398,6 +1428,18 @@ describe('one panel per tab', () => {
 
     await switchTo(TAB_ID)
     await waitFor(() => expect(mainSelectorInput().value).toBe('//td'))
+  })
+
+  it('drops the panel of a tab dragged to another window', async () => {
+    view = await render()
+    await switchTo(OTHER_TAB_ID)
+    expect(allMainSelectorInputs()).toHaveLength(2)
+
+    act(() => detachTab(TAB_ID, WINDOW_ID + 1))
+    expect(allMainSelectorInputs()).toHaveLength(2)
+    act(() => detachTab(TAB_ID, WINDOW_ID))
+
+    expect(allMainSelectorInputs()).toHaveLength(1)
   })
 
   it('drops the panel of a closed tab', async () => {

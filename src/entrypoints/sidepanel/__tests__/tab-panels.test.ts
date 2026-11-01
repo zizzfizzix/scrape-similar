@@ -1,11 +1,12 @@
 import {
   getTabView,
   INITIAL_TAB_PANELS_STATE,
+  LIVE_TAB_PANEL_CAP,
   tabPanelsReducer,
+  touchLiveTab,
   type TabPanelsAction,
   type TabPanelsState,
 } from '@/entrypoints/sidepanel/tab-panels'
-import { LIVE_TAB_PANEL_CAP } from '@/utils/sidepanel-state'
 import { chromeExtensionId } from '@@/package.json' with { type: 'json' }
 import { describe, expect, it } from 'vitest'
 
@@ -103,5 +104,19 @@ describe('tabPanelsReducer', () => {
     const state = run(activated(1, PAGE))
 
     expect(tabPanelsReducer(state, { type: 'removed', tabId: 2 })).toBe(state)
+  })
+})
+
+describe('touchLiveTab', () => {
+  it('adds a new tab as the most recent', () => {
+    expect(touchLiveTab([1, 2], 3, 10)).toEqual([1, 2, 3])
+  })
+
+  it('moves a tab that is already live to the end', () => {
+    expect(touchLiveTab([1, 2, 3], 1, 10)).toEqual([2, 3, 1])
+  })
+
+  it('drops the least recently shown tabs past the cap', () => {
+    expect(touchLiveTab([1, 2, 3], 4, 3)).toEqual([2, 3, 4])
   })
 })

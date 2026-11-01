@@ -1,4 +1,5 @@
 import { subscribeWithBackfill } from '@/utils/storage-subscription'
+import log from 'loglevel'
 import { describe, expect, it, vi } from 'vitest'
 
 interface StoredValue {
@@ -150,5 +151,19 @@ describe('subscribeWithBackfill', () => {
     await finishRead({ label: 'stored' })
 
     expect(onCaughtUp).not.toHaveBeenCalled()
+  })
+
+  it('reports catching up after a read that failed', async () => {
+    const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
+    const onCaughtUp = vi.fn()
+
+    subscribeWithBackfill(
+      { watch: () => () => {}, read: () => Promise.reject(new Error('storage gone')) },
+      vi.fn(),
+      onCaughtUp,
+    )
+
+    await vi.waitFor(() => expect(onCaughtUp).toHaveBeenCalledOnce())
+    await vi.waitFor(() => expect(errorSpy).toHaveBeenCalled())
   })
 })

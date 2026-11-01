@@ -7,7 +7,6 @@ import {
   parseFullDataViewTabId,
   resolveStoredConfig,
   reuseIfEqual,
-  touchLiveTab,
 } from '@/utils/sidepanel-state'
 import type { ScrapeConfig } from '@/utils/types'
 import { describe, expect, it } from 'vitest'
@@ -293,20 +292,6 @@ describe('hasConfigDrifted', () => {
     const empty: ScrapeConfig = { mainSelector: '//tr', columns: [] }
 
     expect(hasConfigDrifted(empty, empty)).toBe(false)
-  })
-})
-
-describe('touchLiveTab', () => {
-  it('adds a new tab as the most recent', () => {
-    expect(touchLiveTab([1, 2], 3, 10)).toEqual([1, 2, 3])
-  })
-
-  it('moves a tab that is already live to the end', () => {
-    expect(touchLiveTab([1, 2, 3], 1, 10)).toEqual([2, 3, 1])
-  })
-
-  it('drops the least recently shown tabs past the cap', () => {
-    expect(touchLiveTab([1, 2, 3], 4, 3)).toEqual([2, 3, 4])
   })
 })
 

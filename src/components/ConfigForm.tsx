@@ -493,10 +493,11 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
   useEffect(
     () => () => {
       const committedAtBlur = pendingBlurRef.current
+      // Hidden again before the read on show landed: the earlier hold stands.
+      const held = heldBlurRef.current
       cancelBlurCommit()
-      if (committedAtBlur !== null) {
-        heldBlurRef.current = { committedAtBlur, storedVersion: readStoredVersion() }
-      }
+      heldBlurRef.current =
+        committedAtBlur === null ? held : { committedAtBlur, storedVersion: readStoredVersion() }
       setIsAutosuggestOpen(false)
     },
     [],

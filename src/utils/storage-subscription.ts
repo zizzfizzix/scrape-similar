@@ -18,8 +18,9 @@ export interface StorageSubscriptionSource<T> {
  * A value the listener has already delivered is newer than the backfill read,
  * so it wins even if the read resolves later.
  *
- * `onCaughtUp` runs once the backfill read has resolved, whether or not it
- * found a value, unless the subscription has been dropped by then.
+ * `onCaughtUp` runs once the backfill read has settled, whether it found a
+ * value, found none or failed, unless the subscription has been dropped by
+ * then.
  */
 export const subscribeWithBackfill = <T>(
   { watch, read }: StorageSubscriptionSource<T>,
@@ -36,11 +37,13 @@ export const subscribeWithBackfill = <T>(
   })
 
   reportRejection(
-    read().then((value) => {
-      if (!isSubscribed) return
-      if (!hasWatchedValue && value != null) onValue(value)
-      onCaughtUp?.()
-    }),
+    read()
+      .then((value) => {
+        if (isSubscribed && !hasWatchedValue && value != null) onValue(value)
+      })
+      .finally(() => {
+        if (isSubscribed) onCaughtUp?.()
+      }),
   )
 
   return () => {

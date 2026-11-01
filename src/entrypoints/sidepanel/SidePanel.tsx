@@ -208,13 +208,20 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
 
     const tabRemovalListener = (tabId: number) => dispatch({ type: 'removed', tabId })
 
+    // A tab dragged to another window is that window's panel's from then on.
+    const tabDetachListener = (tabId: number, { oldWindowId }: { oldWindowId: number }) => {
+      if (oldWindowId === windowIdRef.current) dispatch({ type: 'removed', tabId })
+    }
+
     browser.tabs.onActivated.addListener(tabActivationListener)
     browser.tabs.onUpdated.addListener(tabUpdateListener)
     browser.tabs.onRemoved.addListener(tabRemovalListener)
+    browser.tabs.onDetached.addListener(tabDetachListener)
     return () => {
       browser.tabs.onActivated.removeListener(tabActivationListener)
       browser.tabs.onUpdated.removeListener(tabUpdateListener)
       browser.tabs.onRemoved.removeListener(tabRemovalListener)
+      browser.tabs.onDetached.removeListener(tabDetachListener)
     }
   }, [])
 

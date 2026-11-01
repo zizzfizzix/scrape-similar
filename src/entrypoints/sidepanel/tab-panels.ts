@@ -1,6 +1,21 @@
 import { isInjectableUrl } from '@/utils/isInjectableUrl'
-import { LIVE_TAB_PANEL_CAP, touchLiveTab } from '@/utils/sidepanel-state'
 import { chromeExtensionId } from '@@/package.json' with { type: 'json' }
+
+/**
+ * How many tabs keep a live side panel. Each costs a React tree and its DOM
+ * even without results, and every one re-renders when the presets change; the
+ * results they hold are bounded by the session storage quota instead.
+ */
+export const LIVE_TAB_PANEL_CAP = 50
+
+/**
+ * The live panels after `tabId` is shown, least recently shown first.
+ *
+ * Panels past `cap` are dropped from the front, so the one being shown always
+ * survives.
+ */
+export const touchLiveTab = (liveTabIds: readonly number[], tabId: number, cap: number): number[] =>
+  [...liveTabIds.filter((id) => id !== tabId), tabId].slice(-cap)
 
 export type TabView = 'panel' | 'full-data-view' | 'unsupported'
 
