@@ -12,7 +12,6 @@ import {
   type ScrapedRow,
   type SidePanelConfig,
 } from '@/utils/types'
-import { chromeExtensionId } from '@@/package.json' with { type: 'json' }
 import { outlastBlurCommit } from '@@/tests/support/blur-commit'
 import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
 import { renderSettled } from '@@/tests/support/settle'
@@ -162,7 +161,7 @@ describe('SidePanel', () => {
     })
 
     it('offers a way back when the tab is the full data view', async () => {
-      await attachToTab(`chrome-extension://${chromeExtensionId}/full-data-view.html?tabId=9`)
+      await attachToTab(fakeBrowser.runtime.getURL('/full-data-view.html?tabId=9' as never))
 
       view = await render()
 
@@ -173,7 +172,7 @@ describe('SidePanel', () => {
 
   describe('going back from the full data view', () => {
     const attachToFullDataView = (search = '?tabId=9') =>
-      attachToTab(`chrome-extension://${chromeExtensionId}/full-data-view.html${search}`)
+      attachToTab(fakeBrowser.runtime.getURL(`/full-data-view.html${search}` as never))
 
     it('switches to the original tab and closes the view', async () => {
       await attachToFullDataView()

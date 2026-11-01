@@ -1,5 +1,4 @@
 import { isInjectableUrl } from '@/utils/isInjectableUrl'
-import { chromeExtensionId } from '@@/package.json' with { type: 'json' }
 
 /**
  * How many tabs keep a live side panel. Each costs a React tree and its DOM
@@ -19,9 +18,12 @@ export const touchLiveTab = (liveTabIds: readonly number[], tabId: number, cap: 
 
 export type TabView = 'panel' | 'full-data-view' | 'unsupported'
 
-/** No tab at all (`null`) gets the panel, so the form shows before a tab is resolved. */
+/**
+ * No tab at all (`null`) gets the panel, so the form shows before a tab is resolved.
+ * The extension origin differs per browser and per install (`moz-extension://<uuid>` on Firefox).
+ */
 export const getTabView = (tabUrl: string | null): TabView => {
-  if (tabUrl?.startsWith(`chrome-extension://${chromeExtensionId}/full-data-view.html`)) {
+  if (tabUrl?.startsWith(browser.runtime.getURL('/full-data-view.html'))) {
     return 'full-data-view'
   }
   return tabUrl !== null && !isInjectableUrl(tabUrl) ? 'unsupported' : 'panel'

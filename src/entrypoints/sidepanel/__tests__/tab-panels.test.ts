@@ -7,8 +7,9 @@ import {
   type TabPanelsAction,
   type TabPanelsState,
 } from '@/entrypoints/sidepanel/tab-panels'
-import { chromeExtensionId } from '@@/package.json' with { type: 'json' }
+import { spyOnBrowser } from '@@/tests/support/fake-browser'
 import { describe, expect, it } from 'vitest'
+import { fakeBrowser } from 'wxt/testing/fake-browser'
 
 const PAGE = 'https://example.com/'
 const SETTINGS = 'chrome://settings'
@@ -33,11 +34,20 @@ describe('getTabView', () => {
   })
 
   it('tells the full data view, an unsupported page and a supported one apart', () => {
-    expect(getTabView(`chrome-extension://${chromeExtensionId}/full-data-view.html?tab=1`)).toBe(
+    expect(getTabView(fakeBrowser.runtime.getURL('/full-data-view.html?tabId=1' as never))).toBe(
       'full-data-view',
     )
     expect(getTabView(SETTINGS)).toBe('unsupported')
     expect(getTabView(PAGE)).toBe('panel')
+  })
+
+  it('recognises the full data view under a Firefox extension origin', () => {
+    const origin = 'moz-extension://0b7c1f2e-5a4d-4e8b-9c3a-1d2e3f4a5b6c'
+    spyOnBrowser(fakeBrowser.runtime, 'getURL').mockImplementation(
+      (path: string) => `${origin}${path}`,
+    )
+
+    expect(getTabView(`${origin}/full-data-view.html?tabId=1`)).toBe('full-data-view')
   })
 })
 
