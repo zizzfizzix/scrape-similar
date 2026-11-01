@@ -63,6 +63,10 @@ describe('generateSelectorCandidates', () => {
     expect(bodySelectors).toHaveLength(0)
   })
 
+  it('builds no candidate for the root element', () => {
+    expect(generateSelectorCandidates(document.documentElement)).toEqual([])
+  })
+
   it('does not include duplicate selectors', () => {
     document.body.innerHTML = `
       <div id="wrapper">

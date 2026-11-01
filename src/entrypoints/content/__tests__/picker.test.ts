@@ -358,8 +358,11 @@ describe('handlePickerMouseMove', () => {
       expect(bannerMocks.updatePickerBannerContent).toHaveBeenCalledWith(0, '', state)
     })
 
-    it('clears the selection when no selector describes the element', () => {
-      hover(document.body)
+    it.each([
+      ['the body', () => document.body],
+      ['the root element', () => document.documentElement],
+    ])('clears the selection when hovering %s, which no selector describes', (_, element) => {
+      hover(element())
 
       move(10, 20)
 
@@ -718,6 +721,10 @@ describe('handlePickerClick', () => {
     expect(sendMessage).toHaveBeenCalledWith({
       type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
       payload: { tabId: 3, updates: { highlightMatchCount: 3, highlightError: null } },
+    })
+    expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.ELEMENTS_HIGHLIGHT, {
+      elements_count: 3,
+      is_row_highlight: false,
     })
   })
 
