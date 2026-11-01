@@ -432,7 +432,14 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
       if (hasMovedIntoDropdown) return
 
       setIsAutosuggestOpen(false)
-      commitMainSelector(mainSelectorDraft)
+      // Committing an unchanged selector highlights the page again and resets
+      // the match count while it re-validates.
+      const value = mainSelectorDraft.trim()
+      if (value === latestConfigRef.current.mainSelector.trim()) {
+        setMainSelectorDraft(value)
+        return
+      }
+      commitMainSelector(value)
     }, 150)
   }
 

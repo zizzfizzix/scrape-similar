@@ -185,6 +185,41 @@ describe('ConfigForm', () => {
       vi.useRealTimers()
     })
 
+    it('does not highlight again when the field is left unchanged', async () => {
+      // #311: focusing and leaving the field re-highlighted the committed selector.
+      vi.useFakeTimers()
+      const onChange = vi.fn()
+      const onHighlight = vi.fn()
+      view = await render({ onChange, onHighlight })
+
+      await act(() => {
+        mainSelectorInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
+        vi.advanceTimersByTime(200)
+      })
+
+      expect(onChange).not.toHaveBeenCalled()
+      expect(onHighlight).not.toHaveBeenCalled()
+      vi.useRealTimers()
+    })
+
+    it('trims a whitespace-only edit on blur without highlighting again', async () => {
+      vi.useFakeTimers()
+      const onChange = vi.fn()
+      const onHighlight = vi.fn()
+      view = await render({ onChange, onHighlight })
+
+      fireEvent.change(mainSelectorInput(), { target: { value: ' //tr ' } })
+      await act(() => {
+        mainSelectorInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
+        vi.advanceTimersByTime(200)
+      })
+
+      expect(onChange).not.toHaveBeenCalled()
+      expect(onHighlight).not.toHaveBeenCalled()
+      expect(mainSelectorInput().value).toBe('//tr')
+      vi.useRealTimers()
+    })
+
     it('follows a selector changed by its parent', async () => {
       view = await render()
 
