@@ -2,14 +2,13 @@
 // Can be used in background scripts, content scripts, and UI contexts
 
 import { reportRejection } from '@/utils/report-rejection'
+import { getStorageMutex } from '@/utils/storage-mutex'
 import { version } from '@@/package.json' with { type: 'json' }
-import { Mutex } from 'async-mutex'
 import log from 'loglevel'
 
 export const MAX_QUEUED_EVENTS = 1000 // Prevent unbounded growth
 
-// Mutex to prevent concurrent queue operations
-export const queueMutex = new Mutex()
+export const queueMutex = getStorageMutex(eventQueueItem.key)
 
 export interface QueuedEvent {
   name: string
