@@ -174,4 +174,25 @@ export const touchLiveTab = (liveTabIds: readonly number[], tabId: number, cap: 
  * that changed nothing they show.
  */
 export const reuseIfEqual = <T>(previous: T, next: T): T =>
-  JSON.stringify(previous) === JSON.stringify(next) ? previous : next
+  hasSameData(previous, next) ? previous : next
+
+/** Keys holding a value; storage drops `undefined` ones, so they count as absent. */
+const definedKeys = (value: object): string[] =>
+  Object.keys(value).filter((key) => (value as Record<string, unknown>)[key] !== undefined)
+
+/**
+ * Structural equality over stored data, stopping at the first difference.
+ * Avoids serialising both sides, which for a large scrape result costs
+ * megabytes of strings on every storage write.
+ */
+const hasSameData = (a: unknown, b: unknown): boolean => {
+  if (Object.is(a, b)) return true
+  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false
+  if (Array.isArray(a) !== Array.isArray(b)) return false
+  const keys = definedKeys(a)
+  const record = b as Record<string, unknown>
+  return (
+    keys.length === definedKeys(b).length &&
+    keys.every((key) => hasSameData((a as Record<string, unknown>)[key], record[key]))
+  )
+}

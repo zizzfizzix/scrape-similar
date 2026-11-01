@@ -1,13 +1,17 @@
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Toaster } from '@/components/ui/sonner'
+import {
+  getTabView,
+  INITIAL_TAB_PANELS_STATE,
+  tabPanelsReducer,
+} from '@/entrypoints/sidepanel/tab-panels'
 import { TabPanel } from '@/entrypoints/sidepanel/TabPanel'
 import { reportRejection } from '@/utils/report-rejection'
-import { LIVE_TAB_PANEL_CAP, parseFullDataViewTabId, touchLiveTab } from '@/utils/sidepanel-state'
-import { chromeExtensionId } from '@@/package.json' with { type: 'json' }
+import { parseFullDataViewTabId } from '@/utils/sidepanel-state'
 import log from 'loglevel'
 import { Minimize2, X } from 'lucide-react'
-import React, { Activity, useCallback, useEffect, useState } from 'react'
+import React, { Activity, useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
 // Simple splash screen component
@@ -118,16 +122,6 @@ const FullDataViewControls: React.FC<{
     </div>
   )
 }
-type TabView = 'panel' | 'full-data-view' | 'unsupported'
-
-/** An unknown URL gets the panel, so a tab still being resolved shows the form. */
-const getTabView = (tabUrl: string | null): TabView => {
-  if (tabUrl?.startsWith(`chrome-extension://${chromeExtensionId}/full-data-view.html`)) {
-    return 'full-data-view'
-  }
-  return tabUrl !== null && !isInjectableUrl(tabUrl) ? 'unsupported' : 'panel'
-}
-
 interface SidePanelProps {
   debugMode: boolean
   onDebugModeChange: (enabled: boolean) => void
@@ -139,23 +133,39 @@ interface SidePanelProps {
  * state shared by every tab (presets, the footer's settings) lives here.
  */
 export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) => {
-  const [activeTabId, setActiveTabId] = useState<number | null>(null)
-  // Least recently shown first, so eviction drops from the front.
-  const [liveTabIds, setLiveTabIds] = useState<number[]>([])
-  const [tabUrls, setTabUrls] = useState<ReadonlyMap<number, string | null>>(new Map())
+  const [{ activeTabId, liveTabIds, tabUrls }, dispatch] = useReducer(
+    tabPanelsReducer,
+    INITIAL_TAB_PANELS_STATE,
+  )
   const [presets, setPresets] = useState<Preset[]>([])
-
-  const setTabUrl = (tabId: number, url: string | null) =>
-    setTabUrls((previous) => new Map(previous).set(tabId, url))
-
-  const showTab = (tabId: number) => {
-    setActiveTabId(tabId)
-    setLiveTabIds((previous) => touchLiveTab(previous, tabId, LIVE_TAB_PANEL_CAP))
-  }
+  // The window this panel belongs to: `undefined` until known, `null` when it
+  // could not be read, in which case activations in every window are followed.
+  const windowIdRef = useRef<number | null | undefined>(undefined)
+  const pendingActivationRef = useRef<{ tabId: number; windowId: number } | null>(null)
 
   const reloadPresets = useCallback(() => reportRejection(getAllPresets().then(setPresets)), [])
 
   useEffect(() => {
+    // The tab is shown only once its URL is known, so a tab on an unsupported
+    // page never mounts a panel first.
+    const activate = (tabId: number) => {
+      browser.tabs.get(tabId, (tab) => {
+        if (browser.runtime.lastError) {
+          log.error('Error getting tab info:', browser.runtime.lastError)
+          dispatch({ type: 'activated', tabId, url: null })
+        } else {
+          dispatch({ type: 'activated', tabId, url: tab.url || '' })
+        }
+      })
+    }
+
+    const resolveWindow = (windowId: number | null) => {
+      windowIdRef.current = windowId
+      const pending = pendingActivationRef.current
+      pendingActivationRef.current = null
+      if (pending && (windowId === null || pending.windowId === windowId)) activate(pending.tabId)
+    }
+
     // Use `currentWindow: true` instead of `lastFocusedWindow: true` because the
     // side-panel itself becomes the *last focused* window in certain testing/
     // automation scenarios (e.g. Playwright) - likely due to PW_CHROMIUM_ATTACH_TO_OTHER = '1'.
@@ -164,60 +174,43 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
     // Limiting the query to the *current* window reliably returns the active
     // webpage tab that the side-panel is attached to.
     browser.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const tab = tabs?.[0]
       if (browser.runtime.lastError) {
         log.error('Error querying tabs:', browser.runtime.lastError.message)
-      } else if (tabs && tabs[0] && tabs[0].id) {
-        log.debug(`Got initial tabId directly: ${tabs[0].id}`)
-        setTabUrl(tabs[0].id, tabs[0].url || '')
-        showTab(tabs[0].id)
+      } else if (tab?.id) {
+        log.debug(`Got initial tabId directly: ${tab.id}`)
+        dispatch({ type: 'activated', tabId: tab.id, url: tab.url || '' })
       } else {
         log.error('No active tab found in last focused window')
       }
+      resolveWindow(tab?.windowId ?? null)
     })
 
-    const tabActivationListener = ({ tabId }: { tabId: number }) => {
+    // Every window has its own side panel, which follows only its own tabs.
+    const tabActivationListener = ({ tabId, windowId }: { tabId: number; windowId: number }) => {
       log.debug(`SidePanel detected tab activation: ${tabId}`)
-      showTab(tabId)
-      browser.tabs.get(tabId, (tab) => {
-        if (browser.runtime.lastError) {
-          log.error('Error getting tab info:', browser.runtime.lastError)
-          setTabUrl(tabId, null)
-        } else {
-          setTabUrl(tabId, tab.url || '')
-        }
-      })
+      if (windowIdRef.current === undefined) {
+        pendingActivationRef.current = { tabId, windowId }
+      } else if (windowIdRef.current === null || windowId === windowIdRef.current) {
+        activate(tabId)
+      }
     }
 
-    const tabRemovalListener = (tabId: number) => {
-      setLiveTabIds((previous) => previous.filter((id) => id !== tabId))
-      setTabUrls((previous) => {
-        const next = new Map(previous)
-        next.delete(tabId)
-        return next
-      })
+    const tabUpdateListener = (tabId: number, { url }: { url?: string }) => {
+      if (url !== undefined) dispatch({ type: 'navigated', tabId, url })
     }
+
+    const tabRemovalListener = (tabId: number) => dispatch({ type: 'removed', tabId })
 
     browser.tabs.onActivated.addListener(tabActivationListener)
+    browser.tabs.onUpdated.addListener(tabUpdateListener)
     browser.tabs.onRemoved.addListener(tabRemovalListener)
     return () => {
       browser.tabs.onActivated.removeListener(tabActivationListener)
+      browser.tabs.onUpdated.removeListener(tabUpdateListener)
       browser.tabs.onRemoved.removeListener(tabRemovalListener)
     }
   }, [])
-
-  // A background tab's URL is read again when it is activated, so only the
-  // active tab's navigation is followed.
-  useEffect(() => {
-    if (activeTabId === null) return
-    const tabUpdateListener = (tabId: number) => {
-      if (tabId !== activeTabId) return
-      browser.tabs.get(tabId, (updatedTab) => {
-        setTabUrl(tabId, browser.runtime.lastError ? '' : updatedTab.url || '')
-      })
-    }
-    browser.tabs.onUpdated.addListener(tabUpdateListener)
-    return () => browser.tabs.onUpdated.removeListener(tabUpdateListener)
-  }, [activeTabId])
 
   // Presets are shared by every tab; this also follows changes made from
   // another extension page (a preset saved or a system preset hidden).
@@ -231,7 +224,8 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
     }
   }, [reloadPresets])
 
-  const handleSavePreset = async (config: ScrapeConfig, name: string) => {
+  // Stable, so a hidden TabPanel is not re-rendered by a change in the shell.
+  const handleSavePreset = useCallback(async (config: ScrapeConfig, name: string) => {
     const preset: Preset = {
       id: Date.now().toString(),
       name,
@@ -251,10 +245,10 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
     } else {
       log.error('Failed to save preset')
     }
-  }
+  }, [])
 
   // A system preset is hidden rather than deleted.
-  const handleDeletePreset = async (preset: Preset) => {
+  const handleDeletePreset = useCallback(async (preset: Preset) => {
     if (isSystemPreset(preset)) {
       const statusMap = await getSystemPresetStatus()
       statusMap[preset.id] = false
@@ -287,7 +281,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
         </>,
       )
     }
-  }
+  }, [])
 
   const handleResetSystemPresets = async () => {
     await setSystemPresetStatus({})
@@ -301,10 +295,14 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
   const tabUrl = activeTabId === null ? null : (tabUrls.get(activeTabId) ?? null)
   const view = getTabView(tabUrl)
 
+  const handleDeletePresetReported = useCallback(
+    (preset: Preset) => reportRejection(handleDeletePreset(preset)),
+    [handleDeletePreset],
+  )
   const tabPanelProps = {
     presets,
     onSavePreset: handleSavePreset,
-    onDeletePreset: (preset: Preset) => reportRejection(handleDeletePreset(preset)),
+    onDeletePreset: handleDeletePresetReported,
   }
 
   return (
@@ -322,11 +320,14 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
           </main>
         )}
         {activeTabId === null && <TabPanel tabId={null} tabUrl={null} {...tabPanelProps} />}
-        {/* A tab on a page the panel cannot work on has no panel to keep. */}
-        {liveTabIds
-          .filter((tabId) => getTabView(tabUrls.get(tabId) ?? null) === 'panel')
+        {/* In a fixed order: reordering would move a panel's DOM on every switch. */}
+        {[...liveTabIds]
+          .sort((a, b) => a - b)
           .map((tabId) => (
-            <Activity key={tabId} mode={tabId === activeTabId ? 'visible' : 'hidden'}>
+            <Activity
+              key={tabId}
+              mode={tabId === activeTabId && view === 'panel' ? 'visible' : 'hidden'}
+            >
               <TabPanel tabId={tabId} tabUrl={tabUrls.get(tabId) ?? null} {...tabPanelProps} />
             </Activity>
           ))}

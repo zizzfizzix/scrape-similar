@@ -12,7 +12,7 @@ import {
 import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
 import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 import { renderSettled } from '@@/tests/support/settle'
-import { type RenderResult, act, fireEvent } from '@testing-library/react'
+import { type RenderResult, act, fireEvent, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
@@ -515,6 +515,34 @@ describe('FullDataViewApp', () => {
         total_rows: 45,
       })
     })
+  })
+
+  it('names an export after the tab and the day it was made', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-03-04T12:00:00Z'))
+    await openSingleTab()
+    await renderLoaded()
+    const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockImplementation(
+      (_message: unknown, callback?: (response: unknown) => void) => {
+        callback?.({ success: true, url: 'https://docs.google.com/x' })
+        return Promise.resolve(undefined)
+      },
+    )
+
+    const trigger = byText('Export')
+    fireEvent.pointerDown(trigger, { button: 0 })
+    fireEvent.pointerUp(trigger, { button: 0 })
+    fireEvent.click(trigger)
+    fireEvent.click(await screen.findByRole('menuitem', { name: /Google Sheets/ }))
+
+    expect(sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: MESSAGE_TYPES.EXPORT_TO_SHEETS,
+        payload: expect.objectContaining({ filename: 'Populations - 2026-03-04' }),
+      }),
+      expect.any(Function),
+    )
+    vi.useRealTimers()
   })
 
   it('names the columns from the config when the scrape recorded no order', async () => {

@@ -9,7 +9,7 @@ import {
   reuseIfEqual,
 } from '@/utils/sidepanel-state'
 import log from 'loglevel'
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
 export const CONTENT_SCRIPT_UNREACHABLE =
@@ -29,15 +29,16 @@ interface TabPanelProps {
  *
  * The panel keeps one of these per tab and hides the inactive ones, so state
  * that is never persisted (drafts, open drawers, the table page) survives a tab
- * switch and cannot reach another tab.
+ * switch and cannot reach another tab. Memoised, so a tab switch re-renders
+ * only the shell rather than every hidden panel.
  */
-export const TabPanel: React.FC<TabPanelProps> = ({
+export const TabPanel = memo(function TabPanel({
   tabId,
   tabUrl,
   presets,
   onSavePreset,
   onDeletePreset,
-}) => {
+}: TabPanelProps) {
   const [initialOptions, setInitialOptions] = useState<SelectionOptions | null>(null)
   const [config, setConfig] = useState<ScrapeConfig>(DEFAULT_SCRAPE_CONFIG)
   const [scrapeResult, setScrapeResult] = useState<ScrapeResult | null>(null)
@@ -52,7 +53,7 @@ export const TabPanel: React.FC<TabPanelProps> = ({
   const [shouldShowEmptyRows, setShouldShowEmptyRows] = useState(false)
   const [isPickerModeActive, setIsPickerModeActive] = useState(false)
 
-  const exportFilename = useMemo(() => buildExportFilename(tabUrl, new Date()), [tabUrl])
+  const buildFilename = useCallback((now: Date) => buildExportFilename(tabUrl, now), [tabUrl])
 
   const applyStoredState = useCallback(
     (stored: SidePanelConfig) => {
@@ -275,7 +276,6 @@ export const TabPanel: React.FC<TabPanelProps> = ({
           highlightMatchCount={highlightMatchCount}
           highlightError={highlightError}
           pickerModeActive={isPickerModeActive}
-          // Show rescrape hint when there is data and config differs from the config that produced it
           rescrapeAdvised={
             !!scrapeResult?.data?.length &&
             !!resultProducingConfig &&
@@ -290,7 +290,7 @@ export const TabPanel: React.FC<TabPanelProps> = ({
                 scrapeResult={scrapeResult}
                 config={resultProducingConfig || config}
                 showEmptyRows={shouldShowEmptyRows}
-                filename={exportFilename}
+                buildFilename={buildFilename}
                 variant="outline"
               />
             </div>
@@ -308,4 +308,4 @@ export const TabPanel: React.FC<TabPanelProps> = ({
       </div>
     </main>
   )
-}
+})

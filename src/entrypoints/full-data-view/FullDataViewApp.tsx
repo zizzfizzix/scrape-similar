@@ -748,7 +748,9 @@ export const FullDataViewApp: React.FC = () => {
                     selectedRows={table
                       .getFilteredSelectedRowModel()
                       .rows.map((row) => row.original)}
-                    filename={`${shownTab.tabTitle} - ${new Date().toISOString().split('T')[0]}`}
+                    buildFilename={(now) =>
+                      `${shownTab.tabTitle} - ${now.toISOString().split('T')[0]}`
+                    }
                     size="sm"
                     variant="outline"
                   />

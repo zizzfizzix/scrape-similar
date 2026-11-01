@@ -206,7 +206,7 @@ describe('ExportButtons', () => {
     })
 
     it('uses the filename it was given', async () => {
-      view = render({ filename: 'My export' })
+      view = render({ buildFilename: () => 'My export' })
 
       await choose('Save all as CSV')
 
@@ -307,7 +307,7 @@ describe('ExportButtons', () => {
 
     it('asks the background to build the spreadsheet', async () => {
       const sendMessage = backgroundReplies({ success: true, url: 'https://docs.google.com/x' })
-      view = render({ filename: 'My export' })
+      view = render({ buildFilename: () => 'My export' })
 
       await choose('Export all to Google Sheets')
 

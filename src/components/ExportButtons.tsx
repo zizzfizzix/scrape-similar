@@ -33,7 +33,8 @@ interface ExportButtonsProps {
   config: ScrapeConfig
   showEmptyRows: boolean
   selectedRows?: ScrapedRow[]
-  filename?: string
+  /** Called at export time, so repeated exports get their own timestamp. */
+  buildFilename?: (now: Date) => string
   size?: 'sm' | 'default' | 'lg'
   variant?: 'default' | 'outline' | 'secondary' | 'ghost' | 'link' | 'destructive'
   className?: string
@@ -44,7 +45,7 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
   config,
   showEmptyRows,
   selectedRows,
-  filename,
+  buildFilename = defaultExportFilename,
   size = 'sm',
   variant = 'outline',
   className = '',
@@ -63,8 +64,6 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
   useEffect(() => {
     return clearExportTimeout
   }, [])
-
-  const exportFilename = filename || defaultExportFilename(new Date())
 
   const resolved = resolveExportRows({ scrapeResult, selectedRows, showEmptyRows })
   const dataToExport = resolved.rows
@@ -91,7 +90,7 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
     const messagePayload = {
       type: MESSAGE_TYPES.EXPORT_TO_SHEETS,
       payload: {
-        filename: exportFilename,
+        filename: buildFilename(new Date()),
         scrapedData: dataToExport,
         columnOrder: scrapeResult.columnOrder,
         columnKeys: columnKeys,
@@ -199,7 +198,7 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
 
     try {
       const csv = rowsToCsv(dataToExport, columnKeys, columns)
-      downloadFile(csv, `${exportFilename}.csv`, CSV_MIME_TYPE)
+      downloadFile(csv, `${buildFilename(new Date())}.csv`, CSV_MIME_TYPE)
       toast.success('CSV file saved')
       setIsDropdownOpen(false)
     } catch (e) {
@@ -225,7 +224,7 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
 
     try {
       const buffer = await rowsToXlsxBuffer(dataToExport, columnKeys, columns)
-      downloadFile(buffer, `${exportFilename}.xlsx`, XLSX_MIME_TYPE)
+      downloadFile(buffer, `${buildFilename(new Date())}.xlsx`, XLSX_MIME_TYPE)
       toast.success('Excel file saved')
       setIsDropdownOpen(false)
     } catch (e) {

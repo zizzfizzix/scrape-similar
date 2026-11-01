@@ -17,7 +17,7 @@ import {
 import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
 import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 import { renderSettled } from '@@/tests/support/settle'
-import { act, fireEvent, waitFor, type RenderResult } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor, type RenderResult } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import log from 'loglevel'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -40,6 +40,7 @@ let view: RenderResult
 
 const TAB_ID = 4
 const OTHER_TAB_ID = 7
+const WINDOW_ID = 1
 const PAGE_URL = 'https://example.com/table'
 
 const config: ScrapeConfig = {
@@ -55,7 +56,11 @@ const config: ScrapeConfig = {
 const attachToTab = async (url: string | null = PAGE_URL, state?: SidePanelConfig) => {
   spyOnBrowser(fakeBrowser.tabs, 'query').mockImplementation(
     (_query: unknown, callback?: (tabs: Browser.tabs.Tab[]) => void) => {
-      const tabs = [(url === null ? { id: TAB_ID } : { id: TAB_ID, url }) as Browser.tabs.Tab]
+      const tab =
+        url === null
+          ? { id: TAB_ID, windowId: WINDOW_ID }
+          : { id: TAB_ID, windowId: WINDOW_ID, url }
+      const tabs = [tab as Browser.tabs.Tab]
       callback?.(tabs)
       return Promise.resolve(tabs)
     },
@@ -116,9 +121,9 @@ const allMainSelectorInputs = () => [
   ...view.container.querySelectorAll<HTMLTextAreaElement>('textarea#mainSelector'),
 ]
 
-const activateTab = (tabId: number) =>
+const activateTab = (tabId: number, windowId = WINDOW_ID) =>
   act(async () => {
-    await fakeBrowser.tabs.onActivated.trigger({ tabId, windowId: 1 })
+    await fakeBrowser.tabs.onActivated.trigger({ tabId, windowId })
   })
 
 beforeEach(async () => {
@@ -229,16 +234,70 @@ describe('following the active tab', () => {
     expect(get).not.toHaveBeenCalled()
   })
 
-  it('blanks the URL when the updated tab cannot be read', async () => {
+  it('ignores a tab activated in another window', async () => {
+    await attachToTab(PAGE_URL, { currentScrapeConfig: config })
     view = await render()
-    tabsGetReplies({}, { message: 'gone' })
+    await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
+    const get = tabsGetReplies({ id: OTHER_TAB_ID, url: 'https://example.org/list' })
 
-    await act(async () => {
-      await fakeBrowser.tabs.onUpdated.trigger(TAB_ID, { url: 'about:blank' }, {} as never)
+    await activateTab(OTHER_TAB_ID, WINDOW_ID + 1)
+
+    expect(get).not.toHaveBeenCalled()
+    expect(mainSelectorInput().value).toBe('//tr')
+  })
+
+  it('applies an activation that arrives before its own window is known', async () => {
+    let answerQuery: (() => void) | undefined
+    spyOnBrowser(fakeBrowser.tabs, 'query').mockImplementation(
+      (_query: unknown, callback?: (tabs: Browser.tabs.Tab[]) => void) => {
+        const tabs = [{ id: TAB_ID, windowId: WINDOW_ID, url: PAGE_URL } as Browser.tabs.Tab]
+        answerQuery = () => callback?.(tabs)
+        return Promise.resolve(tabs)
+      },
+    )
+    await storage.setItem(`session:sidepanel_config_${OTHER_TAB_ID}`, {
+      currentScrapeConfig: { ...config, mainSelector: '//li' },
     })
+    tabsGetReplies({ id: OTHER_TAB_ID, url: 'https://example.org/list' })
+    view = await render()
 
-    // A blank URL is not injectable either, so the splash takes over.
-    await waitFor(() => expect(view.container.textContent).toContain('Unsupported URL'))
+    await activateTab(OTHER_TAB_ID + 1, WINDOW_ID + 1)
+    await activateTab(OTHER_TAB_ID)
+    act(() => answerQuery!())
+
+    await waitFor(() => expect(mainSelectorInput().value).toBe('//li'))
+  })
+
+  it('drops an early activation from another window', async () => {
+    let answerQuery: (() => void) | undefined
+    spyOnBrowser(fakeBrowser.tabs, 'query').mockImplementation(
+      (_query: unknown, callback?: (tabs: Browser.tabs.Tab[]) => void) => {
+        const tabs = [{ id: TAB_ID, windowId: WINDOW_ID, url: PAGE_URL } as Browser.tabs.Tab]
+        answerQuery = () => callback?.(tabs)
+        return Promise.resolve(tabs)
+      },
+    )
+    const get = tabsGetReplies({ id: OTHER_TAB_ID, url: 'https://example.org/list' })
+    view = await render()
+
+    await activateTab(OTHER_TAB_ID, WINDOW_ID + 1)
+    act(() => answerQuery!())
+
+    expect(get).not.toHaveBeenCalled()
+  })
+
+  it('follows every window when it cannot tell which one it is in', async () => {
+    vi.spyOn(log, 'error').mockImplementation(() => {})
+    attachToNothing()
+    await storage.setItem(`session:sidepanel_config_${OTHER_TAB_ID}`, {
+      currentScrapeConfig: { ...config, mainSelector: '//li' },
+    })
+    view = await render()
+    tabsGetReplies({ id: OTHER_TAB_ID, url: 'https://example.org/list' })
+
+    await activateTab(OTHER_TAB_ID, WINDOW_ID + 1)
+
+    await waitFor(() => expect(mainSelectorInput().value).toBe('//li'))
   })
 
   it('ignores stored data that arrives for a different tab', async () => {
@@ -399,15 +458,14 @@ describe('reading the stored state', () => {
     await waitFor(() => expect(view.container.textContent).toContain('Unsupported URL'))
   })
 
-  it('blanks the URL when an update reports none', async () => {
+  it('ignores an update that leaves the URL alone', async () => {
     view = await render()
-    tabsGetReplies({ id: TAB_ID })
 
     await act(async () => {
       await fakeBrowser.tabs.onUpdated.trigger(TAB_ID, { status: 'loading' }, {} as never)
     })
 
-    await waitFor(() => expect(view.container.textContent).toContain('Unsupported URL'))
+    expect(mainSelectorInput()).toBeDefined()
   })
 })
 
@@ -1022,6 +1080,22 @@ describe('one panel per tab', () => {
     expect(sidePanelWrites(sendMessage)).toEqual([])
   })
 
+  it('keeps an uncommitted draft while its tab visits an unsupported page', async () => {
+    view = await render()
+    await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
+    fireEvent.change(mainSelectorInput(), { target: { value: '//li' } })
+    const navigate = (url: string) =>
+      act(async () => {
+        await fakeBrowser.tabs.onUpdated.trigger(TAB_ID, { url }, {} as never)
+      })
+
+    await navigate('chrome://settings')
+    await waitFor(() => expect(view.container.textContent).toContain('Unsupported URL'))
+    await navigate(PAGE_URL)
+
+    await waitFor(() => expect(mainSelectorInput().value).toBe('//li'))
+  })
+
   it('drops a blur commit still pending when its tab is hidden', async () => {
     view = await render()
     await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
@@ -1187,5 +1261,52 @@ describe('one panel per tab', () => {
     expect(allMainSelectorInputs()).toHaveLength(1)
     await switchTo(TAB_ID)
     expect(mainSelectorInput().value).toBe('//tr')
+  })
+})
+
+describe('exporting from a tab', () => {
+  it('stamps each export with the time it was made, not when the tab was first shown', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-01-01T10:00:00Z'))
+    await attachToTab(PAGE_URL, {
+      currentScrapeConfig: config,
+      scrapeResult: {
+        data: [{ data: { Rank: '1' }, metadata: { originalIndex: 0, isEmpty: false } }],
+        columnOrder: ['Rank'],
+      },
+    })
+    // The menu stays open until the background replies.
+    const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockImplementation(
+      (_message: unknown, callback?: (response: unknown) => void) => {
+        callback?.({ success: true, url: 'https://docs.google.com/x' })
+        return Promise.resolve(undefined)
+      },
+    )
+    view = await render()
+    const exportToSheets = async () => {
+      const trigger = [...view.container.querySelectorAll('button')].find(
+        (button) => button.textContent === 'Export',
+      )!
+      fireEvent.pointerDown(trigger, { button: 0 })
+      fireEvent.pointerUp(trigger, { button: 0 })
+      fireEvent.click(trigger)
+      fireEvent.click(await screen.findByRole('menuitem', { name: /Google Sheets/ }))
+    }
+    const exportedFilenames = () =>
+      sendMessage.mock.calls
+        .map(([message]) => message as Message<{ filename: string }>)
+        .filter((message) => message.type === MESSAGE_TYPES.EXPORT_TO_SHEETS)
+        .map((message) => message.payload!.filename)
+
+    await waitFor(() => expect(view.container.textContent).toContain('Extracted Data'))
+    await exportToSheets()
+    vi.setSystemTime(new Date('2026-01-01T14:00:00Z'))
+    await exportToSheets()
+
+    expect(exportedFilenames()).toEqual([
+      'Data export for httpsexamplecomtable at 2026-01-01_10-00-00-000',
+      'Data export for httpsexamplecomtable at 2026-01-01_14-00-00-000',
+    ])
+    vi.useRealTimers()
   })
 })

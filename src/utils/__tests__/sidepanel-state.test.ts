@@ -364,4 +364,28 @@ describe('reuseIfEqual', () => {
 
     expect(reuseIfEqual({ data: [{ a: '1' }] }, next)).toBe(next)
   })
+
+  it('treats a key holding undefined as absent, as storage does', () => {
+    const previous: { data: { a: string; b?: string }[] } = { data: [{ a: '1', b: undefined }] }
+
+    expect(reuseIfEqual(previous, { data: [{ a: '1' }] })).toBe(previous)
+  })
+
+  it('takes the next value when a key is added', () => {
+    const next = { a: '1', b: '2' }
+
+    expect(reuseIfEqual<Record<string, string>>({ a: '1' }, next)).toBe(next)
+  })
+
+  it('tells an empty array from an empty object', () => {
+    const next = {}
+
+    expect(reuseIfEqual<unknown>([], next)).toBe(next)
+  })
+
+  it('tells null from an object', () => {
+    const next = { a: '1' }
+
+    expect(reuseIfEqual<object | null>(null, next)).toBe(next)
+  })
 })
