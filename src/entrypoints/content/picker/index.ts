@@ -266,12 +266,10 @@ export const handlePickerClick = async (
   event.stopPropagation()
 
   // Resolved before disabling picker mode, which forgets the hovered element.
-  // The event's target is used rather than hit-testing the click point, which
-  // disabling shifts by removing the banner's margin.
   const target = event.target
   const hoveredElement = state.currentHoveredElement
-  // A press and release on different elements targets their common ancestor;
-  // the hovered element is the last one the cursor was over.
+  // A press and release on different elements targets their common ancestor,
+  // so the last element hover processed is taken when the target contains it.
   const el =
     target instanceof HTMLElement && hoveredElement && target.contains(hoveredElement)
       ? hoveredElement
