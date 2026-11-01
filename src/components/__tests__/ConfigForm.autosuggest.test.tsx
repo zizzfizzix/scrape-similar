@@ -738,5 +738,28 @@ describe('the autosuggest dropdown', () => {
 
       await waitFor(async () => expect(await getRecentMainSelectors()).toEqual(['//h1']))
     })
+
+    it('still commits on a later blur after a suggestion click and an Enter', async () => {
+      const onChange = vi.fn()
+      await setRecentMainSelectors(['//span'])
+      view = await render({ presets: [], onChange })
+      await focusField()
+      await type('//sp')
+      const row = suggestionItems()[0]!
+      await act(() => {
+        row.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
+        mainSelectorInput().blur()
+        row.click()
+      })
+      await type('//h1')
+      await press('Enter')
+
+      await focusField()
+      await type('//h2')
+      await act(() => mainSelectorInput().blur())
+      await letTheBlurCommitFallDue()
+
+      expect(onChange).toHaveBeenLastCalledWith({ ...config, mainSelector: '//h2' })
+    })
   })
 })

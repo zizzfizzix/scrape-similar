@@ -407,6 +407,9 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
     // blurs the textarea; the user clicks straight back in and keeps typing, and
     // without this the pending timer closes the suggestions under them.
     clearTimeout(blurCommitTimerRef.current)
+    // The flag only guards the cancelled commit; left set, it would skip the
+    // next blur's.
+    isSelectingFromAutosuggestRef.current = false
     openAutosuggest()
   }
 
