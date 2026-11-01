@@ -203,9 +203,9 @@ export const getAllPresets = async (): Promise<Preset[]> => {
 // Recent main selectors (local area, capped to 5)
 // -----------------------------------------------
 
-/** The item is typed, not validated: anything but a list reads as no recents. */
+/** The item is typed, not validated: a non-list reads as no recents, and non-string entries are dropped. */
 export const toSelectorList = (stored: unknown): string[] =>
-  Array.isArray(stored) ? [...stored] : []
+  Array.isArray(stored) ? stored.filter((entry): entry is string => typeof entry === 'string') : []
 
 export const getRecentMainSelectors = async (): Promise<string[]> => {
   try {
