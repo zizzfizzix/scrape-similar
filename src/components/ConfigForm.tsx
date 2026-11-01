@@ -75,7 +75,7 @@ interface ConfigFormProps {
   initialOptions: SelectionOptions | null
   presets: Preset[]
   onLoadPreset: (preset: Preset) => void
-  onSavePreset: (name: string) => void
+  onSavePreset: (name: string) => Promise<void>
   onDeletePreset: (preset: Preset) => void
   showPresets: boolean
   setShowPresets: React.Dispatch<React.SetStateAction<boolean>>

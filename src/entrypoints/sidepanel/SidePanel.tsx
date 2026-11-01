@@ -732,7 +732,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
               initialOptions={initialOptions}
               presets={presets}
               onLoadPreset={handleLoadPreset}
-              onSavePreset={(name) => reportRejection(handleSavePreset(name))}
+              onSavePreset={handleSavePreset}
               onDeletePreset={(preset) => reportRejection(handleDeletePreset(preset))}
               showPresets={shouldShowPresets}
               setShowPresets={setShouldShowPresets}

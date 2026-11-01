@@ -58,7 +58,7 @@ const baseProps = (): ConfigFormProps => ({
   initialOptions: null,
   presets: [],
   onLoadPreset: () => {},
-  onSavePreset: () => {},
+  onSavePreset: async () => {},
   onDeletePreset: () => {},
   showPresets: false,
   setShowPresets: () => {},

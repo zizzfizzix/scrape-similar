@@ -149,9 +149,8 @@ const BOOLEAN_PREFIX: Linter.RulesRecord = {
  * Neither ships in `tseslint.configs.recommended`, so both are enabled here.
  */
 const PROMISE_RULES: Linter.RulesRecord = {
-  // `void task` drops the rejection as surely as no handler at all; an
-  // unawaited promise goes through `reportRejection` instead.
-  '@typescript-eslint/no-floating-promises': ['error', { ignoreVoid: false }],
+  // `void task` passes this rule; NO_VOID is what rejects it.
+  '@typescript-eslint/no-floating-promises': 'error',
   // Every option on, `checksVoidReturn.attributes` included. An async
   // `onClick` looks idiomatic, and would be if the alternative were
   // `onClick={() => void handle()}` — the same dropped rejection, more syntax.
@@ -186,6 +185,10 @@ const DEFERRED = {
   // unparseable code.
   'jest-dom/prefer-to-have-text-content': 'off',
   'jest-dom/prefer-to-have-style': 'off',
+  // 154, none in extension code: 150 in unit tests, almost all `await act(() =>
+  // el.focus())`-style calls whose callback returns nothing, and 4 in e2e. Not
+  // in any enabled set, so listed for the count rather than to switch it off.
+  '@typescript-eslint/await-thenable': 'off',
 } as const
 
 export default defineConfig([
@@ -292,9 +295,8 @@ export default defineConfig([
       // `async ({}, use)` is how Playwright declares a fixture that depends on
       // no other fixture.
       'no-empty-pattern': 'off',
-      // Callbacks passed to `evaluate` run in the browser and cannot import
-      // `reportRejection`.
-      '@typescript-eslint/no-floating-promises': ['error', { ignoreVoid: true }],
+      // Without NO_VOID: callbacks passed to `evaluate` run in the browser and
+      // cannot import `reportRejection`.
       ...restrictedSyntax(NO_ENUM, NO_DEFAULT_EXPORT),
     },
   },
