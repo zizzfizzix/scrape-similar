@@ -157,7 +157,7 @@ describe('the autosuggest dropdown', () => {
       await setRecentMainSelectors(['//span'])
       view = await render({ presets })
       await focusField()
-      await type('//span')
+      type('//span')
 
       await press('ArrowDown')
 
@@ -239,7 +239,7 @@ describe('the autosuggest dropdown', () => {
       await press('Escape')
       expect(suggestionItems()).toHaveLength(0)
 
-      await type('//t')
+      type('//t')
 
       expect(suggestionItems()).not.toHaveLength(0)
     })
@@ -248,11 +248,11 @@ describe('the autosuggest dropdown', () => {
       const onLoadPreset = vi.fn()
       view = await render({ presets, onLoadPreset })
       await focusField()
-      await type('//tr')
+      type('//tr')
       await press('ArrowDown')
       await waitFor(() => expect(selectedSuggestion()?.textContent).toContain('Table rows'))
 
-      await type('')
+      type('')
       await press('Enter')
 
       // With nothing highlighted, Enter falls through to the commit path.
@@ -350,7 +350,7 @@ describe('the autosuggest dropdown', () => {
       await setRecentMainSelectors(['//span'])
       view = await render({ presets: [], onChange })
       await focusField()
-      await type('//sp')
+      type('//sp')
 
       const row = suggestionItems()[0]!
       await act(() => {
@@ -467,7 +467,7 @@ describe('the autosuggest dropdown', () => {
       const onChange = vi.fn()
       view = await render({ presets: [], onChange })
       await focusField()
-      await type('//h2')
+      type('//h2')
 
       await act(() => mainSelectorInput().blur())
       await waitFor(() =>
@@ -479,7 +479,7 @@ describe('the autosuggest dropdown', () => {
       const onChange = vi.fn()
       view = await render({ presets, onChange })
       await focusField()
-      await type('//t')
+      type('//t')
 
       await act(() => {
         // cmdk's root carries tabIndex={-1} so it can take focus this way.
@@ -498,7 +498,7 @@ describe('the autosuggest dropdown', () => {
       await setRecentMainSelectors(['//span'])
       view = await render({ presets: [], onChange })
       await focusField()
-      await type('//sp')
+      type('//sp')
 
       await act(() => {
         // Pointer down on the row, then the field loses focus — but the click
@@ -516,7 +516,7 @@ describe('the autosuggest dropdown', () => {
       const onChange = vi.fn()
       view = await render({ presets: [], onChange })
       await focusField()
-      await type('//h2')
+      type('//h2')
 
       await act(() => mainSelectorInput().blur())
       await focusField()
@@ -562,7 +562,7 @@ describe('the autosuggest dropdown', () => {
     it('remembers a selector that is not already a preset', async () => {
       view = await render({ presets })
       await focusField()
-      await type('//h1')
+      type('//h1')
 
       await press('Enter')
 
@@ -573,7 +573,7 @@ describe('the autosuggest dropdown', () => {
       await userPresetsStorage.setValue(presets)
       view = await render({ presets })
       await focusField()
-      await type('//tr')
+      type('//tr')
 
       await press('Enter')
 
