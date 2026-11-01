@@ -50,9 +50,11 @@ export const getSessionState = async (tabId: number): Promise<SidePanelConfig | 
  */
 export const initializeSessionState = async (tabId: number): Promise<void> => {
   const item = sidePanelConfigItem(tabId)
-  const mutex = getStorageMutex(item.key)
-  const existing = await mutex.runExclusive(async () => item.getValue())
-  if (!existing) {
+  // Read and write under one lock, so an update queued between them is not
+  // overwritten with the defaults.
+  await getStorageMutex(item.key).runExclusive(async () => {
+    const existing = await item.getValue()
+    if (existing) return
     const defaultPanelState: SidePanelConfig = {
       initialSelectionText: undefined,
       elementDetails: undefined,
@@ -60,10 +62,8 @@ export const initializeSessionState = async (tabId: number): Promise<void> => {
       currentScrapeConfig: undefined,
     }
     log.debug(`Initializing default session state for tab ${tabId}`)
-    await mutex.runExclusive(async () => {
-      await item.setValue(defaultPanelState)
-    })
-  }
+    await item.setValue(defaultPanelState)
+  })
 }
 
 /**
