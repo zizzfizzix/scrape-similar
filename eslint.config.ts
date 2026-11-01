@@ -162,20 +162,21 @@ const PROMISE_RULES: Linter.RulesRecord = {
  * Rules worth having that no longer fit in the diff that turned the linter on.
  * Each is off with the number of violations it reports today, so re-enabling one
  * is a line here plus the fixes it names — and so the count is a claim a reviewer
- * can check rather than an impression. See #7.
+ * can check rather than an impression. Each names the issue that tracks it; the
+ * two `jest-dom` rules are off on their merits and have none.
  */
 const DEFERRED = {
   // 74: 28 in extension code, mostly the message-passing types, and 46 in unit
-  // and e2e test scaffolding.
+  // and e2e test scaffolding. #278.
   '@typescript-eslint/no-explicit-any': 'off',
   // 265. The component tests reach into `container` deliberately; the rule wants
-  // them rewritten onto queries, which is a rewrite of the suite, not a fix.
+  // them rewritten onto queries, which is a rewrite of the suite, not a fix. #280.
   'testing-library/no-node-access': 'off',
   // 38. CLAUDE.md's "never nest `act` around `user-event`" is this rule, but the
   // mount-time `await act(async () => {})` in the local `render` helpers reads
-  // the same to it, so the two need separating first.
+  // the same to it, so the two need separating first. #280.
   'testing-library/no-unnecessary-act': 'off',
-  // 37, all naming (`view` / `mounted` rather than `view = render()`).
+  // 37, all naming (`view` / `mounted` rather than `view = render()`). #280.
   'testing-library/render-result-naming-convention': 'off',
   // 106 and 21, both off because their fixes do not say the same thing as the
   // assertions they replace. `toHaveTextContent` matches a substring, so it
@@ -188,6 +189,7 @@ const DEFERRED = {
   // 154, none in extension code: 149 in unit tests, almost all `await act(() =>
   // el.focus())`-style calls whose callback returns nothing, and 5 in e2e. Not
   // in any enabled set, so listed for the count rather than to switch it off.
+  // #282.
   '@typescript-eslint/await-thenable': 'off',
 } as const
 
