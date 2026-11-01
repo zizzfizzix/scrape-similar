@@ -157,7 +157,7 @@ const DEFERRED = {
   '@typescript-eslint/no-floating-promises': 'off',
   // 34: 22 an async handler passed to a JSX prop typed to return `void` (17 of
   // them `onClick` / `onSelect` / `onChange`), 8 an async event listener, and 4
-  // an async callback to `sendMessage` or `storage.watch`.
+  // a promise-returning callback to `sendMessage` or `storage.watch`.
   '@typescript-eslint/no-misused-promises': 'off',
   // 72: 26 in extension code, mostly the message-passing types, and 46 in unit
   // and e2e test scaffolding.
@@ -167,7 +167,7 @@ const DEFERRED = {
 /**
  * Rules that are off because they are wrong for this codebase, rather than off
  * until someone gets to them. Nothing here is a worklist: re-reading these
- * needs a reason that has changed, not an afternoon.
+ * needs evidence that the stated reason no longer holds.
  */
 const OFF_ON_MERITS = {
   // 268 reports across 19 files, and the suite cannot be query-first. 77 of them
