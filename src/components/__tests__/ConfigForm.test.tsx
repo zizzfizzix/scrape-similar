@@ -378,15 +378,12 @@ describe('ConfigForm', () => {
 
     describe('once the selector has been edited', () => {
       /**
-       * Press the action button the way a pointer does: the press blurs the
-       * textarea, whose commit is deferred, before the click lands.
+       * A real pointer press, so the button's mousedown handling decides
+       * whether the textarea blurs: it keeps focus for "Validate selector" and
+       * not for "Scrape".
        */
       const pressActionButton = async (label: string) => {
-        fireEvent.focusOut(mainSelectorInput())
-        await act(async () => {
-          byText(label).click()
-          await Promise.resolve()
-        })
+        await userEvent.setup().click(byText(label))
       }
 
       const editSelector = (value: string) => {

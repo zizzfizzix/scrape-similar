@@ -477,11 +477,11 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
   }
 
   /**
-   * The press blurs the textarea before the click lands, and that commit is
-   * deferred by 150ms so a click on a suggestion still lands. An edited
-   * selector is committed here instead of scraped, or the scrape would carry
-   * the selector the user has just moved away from (#271); commitMainSelector
-   * cancels the deferred commit.
+   * An edited selector is committed here instead of scraped, or the scrape
+   * would carry the selector the user has just moved away from (#271). A
+   * pointer press keeps focus in the textarea (handleMainActionMouseDown);
+   * commitMainSelector cancels any blur commit still pending, including the
+   * one the blur() in commitMainSelectorNow schedules.
    */
   const handleMainActionPress = () => {
     if (hasUncommittedChanges) {
