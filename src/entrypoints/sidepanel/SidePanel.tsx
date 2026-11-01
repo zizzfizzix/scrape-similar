@@ -694,6 +694,16 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
     )
   }
 
+  const footer = (
+    <Footer
+      showSettings={true}
+      onResetSystemPresets={resetSystemPresets}
+      onPresetsImported={handlePresetsImported}
+      debugMode={debugMode}
+      onDebugModeChange={onDebugModeChange}
+    />
+  )
+
   if (tabUrl !== null && !isInjectableUrl(tabUrl)) {
     return (
       <div className="flex flex-col h-screen font-sans min-w-0 max-w-full w-full box-border">
@@ -703,13 +713,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
             <SplashScreen tabUrl={tabUrl} />
           </main>
         </ConsentWrapper>
-        <Footer
-          showSettings={true}
-          onResetSystemPresets={resetSystemPresets}
-          onPresetsImported={handlePresetsImported}
-          debugMode={debugMode}
-          onDebugModeChange={onDebugModeChange}
-        />
+        {footer}
       </div>
     )
   }
@@ -774,13 +778,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
           </div>
         </main>
       </ConsentWrapper>
-      <Footer
-        showSettings={true}
-        onResetSystemPresets={resetSystemPresets}
-        onPresetsImported={handlePresetsImported}
-        debugMode={debugMode}
-        onDebugModeChange={onDebugModeChange}
-      />
+      {footer}
     </div>
   )
 }

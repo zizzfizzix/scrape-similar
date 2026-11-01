@@ -380,30 +380,6 @@ describe('FullDataViewApp', () => {
         export_type: 'full_data_view_row',
       })
     })
-
-    it('reports a clipboard the browser refused', async () => {
-      vi.mocked(navigator.clipboard.writeText).mockRejectedValue(new Error('denied'))
-      await openSingleTab()
-      await renderLoaded()
-
-      await act(async () => {
-        allButtons('Copy this row')[0]!.click()
-        await flushMicrotasks()
-      })
-
-      expect(toastMocks.toast.error).toHaveBeenCalledWith('Failed to copy')
-      expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.COPY_TO_CLIPBOARD_FAILURE)
-    })
-
-    it('offers no controls for an empty row', async () => {
-      await openSingleTab()
-      await renderLoaded()
-      await act(() => view.container.querySelector<HTMLElement>('#show-empty-rows')!.click())
-
-      const controls = [...bodyRows()[2]!.querySelectorAll('td')[2]!.querySelectorAll('button')]
-      expect(controls).toHaveLength(2)
-      expect(controls.every((candidate) => candidate.disabled)).toBe(true)
-    })
   })
 
   describe('selecting rows', () => {

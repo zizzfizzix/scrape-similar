@@ -1,3 +1,4 @@
+import { RowActionsCell } from '@/components/RowActionsCell'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import {
@@ -13,7 +14,6 @@ import { ANALYTICS_EVENTS, trackEvent } from '@/utils/analytics'
 import { calculateOptimalColumnWidth, SIDE_PANEL_COLUMN_METRICS } from '@/utils/column-width'
 import { getColumnKeys } from '@/utils/getColumnKeys'
 import { reportRejection } from '@/utils/report-rejection'
-import { rowToTsv } from '@/utils/tsv'
 import {
   type CellContext,
   type ColumnDef,
@@ -24,9 +24,8 @@ import {
   tableFeatures,
   useTable,
 } from '@tanstack/react-table'
-import { ChevronLeft, ChevronRight, Clipboard, Expand, Highlighter } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Expand } from 'lucide-react'
 import React, { useMemo, useState } from 'react'
-import { toast } from 'sonner'
 
 // The side panel table only needs column sizing/resizing; pagination is handled
 // with local component state and the rows are never sorted or filtered here.
@@ -87,6 +86,7 @@ export const DataTable: React.FC<DataTableProps> = ({
 
   // Build columns for TanStack Table
   const columns = useMemo<ColumnDef<DataTableFeatures, ScrapedRow>[]>(() => {
+    const columnKeys = getColumnKeys(columnsOrder, config.columns)
     const baseColumns: ColumnDef<DataTableFeatures, ScrapedRow>[] = [
       {
         id: 'rowIndex',
@@ -105,87 +105,15 @@ export const DataTable: React.FC<DataTableProps> = ({
       {
         id: 'actions',
         header: 'Actions',
-        cell: ({ row }: CellContext<DataTableFeatures, ScrapedRow>) => {
-          // Use the original index for highlighting
-          const originalIndex = row.original.metadata.originalIndex
-          const isEmpty = row.original.metadata.isEmpty
-
-          // Highlight button
-          const highlightButton = (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-6"
-              aria-label={isEmpty ? undefined : 'Highlight this element'}
-              disabled={isEmpty}
-              onClick={
-                isEmpty
-                  ? undefined
-                  : () => {
-                      const rowSelector = `(${config.mainSelector})[${originalIndex + 1}]`
-                      onRowHighlight(rowSelector)
-                    }
-              }
-            >
-              <Highlighter className="size-4" />
-            </Button>
-          )
-
-          const copyRow = async () => {
-            const columnKeys = getColumnKeys(columnsOrder, config.columns)
-            const tsvContent = rowToTsv(row.original, columnKeys)
-            try {
-              await navigator.clipboard.writeText(tsvContent)
-              toast.success('Copied row to clipboard')
-              trackEvent(ANALYTICS_EVENTS.COPY_TO_CLIPBOARD_TRIGGER, {
-                rows_copied: 1,
-                columns_count: columnKeys.length,
-                export_type: 'data_table_row',
-              })
-            } catch {
-              toast.error('Failed to copy')
-              trackEvent(ANALYTICS_EVENTS.COPY_TO_CLIPBOARD_FAILURE)
-            }
-          }
-
-          // Copy row button
-          const copyButton = (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-6"
-              aria-label={isEmpty ? undefined : 'Copy this row'}
-              disabled={isEmpty}
-              onClick={isEmpty ? undefined : () => reportRejection(copyRow())}
-            >
-              <Clipboard className="size-4" />
-            </Button>
-          )
-
-          // If row is empty, just render buttons without tooltips
-          if (isEmpty) {
-            return (
-              <div className="flex gap-1">
-                {highlightButton}
-                {copyButton}
-              </div>
-            )
-          }
-
-          // Wrap each button with its tooltip for non-empty rows
-          return (
-            <div className="flex gap-1">
-              <Tooltip>
-                <TooltipTrigger asChild>{highlightButton}</TooltipTrigger>
-                <TooltipContent>Highlight this element</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>{copyButton}</TooltipTrigger>
-                <TooltipContent>Copy this row</TooltipContent>
-              </Tooltip>
-            </div>
-          )
-        },
+        cell: ({ row }: CellContext<DataTableFeatures, ScrapedRow>) => (
+          <RowActionsCell
+            row={row.original}
+            mainSelector={config.mainSelector}
+            columnKeys={columnKeys}
+            exportType="data_table_row"
+            onHighlight={onRowHighlight}
+          />
+        ),
         size: 60,
         minSize: 60,
         maxSize: 80,
