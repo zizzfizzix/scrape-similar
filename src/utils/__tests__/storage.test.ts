@@ -379,6 +379,7 @@ describe('storage items', () => {
   })
 
   it('hands out copies, so changing one does not change the default', async () => {
+    await userPresetsItem.removeValue()
     ;(await getPresets()).push(preset('leaked'))
     ;(await getSystemPresetStatus()).leaked = false
     ;(await getRecentMainSelectors()).push('//leaked')

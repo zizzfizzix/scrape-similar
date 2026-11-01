@@ -58,7 +58,10 @@ export const Settings = React.memo(
   }: SettingsProps) => {
     const [isDebugModeStored] = useStorageItem(debugModeItem)
     const [isDebugUnlocked, setDebugUnlocked] = useStorageItem(debugUnlockedItem)
-    const isDebugRowVisible = isDebugModeStored || isDebugUnlocked
+    // The drawer mounts this on every open, when its own reads start at false;
+    // the prop is the parent's already-loaded flag, so the row does not appear
+    // a moment late.
+    const isDebugRowVisible = debugMode || isDebugModeStored || isDebugUnlocked
     const [importConfirm, setImportConfirm] = useState<ImportConfirmState>(CLOSED_IMPORT_CONFIRM)
     const fileInputRef = useRef<HTMLInputElement>(null)
     const { loading: isConsentLoading, state: consentState, setConsent } = useConsent()

@@ -11,10 +11,10 @@ export const PRESET_MIGRATIONS: Record<number, (oldValue: unknown) => Preset[]> 
 }
 
 // Every storage key the extension reads or writes is declared here, once, with
-// its type and its default. A key never changes once shipped: existing installs
-// hold their data under it. A `fallback` is returned by
-// reference on every read, so copy an array or object before mutating it - the
-// `get*` helpers below hand out copies for that reason.
+// its type and, where it has one, its default. A key never changes once
+// shipped: existing installs hold their data under it. A `fallback` is returned
+// by reference whenever its key is unset, so copy an array or object before
+// mutating it - the `get*` helpers below hand out copies for that reason.
 //
 // `/* @__PURE__ */` lets a bundle drop the items it never uses. `defineItem`
 // reads its key (and runs migrations) the moment it is called, so without it
