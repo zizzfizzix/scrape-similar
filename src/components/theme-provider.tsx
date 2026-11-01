@@ -26,25 +26,26 @@ const ThemeProviderContext = createContext<ThemeProviderState>(initialState)
 const isTheme = (value: unknown): value is Theme =>
   value === 'light' || value === 'dark' || value === 'system'
 
+const applyTheme = (rootElement: Element | null | undefined, theme: 'light' | 'dark') => {
+  const root = rootElement ?? document.documentElement
+  root.classList.remove('light', 'dark')
+  root.classList.add(theme)
+}
+
 export function ThemeProvider({ children, rootElement, ...props }: ThemeProviderProps) {
   const [storedTheme, setStoredTheme] = useStorageItem(themeItem)
   const theme = isTheme(storedTheme) ? storedTheme : themeItem.fallback
 
-  // Layout effects set the class in the same commit that changes the theme, so
-  // no frame is painted with the new theme and the previous class.
+  // Both effects are layout effects so the class is set in the same commit
+  // that changes the theme; a passive effect can run after a frame has been
+  // painted with the new theme and the previous class.
   useLayoutEffect(() => {
     if (theme !== 'system') return
 
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-    const handleChange = () => {
-      const systemTheme = mediaQuery.matches ? 'dark' : 'light'
-      const root = (rootElement as Element) || window.document.documentElement
-      root.classList.remove('light', 'dark')
-      root.classList.add(systemTheme)
-    }
+    const handleChange = () => applyTheme(rootElement, mediaQuery.matches ? 'dark' : 'light')
 
     mediaQuery.addEventListener('change', handleChange)
-    // Set initial theme
     handleChange()
 
     return () => {
@@ -54,9 +55,7 @@ export function ThemeProvider({ children, rootElement, ...props }: ThemeProvider
 
   useLayoutEffect(() => {
     if (theme === 'system') return
-    const root = (rootElement as Element) || window.document.documentElement
-    root.classList.remove('light', 'dark')
-    root.classList.add(theme)
+    applyTheme(rootElement, theme)
   }, [theme, rootElement])
 
   const value = {

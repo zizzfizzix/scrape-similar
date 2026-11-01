@@ -10,12 +10,15 @@ import { storage } from 'wxt/utils/storage'
 let view: RenderResult
 
 /** A controllable `(prefers-color-scheme: dark)` reply. */
-const stubPrefersDark = (matches: boolean) => {
+const stubPrefersDark = (initialMatches: boolean) => {
   const listeners = new Set<() => void>()
+  let isDarkPreferred = initialMatches
   vi.spyOn(window, 'matchMedia').mockImplementation(
     (query) =>
       ({
-        matches,
+        get matches() {
+          return isDarkPreferred
+        },
         media: query,
         addEventListener: (_: string, listener: () => void) => listeners.add(listener),
         removeEventListener: (_: string, listener: () => void) => listeners.delete(listener),
@@ -23,8 +26,9 @@ const stubPrefersDark = (matches: boolean) => {
   )
   return {
     listeners,
-    /** Notify subscribers that the OS preference flipped. */
-    emit: () => {
+    /** Flip the OS preference and notify subscribers. */
+    emit: (nextMatches: boolean) => {
+      isDarkPreferred = nextMatches
       for (const listener of listeners) listener()
     },
   }
@@ -137,7 +141,7 @@ describe('ThemeProvider', () => {
 
     await expectTheme('dark')
     expect(root).toHaveClass('dark')
-    expect(document.documentElement).not.toHaveClass('dark')
+    expect(document.documentElement.className).toBe('')
   })
 
   it('follows a dark system preference', async () => {
@@ -172,10 +176,10 @@ describe('ThemeProvider', () => {
       </ThemeProvider>,
     )
 
-    // The stub reports `matches: false` throughout, so re-emitting keeps light.
-    await act(() => media.emit())
+    await act(() => media.emit(true))
 
-    expect(document.documentElement).toHaveClass('light')
+    expect(document.documentElement).toHaveClass('dark')
+    expect(document.documentElement).not.toHaveClass('light')
   })
 
   it('stops following the system once a theme is chosen', async () => {
