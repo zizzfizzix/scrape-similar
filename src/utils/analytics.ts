@@ -3,13 +3,11 @@
 
 import { reportRejection } from '@/utils/report-rejection'
 import { eventQueueItem } from '@/utils/storage'
-import { getStorageMutex } from '@/utils/storage-mutex'
+import { withStorageLock } from '@/utils/storage-lock'
 import { version } from '@@/package.json' with { type: 'json' }
 import log from 'loglevel'
 
 export const MAX_QUEUED_EVENTS = 1000 // Prevent unbounded growth
-
-export const queueMutex = getStorageMutex(eventQueueItem.key)
 
 export interface QueuedEvent {
   name: string
@@ -18,7 +16,7 @@ export interface QueuedEvent {
 }
 
 export const queueEvent = async (event: QueuedEvent): Promise<void> => {
-  return queueMutex.runExclusive(async () => {
+  return withStorageLock(eventQueueItem, async () => {
     try {
       const queue = [...(await eventQueueItem.getValue())]
 
@@ -174,8 +172,10 @@ export const captureEvent = async (
       extension_version: version,
     }
 
-    if (consentState === undefined) {
-      // Consent not decided yet (undefined) - queue the event
+    // A content script cannot take the event queue's lock (it gets the page's
+    // lock manager), so its undecided-consent events are queued by the
+    // background it messages below.
+    if (consentState === undefined && context !== EXTENSION_CONTEXTS.CONTENT_SCRIPT) {
       await queueEvent({ name: eventName, props: eventProperties, timestamp: Date.now() })
       return
     }

@@ -34,6 +34,12 @@ describe('getOrCreateDistinctId', () => {
     expect(await getOrCreateDistinctId()).toEqual(first)
   })
 
+  it('hands overlapping first calls the same id', async () => {
+    const [first, second] = await Promise.all([getOrCreateDistinctId(), getOrCreateDistinctId()])
+
+    expect(second).toEqual(first)
+  })
+
   it('reuses an id written directly to storage', async () => {
     await storage.setItem(distinctIdItem.key, '0198d5f0-0000-7000-8000-000000000000')
 

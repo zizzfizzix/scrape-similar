@@ -1,8 +1,8 @@
-import { queueMutex } from '@/utils/analytics'
 import { getPostHogBackground, resetPostHogInstance } from '@/utils/posthog-background'
 import { reportingListener } from '@/utils/report-rejection'
+import { withStorageLock } from '@/utils/storage-lock'
 import log from 'loglevel'
-import { PostHog } from 'posthog-js/dist/module.no-external'
+import type { PostHog } from 'posthog-js/dist/module.no-external'
 
 /**
  * Configure PostHog rate limiting
@@ -16,65 +16,62 @@ export const configurePostHogRateLimit = (ph: PostHog, eventsPerSecond: number =
   })
 }
 
+const flushQueueTo = (ph: PostHog): Promise<void> =>
+  withStorageLock(eventQueueItem, async () => {
+    const queue = await eventQueueItem.getValue()
+
+    if (queue.length === 0) {
+      log.debug('No queued events to flush')
+      return
+    }
+
+    // Set rate limiting to match the queue length temporarily so PostHog doesn't drop events
+    configurePostHogRateLimit(ph, queue.length)
+
+    log.debug(`Flushing ${queue.length} queued events...`)
+
+    // Process events sequentially to avoid overwhelming PostHog
+    for (const event of queue) {
+      try {
+        ph.capture(
+          event.name,
+          {
+            ...event.props,
+            buffered: true,
+          },
+          {
+            timestamp: new Date(event.timestamp),
+          },
+        )
+      } catch (error) {
+        log.error(`Failed to capture buffered event: ${event.name}`, error)
+      }
+    }
+
+    configurePostHogRateLimit(ph)
+
+    await eventQueueItem.setValue([])
+    log.debug(`Successfully flushed ${queue.length} buffered analytics events`)
+  })
+
 /**
  * Flush any queued events that were captured before consent
  */
 export const flushQueuedEvents = async (): Promise<void> => {
-  return queueMutex.runExclusive(async () => {
-    try {
-      const queue = await eventQueueItem.getValue()
-
-      if (queue.length === 0) {
-        log.debug('No queued events to flush')
-        return
-      }
-
-      const ph = await getPostHogBackground()
-      if (!ph) {
-        log.warn('PostHog not initialized when trying to flush queue')
-        return
-      }
-
-      // Set rate limiting to match the queue length temporarily so PostHog doesn't drop events
-      configurePostHogRateLimit(ph, queue.length)
-
-      log.debug(`Flushing ${queue.length} queued events...`)
-
-      // Process events sequentially to avoid overwhelming PostHog
-      for (const event of queue) {
-        try {
-          ph.capture(
-            event.name,
-            {
-              ...event.props,
-              buffered: true,
-            },
-            {
-              timestamp: new Date(event.timestamp),
-            },
-          )
-        } catch (error) {
-          log.error(`Failed to capture buffered event: ${event.name}`, error)
-          // Continue processing other events
-        }
-      }
-
-      // Reset rate limiting to default
-      configurePostHogRateLimit(ph)
-
-      // Clear the queue after successful processing
-      await eventQueueItem.setValue([])
-      log.debug(`Successfully flushed ${queue.length} buffered analytics events`)
-    } catch (error) {
-      const ph = await getPostHogBackground()
-
-      if (ph && ph instanceof PostHog) {
-        configurePostHogRateLimit(ph)
-      }
-
-      log.error('Error flushing queued events:', error)
+  let ph: PostHog | null = null
+  try {
+    // Without consent there is no instance. Asking first keeps a flush that
+    // cannot send from taking the queue lock every page's queueEvent waits on.
+    ph = await getPostHogBackground()
+    if (!ph) {
+      log.debug('PostHog not initialized, leaving queued events for later')
+      return
     }
-  })
+    await flushQueueTo(ph)
+  } catch (error) {
+    if (ph) configurePostHogRateLimit(ph)
+    log.error('Error flushing queued events:', error)
+  }
 }
 
 /**
@@ -100,8 +97,7 @@ export const initializeAnalyticsQueue = async (): Promise<void> => {
         // Consent declined - reset PostHog instance and clear the queue safely
         resetPostHogInstance()
 
-        // Acquire the same mutex used by queueEvent / flushQueuedEvents to avoid races
-        await queueMutex.runExclusive(async () => {
+        await withStorageLock(eventQueueItem, async () => {
           await eventQueueItem.setValue([])
         })
 

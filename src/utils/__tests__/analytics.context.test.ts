@@ -126,6 +126,19 @@ describe('captureEvent – context specific behaviour', () => {
     })
   })
 
+  it('hands an undecided-consent event from a content script to the background', async () => {
+    currentContext = contextDetection.EXTENSION_CONTEXTS.CONTENT_SCRIPT
+    vi.spyOn(consent, 'getConsentState').mockResolvedValue(undefined)
+    const sendMessage = vi.spyOn(browser.runtime, 'sendMessage').mockResolvedValue(undefined)
+
+    await captureEvent(EVENT_NAME)
+
+    expect(sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ type: MESSAGE_TYPES.TRACK_EVENT }),
+    )
+    expect(await getQueuedEvent()).toBeUndefined()
+  })
+
   it('swallows a send failure from content-script context', async () => {
     currentContext = contextDetection.EXTENSION_CONTEXTS.CONTENT_SCRIPT
     const debugSpy = vi.spyOn(log, 'debug').mockImplementation(() => {})

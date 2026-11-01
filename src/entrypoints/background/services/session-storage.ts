@@ -1,4 +1,4 @@
-import { forgetStorageMutex, getStorageMutex } from '@/utils/storage-mutex'
+import { withStorageLock } from '@/utils/storage-lock'
 import log from 'loglevel'
 
 /**
@@ -10,8 +10,7 @@ export const applySidePanelDataUpdates = async (
   updates: Partial<SidePanelConfig>,
 ): Promise<void> => {
   const item = sidePanelConfigItem(tabId)
-  const mutex = getStorageMutex(item.key)
-  await mutex.runExclusive(async () => {
+  await withStorageLock(item, async () => {
     const current = (await item.getValue()) || {}
     // Shallow-merge top-level, but carefully merge nested config to avoid losing fields
     const next: SidePanelConfig = { ...current, ...updates }
@@ -41,8 +40,7 @@ export const applySidePanelDataUpdates = async (
  */
 export const getSessionState = async (tabId: number): Promise<SidePanelConfig | null> => {
   const item = sidePanelConfigItem(tabId)
-  const mutex = getStorageMutex(item.key)
-  return await mutex.runExclusive(async () => item.getValue())
+  return await item.getValue()
 }
 
 /**
@@ -52,7 +50,7 @@ export const initializeSessionState = async (tabId: number): Promise<void> => {
   const item = sidePanelConfigItem(tabId)
   // Read and write under one lock, so an update queued between them is not
   // overwritten with the defaults.
-  await getStorageMutex(item.key).runExclusive(async () => {
+  await withStorageLock(item, async () => {
     const existing = await item.getValue()
     if (existing) return
     const defaultPanelState: SidePanelConfig = {
@@ -72,14 +70,13 @@ export const initializeSessionState = async (tabId: number): Promise<void> => {
 export const clearSessionState = async (tabId: number): Promise<void> => {
   const item = sidePanelConfigItem(tabId)
   try {
-    // Under the mutex, so an update still in flight lands before the removal
+    // Under the lock, so an update still in flight lands before the removal
     // instead of re-creating the closed tab's config after it.
-    await getStorageMutex(item.key).runExclusive(() => item.removeValue())
+    await withStorageLock(item, () => item.removeValue())
     log.debug(`Cleared session state for tab ${tabId}`)
   } catch (error) {
     log.error(`Error clearing session state for tab ${tabId}:`, error)
   } finally {
     sidePanelConfigItem.forget(tabId)
-    forgetStorageMutex(item.key)
   }
 }

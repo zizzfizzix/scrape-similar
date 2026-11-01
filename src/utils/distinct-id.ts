@@ -1,3 +1,4 @@
+import { withStorageLock } from '@/utils/storage-lock'
 import log from 'loglevel'
 import { type UUIDTypes, v7 as uuidv7 } from 'uuid'
 
@@ -9,12 +10,15 @@ export const generateDistinctId = (): DistinctId => uuidv7()
 // Retrieve the device ID from browser.storage.local (or localStorage fallback) or create it if it doesn't exist
 export const getOrCreateDistinctId = async (): Promise<DistinctId> => {
   try {
-    const storedDistinctId = await distinctIdItem.getValue()
-    if (storedDistinctId) return storedDistinctId
+    // Under the lock, so pages and the background starting together agree on one id.
+    return await withStorageLock(distinctIdItem, async () => {
+      const storedDistinctId = await distinctIdItem.getValue()
+      if (storedDistinctId) return storedDistinctId
 
-    const newDistinctId = generateDistinctId()
-    await distinctIdItem.setValue(newDistinctId)
-    return newDistinctId
+      const newDistinctId = generateDistinctId()
+      await distinctIdItem.setValue(newDistinctId)
+      return newDistinctId
+    })
   } catch (err) {
     log.warn('Failed to access storage for distinct_id, generating a new one', err)
     return generateDistinctId()

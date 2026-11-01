@@ -15,7 +15,7 @@ import {
   readPresetFile,
 } from '@/utils/preset-transfer'
 import { reportRejection } from '@/utils/report-rejection'
-import { getPresets, setPresets } from '@/utils/storage'
+import { getPresets, resetSystemPresetStatus, setPresets } from '@/utils/storage'
 import log from 'loglevel'
 import { Clipboard, Import, Upload } from 'lucide-react'
 import React, { useCallback, useId, useRef, useState } from 'react'
@@ -117,13 +117,10 @@ export const Settings = React.memo(
     }, [])
 
     const handleResetSystemPresets = useCallback(async () => {
-      try {
-        await systemPresetStatusItem.removeValue()
-        trackEvent(ANALYTICS_EVENTS.SYSTEM_PRESETS_RESET)
-        if (onResetSystemPresets) onResetSystemPresets()
-      } catch (error) {
-        log.error('Error resetting system presets:', error)
-      }
+      const isReset = await resetSystemPresetStatus()
+      if (!isReset) return
+      trackEvent(ANALYTICS_EVENTS.SYSTEM_PRESETS_RESET)
+      if (onResetSystemPresets) onResetSystemPresets()
     }, [onResetSystemPresets])
 
     const handleExportPresets = useCallback(async () => {

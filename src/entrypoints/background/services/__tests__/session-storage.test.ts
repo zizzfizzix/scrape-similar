@@ -176,14 +176,12 @@ describe('clearSessionState', () => {
     expect(await getSessionState(1)).toBeNull()
   })
 
-  it('drops the cached item and mutex for the tab', async () => {
+  it('drops the cached item for the tab', async () => {
     const item = sidePanelConfigItem(1)
-    const mutex = getStorageMutex(item.key)
 
     await clearSessionState(1)
 
     expect(sidePanelConfigItem(1)).not.toBe(item)
-    expect(getStorageMutex(item.key)).not.toBe(mutex)
   })
 
   it('logs and swallows storage failures', async () => {
@@ -192,12 +190,10 @@ describe('clearSessionState', () => {
     vi.spyOn(fakeBrowser.storage.session, 'remove').mockRejectedValueOnce(failure)
 
     const item = sidePanelConfigItem(9)
-    const mutex = getStorageMutex(item.key)
 
     await expect(clearSessionState(9)).resolves.toBeUndefined()
 
     expect(errorSpy).toHaveBeenCalledWith('Error clearing session state for tab 9:', failure)
     expect(sidePanelConfigItem(9)).not.toBe(item)
-    expect(getStorageMutex(item.key)).not.toBe(mutex)
   })
 })

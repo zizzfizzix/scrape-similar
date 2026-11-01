@@ -17,6 +17,7 @@ import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
 import { renderSettled } from '@@/tests/support/settle'
 import { type RenderResult, act, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import log from 'loglevel'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
@@ -382,6 +383,34 @@ describe('SidePanel', () => {
       )
     })
 
+    it('reports a system preset it could not hide', async () => {
+      vi.spyOn(log, 'error').mockImplementation(() => {})
+      vi.spyOn(systemPresetStatusItem, 'setValue').mockRejectedValueOnce(new Error('quota'))
+      view = await render()
+      await openPresetList()
+
+      const hideButton = [...document.querySelectorAll('button')].find((candidate) =>
+        candidate.getAttribute('aria-label')?.startsWith('Hide preset'),
+      )
+      fireEvent.click(hideButton!)
+      const confirm = await waitFor(() => {
+        const found = [...document.querySelectorAll('button')].find(
+          (candidate) => candidate.textContent === 'Hide',
+        )
+        if (!found) throw new Error('No Hide button rendered')
+        return found
+      })
+      fireEvent.click(confirm)
+
+      await waitFor(() =>
+        expect(toastMocks.toast.error).toHaveBeenCalledWith(
+          `Error, system preset "${SYSTEM_PRESETS[0]!.name}" couldn't be hidden`,
+        ),
+      )
+      expect(toastMocks.toast.success).not.toHaveBeenCalled()
+      expect(trackEvent).not.toHaveBeenCalledWith(ANALYTICS_EVENTS.PRESET_HIDE, expect.anything())
+    })
+
     it('re-enables the system presets when they are reset', async () => {
       await storage.setItem(systemPresetStatusItem.key, {
         [SYSTEM_PRESETS[0]!.id]: false,
@@ -403,9 +432,8 @@ describe('SidePanel', () => {
       })
       fireEvent.click(resetButton)
 
-      // The side panel clears every disable rather than removing the map.
       await waitFor(async () =>
-        expect(await storage.getItem(systemPresetStatusItem.key)).toEqual({}),
+        expect(await storage.getItem(systemPresetStatusItem.key)).toBeNull(),
       )
       expect(toastMocks.toast.success).toHaveBeenCalledWith('System presets have been reset')
     })

@@ -61,9 +61,13 @@ describe('flushQueuedEvents', () => {
   })
 
   it('does nothing when the queue is empty', async () => {
+    const ph = createFakePostHog()
+    posthogMocks.getPostHogBackground.mockResolvedValue(ph)
+
     await flushQueuedEvents()
 
-    expect(posthogMocks.getPostHogBackground).not.toHaveBeenCalled()
+    expect(ph.capture).not.toHaveBeenCalled()
+    expect(ph.set_config).not.toHaveBeenCalled()
   })
 
   it('captures every queued event, marks it buffered and clears the queue', async () => {
@@ -100,13 +104,14 @@ describe('flushQueuedEvents', () => {
 
   it('keeps the queue intact when PostHog is unavailable', async () => {
     posthogMocks.getPostHogBackground.mockResolvedValue(null)
-    const warnSpy = vi.spyOn(log, 'warn').mockImplementation(() => {})
     await storage.setItem(queueKey, [event('kept')])
+    const requestSpy = vi.spyOn(navigator.locks, 'request')
 
     await flushQueuedEvents()
 
-    expect(warnSpy).toHaveBeenCalledWith('PostHog not initialized when trying to flush queue')
     expect(await readQueue()).toEqual([event('kept')])
+    // Pages queueing events wait on this lock, so a flush that cannot send must not take it.
+    expect(requestSpy).not.toHaveBeenCalled()
   })
 
   it('keeps flushing the rest of the queue when one capture throws', async () => {

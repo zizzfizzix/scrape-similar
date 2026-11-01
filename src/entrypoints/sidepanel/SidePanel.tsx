@@ -617,10 +617,12 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
   // Hide system preset or delete user preset
   const handleDeletePreset = async (preset: Preset) => {
     if (isSystemPreset(preset)) {
-      // Hide system preset by setting enabled=false in status map
-      const statusMap = await getSystemPresetStatus()
-      statusMap[preset.id] = false
-      await setSystemPresetStatus(statusMap)
+      // `hideSystemPreset` reports a storage failure as `false` rather than rejecting.
+      const isHidden = await hideSystemPreset(preset.id)
+      if (!isHidden) {
+        toast.error(`Error, system preset "${preset.name}" couldn't be hidden`)
+        return
+      }
       toast.success(`System preset "${preset.name}" hidden.`)
       // Reload all presets
       const updatedPresets = await getAllPresets()
@@ -659,20 +661,11 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
     }
   }
 
-  // Reset (enable) all system presets
-  const handleResetSystemPresets = async () => {
-    await setSystemPresetStatus({}) // Clear all disables
-    const updatedPresets = await getAllPresets()
-    setPresets(updatedPresets)
+  // Settings has already reset and tracked by the time it calls this, and the
+  // status watch above reloads the presets.
+  const handleSystemPresetsReset = useCallback(() => {
     toast.success('System presets have been reset')
-
-    // Track system presets reset event
-    trackEvent(ANALYTICS_EVENTS.SYSTEM_PRESETS_RESET, {
-      type: 'system',
-    })
-  }
-
-  const resetSystemPresets = () => reportRejection(handleResetSystemPresets())
+  }, [])
 
   const handlePresetsImported = useCallback(() => {
     reportRejection(getAllPresets().then(setPresets))
@@ -695,7 +688,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
   const footer = (
     <Footer
       showSettings={true}
-      onResetSystemPresets={resetSystemPresets}
+      onResetSystemPresets={handleSystemPresetsReset}
       onPresetsImported={handlePresetsImported}
       debugMode={debugMode}
       onDebugModeChange={onDebugModeChange}

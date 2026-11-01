@@ -161,7 +161,11 @@ describe('Settings', () => {
 
       await userEvent.click(rowByLabel('System presets').querySelector('button')!)
 
-      expect(errorSpy).toHaveBeenCalledWith('Error resetting system presets:', failure)
+      expect(errorSpy).toHaveBeenCalledWith(
+        'Error resetting system preset status in storage:',
+        failure,
+      )
+      expect(trackEvent).not.toHaveBeenCalledWith(ANALYTICS_EVENTS.SYSTEM_PRESETS_RESET)
     })
   })
 
