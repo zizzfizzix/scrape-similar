@@ -43,6 +43,7 @@ type ConfigFormProps = Parameters<typeof ConfigForm>[0]
 
 const baseProps = (): ConfigFormProps => ({
   tabId: 4,
+  storedConfigVersion: 0,
   config,
   onChange: () => {},
   onScrape: () => {},

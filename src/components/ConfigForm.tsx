@@ -68,6 +68,8 @@ const ZERO_FOUND_FEEDBACK_MS = 1500
 interface ConfigFormProps {
   /** The tab the form belongs to; `null` while there is none. */
   tabId: number | null
+  /** Changes each time the panel applies its stored state. */
+  storedConfigVersion: number
   config: ScrapeConfig
   onChange: (config: ScrapeConfig) => void
   onScrape: () => void
@@ -90,6 +92,7 @@ interface ConfigFormProps {
 
 export const ConfigForm: React.FC<ConfigFormProps> = ({
   tabId,
+  storedConfigVersion,
   config,
   onChange,
   onScrape,
@@ -328,10 +331,17 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
       { type: MESSAGE_TYPES.GUESS_CONFIG_FROM_SELECTOR, payload: { mainSelector: selector } },
       (response) => {
         setGuessButtonState(response?.success === true ? 'success' : 'failure')
-        setTimeout(() => setGuessButtonState('idle'), 1500)
       },
     )
   }
+
+  // An effect, so a result that lands while a side panel tab is hidden is
+  // still shown for its full time once the tab is shown again.
+  useEffect(() => {
+    if (guessButtonState !== 'success' && guessButtonState !== 'failure') return
+    const timer = setTimeout(() => setGuessButtonState('idle'), 1500)
+    return () => clearTimeout(timer)
+  }, [guessButtonState])
 
   // Save Preset handler. Both the Save button and the Enter shortcut in the
   // name field require a non-blank name, so there is nothing to re-check here.
@@ -462,22 +472,36 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
   // Handle main selector blur with delay to allow for clicks
   const handleMainSelectorBlur = () => armBlurCommit(latestConfigRef.current.mainSelector)
 
-  const rearmBlurCommit = useEffectEvent(armBlurCommit)
-
-  // Hiding a side panel tab runs the cleanup and showing it runs the effect
-  // again. Switching tabs blurs the field, so a blur still waiting out its
-  // delay is held over the hide and armed again once the tab is shown, rather
-  // than dropped with the draft uncommitted. The full delay lets the panel's
-  // re-read of storage land first, so the commit builds on config written
-  // while it was hidden.
+  // Hiding a side panel tab runs effect cleanups and showing it runs the
+  // effects again. Switching tabs blurs the field, so a blur still waiting out
+  // its delay is held over the hide rather than dropped with the draft
+  // uncommitted. It finishes once the panel has re-read its storage on show,
+  // so the commit builds on config written while the tab was hidden.
+  const heldBlurRef = useRef<{ committedAtBlur: string; storedVersion: number } | null>(null)
+  const storedVersionRef = useRef(storedConfigVersion)
   useEffect(() => {
-    const committedAtBlur = pendingBlurRef.current
-    if (committedAtBlur !== null) rearmBlurCommit(committedAtBlur)
-    return () => {
-      clearTimeout(blurCommitTimerRef.current)
+    storedVersionRef.current = storedConfigVersion
+  }, [storedConfigVersion])
+
+  const finishHeldBlurCommit = useEffectEvent(() => {
+    const held = heldBlurRef.current
+    if (held === null || held.storedVersion === storedConfigVersion) return
+    heldBlurRef.current = null
+    finishBlurCommit(held.committedAtBlur)
+  })
+  useEffect(() => finishHeldBlurCommit(), [storedConfigVersion])
+
+  useEffect(
+    () => () => {
+      const committedAtBlur = pendingBlurRef.current
+      if (committedAtBlur !== null) {
+        heldBlurRef.current = { committedAtBlur, storedVersion: storedVersionRef.current }
+      }
+      cancelBlurCommit()
       setIsAutosuggestOpen(false)
-    }
-  }, [])
+    },
+    [],
+  )
 
   const commitMainSelectorNow = (draft: string) => {
     mainSelectorInputRef.current?.blur()

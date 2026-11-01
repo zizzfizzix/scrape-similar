@@ -1143,7 +1143,7 @@ describe('one panel per tab', () => {
     await waitFor(() => expect(mainSelectorInput().value).toBe('//li'))
   })
 
-  it('builds a held blur commit on config written while its tab was hidden', async () => {
+  it('builds a held blur commit on config written while its tab was hidden, however slow the read', async () => {
     view = await render()
     await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
     fireEvent.change(mainSelectorInput(), { target: { value: '//li' } })
@@ -1153,17 +1153,31 @@ describe('one panel per tab', () => {
     await switchTo(OTHER_TAB_ID)
     const guessedColumns = [{ name: 'Guessed', selector: './td[3]' }]
     // A guess that was in flight lands while the tab is in the background.
+    const writtenWhileHidden: SidePanelConfig = {
+      currentScrapeConfig: { ...config, columns: guessedColumns },
+      highlightMatchCount: 3,
+    }
     await act(async () => {
-      await storage.setItem(`session:sidepanel_config_${TAB_ID}`, {
-        currentScrapeConfig: { ...config, columns: guessedColumns },
-        highlightMatchCount: 3,
-      })
+      await storage.setItem(`session:sidepanel_config_${TAB_ID}`, writtenWhileHidden)
     })
     const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
       undefined as never,
     )
+    let release: ((value: SidePanelConfig | null) => void) | undefined
+    const getItem = vi
+      .spyOn(sidePanelConfigItem(TAB_ID), 'getValue')
+      .mockImplementationOnce(() => new Promise((resolve) => (release = resolve)))
 
     await switchTo(TAB_ID)
+    getItem.mockRestore()
+    // Longer than the blur's own delay: the commit waits for the read itself.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 200))
+    })
+    expect(sidePanelWrites(sendMessage)).toEqual([])
+    await act(async () => {
+      release!(writtenWhileHidden)
+    })
 
     await waitFor(() =>
       expect(sidePanelWrites(sendMessage)[0]).toEqual({

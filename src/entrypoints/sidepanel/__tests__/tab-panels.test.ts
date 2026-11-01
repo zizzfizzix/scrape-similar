@@ -98,4 +98,10 @@ describe('tabPanelsReducer', () => {
   it('leaves no active tab when the active one closes', () => {
     expect(run(activated(1, PAGE), { type: 'removed', tabId: 1 }).activeTabId).toBeNull()
   })
+
+  it('ignores the closing of a tab it has not shown', () => {
+    const state = run(activated(1, PAGE))
+
+    expect(tabPanelsReducer(state, { type: 'removed', tabId: 2 })).toBe(state)
+  })
 })

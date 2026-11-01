@@ -17,7 +17,7 @@ import {
   type RenderResult,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { useState } from 'react'
+import { Activity, useState } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
@@ -52,6 +52,7 @@ type ConfigFormProps = Parameters<typeof ConfigForm>[0]
 
 const baseProps = (): ConfigFormProps => ({
   tabId: 4,
+  storedConfigVersion: 0,
   config,
   onChange: () => {},
   onScrape: () => {},
@@ -699,6 +700,32 @@ describe('ConfigForm', () => {
       })
 
       expect(guessButton().querySelector('.lucide-x')).not.toBeNull()
+    })
+
+    it('shows a result that landed while hidden for its full time once shown', async () => {
+      vi.useFakeTimers()
+      contentScriptReplies({ success: true })
+      const inPanel = (mode: 'visible' | 'hidden') => (
+        <TooltipProvider>
+          <Activity mode={mode}>
+            <ConfigForm {...baseProps()} />
+          </Activity>
+        </TooltipProvider>
+      )
+      view = await renderSettled(inPanel('visible'))
+      await act(async () => {
+        guessButton().click()
+        await Promise.resolve()
+      })
+
+      view.rerender(inPanel('hidden'))
+      await act(() => {
+        vi.advanceTimersByTime(1500)
+      })
+      view.rerender(inPanel('visible'))
+
+      expect(guessButton().querySelector('.lucide-check')).not.toBeNull()
+      vi.useRealTimers()
     })
 
     it('spins and stays disabled while the guess is in flight', async () => {

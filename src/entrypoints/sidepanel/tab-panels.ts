@@ -62,6 +62,7 @@ export const tabPanelsReducer = (
       if (action.tabId === state.activeTabId) return show(state, action.tabId, action.url)
       return { ...state, tabUrls: new Map(state.tabUrls).set(action.tabId, action.url) }
     case 'removed':
+      if (!state.tabUrls.has(action.tabId)) return state
       return {
         // Until the next activation, a closed active tab leaves no tab to show.
         activeTabId: state.activeTabId === action.tabId ? null : state.activeTabId,

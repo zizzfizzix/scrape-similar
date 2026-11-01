@@ -52,6 +52,7 @@ export const TabPanel = memo(function TabPanel({
   const [shouldShowEmptyRows, setShouldShowEmptyRows] = useState(false)
   const [isPickerModeActive, setIsPickerModeActive] = useState(false)
   const notify = useShownToast()
+  const [storedConfigVersion, setStoredConfigVersion] = useState(0)
 
   const buildFilename = useCallback((now: Date) => buildExportFilename(tabUrl, now), [tabUrl])
 
@@ -79,6 +80,7 @@ export const TabPanel = memo(function TabPanel({
       setHighlightMatchCount(stored.highlightMatchCount ?? undefined)
       setHighlightError(stored.highlightError ?? undefined)
       setIsPickerModeActive(stored.pickerModeActive ?? false)
+      setStoredConfigVersion((version) => version + 1)
     },
     [tabId],
   )
@@ -258,6 +260,7 @@ export const TabPanel = memo(function TabPanel({
       <div className="flex flex-col gap-10 w-full min-w-0 box-border">
         <ConfigForm
           tabId={tabId}
+          storedConfigVersion={storedConfigVersion}
           config={config}
           onChange={handleConfigChange}
           onScrape={handleScrape}
