@@ -173,6 +173,8 @@ export interface PickerSelection {
   xpath: string
   /** Config to scrape with: the chosen selector and the columns guessed for what it matches. */
   config: ScrapeConfig
+  /** Every element `config.mainSelector` matches. */
+  matches: HTMLElement[]
   /** Details of the clicked element, shown in the side panel. */
   elementDetails: { xpath: string; text: string; html: string }
 }
@@ -182,8 +184,8 @@ export interface PickerSelection {
  *
  * `mainSelector` is the candidate level the user settled on, so the scrape
  * covers every sibling rather than just the one clicked. The columns are built
- * for the element that selector matches on the clicked element's ancestor
- * chain, since they are evaluated relative to each match.
+ * for the nearest ancestor-or-self of the clicked element that selector
+ * matches, since they are evaluated relative to each match.
  */
 export const buildPickerSelection = (
   element: HTMLElement,
@@ -191,12 +193,21 @@ export const buildPickerSelection = (
 ): PickerSelection => {
   const xpath = minimizeXPath(element)
   const selectedSelector = state.selectorCandidates[state.selectedCandidateIndex] || xpath
-  const selectedElement =
-    evaluateXPath(selectedSelector).find((match) => match.contains(element)) ?? element
+  const matches = evaluateXPath(selectedSelector)
+
+  const matchSet = new Set(matches)
+  let selectedElement: HTMLElement | null = element
+  while (selectedElement && !matchSet.has(selectedElement)) {
+    selectedElement = selectedElement.parentElement
+  }
 
   return {
     xpath,
-    config: { mainSelector: selectedSelector, columns: buildColumnsForElement(selectedElement) },
+    config: {
+      mainSelector: selectedSelector,
+      columns: buildColumnsForElement(selectedElement ?? element),
+    },
+    matches,
     elementDetails: {
       xpath,
       text: element.textContent || '',
@@ -252,23 +263,32 @@ export const handlePickerClick = async (
   event.preventDefault()
   event.stopPropagation()
 
+  // Read before disabling picker mode, which forgets the hovered element. The
+  // event's target stands in for hit-testing the click point, which would land
+  // on the wrong element once disabling removes the banner's margin.
+  const hoveredElement = state.currentHoveredElement
   disablePickerMode('element_selected')
 
-  const el = document.elementFromPoint(event.clientX, event.clientY)
-  if (!el || !(el instanceof HTMLElement)) return
+  const el = event.target
+  if (!(el instanceof HTMLElement)) return
 
   log.debug('Picker mode: element selected', el)
 
-  // Track element selection with details about the selector
+  // The candidates describe the hovered element. A click on anything else (the
+  // hover update has not run yet, or the click was synthetic) gets its own, so
+  // the selector and the columns come from the same element.
+  if (el !== hoveredElement) {
+    state.selectorCandidates = generateSelectorCandidates(el)
+    state.selectedCandidateIndex = chooseDefaultCandidateIndex(state.selectorCandidates)
+  }
+
+  const { config, matches, elementDetails } = buildPickerSelection(el, state)
+
   trackEvent(ANALYTICS_EVENTS.PICKER_ELEMENT_SELECT, {
-    elements_matched: evaluateXPath(
-      state.selectorCandidates[state.selectedCandidateIndex] || minimizeXPath(el),
-    ).length,
+    elements_matched: matches.length,
     selector_level: state.selectedCandidateIndex,
     total_levels: state.selectorCandidates.length,
   })
-
-  const { config, elementDetails } = buildPickerSelection(el, state)
 
   const { tabId } = state
   if (tabId === null) {
@@ -282,8 +302,7 @@ export const handlePickerClick = async (
     await storeSidePanelUpdates(tabId, { currentScrapeConfig: config, elementDetails })
 
     // Highlight without scrolling: the user is already looking at the element.
-    const elementsToHighlight = evaluateXPath(config.mainSelector)
-    highlightMatchingElements(elementsToHighlight, { shouldScroll: false })
+    highlightMatchingElements(matches, { shouldScroll: false })
 
     // Persist validation state so the UI marks the selector as validated. Not
     // awaited: nothing below depends on the side panel having caught up.
@@ -293,7 +312,7 @@ export const handlePickerClick = async (
         payload: {
           tabId,
           updates: {
-            highlightMatchCount: elementsToHighlight.length,
+            highlightMatchCount: matches.length,
             highlightError: null,
           },
         },
@@ -301,7 +320,7 @@ export const handlePickerClick = async (
     )
 
     trackEvent(ANALYTICS_EVENTS.ELEMENTS_HIGHLIGHT, {
-      elements_count: elementsToHighlight.length,
+      elements_count: matches.length,
       is_row_highlight: false,
     })
 
