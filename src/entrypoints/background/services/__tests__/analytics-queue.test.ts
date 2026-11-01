@@ -232,6 +232,28 @@ describe('initializeAnalyticsQueue', () => {
     expect(ph.capture).toHaveBeenCalledWith('queued', expect.anything(), expect.anything())
   })
 
+  it('hears a decline while the startup flush waits for the queue lock', async () => {
+    usePostHog(createFakePostHog())
+    await storage.setItem(analyticsConsentItem.key, true)
+    let release = () => {}
+    const held = navigator.locks.request(
+      queueKey,
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve
+        }),
+    )
+
+    const starting = initializeAnalyticsQueue()
+    await flushMicrotasks()
+    await storage.setItem(analyticsConsentItem.key, false)
+    await flushMicrotasks()
+
+    expect(posthogMocks.resetPostHogInstance).toHaveBeenCalled()
+    release()
+    await Promise.all([held, starting])
+  })
+
   it('resets PostHog and empties the queue when consent is declined', async () => {
     usePostHog(null)
     await initializeAnalyticsQueue()

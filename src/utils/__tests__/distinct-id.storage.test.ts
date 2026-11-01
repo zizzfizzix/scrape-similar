@@ -55,10 +55,17 @@ describe('getOrCreateDistinctId', () => {
     expect(await getOrCreateDistinctId()).toBe('0198d5f0-0000-7000-8000-000000000000')
   })
 
+  it('keeps the stored id when the lock cannot be taken', async () => {
+    await storage.setItem(distinctIdItem.key, '0198d5f0-0000-7000-8000-000000000000')
+    vi.spyOn(navigator.locks, 'request').mockRejectedValueOnce(new Error('timed out'))
+
+    expect(await getOrCreateDistinctId()).toBe('0198d5f0-0000-7000-8000-000000000000')
+  })
+
   it('falls back to a fresh id when storage is unreadable', async () => {
     const warnSpy = vi.spyOn(log, 'warn').mockImplementation(() => {})
     const failure = new Error('storage unavailable')
-    vi.spyOn(distinctIdItem, 'getValue').mockRejectedValueOnce(failure)
+    vi.spyOn(distinctIdItem, 'getValue').mockRejectedValue(failure)
 
     const created = await getOrCreateDistinctId()
 

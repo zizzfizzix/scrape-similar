@@ -105,7 +105,7 @@ describe('resetPostHogInstance', () => {
     expect(instance.stopExceptionAutocapture).toHaveBeenCalled()
   })
 
-  it('discards an instance whose initialisation a reset overtook', async () => {
+  it('never initialises an instance whose initialisation a reset overtook', async () => {
     vi.spyOn(consent, 'getConsentState').mockResolvedValue(true)
     const initSpy = vi.spyOn(PostHog.prototype, 'init')
 
@@ -113,10 +113,22 @@ describe('resetPostHogInstance', () => {
     resetPostHogInstance()
 
     expect(await initialising).toBeNull()
-    const discarded = initSpy.mock.contexts[0] as unknown as {
-      stopExceptionAutocapture: () => void
-    }
-    expect(discarded.stopExceptionAutocapture).toHaveBeenCalled()
+    expect(initSpy).not.toHaveBeenCalled()
+  })
+
+  it('retires an instance a reset overtook once it was built', async () => {
+    vi.spyOn(consent, 'getConsentState').mockResolvedValue(true)
+    const initSpy = vi.spyOn(PostHog.prototype, 'init').mockImplementation(function (
+      this: InstanceType<typeof PostHog>,
+    ) {
+      resetPostHogInstance()
+      return this
+    })
+
+    expect(await getPostHogBackground()).toBeNull()
+
+    const retired = initSpy.mock.contexts[0] as unknown as { stopExceptionAutocapture: () => void }
+    expect(retired.stopExceptionAutocapture).toHaveBeenCalled()
   })
 
   it('resolves null when a reset overtakes an initialisation that found no consent', async () => {

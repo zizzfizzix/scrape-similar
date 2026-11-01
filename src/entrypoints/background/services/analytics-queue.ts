@@ -87,9 +87,6 @@ export const flushQueuedEvents = async (): Promise<void> => {
  * - Watch for new queued events
  */
 export const initializeAnalyticsQueue = async (): Promise<void> => {
-  // Initialises PostHog when there is consent, then flushes what was queued.
-  await flushQueuedEvents()
-
   // Listen for consent changes to (re)initialize PostHog and flush queued events
   analyticsConsentItem.watch(
     reportingListener(async (value) => {
@@ -115,4 +112,8 @@ export const initializeAnalyticsQueue = async (): Promise<void> => {
       }
     }),
   )
+
+  // After the watchers: this flush can wait on a lock another context holds,
+  // and a consent change during that wait must still reach the handler above.
+  await flushQueuedEvents()
 }

@@ -13,7 +13,19 @@ export const getOrCreateDistinctId = async (): Promise<DistinctId> => {
     // Under the lock, so pages and the background starting together agree on one id.
     return await updateStorageItem(distinctIdItem, (stored) => stored || generateDistinctId())
   } catch (err) {
+    // A lock that failed or timed out says nothing about the stored id. A fresh
+    // id would file this context's events under a different person.
+    const stored = await readStoredDistinctId()
+    if (stored) return stored
     log.warn('Failed to access storage for distinct_id, generating a new one', err)
     return generateDistinctId()
+  }
+}
+
+const readStoredDistinctId = async (): Promise<DistinctId | null> => {
+  try {
+    return await distinctIdItem.getValue()
+  } catch {
+    return null
   }
 }

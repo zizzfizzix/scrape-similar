@@ -40,8 +40,7 @@ export const resetPostHogInstance = () => {
 /** The initialised instance, if any, without starting an initialisation. */
 export const currentPostHogBackground = (): PostHog | null => posthogInstance
 
-const initializePostHog = async (): Promise<PostHog | null> => {
-  // Respect user consent
+const initializePostHog = async (startedIn: number): Promise<PostHog | null> => {
   const consentState = await getConsentState()
   if (consentState !== true) {
     log.debug('User has not given consent – PostHog will not be initialized (background).')
@@ -49,8 +48,6 @@ const initializePostHog = async (): Promise<PostHog | null> => {
   }
 
   try {
-    // Get environment variables (these should be available in service worker context)
-    // In Vite builds, these are replaced at build time
     const apiKey = import.meta.env.VITE_PUBLIC_POSTHOG_KEY
     const apiHost = import.meta.env.VITE_PUBLIC_POSTHOG_HOST
 
@@ -71,7 +68,11 @@ const initializePostHog = async (): Promise<PostHog | null> => {
 
     const isDebugModeEnabled = await debugModeItem.getValue()
 
-    // Initialize PostHog instance
+    // `init` wraps the global error handlers, and retiring an instance unwraps
+    // them, so an instance a reset has already overtaken is never initialised:
+    // unwrapping it later could remove the handlers of a newer one.
+    if (generation !== startedIn) return null
+
     const instance = new PostHog()
     instance.init(apiKey, {
       debug: isDevOrTest || isDebugModeEnabled,
@@ -139,9 +140,9 @@ export const getPostHogBackground = async (): Promise<PostHog | null> => {
 
   const startedIn = generation
   const pending = (async (): Promise<PostHog | null> => {
-    const instance = await initializePostHog()
-    // Consent was withdrawn while this initialised: keeping the instance would
-    // let it capture (exceptions included) after the user said no.
+    const instance = await initializePostHog(startedIn)
+    // Consent was withdrawn after the instance was built: keeping it would let
+    // it capture (exceptions included) after the user said no.
     if (generation !== startedIn) {
       if (instance) retire(instance)
       return null

@@ -65,8 +65,9 @@ export const initializeSessionState = async (tabId: number): Promise<void> => {
 export const clearSessionState = async (tabId: number): Promise<void> => {
   const item = sidePanelConfigItem(tabId)
   try {
-    // Under the lock, so an update still in flight lands before the removal
-    // instead of re-creating the closed tab's config after it.
+    // Under the lock, so an update already waiting for it lands before the
+    // removal. An update that arrives after the removal still re-creates the
+    // entry (#301).
     await withStorageLock(item, () => item.removeValue())
     log.debug(`Cleared session state for tab ${tabId}`)
   } catch (error) {
