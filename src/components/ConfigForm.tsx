@@ -470,6 +470,13 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
     scrapeCommittedMainSelector()
   }
 
+  // Keeps focus in the textarea while the button reads "Validate selector".
+  // A press held past the 150ms blur defer would otherwise commit first and
+  // turn the click that follows into a scrape (#310).
+  const handleMainActionMouseDown = (e: React.MouseEvent) => {
+    if (hasUncommittedChanges) e.preventDefault()
+  }
+
   // Handle main selector change with autosuggest (newline-less)
   const handleMainSelectorChange = (value: string) => {
     const sanitized = sanitizeToSingleLine(value)
@@ -1121,6 +1128,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
         <div className="flex w-full justify-center mt-4 -mb-2">
           <Button
             className="w-full max-w-2xl"
+            onMouseDown={handleMainActionMouseDown}
             onClick={handleMainActionPress}
             disabled={
               isLoading ||

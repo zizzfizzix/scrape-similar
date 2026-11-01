@@ -314,6 +314,38 @@ describe('ConfigForm', () => {
         expect(trackEvent).not.toHaveBeenCalledWith(ANALYTICS_EVENTS.SCRAPE_BUTTON_PRESS)
       })
 
+      it('validates on a press held past the blur commit delay', async () => {
+        const onScrape = vi.fn()
+        const onHighlight = vi.fn()
+        view = await render({ onScrape, onHighlight })
+        editSelector('//li')
+        const validate = byText('Validate selector')
+
+        const user = userEvent.setup()
+        await user.pointer({ keys: '[MouseLeft>]', target: validate })
+        await letTheBlurCommitFallDue()
+        await user.pointer({ keys: '[/MouseLeft]', target: validate })
+
+        expect(onScrape).not.toHaveBeenCalled()
+        expect(onHighlight).toHaveBeenCalledTimes(1)
+        expect(onHighlight).toHaveBeenCalledWith('//li')
+      })
+
+      it('leaves the field focused and uncommitted when the press is dragged off', async () => {
+        const onHighlight = vi.fn()
+        view = await render({ onHighlight })
+        editSelector('//li')
+
+        const user = userEvent.setup()
+        await user.pointer({ keys: '[MouseLeft>]', target: byText('Validate selector') })
+        await letTheBlurCommitFallDue()
+        await user.pointer({ keys: '[/MouseLeft]', target: view.container })
+
+        expect(onHighlight).not.toHaveBeenCalled()
+        expect(mainSelectorInput()).toHaveFocus()
+        expect(byText('Validate selector')).toBeTruthy()
+      })
+
       it('validates the selector without its surrounding whitespace', async () => {
         const onHighlight = vi.fn()
         const onChange = vi.fn()
