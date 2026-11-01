@@ -586,7 +586,7 @@ describe('the autosuggest dropdown', () => {
   })
 
   describe('typing a selector and pressing Enter', () => {
-    it('leaves the recents to a scrape that returns rows', async () => {
+    it('writes no recents itself on Enter', async () => {
       view = await render({ presets: [], config: { ...config, mainSelector: '//tr' } })
       await focusField()
       type('//h1')

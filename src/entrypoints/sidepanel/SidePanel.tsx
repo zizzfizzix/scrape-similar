@@ -467,8 +467,8 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
         if (response?.success === true) {
           setResultProducingConfig(configAtScrapeTime)
           saveSidePanelState(tabId, { resultProducingConfig: configAtScrapeTime })
-          // Only a scrape that returned rows feeds the recents, so a selector
-          // that fails to parse or matches nothing never becomes a suggestion.
+          // A selector restored from an earlier session is scraped without being
+          // validated again, so the scrape has to feed the recents as well.
           if (rowCount > 0 && !isSelectorAPreset(configAtScrapeTime.mainSelector, presets)) {
             reportRejection(pushRecentMainSelector(configAtScrapeTime.mainSelector))
           }
@@ -520,6 +520,11 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
             highlightMatchCount: response.matchCount,
             highlightError: null,
           })
+          // Only a selector that matched elements is remembered, so one that fails
+          // to parse or matches nothing never becomes a suggestion.
+          if (response.matchCount > 0 && !isSelectorAPreset(selector, presets)) {
+            reportRejection(pushRecentMainSelector(selector))
+          }
         }
       },
     )
