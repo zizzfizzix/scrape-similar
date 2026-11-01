@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { ANALYTICS_CONSENT_STORAGE_KEY } from '@/utils/consent'
 import { renderSettled, settleEffects } from '@@/tests/support/settle'
-import { type RenderResult, act, render as renderComponent } from '@testing-library/react'
+import { type RenderResult, act } from '@testing-library/react'
 import log from 'loglevel'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
@@ -154,7 +154,7 @@ describe('PostHogWrapper', () => {
 
   it('shares one initialization between wrappers mounted together', async () => {
     await storage.setItem(consentKey, true)
-    view = renderComponent(
+    view = await renderSettled(
       <ConsentProvider>
         <PostHogWrapper>
           <p>first</p>
@@ -164,7 +164,6 @@ describe('PostHogWrapper', () => {
         </PostHogWrapper>
       </ConsentProvider>,
     )
-    await settleEffects()
 
     expect(posthogMock.instances).toHaveLength(1)
   })
@@ -183,8 +182,7 @@ describe('PostHogWrapper', () => {
         )}
       </ConsentProvider>
     )
-    view = renderComponent(tree(false))
-    await settleEffects()
+    view = await renderSettled(tree(false))
     const first = exposedInstance()
 
     // The second wrapper mounts against an instance that already exists.
