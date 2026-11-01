@@ -68,16 +68,32 @@ describe('useStorageItem', () => {
     expect(result.current[0]).toBe(false)
   })
 
-  it('stops listening once unmounted', async () => {
-    const { result, unmount } = renderHook(() => useStorageItem(debugModeItem))
+  it('stops listening once unmounted', () => {
+    const unwatch = vi.fn()
+    vi.spyOn(debugModeItem, 'watch').mockReturnValueOnce(unwatch)
+    const { unmount } = renderHook(() => useStorageItem(debugModeItem))
+    expect(unwatch).not.toHaveBeenCalled()
+
     unmount()
 
+    expect(unwatch).toHaveBeenCalledOnce()
+  })
+
+  it('shows the new item, not the old value, when the item changes', async () => {
+    await storage.setItem('local:debugMode', true)
+    const { result, rerender } = renderHook(({ item }) => useStorageItem(item), {
+      initialProps: { item: debugModeItem },
+    })
+    await waitFor(() => expect(result.current[0]).toBe(true))
+
+    rerender({ item: debugUnlockedItem })
+    expect(result.current[0]).toBe(false)
+
     await act(async () => {
-      await storage.setItem('local:debugMode', true)
+      await storage.setItem('local:debugUnlocked', true)
       await flushWatchers()
     })
-
-    expect(result.current[0]).toBe(false)
+    expect(result.current[0]).toBe(true)
   })
 })
 
