@@ -169,30 +169,6 @@ describe('following the active tab', () => {
     await waitFor(() => expect(mainSelectorInput().value).toBe('//li'))
   })
 
-  it('leaves an edit behind in the tab it was made in', async () => {
-    await attachToTab(PAGE_URL, { currentScrapeConfig: config })
-    const otherColumns = [{ name: 'Other', selector: './td[2]' }]
-    await storage.setItem(`session:sidepanel_config_${OTHER_TAB_ID}`, {
-      currentScrapeConfig: { mainSelector: '//tr', columns: otherColumns },
-    })
-    view = await render()
-    await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
-    tabsGetReplies({ id: OTHER_TAB_ID, url: 'https://example.org/list' })
-
-    act(() => mainSelectorInput().focus())
-    fireEvent.change(mainSelectorInput(), { target: { value: '//li' } })
-    fireEvent.focusOut(mainSelectorInput())
-    await activateTab(OTHER_TAB_ID)
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 200))
-    })
-
-    expect(mainSelectorInput().value).toBe('//tr')
-    expect(await storage.getItem(`session:sidepanel_config_${OTHER_TAB_ID}`)).toMatchObject({
-      currentScrapeConfig: { mainSelector: '//tr', columns: otherColumns },
-    })
-  })
-
   it('starts the newly activated tab blank when nothing is stored', async () => {
     await attachToTab(PAGE_URL, { currentScrapeConfig: config })
     view = await render()

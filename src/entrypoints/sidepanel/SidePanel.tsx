@@ -725,9 +725,6 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
         <main className="flex-1 overflow-y-auto p-4 w-full min-w-0 box-border">
           <div className="flex flex-col gap-10 w-full min-w-0 box-border">
             <ConfigForm
-              // The draft and a pending blur commit belong to the tab they were
-              // made in; a new tab with an identical selector would inherit both.
-              key={targetTabId}
               config={config}
               onChange={handleConfigChange}
               onScrape={handleScrape}

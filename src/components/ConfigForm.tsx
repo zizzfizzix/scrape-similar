@@ -441,9 +441,9 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
       if (hasMovedIntoDropdown) return
 
       setIsAutosuggestOpen(false)
-      // The parent replaced the selector after the blur (preset load, storage
-      // restore), so the draft belongs to the old one. A tab switch remounts
-      // the form instead, which clears this timer.
+      // The parent replaced the selector after the blur (preset load, tab
+      // switch, storage restore), so the draft belongs to the old one. A
+      // replacement with an identical selector is not detected.
       if (latestConfigRef.current.mainSelector !== committedAtBlur) return
       // Re-highlighting a validated selector scrolls the page back to its first
       // match and replays the highlight. One without a result is highlighted
