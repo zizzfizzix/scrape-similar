@@ -378,7 +378,12 @@ describe('the autosuggest dropdown', () => {
     })
   })
 
-  /** The scroll runs in a frame callback, so these tests drain the frame before asserting on it. */
+  /**
+   * cmdk scrolls its selection too, but only on mount and from its own
+   * navigation, never from the controlled `value` prop. These tests mount it
+   * with nothing selected and press keys in the textarea, so every call the
+   * spy records comes from the form, and the counts can be exact.
+   */
   describe('keeping the highlighted entry in view', () => {
     const spyOnScroll = () => vi.spyOn(Element.prototype, 'scrollIntoView')
 
@@ -407,6 +412,7 @@ describe('the autosuggest dropdown', () => {
       await press('ArrowUp')
       await nextFrame()
 
+      expect(scroll).toHaveBeenCalledExactlyOnceWith({ block: 'nearest' })
       expect(scrolledEntries(scroll)).toEqual([expect.stringContaining('All links')])
     })
 
