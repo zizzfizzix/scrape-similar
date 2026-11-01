@@ -3,7 +3,7 @@ import { ThemeProvider, useTheme } from '@/components/theme-provider'
 import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 import { act, render as renderComponent, waitFor, type RenderResult } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
 
@@ -49,6 +49,14 @@ const press = (name: string) =>
 
 /** Wait for the theme the provider has settled on. */
 const expectTheme = (theme: string) => waitFor(() => expect(currentTheme()).toBe(theme))
+
+/**
+ * Wait for `element` to carry the theme class. The class is set by an effect
+ * that runs after the commit that renders the theme text, so seeing the text
+ * does not mean the class is there yet.
+ */
+const expectThemeClass = (element: Element, theme: string) =>
+  waitFor(() => expect(element).toHaveClass(theme))
 
 beforeEach(() => {
   fakeBrowser.reset()
@@ -103,7 +111,7 @@ describe('ThemeProvider', () => {
     )
 
     await expectTheme('light')
-    expect(document.documentElement).toHaveClass('light')
+    await expectThemeClass(document.documentElement, 'light')
   })
 
   it('replaces the previous theme class rather than stacking', async () => {
@@ -117,13 +125,14 @@ describe('ThemeProvider', () => {
     )
 
     await expectTheme('dark')
+    await expectThemeClass(document.documentElement, 'dark')
     expect(document.documentElement).not.toHaveClass('light')
-    expect(document.documentElement).toHaveClass('dark')
   })
 
   it('themes a given root element instead of the document', async () => {
     const root = document.createElement('div')
     document.body.append(root)
+    onTestFinished(() => root.remove())
     await storage.setItem('local:theme', 'dark')
 
     view = renderComponent(
@@ -133,7 +142,7 @@ describe('ThemeProvider', () => {
     )
 
     await expectTheme('dark')
-    expect(root).toHaveClass('dark')
+    await expectThemeClass(root, 'dark')
     expect(document.documentElement).not.toHaveClass('dark')
   })
 
@@ -186,7 +195,7 @@ describe('ThemeProvider', () => {
     await press('light')
 
     await expectTheme('light')
-    expect(document.documentElement).toHaveClass('light')
+    await expectThemeClass(document.documentElement, 'light')
     expect(media.listeners.size).toBe(0)
   })
 
@@ -215,7 +224,7 @@ describe('ThemeProvider', () => {
     await press('system')
 
     await expectTheme('system')
-    expect(document.documentElement).toHaveClass('dark')
+    await expectThemeClass(document.documentElement, 'dark')
   })
 
   it('picks up a theme changed elsewhere', async () => {
