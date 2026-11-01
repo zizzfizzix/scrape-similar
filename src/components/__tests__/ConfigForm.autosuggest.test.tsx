@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { ConfigForm } from '@/components/ConfigForm'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import { ANALYTICS_EVENTS, SCRAPE_SOURCES } from '@/utils/analytics'
+import { ANALYTICS_EVENTS, ANALYTICS_SOURCES } from '@/utils/analytics'
 import { getRecentMainSelectors, setRecentMainSelectors, userPresetsItem } from '@/utils/storage'
 import type { Preset, ScrapeConfig } from '@/utils/types'
 import { setLastError } from '@@/tests/support/fake-browser'
@@ -728,7 +728,7 @@ describe('the autosuggest dropdown', () => {
       expect(onScrape).toHaveBeenCalledTimes(1)
       expect(onHighlight).not.toHaveBeenCalled()
       expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.SCRAPE_BUTTON_PRESS, {
-        source: SCRAPE_SOURCES.ENTER_KEY,
+        source: ANALYTICS_SOURCES.ENTER_KEY,
       })
       expect(scrapeEvents()).toBe(1)
     })

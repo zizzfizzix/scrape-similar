@@ -493,7 +493,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
       return
     }
 
-    scrapeCommittedMainSelector(SCRAPE_SOURCES.BUTTON)
+    scrapeCommittedMainSelector(ANALYTICS_SOURCES.BUTTON)
   }
 
   // Keeps focus in the textarea while the button reads "Validate selector".
@@ -623,7 +623,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
 
       if (isMainSelectorValid) {
         if (!canScrape) return
-        scrapeCommittedMainSelector(SCRAPE_SOURCES.ENTER_KEY)
+        scrapeCommittedMainSelector(ANALYTICS_SOURCES.ENTER_KEY)
       } else {
         commitMainSelectorNow(trimmedDraft)
       }

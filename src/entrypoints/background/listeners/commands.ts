@@ -21,7 +21,7 @@ export const setupCommandsListener = (): void => {
 
         await browser.tabs.sendMessage(activeTab.id, {
           type: MESSAGE_TYPES.TOGGLE_PICKER_MODE,
-          payload: { source: 'keyboard_shortcut' },
+          payload: { source: ANALYTICS_SOURCES.KEYBOARD_SHORTCUT },
         })
         log.debug('Visual picker toggled via global keyboard command')
       } catch (error) {

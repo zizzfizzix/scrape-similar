@@ -559,7 +559,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
       targetTabId,
       {
         type: MESSAGE_TYPES.TOGGLE_PICKER_MODE,
-        payload: { source: 'button' },
+        payload: { source: ANALYTICS_SOURCES.BUTTON },
       },
       (response) => {
         if (!response && browser.runtime.lastError) {

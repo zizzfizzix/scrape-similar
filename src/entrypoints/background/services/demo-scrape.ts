@@ -92,7 +92,7 @@ export const executeDemoScrape = async (tabId: number, config: ScrapeConfig): Pr
         try {
           await browser.tabs.sendMessage(tabId, {
             type: MESSAGE_TYPES.ENABLE_PICKER_MODE,
-            payload: { source: 'demo_scrape' },
+            payload: { source: ANALYTICS_SOURCES.DEMO_SCRAPE },
           })
           log.debug('🎬 Visual picker mode enabled after demo scrape')
         } catch (pickerError) {

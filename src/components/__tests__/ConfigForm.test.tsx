@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { ConfigForm } from '@/components/ConfigForm'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import { ANALYTICS_EVENTS, SCRAPE_SOURCES } from '@/utils/analytics'
+import { ANALYTICS_EVENTS, ANALYTICS_SOURCES } from '@/utils/analytics'
 import { setRecentMainSelectors, userPresetsItem } from '@/utils/storage'
 import { SYSTEM_PRESETS } from '@/utils/system_presets'
 import { type Preset, type ScrapeConfig } from '@/utils/types'
@@ -361,7 +361,7 @@ describe('ConfigForm', () => {
 
       expect(onScrape).toHaveBeenCalled()
       expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.SCRAPE_BUTTON_PRESS, {
-        source: SCRAPE_SOURCES.BUTTON,
+        source: ANALYTICS_SOURCES.BUTTON,
       })
       expect(scrapeEvents()).toBe(1)
     })
@@ -524,7 +524,7 @@ describe('ConfigForm', () => {
 
         expect(onScrape).toHaveBeenCalled()
         expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.SCRAPE_BUTTON_PRESS, {
-          source: SCRAPE_SOURCES.BUTTON,
+          source: ANALYTICS_SOURCES.BUTTON,
         })
         expect(scrapeEvents()).toBe(1)
       })

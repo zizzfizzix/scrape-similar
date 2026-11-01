@@ -120,7 +120,7 @@ const handleVisualPicker = async (targetTabId: number, tab: Browser.tabs.Tab): P
     // Toggle picker mode (same as keyboard shortcut)
     await browser.tabs.sendMessage(targetTabId, {
       type: MESSAGE_TYPES.TOGGLE_PICKER_MODE,
-      payload: { source: 'context_menu' },
+      payload: { source: ANALYTICS_SOURCES.CONTEXT_MENU },
     })
     log.debug('Visual picker toggled via context menu')
   } catch (error) {
