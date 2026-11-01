@@ -434,13 +434,23 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
     }, 150)
   }
 
-  // blur() runs the blur handler synchronously, so the deferred commit it
-  // schedules is cancelled straight after.
-  const commitMainSelectorNow = (draft: string) => {
-    mainSelectorInputRef.current?.blur()
+  // Cancels a pending blur commit: one scheduled when a button press blurred
+  // the field, or the one blur() schedules synchronously on the commit path.
+  const settleMainSelectorField = () => {
     clearTimeout(blurCommitTimerRef.current)
     setIsAutosuggestOpen(false)
+  }
+
+  const commitMainSelectorNow = (draft: string) => {
+    mainSelectorInputRef.current?.blur()
+    settleMainSelectorField()
     commitMainSelector(draft)
+  }
+
+  const scrapeCommittedMainSelector = () => {
+    settleMainSelectorField()
+    setMainSelectorDraft(mainSelectorDraft.trim())
+    onScrape()
   }
 
   /**
@@ -455,13 +465,8 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
       return
     }
 
-    // Nothing to commit, so the blur commit the press scheduled would only
-    // highlight again while the scrape runs.
-    clearTimeout(blurCommitTimerRef.current)
-    setIsAutosuggestOpen(false)
-    setMainSelectorDraft(mainSelectorDraft.trim())
     trackEvent(ANALYTICS_EVENTS.SCRAPE_BUTTON_PRESS)
-    onScrape()
+    scrapeCommittedMainSelector()
   }
 
   // Handle main selector change with autosuggest (newline-less)
@@ -579,8 +584,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
       if (!value) return
 
       if (isMainSelectorValid) {
-        setMainSelectorDraft(value)
-        onScrape()
+        scrapeCommittedMainSelector()
       } else {
         commitMainSelectorNow(value)
       }

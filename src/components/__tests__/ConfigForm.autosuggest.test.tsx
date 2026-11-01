@@ -775,6 +775,18 @@ describe('the autosuggest dropdown', () => {
       expect(onChange).not.toHaveBeenCalled()
     })
 
+    it('closes the dropdown when Enter scrapes', async () => {
+      const onScrape = vi.fn()
+      view = await render({ presets, onScrape, config: { ...config, mainSelector: '//tr' } })
+      await focusField()
+      expect(suggestionItems()).not.toHaveLength(0)
+
+      await press('Enter')
+
+      expect(onScrape).toHaveBeenCalledTimes(1)
+      expect(suggestionItems()).toHaveLength(0)
+    })
+
     it('scrapes a validated selector that was committed with surrounding whitespace', async () => {
       const onScrape = vi.fn()
       const onChange = vi.fn()
