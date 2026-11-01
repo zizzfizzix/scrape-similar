@@ -50,11 +50,12 @@ const NO_INNER_HTML = {
     'Assigning `innerHTML` runs markup from the page. Build nodes and set `textContent` instead.',
 }
 
-// `no-floating-promises` checks expression statements only, so a concise arrow
-// body is invisible to it.
-const NO_VOID_ARROW = {
-  selector: "ArrowFunctionExpression > UnaryExpression.body[operator='void']",
-  message: '`() => void task()` drops the rejection. Use `() => reportRejection(task())`.',
+// `no-floating-promises` only sees a `void` that is a whole statement; in an
+// arrow body, a `return` or any other expression position it hides the promise.
+const NO_VOID = {
+  selector: "UnaryExpression[operator='void']",
+  message:
+    '`void` hides a promise from `no-floating-promises`. Use `reportRejection(task())` for a promise; otherwise drop the `void`.',
 }
 
 interface RestrictedSelector {
@@ -216,7 +217,7 @@ export default defineConfig([
             "Use WXT's auto-imported `browser`, which is typed and works on Chromium, Firefox and Edge.",
         },
       ],
-      ...restrictedSyntax(NO_ENUM, NO_DEFAULT_EXPORT, NO_VOID_ARROW),
+      ...restrictedSyntax(NO_ENUM, NO_DEFAULT_EXPORT, NO_VOID),
       // `== null` is the deliberate "null or undefined" check; everything else
       // compares by identity.
       eqeqeq: ['error', 'always', { null: 'ignore' }],
@@ -238,7 +239,7 @@ export default defineConfig([
     // what the rule is about.
     files: ['src/**/*.{ts,tsx}'],
     ignores: TEST_FILES,
-    rules: restrictedSyntax(NO_ENUM, NO_DEFAULT_EXPORT, NO_INNER_HTML, NO_VOID_ARROW),
+    rules: restrictedSyntax(NO_ENUM, NO_DEFAULT_EXPORT, NO_INNER_HTML, NO_VOID),
   },
 
   {
@@ -258,12 +259,12 @@ export default defineConfig([
 
   {
     files: ['src/entrypoints/*/index.ts'],
-    rules: restrictedSyntax(NO_ENUM, NO_INNER_HTML, NO_VOID_ARROW),
+    rules: restrictedSyntax(NO_ENUM, NO_INNER_HTML, NO_VOID),
   },
 
   {
     files: ['*.config.{ts,js}', 'eslint.config.ts'],
-    rules: restrictedSyntax(NO_ENUM),
+    rules: restrictedSyntax(NO_ENUM, NO_VOID),
   },
 
   {
@@ -294,6 +295,7 @@ export default defineConfig([
       // Callbacks passed to `evaluate` run in the browser and cannot import
       // `reportRejection`.
       '@typescript-eslint/no-floating-promises': ['error', { ignoreVoid: true }],
+      ...restrictedSyntax(NO_ENUM, NO_DEFAULT_EXPORT),
     },
   },
 

@@ -303,7 +303,6 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
 
   // Initialize: load presets, listen for messages, AND listen for tab activation
   useEffect(() => {
-    // Load presets (system + user, respecting status).
     reportRejection(getAllPresets().then(setPresets))
 
     // Listen for tab activation
