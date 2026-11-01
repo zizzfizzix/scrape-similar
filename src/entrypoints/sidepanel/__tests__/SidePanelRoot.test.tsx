@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { ANALYTICS_CONSENT_STORAGE_KEY } from '@/utils/consent'
 import { spyOnBrowser } from '@@/tests/support/fake-browser'
-import { settleEffects } from '@@/tests/support/settle'
+import { renderSettled } from '@@/tests/support/settle'
 import { type RenderResult, act, render as renderComponent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import log from 'loglevel'
@@ -34,12 +34,13 @@ const consentKey = `sync:${ANALYTICS_CONSENT_STORAGE_KEY}` as const
 /** Give storage watchers a macrotask to fire. */
 const flushWatchers = (): Promise<void> => new Promise((resolve) => setTimeout(() => resolve(), 0))
 
-const render = () =>
-  renderComponent(
-    <ConsentProvider>
-      <SidePanelRoot />
-    </ConsentProvider>,
-  )
+const panel = () => (
+  <ConsentProvider>
+    <SidePanelRoot />
+  </ConsentProvider>
+)
+
+const render = () => renderComponent(panel())
 
 /** The settings drawer is portalled, and only shows the switch when debug is on. */
 const debugSwitch = () => {
@@ -59,8 +60,7 @@ beforeEach(async () => {
 
 describe('SidePanelRoot', () => {
   it('renders the panel', async () => {
-    view = render()
-    await settleEffects()
+    view = await renderSettled(panel())
 
     expect(view.container.textContent).toContain('Configuration')
   })
@@ -95,9 +95,8 @@ describe('SidePanelRoot', () => {
   })
 
   it('follows the debug flag when it changes elsewhere', async () => {
-    view = render()
     // Let the mount-time read settle, so only later changes reach the spy.
-    await settleEffects()
+    view = await renderSettled(panel())
     const setLevel = vi.spyOn(log, 'setLevel').mockImplementation(() => {})
 
     await act(async () => {
@@ -110,9 +109,8 @@ describe('SidePanelRoot', () => {
 
   it('leaves the log level alone on changes in dev or test builds', async () => {
     modeFlags.isDevOrTest = true
-    view = render()
     // Let the mount-time read settle, so only later changes reach the spy.
-    await settleEffects()
+    view = await renderSettled(panel())
     const setLevel = vi.spyOn(log, 'setLevel').mockImplementation(() => {})
 
     await act(async () => {

@@ -478,7 +478,7 @@ describe('remembering the selector a scrape used', () => {
     await withValidatedSelector()
     view = await render()
     await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
-    mainSelectorInput().focus()
+    act(() => mainSelectorInput().focus())
     fireEvent.change(mainSelectorInput(), { target: { value: '//li' } })
 
     const sendMessage = await scrape(scraped, 'Validate selector')

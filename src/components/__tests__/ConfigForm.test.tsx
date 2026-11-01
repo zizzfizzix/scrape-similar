@@ -280,7 +280,7 @@ describe('ConfigForm', () => {
       }
 
       const editSelector = (value: string) => {
-        mainSelectorInput().focus()
+        act(() => mainSelectorInput().focus())
         fireEvent.change(mainSelectorInput(), { target: { value } })
       }
 
