@@ -408,8 +408,9 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
   }, [targetTabId, handleInitialData])
 
   // ---------------------------------------------------------------------------
-  // Watch preset collections (sync-area keys) – keeps local state in sync when
-  // presets are created, deleted or system-preset visibility changes elsewhere.
+  // Watch preset collections (sync-area keys). This is the only place the list
+  // reloads after mount: saves, deletes, imports and system-preset visibility
+  // changes, from this panel or any other extension page, all arrive here.
   // ---------------------------------------------------------------------------
   useEffect(() => {
     const unwatchUserPresets = userPresetsItem.watch(() => {
@@ -600,9 +601,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
     // is not something that can reach here.
     const isSaved = await savePreset(preset)
     if (isSaved) {
-      const updatedPresets = await getAllPresets()
-      setPresets(updatedPresets)
-      log.debug('Preset saved successfully and UI updated')
+      log.debug('Preset saved successfully')
 
       // Track preset saved event
       trackEvent(ANALYTICS_EVENTS.PRESET_SAVE, {
@@ -637,8 +636,6 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
     // failure as `false` rather than rejecting.
     const isDeleted = await deletePreset(preset.id)
     if (isDeleted) {
-      const updatedPresets = await getAllPresets()
-      setPresets(updatedPresets)
       toast.success(
         <>
           Preset "<span className="ph_hidden">{preset.name}</span>" deleted
@@ -664,10 +661,6 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
     toast.success('System presets have been reset')
   }, [])
 
-  const handlePresetsImported = useCallback(() => {
-    reportRejection(getAllPresets().then(setPresets))
-  }, [])
-
   // Check if the current tab is showing the full data view
   if (tabUrl?.startsWith(`chrome-extension://${chromeExtensionId}/full-data-view.html`)) {
     return (
@@ -686,7 +679,6 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
     <Footer
       showSettings={true}
       onResetSystemPresets={handleSystemPresetsReset}
-      onPresetsImported={handlePresetsImported}
       debugMode={debugMode}
       onDebugModeChange={onDebugModeChange}
     />

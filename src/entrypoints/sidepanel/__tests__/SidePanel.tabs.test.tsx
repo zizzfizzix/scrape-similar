@@ -660,6 +660,9 @@ describe('presets', () => {
     })
   }
 
+  /** Outside hiding a system preset, only `getAllPresets` reads the status key, so this counts list loads. */
+  const countPresetListLoads = () => vi.spyOn(systemPresetStatusItem, 'getValue')
+
   const deletePresetNamed = async (name: string) => {
     await waitForPreset(name)
     await userEvent.click(presetRow(name)!.querySelector<HTMLButtonElement>('button')!)
@@ -714,10 +717,16 @@ describe('presets', () => {
     await attachToTab(PAGE_URL, { currentScrapeConfig: config, highlightMatchCount: 3 })
     view = await render()
     await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
+    const listLoads = countPresetListLoads()
 
     await savePresetNamed('Mine')
 
     await waitFor(async () => expect((await getPresets())[0]?.name).toBe('Mine'))
+    // The save drawer still locks pointer events on the body.
+    fireEvent.click(byLabel('Load'))
+    await waitFor(() => expect(presetRow('Mine')).toBeDefined())
+    await act(flushMicrotasks)
+    expect(listLoads).toHaveBeenCalledTimes(1)
     expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.PRESET_SAVE, {
       type: 'user',
       columns_count: 1,
@@ -739,6 +748,7 @@ describe('presets', () => {
   it('deletes a user preset and says so', async () => {
     await userPresetsItem.setValue([userPreset])
     view = await render()
+    const listLoads = countPresetListLoads()
 
     await deletePresetNamed('Rows')
 
@@ -748,6 +758,12 @@ describe('presets', () => {
       }),
     )
     expect(toastMocks.toast.success).toHaveBeenCalled()
+    // The closing confirmation still locks pointer events on the body.
+    fireEvent.click(byLabel('Load'))
+    await waitFor(() => expect(presetRow(SYSTEM_PRESETS[0]!.name)).toBeDefined())
+    await waitFor(() => expect(presetRow('Rows')).toBeUndefined())
+    await act(flushMicrotasks)
+    expect(listLoads).toHaveBeenCalledTimes(1)
   })
 
   it('reports a preset it could not delete', async () => {
@@ -803,6 +819,7 @@ describe('presets', () => {
 
   it('picks up presets imported from the settings drawer', async () => {
     view = await render()
+    const listLoads = countPresetListLoads()
     await userEvent.click(
       view.container.querySelector<HTMLButtonElement>('button[aria-label="Settings"]')!,
     )
@@ -832,6 +849,11 @@ describe('presets', () => {
     })
 
     await waitFor(async () => expect((await getPresets())[0]?.name).toBe('Rows'))
+    // The settings drawer still locks pointer events on the body.
+    fireEvent.click(byLabel('Load'))
+    await waitFor(() => expect(presetRow('Rows')).toBeDefined())
+    await act(flushMicrotasks)
+    expect(listLoads).toHaveBeenCalledTimes(1)
   })
 
   it('falls back to the system presets when the user ones cannot be read', async () => {
