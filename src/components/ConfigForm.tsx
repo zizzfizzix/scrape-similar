@@ -575,7 +575,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
       // in the meantime cannot change what this keypress does.
       const isValueValidated = isMainSelectorValidated({
         mainSelector: value,
-        hasUncommittedChanges: value !== latestConfigRef.current.mainSelector,
+        hasUncommittedChanges: value !== config.mainSelector,
         highlightMatchCount,
         highlightError,
       })
