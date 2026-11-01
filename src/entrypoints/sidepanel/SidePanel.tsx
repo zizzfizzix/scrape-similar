@@ -340,7 +340,6 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
         <Footer
           showSettings={true}
           onResetSystemPresets={() => reportRejection(handleResetSystemPresets())}
-          onPresetsImported={reloadPresets}
           debugMode={debugMode}
           onDebugModeChange={onDebugModeChange}
         />

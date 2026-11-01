@@ -450,10 +450,8 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
     commitMainSelector(value)
   }
 
-  // Handle main selector blur with delay to allow for clicks
-  const handleMainSelectorBlur = () => {
+  const armBlurCommit = (committedAtBlur: string) => {
     cancelBlurCommit()
-    const committedAtBlur = latestConfigRef.current.mainSelector
     pendingBlurRef.current = committedAtBlur
     blurCommitTimerRef.current = setTimeout(() => {
       pendingBlurRef.current = null
@@ -461,20 +459,20 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
     }, 150)
   }
 
-  const replayBlurCommit = useEffectEvent((committedAtBlur: string) =>
-    finishBlurCommit(committedAtBlur),
-  )
+  // Handle main selector blur with delay to allow for clicks
+  const handleMainSelectorBlur = () => armBlurCommit(latestConfigRef.current.mainSelector)
+
+  const rearmBlurCommit = useEffectEvent(armBlurCommit)
 
   // Hiding a side panel tab runs the cleanup and showing it runs the effect
   // again. Switching tabs blurs the field, so a blur still waiting out its
-  // delay is held over the hide and finished once the tab is shown, in its
-  // own tab, rather than dropped with the draft uncommitted.
+  // delay is held over the hide and armed again once the tab is shown, rather
+  // than dropped with the draft uncommitted. The full delay lets the panel's
+  // re-read of storage land first, so the commit builds on config written
+  // while it was hidden.
   useEffect(() => {
     const committedAtBlur = pendingBlurRef.current
-    if (committedAtBlur !== null) {
-      pendingBlurRef.current = null
-      replayBlurCommit(committedAtBlur)
-    }
+    if (committedAtBlur !== null) rearmBlurCommit(committedAtBlur)
     return () => {
       clearTimeout(blurCommitTimerRef.current)
       setIsAutosuggestOpen(false)

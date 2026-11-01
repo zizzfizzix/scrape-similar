@@ -1143,6 +1143,38 @@ describe('one panel per tab', () => {
     await waitFor(() => expect(mainSelectorInput().value).toBe('//li'))
   })
 
+  it('builds a held blur commit on config written while its tab was hidden', async () => {
+    view = await render()
+    await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
+    fireEvent.change(mainSelectorInput(), { target: { value: '//li' } })
+    act(() => {
+      mainSelectorInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
+    })
+    await switchTo(OTHER_TAB_ID)
+    const guessedColumns = [{ name: 'Guessed', selector: './td[3]' }]
+    // A guess that was in flight lands while the tab is in the background.
+    await act(async () => {
+      await storage.setItem(`session:sidepanel_config_${TAB_ID}`, {
+        currentScrapeConfig: { ...config, columns: guessedColumns },
+        highlightMatchCount: 3,
+      })
+    })
+    const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
+      undefined as never,
+    )
+
+    await switchTo(TAB_ID)
+
+    await waitFor(() =>
+      expect(sidePanelWrites(sendMessage)[0]).toEqual({
+        tabId: TAB_ID,
+        updates: expect.objectContaining({
+          currentScrapeConfig: { mainSelector: '//li', columns: guessedColumns },
+        }),
+      }),
+    )
+  })
+
   it('closes the suggestions of a tab hidden mid-edit', async () => {
     view = await render()
     await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
