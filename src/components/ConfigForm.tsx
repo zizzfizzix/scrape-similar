@@ -31,6 +31,7 @@ import {
   RECENT_SUGGESTION_PREFIX,
   resolveSuggestion,
 } from '@/utils/autosuggest'
+import { isImeComposing } from '@/utils/ime'
 import { reportRejection } from '@/utils/report-rejection'
 import {
   sanitizeToSingleLine,
@@ -518,6 +519,9 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
 
   // Handle keyboard navigation from textarea while dropdown is open/closed
   const handleAutosuggestKeyDown = (e: React.KeyboardEvent) => {
+    // The IME uses Enter, the arrows and Escape to pick and confirm a candidate.
+    if (isImeComposing(e)) return
+
     const ensureVisible = (index: number) => {
       const items = autosuggestRef.current?.querySelectorAll('[cmdk-item]')
       const el = items && items[index] ? (items[index] as HTMLElement) : null
@@ -750,7 +754,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
                   autoFocus
                   className="ph_hidden"
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' && presetName.trim()) {
+                    if (e.key === 'Enter' && !isImeComposing(e) && presetName.trim()) {
                       reportRejection(handleSavePreset())
                     }
                   }}

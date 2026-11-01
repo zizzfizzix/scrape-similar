@@ -790,6 +790,21 @@ describe('ConfigForm', () => {
         expect(onSavePreset).toHaveBeenCalledWith('From the keyboard')
       })
 
+      it.each([
+        ['the event reports the composition', { isComposing: true }],
+        ['Safari reports it only through keyCode 229', { keyCode: 229 }],
+      ])('leaves Enter to the IME when %s', async (_, composition) => {
+        const onSavePreset = vi.fn().mockResolvedValue(undefined)
+        view = await render({ onSavePreset })
+        const nameField = await openSaveDrawer()
+        fireEvent.change(nameField, { target: { value: '名前' } })
+
+        fireEvent.keyDown(nameField, { key: 'Enter', ...composition })
+        await act(() => Promise.resolve())
+
+        expect(onSavePreset).not.toHaveBeenCalled()
+      })
+
       it('ignores Enter while the name is blank', async () => {
         const onSavePreset = vi.fn().mockResolvedValue(undefined)
         view = await render({ onSavePreset })
