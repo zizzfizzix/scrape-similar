@@ -3,19 +3,22 @@ import { ThemeProvider, useTheme } from '@/components/theme-provider'
 import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 import { act, render as renderComponent, waitFor, type RenderResult } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
 
 let view: RenderResult
 
 /** A controllable `(prefers-color-scheme: dark)` reply. */
-const stubPrefersDark = (matches: boolean) => {
+const stubPrefersDark = (initialMatches: boolean) => {
   const listeners = new Set<() => void>()
+  let isDarkPreferred = initialMatches
   vi.spyOn(window, 'matchMedia').mockImplementation(
     (query) =>
       ({
-        matches,
+        get matches() {
+          return isDarkPreferred
+        },
         media: query,
         addEventListener: (_: string, listener: () => void) => listeners.add(listener),
         removeEventListener: (_: string, listener: () => void) => listeners.delete(listener),
@@ -23,8 +26,9 @@ const stubPrefersDark = (matches: boolean) => {
   )
   return {
     listeners,
-    /** Notify subscribers that the OS preference flipped. */
-    emit: () => {
+    /** Flip the OS preference and notify subscribers. */
+    emit: (nextMatches: boolean) => {
+      isDarkPreferred = nextMatches
       for (const listener of listeners) listener()
     },
   }
@@ -95,6 +99,8 @@ describe('ThemeProvider', () => {
   })
 
   it('applies the light class to the document root', async () => {
+    // A dark system preference keeps the mount-time system phase from adding `light`.
+    stubPrefersDark(true)
     await storage.setItem('local:theme', 'light')
     view = renderComponent(
       <ThemeProvider>
@@ -103,7 +109,7 @@ describe('ThemeProvider', () => {
     )
 
     await expectTheme('light')
-    expect(document.documentElement).toHaveClass('light')
+    expect(document.documentElement.className).toBe('light')
   })
 
   it('replaces the previous theme class rather than stacking', async () => {
@@ -124,6 +130,7 @@ describe('ThemeProvider', () => {
   it('themes a given root element instead of the document', async () => {
     const root = document.createElement('div')
     document.body.append(root)
+    onTestFinished(() => root.remove())
     await storage.setItem('local:theme', 'dark')
 
     view = renderComponent(
@@ -133,8 +140,33 @@ describe('ThemeProvider', () => {
     )
 
     await expectTheme('dark')
-    expect(root).toHaveClass('dark')
-    expect(document.documentElement).not.toHaveClass('dark')
+    expect(root.className).toBe('dark')
+    expect(document.documentElement.className).toBe('')
+  })
+
+  it('sets the class in the same commit that renders the theme', async () => {
+    await storage.setItem('local:theme', 'dark')
+    view = renderComponent(
+      <ThemeProvider>
+        <Probe />
+      </ThemeProvider>,
+    )
+
+    // A MutationObserver callback runs after React writes the DOM and before
+    // passive effects, so it sees the class only if a layout effect set it.
+    let classWhenTextChanged: string | undefined
+    const observer = new MutationObserver(() => {
+      if (currentTheme() === 'dark') classWhenTextChanged ??= document.documentElement.className
+    })
+    observer.observe(view.container, { subtree: true, childList: true, characterData: true })
+    try {
+      await expectTheme('dark')
+    } finally {
+      // Testing Library unmounts before `onTestFinished` runs, and the unmount
+      // would fire this observer against an emptied container.
+      observer.disconnect()
+    }
+    expect(classWhenTextChanged).toBe('dark')
   })
 
   it('follows a dark system preference', async () => {
@@ -169,10 +201,10 @@ describe('ThemeProvider', () => {
       </ThemeProvider>,
     )
 
-    // The stub reports `matches: false` throughout, so re-emitting keeps light.
-    await act(() => media.emit())
+    await act(() => media.emit(true))
 
-    expect(document.documentElement).toHaveClass('light')
+    expect(document.documentElement).toHaveClass('dark')
+    expect(document.documentElement).not.toHaveClass('light')
   })
 
   it('stops following the system once a theme is chosen', async () => {

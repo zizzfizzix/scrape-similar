@@ -1,6 +1,6 @@
 import { useStorageItem } from '@/hooks/use-storage-item'
 import { reportRejection } from '@/utils/report-rejection'
-import { createContext, useContext, useEffect } from 'react'
+import { createContext, useContext, useLayoutEffect } from 'react'
 
 interface ThemeProviderProps {
   children: React.ReactNode
@@ -26,37 +26,34 @@ const ThemeProviderContext = createContext<ThemeProviderState>(initialState)
 const isTheme = (value: unknown): value is Theme =>
   value === 'light' || value === 'dark' || value === 'system'
 
+const applyTheme = (rootElement: Element | null | undefined, theme: Exclude<Theme, 'system'>) => {
+  const root = rootElement ?? document.documentElement
+  root.classList.remove('light', 'dark')
+  root.classList.add(theme)
+}
+
 export function ThemeProvider({ children, rootElement, ...props }: ThemeProviderProps) {
   const [storedTheme, setStoredTheme] = useStorageItem(themeItem)
   const theme = isTheme(storedTheme) ? storedTheme : themeItem.fallback
 
-  // Listen for system theme changes if theme is "system"
-  useEffect(() => {
-    if (theme !== 'system') return
-
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-    const handleChange = () => {
-      const systemTheme = mediaQuery.matches ? 'dark' : 'light'
-      const root = (rootElement as Element) || window.document.documentElement
-      root.classList.remove('light', 'dark')
-      root.classList.add(systemTheme)
+  // A layout effect sets the class in the same commit that changes the theme;
+  // a passive effect can run after a frame has been painted with the new theme
+  // and the previous class.
+  useLayoutEffect(() => {
+    if (theme !== 'system') {
+      applyTheme(rootElement, theme)
+      return
     }
 
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+    const handleChange = () => applyTheme(rootElement, mediaQuery.matches ? 'dark' : 'light')
+
     mediaQuery.addEventListener('change', handleChange)
-    // Set initial theme
     handleChange()
 
     return () => {
       mediaQuery.removeEventListener('change', handleChange)
     }
-  }, [theme, rootElement])
-
-  // Apply theme when theme changes (except for "system", which is handled above)
-  useEffect(() => {
-    if (theme === 'system') return
-    const root = (rootElement as Element) || window.document.documentElement
-    root.classList.remove('light', 'dark')
-    root.classList.add(theme)
   }, [theme, rootElement])
 
   const value = {
