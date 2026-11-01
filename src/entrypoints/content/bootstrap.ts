@@ -109,8 +109,9 @@ export const startContentScript = (ctx: ContentScriptContext): ContentScriptStat
     trackContextMenuTarget(state, event as MouseEvent)
   })
 
-  const enablePicker = (source?: string) => enablePickerMode(ctx, state, disablePicker, source)
-  const disablePicker = (source?: string) => disablePickerMode(state, source)
+  const enablePicker = (source?: AnalyticsSource) =>
+    enablePickerMode(ctx, state, disablePicker, source)
+  const disablePicker = (source?: AnalyticsSource) => disablePickerMode(state, source)
 
   browser.runtime.onMessage.addListener(
     createMessageHandler(state, {

@@ -1,13 +1,14 @@
 // @vitest-environment jsdom
 import { ConfigForm } from '@/components/ConfigForm'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import { ANALYTICS_EVENTS } from '@/utils/analytics'
+import { ANALYTICS_EVENTS, ANALYTICS_SOURCES } from '@/utils/analytics'
 import { setRecentMainSelectors, userPresetsItem } from '@/utils/storage'
 import { SYSTEM_PRESETS } from '@/utils/system_presets'
 import { type Preset, type ScrapeConfig } from '@/utils/types'
 import { stubOffsetWidth } from '@@/tests/support/dom'
 import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
 import { renderSettled, settleEffects } from '@@/tests/support/settle'
+import { countTrackedEvents } from '@@/tests/support/tracked-events'
 import {
   act,
   fireEvent,
@@ -101,6 +102,8 @@ const byText = (text: string): HTMLButtonElement => {
   if (!found) throw new Error(`No button labelled "${text}"`)
   return found
 }
+
+const scrapeEvents = () => countTrackedEvents(trackEvent, ANALYTICS_EVENTS.SCRAPE_BUTTON_PRESS)
 
 beforeEach(async () => {
   fakeBrowser.reset()
@@ -357,7 +360,10 @@ describe('ConfigForm', () => {
       await userEvent.click(byText('Scrape'))
 
       expect(onScrape).toHaveBeenCalled()
-      expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.SCRAPE_BUTTON_PRESS)
+      expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.SCRAPE_BUTTON_PRESS, {
+        source: ANALYTICS_SOURCES.BUTTON,
+      })
+      expect(scrapeEvents()).toBe(1)
     })
 
     it('offers to validate instead while the selector is unsaved', async () => {
@@ -410,7 +416,7 @@ describe('ConfigForm', () => {
         expect(onScrape).not.toHaveBeenCalled()
         expect(onHighlight).toHaveBeenCalledWith('//li')
         expect(onChange).toHaveBeenCalledWith({ ...config, mainSelector: '//li' })
-        expect(trackEvent).not.toHaveBeenCalledWith(ANALYTICS_EVENTS.SCRAPE_BUTTON_PRESS)
+        expect(scrapeEvents()).toBe(0)
       })
 
       it('validates on a press held past the blur commit delay', async () => {
@@ -506,6 +512,7 @@ describe('ConfigForm', () => {
         expect(onScrape).toHaveBeenCalledTimes(1)
         expect(onHighlight).not.toHaveBeenCalled()
         expect(mainSelectorInput().value).toBe('//tr')
+        expect(scrapeEvents()).toBe(1)
       })
 
       it('scrapes once the edit has been committed', async () => {
@@ -516,7 +523,10 @@ describe('ConfigForm', () => {
         await pressActionButton('Scrape')
 
         expect(onScrape).toHaveBeenCalled()
-        expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.SCRAPE_BUTTON_PRESS)
+        expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.SCRAPE_BUTTON_PRESS, {
+          source: ANALYTICS_SOURCES.BUTTON,
+        })
+        expect(scrapeEvents()).toBe(1)
       })
     })
 

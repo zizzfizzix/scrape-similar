@@ -128,6 +128,11 @@ export interface TrackEventPayload {
   properties: Record<string, any>
 }
 
+/** Payload of ENABLE_PICKER_MODE, DISABLE_PICKER_MODE and TOGGLE_PICKER_MODE. */
+export interface PickerModePayload {
+  source?: AnalyticsSource
+}
+
 export interface SystemPresetStatusMap {
   [presetId: string]: boolean
 }

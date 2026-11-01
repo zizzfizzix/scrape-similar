@@ -175,7 +175,7 @@ describe('disablePickerMode without registered handlers', () => {
   it('tears the rest down when there is nothing to unregister', () => {
     state.pickerEventHandlers = null
 
-    expect(() => disablePickerMode(state, 'test')).not.toThrow()
+    expect(() => disablePickerMode(state, ANALYTICS_SOURCES.ESCAPE)).not.toThrow()
     expect(state.pickerModeActive).toBe(false)
   })
 })

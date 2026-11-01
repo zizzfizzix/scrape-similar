@@ -257,7 +257,7 @@ const isClickOnPickerUi = (event: MouseEvent, state: ContentScriptState): boolea
 export const handlePickerClick = async (
   event: MouseEvent,
   state: ContentScriptState,
-  disablePickerMode: (source?: string) => void,
+  disablePickerMode: (source?: AnalyticsSource) => void,
 ): Promise<void> => {
   if (!state.pickerModeActive) return
   if (isClickOnPickerUi(event, state)) return
@@ -279,7 +279,7 @@ export const handlePickerClick = async (
   // hovering offers no selector for either element.
   if (el === document.body || el === document.documentElement) return
 
-  disablePickerMode('element_selected')
+  disablePickerMode(ANALYTICS_SOURCES.ELEMENT_SELECTED)
   if (!(el instanceof HTMLElement)) return
 
   log.debug('Picker mode: element selected', el)
@@ -388,13 +388,13 @@ const navigateSelectorCandidates = (delta: number, state: ContentScriptState): v
 export const handlePickerKeyDown = (
   event: KeyboardEvent,
   state: ContentScriptState,
-  disablePickerMode: (source?: string) => void,
+  disablePickerMode: (source?: AnalyticsSource) => void,
 ): void => {
   if (!state.pickerModeActive) return
   const key = event.key
   if (key === 'Escape') {
     event.preventDefault()
-    disablePickerMode('escape')
+    disablePickerMode(ANALYTICS_SOURCES.ESCAPE)
     return
   }
   // '+' makes selector more specific (towards index 0), '-' less specific (towards ancestors)
@@ -416,8 +416,8 @@ export const handlePickerKeyDown = (
 export const enablePickerMode = async (
   ctx: ContentScriptContext,
   state: ContentScriptState,
-  disablePickerMode: (source?: string) => void,
-  source?: string,
+  disablePickerMode: (source?: AnalyticsSource) => void,
+  source?: AnalyticsSource,
 ): Promise<void> => {
   if (state.pickerModeActive) return
 
@@ -426,7 +426,7 @@ export const enablePickerMode = async (
 
   // Track picker mode enable with source
   trackEvent(ANALYTICS_EVENTS.PICKER_MODE_ENABLE, {
-    source: source || 'unknown',
+    source: source || ANALYTICS_SOURCES.UNKNOWN,
   })
 
   // Save picker mode state to storage
@@ -476,7 +476,7 @@ export const enablePickerMode = async (
 const createPickerEventHandlers = (
   ctx: ContentScriptContext,
   state: ContentScriptState,
-  disablePickerMode: (source?: string) => void,
+  disablePickerMode: (source?: AnalyticsSource) => void,
 ) => {
   // Level change handler with banner update
   const handleLevelChangeWithUpdate = (
@@ -525,7 +525,7 @@ const createPickerEventHandlers = (
 /**
  * Disable picker mode
  */
-export const disablePickerMode = (state: ContentScriptState, source?: string): void => {
+export const disablePickerMode = (state: ContentScriptState, source?: AnalyticsSource): void => {
   if (!state.pickerModeActive) return
 
   log.debug('Disabling picker mode')
@@ -533,7 +533,7 @@ export const disablePickerMode = (state: ContentScriptState, source?: string): v
 
   // Track picker mode disable with source
   trackEvent(ANALYTICS_EVENTS.PICKER_MODE_DISABLE, {
-    source: source || 'unknown',
+    source: source || ANALYTICS_SOURCES.UNKNOWN,
   })
 
   // Save picker mode state to storage

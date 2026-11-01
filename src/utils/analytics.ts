@@ -117,6 +117,31 @@ export const ANALYTICS_EVENTS = {
 } as const
 
 /**
+ * Values of the `source` property, which records how the user started an
+ * action. One set across events, so a breakdown by `source` reads the same
+ * everywhere. `enter_key` is a key pressed in a field; `keyboard_shortcut` is
+ * a browser command.
+ */
+export const ANALYTICS_SOURCES = {
+  BUTTON: 'button',
+  ENTER_KEY: 'enter_key',
+  KEYBOARD_SHORTCUT: 'keyboard_shortcut',
+  CONTEXT_MENU: 'context_menu',
+  DEMO_SCRAPE: 'demo_scrape',
+  ELEMENT_SELECTED: 'element_selected',
+  ESCAPE: 'escape',
+  UNKNOWN: 'unknown',
+} as const
+
+export type AnalyticsSource = (typeof ANALYTICS_SOURCES)[keyof typeof ANALYTICS_SOURCES]
+
+/**
+ * Sources of `SCRAPE_BUTTON_PRESS`. The event keeps its name for Enter scrapes
+ * so existing reports still count every scrape.
+ */
+export type ScrapeSource = typeof ANALYTICS_SOURCES.BUTTON | typeof ANALYTICS_SOURCES.ENTER_KEY
+
+/**
  * The awaitable half of `trackEvent`, exported for the tests that assert on
  * where an event ended up. Production code calls `trackEvent`.
  *

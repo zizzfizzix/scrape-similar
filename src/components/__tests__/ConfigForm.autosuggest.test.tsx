@@ -1,11 +1,13 @@
 // @vitest-environment jsdom
 import { ConfigForm } from '@/components/ConfigForm'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { ANALYTICS_EVENTS, ANALYTICS_SOURCES } from '@/utils/analytics'
 import { getRecentMainSelectors, setRecentMainSelectors, userPresetsItem } from '@/utils/storage'
 import type { Preset, ScrapeConfig } from '@/utils/types'
 import { setLastError } from '@@/tests/support/fake-browser'
 import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 import { renderSettled, settleEffects } from '@@/tests/support/settle'
+import { countTrackedEvents } from '@@/tests/support/tracked-events'
 import { type RenderResult, act, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -73,12 +75,14 @@ const suggestionItems = () => [...view.container.querySelectorAll<HTMLElement>('
 const selectedSuggestion = () =>
   view.container.querySelector<HTMLElement>('[cmdk-item][data-selected="true"]')!
 
-const press = (key: string) =>
+const press = (key: string, { repeat = false } = {}) =>
   act(() => {
     mainSelectorInput().dispatchEvent(
-      new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }),
+      new KeyboardEvent('keydown', { key, repeat, bubbles: true, cancelable: true }),
     )
   })
+
+const scrapeEvents = () => countTrackedEvents(trackEvent, ANALYTICS_EVENTS.SCRAPE_BUTTON_PRESS)
 
 /** jsdom runs frame callbacks in the order they were queued, so this one runs after the form's. */
 const nextFrame = () =>
@@ -300,6 +304,25 @@ describe('the autosuggest dropdown', () => {
       expect(onLoadPreset).toHaveBeenCalledWith(presets[0])
       expect(mainSelectorInput().value).toBe('//tr')
       expect(suggestionItems()).toHaveLength(0)
+      expect(scrapeEvents()).toBe(0)
+    })
+
+    it('applies a highlighted preset once while Enter is held', async () => {
+      const onLoadPreset = vi.fn()
+      const onScrape = vi.fn()
+      const onHighlight = vi.fn()
+      view = await render({ presets, onLoadPreset, onScrape, onHighlight })
+      await focusField()
+      await press('ArrowDown')
+      await waitFor(() => expect(selectedSuggestion()?.textContent).toContain('Table rows'))
+
+      await press('Enter')
+      await press('Enter', { repeat: true })
+
+      expect(onLoadPreset).toHaveBeenCalledTimes(1)
+      expect(onScrape).not.toHaveBeenCalled()
+      expect(onHighlight).not.toHaveBeenCalled()
+      expect(scrapeEvents()).toBe(0)
     })
 
     it('commits a highlighted recent selector', async () => {
@@ -315,6 +338,7 @@ describe('the autosuggest dropdown', () => {
 
       expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ mainSelector: '//span' }))
       expect(onHighlight).toHaveBeenCalledWith('//span')
+      expect(scrapeEvents()).toBe(0)
     })
 
     it('does nothing on Enter with an empty field and no highlight', async () => {
@@ -615,6 +639,7 @@ describe('the autosuggest dropdown', () => {
 
       await waitFor(() => expect(onHighlight).toHaveBeenCalledWith('//h1'))
       expect(onScrape).not.toHaveBeenCalled()
+      expect(scrapeEvents()).toBe(0)
     })
 
     describe('while an IME is composing', () => {
@@ -720,6 +745,62 @@ describe('the autosuggest dropdown', () => {
 
       expect(onScrape).toHaveBeenCalledTimes(1)
       expect(onHighlight).not.toHaveBeenCalled()
+      expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.SCRAPE_BUTTON_PRESS, {
+        source: ANALYTICS_SOURCES.ENTER_KEY,
+      })
+      expect(scrapeEvents()).toBe(1)
+    })
+
+    it('ignores the repeats of a held Enter key', async () => {
+      const onScrape = vi.fn()
+      view = await render({ presets: [], onScrape, config: { ...config, mainSelector: '//tr' } })
+      await focusField()
+
+      await press('Enter')
+      await press('Enter', { repeat: true })
+      await press('Enter', { repeat: true })
+
+      expect(onScrape).toHaveBeenCalledTimes(1)
+      expect(scrapeEvents()).toBe(1)
+    })
+
+    it('does not scrape while a scrape is already running', async () => {
+      const onScrape = vi.fn()
+      const onHighlight = vi.fn()
+      view = await render({
+        presets: [],
+        onScrape,
+        onHighlight,
+        isLoading: true,
+        config: { ...config, mainSelector: '//tr' },
+      })
+      await focusField()
+
+      await press('Enter')
+
+      expect(onScrape).not.toHaveBeenCalled()
+      expect(scrapeEvents()).toBe(0)
+      expect(onHighlight).not.toHaveBeenCalled()
+      expect(mainSelectorInput()).toHaveFocus()
+    })
+
+    it('does not scrape a config without columns', async () => {
+      const onScrape = vi.fn()
+      const onHighlight = vi.fn()
+      view = await render({
+        presets: [],
+        onScrape,
+        onHighlight,
+        config: { mainSelector: '//tr', columns: [] },
+      })
+      await focusField()
+
+      await press('Enter')
+
+      expect(onScrape).not.toHaveBeenCalled()
+      expect(scrapeEvents()).toBe(0)
+      expect(onHighlight).not.toHaveBeenCalled()
+      expect(mainSelectorInput()).toHaveFocus()
     })
 
     it('keeps focus on a field the user went back to after Enter', async () => {

@@ -7,8 +7,8 @@ import { MESSAGE_TYPES, type Message, type ScrapeConfig, type ScrapeResult } fro
 import log from 'loglevel'
 
 interface HandlerDependencies {
-  enablePickerMode: (source?: string) => Promise<void>
-  disablePickerMode: (source?: string) => void
+  enablePickerMode: (source?: AnalyticsSource) => Promise<void>
+  disablePickerMode: (source?: AnalyticsSource) => void
 }
 
 /**
@@ -100,7 +100,7 @@ export const createMessageHandler = (state: ContentScriptState, deps: HandlerDep
 
         case MESSAGE_TYPES.ENABLE_PICKER_MODE: {
           log.debug('Enabling picker mode via message')
-          const { source } = (message.payload || {}) as { source?: string }
+          const { source } = (message.payload || {}) as PickerModePayload
           reportRejection(deps.enablePickerMode(source))
           sendResponse({ success: true, message: 'Picker mode enabled' })
           break
@@ -108,7 +108,7 @@ export const createMessageHandler = (state: ContentScriptState, deps: HandlerDep
 
         case MESSAGE_TYPES.DISABLE_PICKER_MODE: {
           log.debug('Disabling picker mode via message')
-          const { source } = (message.payload || {}) as { source?: string }
+          const { source } = (message.payload || {}) as PickerModePayload
           deps.disablePickerMode(source)
           sendResponse({ success: true, message: 'Picker mode disabled' })
           break
@@ -116,12 +116,12 @@ export const createMessageHandler = (state: ContentScriptState, deps: HandlerDep
 
         case MESSAGE_TYPES.TOGGLE_PICKER_MODE: {
           log.debug('Toggling picker mode via message')
-          const { source } = (message.payload || {}) as { source?: string }
+          const { source } = (message.payload || {}) as PickerModePayload
           if (state.pickerModeActive) {
-            deps.disablePickerMode(source || 'button')
+            deps.disablePickerMode(source || ANALYTICS_SOURCES.BUTTON)
             sendResponse({ success: true, message: 'Picker mode disabled' })
           } else {
-            reportRejection(deps.enablePickerMode(source || 'button'))
+            reportRejection(deps.enablePickerMode(source || ANALYTICS_SOURCES.BUTTON))
             sendResponse({ success: true, message: 'Picker mode enabled' })
           }
           break
