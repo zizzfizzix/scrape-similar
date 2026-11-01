@@ -170,8 +170,9 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
   const beginAdornmentRef = useRef<HTMLDivElement>(null)
 
   // Derived flags
+  const trimmedDraft = mainSelectorDraft.trim()
   // Commits trim, so surrounding whitespace on either side is not a change.
-  const hasUncommittedChanges = mainSelectorDraft.trim() !== config.mainSelector.trim()
+  const hasUncommittedChanges = trimmedDraft !== config.mainSelector.trim()
 
   // Show highlight/error badges only when a non-empty selector is committed
   const isMainSelectorValid = isMainSelectorValidated({
@@ -449,7 +450,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
 
   const scrapeCommittedMainSelector = () => {
     settleMainSelectorField()
-    setMainSelectorDraft(mainSelectorDraft.trim())
+    setMainSelectorDraft(trimmedDraft)
     onScrape()
   }
 
@@ -580,7 +581,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
         if (suggestion?.kind === 'preset') handleAutosuggestSelect(suggestion.preset)
         return
       }
-      const value = mainSelectorDraft.trim()
+      const value = trimmedDraft
       if (!value) return
 
       if (isMainSelectorValid) {
