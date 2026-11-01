@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { spyOnBrowser } from '@@/tests/support/fake-browser'
 import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
+import { renderSettled } from '@@/tests/support/settle'
 import { type RenderResult, act, render as renderComponent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import log from 'loglevel'
@@ -30,12 +31,13 @@ let view: RenderResult
 
 const consentKey = analyticsConsentItem.key
 
-const render = () =>
-  renderComponent(
-    <ConsentProvider>
-      <SidePanelRoot />
-    </ConsentProvider>,
-  )
+const panel = () => (
+  <ConsentProvider>
+    <SidePanelRoot />
+  </ConsentProvider>
+)
+
+const render = () => renderComponent(panel())
 
 /** The settings drawer is portalled, and only shows the switch when debug is on. */
 const debugSwitch = () => {
@@ -55,8 +57,7 @@ beforeEach(async () => {
 
 describe('SidePanelRoot', () => {
   it('renders the panel', async () => {
-    view = render()
-    await act(async () => {})
+    view = await renderSettled(panel())
 
     expect(view.container.textContent).toContain('Configuration')
   })
@@ -91,9 +92,8 @@ describe('SidePanelRoot', () => {
   })
 
   it('follows the debug flag when it changes elsewhere', async () => {
-    view = render()
     // Let the mount-time read settle, so only later changes reach the spy.
-    await act(async () => {})
+    view = await renderSettled(panel())
     const setLevel = vi.spyOn(log, 'setLevel').mockImplementation(() => {})
 
     await act(async () => {
@@ -106,9 +106,8 @@ describe('SidePanelRoot', () => {
 
   it('leaves the log level alone on changes in dev or test builds', async () => {
     modeFlags.isDevOrTest = true
-    view = render()
     // Let the mount-time read settle, so only later changes reach the spy.
-    await act(async () => {})
+    view = await renderSettled(panel())
     const setLevel = vi.spyOn(log, 'setLevel').mockImplementation(() => {})
 
     await act(async () => {

@@ -28,10 +28,19 @@ import { noConditionalAwait } from './tools/eslint-rules/no-conditional-await.ts
  * Type-aware linting is switched on (`projectService`). What is on from it is
  * the rules this codebase already passes (ALREADY_CLEAN), the promise pair
  * (PROMISE_RULES) and the boolean naming rule; the rest is staged in DEFERRED
- * below with the violation count each one has today.
+ * below with the violation count each one has today. A rule that is wrong for
+ * this codebase rather than merely unfixed goes in OFF_ON_MERITS instead, which
+ * is not a worklist.
  */
 
-const TEST_FILES = ['**/__tests__/**/*.{ts,tsx}', '**/*.test.{ts,tsx}', 'vitest.setup.ts']
+const TEST_FILES = [
+  '**/__tests__/**/*.{ts,tsx}',
+  '**/*.test.{ts,tsx}',
+  'vitest.setup.ts',
+  // The harness modules the tests import, held to the same rules as their
+  // callers.
+  'tests/support/**/*.{ts,tsx}',
+]
 
 const NO_ENUM = {
   selector: 'TSEnumDeclaration',
@@ -162,23 +171,37 @@ const PROMISE_RULES: Linter.RulesRecord = {
  * Rules worth having that no longer fit in the diff that turned the linter on.
  * Each is off with the number of violations it reports today, so re-enabling one
  * is a line here plus the fixes it names — and so the count is a claim a reviewer
- * can check rather than an impression. Each names the issue that tracks it; the
- * two `jest-dom` rules are off on their merits and have none.
+ * can check rather than an impression. Each names the issue that tracks it.
  */
 const DEFERRED = {
-  // 72: 26 in extension code, mostly the message-passing types, and 46 in unit
-  // and e2e test scaffolding. #278.
+  // 72: 26 in extension code, mostly message payloads and responses (10) and
+  // the PostHog wrapper and analytics (11), and 46 in unit and e2e test
+  // scaffolding. #278.
   '@typescript-eslint/no-explicit-any': 'off',
-  // 265. The component tests reach into `container` deliberately; the rule wants
-  // them rewritten onto queries, which is a rewrite of the suite, not a fix. #280.
+  // 152, none in extension code: 147 in unit tests, all but one an `await` on a
+  // synchronous `act` (66 directly, 80 through a `focusField` / `press` helper),
+  // and 5 in e2e. On for extension code, which is clean, by the block after this
+  // one. #282.
+  '@typescript-eslint/await-thenable': 'off',
+} as const
+
+/**
+ * Rules that are off because they are wrong for this codebase, rather than off
+ * until someone gets to them. Nothing here is a worklist: re-reading these
+ * needs evidence that the stated reason no longer holds.
+ */
+const OFF_ON_MERITS = {
+  // 268 reports across 19 files, and the suite cannot be query-first. 77 of them
+  // select on something Testing Library has no query for by design: the
+  // `className` a component computes, asserted directly (15), or a utility class
+  // used as the handle (12); the `lucide-*` icon a button is showing (13);
+  // `cmdk` / `vaul` / `data-slot` internals of the libraries the UI is built
+  // from (27); the component's own root via `:scope > div` (3, plus 4 counted
+  // under `className`); the inline `style` positioning the picker menu (4); and
+  // `input[type="file"]`, which has no ARIA role (3). The other 191 could move
+  // onto `getByRole`, but most of the 19 files would still need a disable.
   'testing-library/no-node-access': 'off',
-  // 38. CLAUDE.md's "never nest `act` around `user-event`" is this rule, but the
-  // mount-time `await act(async () => {})` in the local `render` helpers reads
-  // the same to it, so the two need separating first. #280.
-  'testing-library/no-unnecessary-act': 'off',
-  // 37, all naming (`view` / `mounted` rather than `view = render()`). #280.
-  'testing-library/render-result-naming-convention': 'off',
-  // 106 and 21, both off because their fixes do not say the same thing as the
+  // 108 and 21, both off because their fixes do not say the same thing as the
   // assertions they replace. `toHaveTextContent` matches a substring, so it
   // weakens every `expect(el.textContent).toBe(x)` it rewrites; `toHaveStyle`
   // cannot express "this declaration is not set", which 7 of the 21 sites
@@ -186,10 +209,6 @@ const DEFERRED = {
   // unparseable code.
   'jest-dom/prefer-to-have-text-content': 'off',
   'jest-dom/prefer-to-have-style': 'off',
-  // 154, none in extension code: 149 in unit tests, almost all `await act(() =>
-  // el.focus())`-style calls whose callback returns nothing, and 5 in e2e. On
-  // for extension code, which is clean, by the block after this one. #282.
-  '@typescript-eslint/await-thenable': 'off',
 } as const
 
 export default defineConfig([
@@ -278,6 +297,16 @@ export default defineConfig([
       testingLibrary.configs['flat/react'],
       jestDom.configs['flat/recommended'],
     ],
+    settings: {
+      // Turns off the plugin's aggressive module reporting, so only utils
+      // imported from an official `@testing-library/*` package count. Otherwise
+      // any `render` is taken for Testing Library's, and `no-unnecessary-act` and
+      // `render-result-naming-convention` report 28 sites that are not:
+      // `scrape-guess.test.ts`'s own `render(html, selector)` helper, and the
+      // `root.render(…)` that `use-media-query` and `distinct_id` drive a React
+      // root with by hand.
+      'testing-library/utils-module': 'off',
+    },
     rules: {
       // Vitest's `expect` takes an optional message as its second argument, and
       // these tests use it to say which case failed.
@@ -308,7 +337,7 @@ export default defineConfig([
   },
 
   // Last, so it wins over the shared configs above that switch these on.
-  { files: ['**/*.{ts,tsx}'], rules: DEFERRED },
+  { files: ['**/*.{ts,tsx}'], rules: { ...DEFERRED, ...OFF_ON_MERITS } },
 
   {
     // After DEFERRED, which holds it off for the tests. An `await` on a value

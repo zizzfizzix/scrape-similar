@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
-import { type RenderResult, act, render as renderComponent } from '@testing-library/react'
+import { renderSettled } from '@@/tests/support/settle'
+import { type RenderResult, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import log from 'loglevel'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -31,9 +32,8 @@ let view: RenderResult
 
 const consentKey = analyticsConsentItem.key
 
-/** Render, and let the consent gate's storage read settle before asserting. */
-const render = async () => {
-  const rendered = renderComponent(
+const render = () =>
+  renderSettled(
     <ConsentProvider>
       <ThemeProvider>
         <TooltipProvider>
@@ -42,9 +42,6 @@ const render = async () => {
       </ThemeProvider>
     </ConsentProvider>,
   )
-  await act(async () => {})
-  return rendered
-}
 
 const debugSwitch = () => {
   const switches = [...view.container.querySelectorAll<HTMLElement>('[role="switch"]')]

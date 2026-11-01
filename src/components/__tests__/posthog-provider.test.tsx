@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
-import { type RenderResult, act, render as renderComponent } from '@testing-library/react'
+import { renderSettled, settleEffects } from '@@/tests/support/settle'
+import { type RenderResult, act } from '@testing-library/react'
 import log from 'loglevel'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
@@ -56,18 +57,14 @@ const consentKey = analyticsConsentItem.key
 const exposedInstance = () =>
   (window as { __scrape_similar_posthog?: unknown }).__scrape_similar_posthog
 
-/** Render, and let mount-time storage reads settle before asserting. */
-const render = async () => {
-  const rendered = renderComponent(
+const render = () =>
+  renderSettled(
     <ConsentProvider>
       <PostHogWrapper>
         <p data-testid="child">The app</p>
       </PostHogWrapper>
     </ConsentProvider>,
   )
-  await act(async () => {})
-  return rendered
-}
 
 beforeEach(() => {
   fakeBrowser.reset()
@@ -106,7 +103,7 @@ describe('PostHogWrapper', () => {
     await storage.setItem(consentKey, true)
 
     view = await render()
-    await act(async () => {})
+    await settleEffects()
 
     expect(posthogMock.instances).toHaveLength(1)
     expect(exposedInstance()).toBe(posthogMock.instances[0])
@@ -117,7 +114,7 @@ describe('PostHogWrapper', () => {
     await storage.setItem('local:distinct_id', '0198d5f0-0000-7000-8000-000000000000')
 
     view = await render()
-    await act(async () => {})
+    await settleEffects()
 
     const [, config] = posthogMock.instances[0]!.init.mock.calls[0] as [
       string,
@@ -130,7 +127,7 @@ describe('PostHogWrapper', () => {
     await storage.setItem(consentKey, true)
 
     view = await render()
-    await act(async () => {})
+    await settleEffects()
 
     const [, config] = posthogMock.instances[0]!.init.mock.calls[0] as [
       string,
@@ -142,7 +139,7 @@ describe('PostHogWrapper', () => {
   it('does not initialise a second instance for the same consent', async () => {
     await storage.setItem(consentKey, true)
     view = await render()
-    await act(async () => {})
+    await settleEffects()
 
     await act(async () => {
       await storage.setItem(consentKey, true)
@@ -154,7 +151,7 @@ describe('PostHogWrapper', () => {
 
   it('shares one initialization between wrappers mounted together', async () => {
     await storage.setItem(consentKey, true)
-    view = renderComponent(
+    view = await renderSettled(
       <ConsentProvider>
         <PostHogWrapper>
           <p>first</p>
@@ -164,7 +161,6 @@ describe('PostHogWrapper', () => {
         </PostHogWrapper>
       </ConsentProvider>,
     )
-    await act(async () => {})
 
     expect(posthogMock.instances).toHaveLength(1)
   })
@@ -183,13 +179,12 @@ describe('PostHogWrapper', () => {
         )}
       </ConsentProvider>
     )
-    view = renderComponent(tree(false))
-    await act(async () => {})
+    view = await renderSettled(tree(false))
     const first = exposedInstance()
 
     // The second wrapper mounts against an instance that already exists.
     view.rerender(tree(true))
-    await act(async () => {})
+    await settleEffects()
 
     expect(posthogMock.instances).toHaveLength(1)
     expect(exposedInstance()).toBe(first)
@@ -202,7 +197,7 @@ describe('PostHogWrapper', () => {
     vi.spyOn(consent, 'getConsentState').mockResolvedValueOnce(true).mockResolvedValue(undefined)
 
     view = await render()
-    await act(async () => {})
+    await settleEffects()
 
     expect(posthogMock.instances).toHaveLength(0)
     expect(debugSpy).toHaveBeenCalledWith(
@@ -213,7 +208,7 @@ describe('PostHogWrapper', () => {
   it('withdraws the instance when consent is revoked', async () => {
     await storage.setItem(consentKey, true)
     view = await render()
-    await act(async () => {})
+    await settleEffects()
 
     await act(async () => {
       await storage.setItem(consentKey, false)
@@ -226,7 +221,7 @@ describe('PostHogWrapper', () => {
   it('withdraws the instance when the decision is cleared', async () => {
     await storage.setItem(consentKey, true)
     view = await render()
-    await act(async () => {})
+    await settleEffects()
 
     await act(async () => {
       await storage.removeItem(consentKey)
@@ -239,7 +234,7 @@ describe('PostHogWrapper', () => {
   it('withdraws the instance on unmount', async () => {
     await storage.setItem(consentKey, true)
     view = await render()
-    await act(async () => {})
+    await settleEffects()
     view.unmount()
 
     expect(exposedInstance()).toBeUndefined()
@@ -248,7 +243,7 @@ describe('PostHogWrapper', () => {
   it('keeps the debug flag in step with storage in production builds', async () => {
     await storage.setItem(consentKey, true)
     view = await render()
-    await act(async () => {})
+    await settleEffects()
     const instance = posthogMock.instances[0]!
     instance.set_config.mockClear()
 
@@ -285,7 +280,7 @@ describe('resetPostHogUI', () => {
   it('removes an exposed instance', async () => {
     await storage.setItem(consentKey, true)
     view = await render()
-    await act(async () => {})
+    await settleEffects()
 
     resetPostHogUI()
 

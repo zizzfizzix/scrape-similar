@@ -5,13 +5,8 @@ import { getRecentMainSelectors, setRecentMainSelectors, userPresetsItem } from 
 import type { Preset, ScrapeConfig } from '@/utils/types'
 import { setLastError } from '@@/tests/support/fake-browser'
 import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
-import {
-  type RenderResult,
-  act,
-  fireEvent,
-  render as renderComponent,
-  waitFor,
-} from '@testing-library/react'
+import { renderSettled, settleEffects } from '@@/tests/support/settle'
+import { type RenderResult, act, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
@@ -62,16 +57,12 @@ const baseProps = (): ConfigFormProps => ({
   highlightMatchCount: 3,
 })
 
-/** Render, and let mount-time storage reads settle before asserting. */
-const render = async (overrides: Partial<ConfigFormProps> = {}) => {
-  const rendered = renderComponent(
+const render = (overrides: Partial<ConfigFormProps> = {}) =>
+  renderSettled(
     <TooltipProvider>
       <ConfigForm {...baseProps()} {...overrides} />
     </TooltipProvider>,
   )
-  await act(async () => {})
-  return rendered
-}
 
 const mainSelectorInput = () =>
   view.container.querySelector<HTMLTextAreaElement>('textarea#mainSelector')!
@@ -95,8 +86,7 @@ const nextFrame = () =>
 
 const focusField = () => act(() => mainSelectorInput().focus())
 
-const type = (value: string) =>
-  act(() => fireEvent.change(mainSelectorInput(), { target: { value: value } }))
+const type = (value: string) => fireEvent.change(mainSelectorInput(), { target: { value: value } })
 
 beforeEach(async () => {
   fakeBrowser.reset()
@@ -163,7 +153,7 @@ describe('the autosuggest dropdown', () => {
       await setRecentMainSelectors(['//span'])
       view = await render({ presets })
       await focusField()
-      await type('//span')
+      type('//span')
 
       await press('ArrowDown')
 
@@ -245,7 +235,7 @@ describe('the autosuggest dropdown', () => {
       await press('Escape')
       expect(suggestionItems()).toHaveLength(0)
 
-      await type('//t')
+      type('//t')
 
       expect(suggestionItems()).not.toHaveLength(0)
     })
@@ -254,11 +244,11 @@ describe('the autosuggest dropdown', () => {
       const onLoadPreset = vi.fn()
       view = await render({ presets, onLoadPreset })
       await focusField()
-      await type('//tr')
+      type('//tr')
       await press('ArrowDown')
       await waitFor(() => expect(selectedSuggestion()?.textContent).toContain('Table rows'))
 
-      await type('')
+      type('')
       await press('Enter')
 
       // With nothing highlighted, Enter falls through to the commit path.
@@ -374,7 +364,7 @@ describe('the autosuggest dropdown', () => {
       await setRecentMainSelectors(['//span'])
       view = await render({ presets: [], onChange })
       await focusField()
-      await type('//sp')
+      type('//sp')
 
       const row = suggestionItems()[0]!
       await act(() => {
@@ -491,7 +481,7 @@ describe('the autosuggest dropdown', () => {
       const onChange = vi.fn()
       view = await render({ presets: [], onChange })
       await focusField()
-      await type('//h2')
+      type('//h2')
 
       await act(() => mainSelectorInput().blur())
       await waitFor(() =>
@@ -503,7 +493,7 @@ describe('the autosuggest dropdown', () => {
       const onChange = vi.fn()
       view = await render({ presets, onChange })
       await focusField()
-      await type('//t')
+      type('//t')
 
       await act(() => {
         // cmdk's root carries tabIndex={-1} so it can take focus this way.
@@ -511,7 +501,7 @@ describe('the autosuggest dropdown', () => {
         mainSelectorInput().blur()
       })
       await new Promise((resolve) => setTimeout(resolve, 200))
-      await act(async () => {})
+      await settleEffects()
 
       expect(suggestionItems()).not.toHaveLength(0)
       expect(onChange).not.toHaveBeenCalled()
@@ -522,7 +512,7 @@ describe('the autosuggest dropdown', () => {
       await setRecentMainSelectors(['//span'])
       view = await render({ presets: [], onChange })
       await focusField()
-      await type('//sp')
+      type('//sp')
 
       await act(() => {
         // Pointer down on the row, then the field loses focus — but the click
@@ -531,7 +521,7 @@ describe('the autosuggest dropdown', () => {
         mainSelectorInput().blur()
       })
       await new Promise((resolve) => setTimeout(resolve, 200))
-      await act(async () => {})
+      await settleEffects()
 
       expect(onChange).not.toHaveBeenCalled()
     })
@@ -540,12 +530,12 @@ describe('the autosuggest dropdown', () => {
       const onChange = vi.fn()
       view = await render({ presets: [], onChange })
       await focusField()
-      await type('//h2')
+      type('//h2')
 
       await act(() => mainSelectorInput().blur())
       await focusField()
       await new Promise((resolve) => setTimeout(resolve, 200))
-      await act(async () => {})
+      await settleEffects()
 
       expect(onChange).not.toHaveBeenCalled()
     })
@@ -586,7 +576,7 @@ describe('the autosuggest dropdown', () => {
     it('remembers a selector that is not already a preset', async () => {
       view = await render({ presets })
       await focusField()
-      await type('//h1')
+      type('//h1')
 
       await press('Enter')
 
@@ -597,7 +587,7 @@ describe('the autosuggest dropdown', () => {
       await userPresetsItem.setValue(presets)
       view = await render({ presets })
       await focusField()
-      await type('//tr')
+      type('//tr')
 
       await press('Enter')
 

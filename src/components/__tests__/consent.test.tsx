@@ -7,6 +7,7 @@ import { ConsentWrapper } from '@/components/ConsentWrapper'
 import { getConsentState } from '@/utils/consent'
 import { reportRejection } from '@/utils/report-rejection'
 import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
+import { renderSettled as render } from '@@/tests/support/settle'
 import { type RenderResult, act, render as renderComponent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
@@ -19,13 +20,6 @@ let view: RenderResult
 const consentKey = analyticsConsentItem.key
 
 const withProvider = (children: ReactNode) => <ConsentProvider>{children}</ConsentProvider>
-
-/** Render, and let the provider's storage read settle before asserting. */
-const render = async (ui: ReactNode) => {
-  const rendered = renderComponent(ui)
-  await act(async () => {})
-  return rendered
-}
 
 beforeEach(() => {
   fakeBrowser.reset()
