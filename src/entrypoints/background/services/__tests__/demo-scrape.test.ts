@@ -231,6 +231,14 @@ describe('clearDemoScrapeFlag', () => {
     expect(await readPendingConfig(5)).toBeNull()
   })
 
+  it('drops the cached item for the tab', async () => {
+    const item = demoScrapePendingItem(5)
+
+    await clearDemoScrapeFlag(5)
+
+    expect(demoScrapePendingItem(5)).not.toBe(item)
+  })
+
   it('swallows storage failures', async () => {
     vi.spyOn(fakeBrowser.storage.local, 'remove').mockRejectedValueOnce(new Error('nope'))
 

@@ -58,8 +58,7 @@ export const Settings = React.memo(
   }: SettingsProps) => {
     const [isDebugModeStored] = useStorageItem(debugModeItem)
     const [isDebugUnlocked, setDebugUnlocked] = useStorageItem(debugUnlockedItem)
-    // The prop covers the moment before the stored flags have loaded.
-    const isDebugRowVisible = debugMode || isDebugModeStored || isDebugUnlocked
+    const isDebugRowVisible = isDebugModeStored || isDebugUnlocked
     const [importConfirm, setImportConfirm] = useState<ImportConfirmState>(CLOSED_IMPORT_CONFIRM)
     const fileInputRef = useRef<HTMLInputElement>(null)
     const { loading: isConsentLoading, state: consentState, setConsent } = useConsent()

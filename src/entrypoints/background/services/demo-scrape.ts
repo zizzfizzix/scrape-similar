@@ -122,6 +122,7 @@ export const executeDemoScrape = async (tabId: number, config: ScrapeConfig): Pr
 export const clearDemoScrapeFlag = async (tabId: number): Promise<void> => {
   try {
     await demoScrapePendingItem(tabId).removeValue()
+    demoScrapePendingItem.forget(tabId)
   } catch (error) {
     log.error(`Error clearing demo scrape flag for tab ${tabId}:`, error)
   }

@@ -369,6 +369,15 @@ describe('storage items', () => {
     expect(sidePanelConfigItem(1)).not.toBe(sidePanelConfigItem(2))
   })
 
+  it('defines a forgotten tab item afresh, under the same key', () => {
+    const first = demoScrapePendingItem(3)
+    demoScrapePendingItem.forget(3)
+
+    const second = demoScrapePendingItem(3)
+    expect(second).not.toBe(first)
+    expect(second.key).toBe(first.key)
+  })
+
   it('hands out copies, so changing one does not change the default', async () => {
     ;(await getPresets()).push(preset('leaked'))
     ;(await getSystemPresetStatus()).leaked = false

@@ -11,8 +11,8 @@ export const PRESET_MIGRATIONS: Record<number, (oldValue: unknown) => Preset[]> 
 }
 
 // Every storage key the extension reads or writes is declared here, once, with
-// its type and its default. The keys are the ones the raw calls used before, so
-// values stored by earlier versions still load. A `fallback` is returned by
+// its type and its default. A key never changes once shipped: existing installs
+// hold their data under it. A `fallback` is returned by
 // reference on every read, so copy an array or object before mutating it - the
 // `get*` helpers below hand out copies for that reason.
 //
@@ -78,10 +78,12 @@ export const distinctIdItem = /* @__PURE__ */ storage.defineItem<DistinctId>('lo
 /**
  * `defineItem` reads its key once as soon as it is called, so a per-tab item is
  * defined on first use and reused after that rather than redefined per call.
+ * `forget` drops a closed tab's item so the cache does not grow with every tab
+ * the context has seen.
  */
 const definePerTab = <Item>(define: (tabId: number) => Item) => {
   const items = new Map<number, Item>()
-  return (tabId: number): Item => {
+  const get = (tabId: number): Item => {
     let item = items.get(tabId)
     if (!item) {
       item = define(tabId)
@@ -89,6 +91,7 @@ const definePerTab = <Item>(define: (tabId: number) => Item) => {
     }
     return item
   }
+  return Object.assign(get, { forget: (tabId: number) => void items.delete(tabId) })
 }
 
 export const sidePanelConfigItem = definePerTab((tabId) =>

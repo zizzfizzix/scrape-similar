@@ -72,6 +72,7 @@ export const initializeSessionState = async (tabId: number): Promise<void> => {
 export const clearSessionState = async (tabId: number): Promise<void> => {
   try {
     await sidePanelConfigItem(tabId).removeValue()
+    sidePanelConfigItem.forget(tabId)
     log.debug(`Cleared session state for tab ${tabId}`)
   } catch (error) {
     log.error(`Error clearing session state for tab ${tabId}:`, error)

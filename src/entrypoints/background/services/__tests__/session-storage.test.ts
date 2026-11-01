@@ -159,6 +159,14 @@ describe('clearSessionState', () => {
     expect(await getSessionState(1)).toBeNull()
   })
 
+  it('drops the cached item for the tab', async () => {
+    const item = sidePanelConfigItem(1)
+
+    await clearSessionState(1)
+
+    expect(sidePanelConfigItem(1)).not.toBe(item)
+  })
+
   it('logs and swallows storage failures', async () => {
     const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
     const failure = new Error('storage unavailable')
