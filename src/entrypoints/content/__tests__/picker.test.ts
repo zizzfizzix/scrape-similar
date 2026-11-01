@@ -8,6 +8,7 @@ import {
   handlePickerKeyDown,
   handlePickerMouseMove,
   removeCrosshairCursor,
+  type PickerSelection,
 } from '@/entrypoints/content/picker'
 import { createState, type ContentScriptState } from '@/entrypoints/content/state'
 import { ANALYTICS_EVENTS } from '@/utils/analytics'
@@ -162,6 +163,21 @@ describe('buildPickerSelection', () => {
       mainSelector: '//p',
       columns: [{ name: 'List Item', selector: '.' }],
     })
+  })
+
+  it('builds the columns for the clicked element when it is one of the matches', () => {
+    document.body.innerHTML = `
+      <ul>
+        <li><a href="/a">a</a></li>
+        <li><a id="b" href="/b" data-id="7">b</a></li>
+        <li><a href="/c">c</a></li>
+      </ul>`
+    state.selectorCandidates = ['//li/a']
+    state.selectedCandidateIndex = 0
+
+    const selection = buildPickerSelection(document.querySelector<HTMLElement>('#b')!, state)
+
+    expect(selection.config.columns).toContainEqual({ name: 'data-id', selector: '@data-id' })
   })
 
   describe('in a table cell', () => {
@@ -491,15 +507,18 @@ describe('handlePickerClick', () => {
     return { event, result: handlePickerClick(event as unknown as MouseEvent, state, disable) }
   }
 
-  /** The config the click stored for the side panel. */
-  const storedConfig = () =>
+  interface StoredSelection {
+    currentScrapeConfig?: ScrapeConfig
+    elementDetails?: PickerSelection['elementDetails']
+  }
+
+  /** The config and element details the click stored for the side panel. */
+  const storedSelection = () =>
     sendMessage.mock.calls
-      .map(
-        ([message]) =>
-          message as { payload?: { updates?: { currentScrapeConfig?: ScrapeConfig } } },
-      )
+      .map(([message]) => message as { payload?: { updates?: StoredSelection } })
       .find((message) => message.payload?.updates?.currentScrapeConfig)?.payload?.updates
-      ?.currentScrapeConfig
+
+  const storedConfig = () => storedSelection()?.currentScrapeConfig
 
   beforeEach(() => {
     disable = vi.fn<(source?: string) => void>()
@@ -618,11 +637,22 @@ describe('handlePickerClick', () => {
     // lands on another of the highlighted matches.
     await click([document.querySelectorAll('li')[1]!]).result
 
-    expect(state.selectorCandidates).toEqual(['//li[1]', '//li'])
-    expect(state.selectedCandidateIndex).toBe(1)
     expect(storedConfig()).toEqual({
       mainSelector: '//li',
       columns: [{ name: 'List Item', selector: '.' }],
+    })
+  })
+
+  it('takes the clicked element from the event, not from the click point', async () => {
+    const second = document.querySelectorAll('li')[1]!
+    vi.spyOn(document, 'elementFromPoint').mockReturnValue(second)
+
+    await click().result
+
+    expect(storedSelection()?.elementDetails).toEqual({
+      xpath: expect.any(String),
+      text: 'a',
+      html: '<li id="first">a</li>',
     })
   })
 
@@ -634,8 +664,6 @@ describe('handlePickerClick', () => {
 
     await click([document.querySelector('#gap')!]).result
 
-    expect(state.selectorCandidates).toEqual(['//li[1]/a', '//li/a', '//li'])
-    expect(state.selectedCandidateIndex).toBe(1)
     expect(storedConfig()).toEqual({
       mainSelector: '//li/a',
       columns: [

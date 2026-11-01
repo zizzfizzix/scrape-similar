@@ -293,8 +293,11 @@ export const handlePickerClick = async (
     // scrape below turns up nothing.
     await storeSidePanelUpdates(tabId, { currentScrapeConfig: config, elementDetails })
 
+    // Re-evaluated rather than reusing `matches`: the page can re-render while
+    // the config is stored, and the highlight should agree with the scrape below.
+    const elementsToHighlight = evaluateXPath(config.mainSelector)
     // Highlight without scrolling: the user is already looking at the element.
-    highlightMatchingElements(matches, { shouldScroll: false })
+    highlightMatchingElements(elementsToHighlight, { shouldScroll: false })
 
     // Persist validation state so the UI marks the selector as validated. Not
     // awaited: nothing below depends on the side panel having caught up.
@@ -304,7 +307,7 @@ export const handlePickerClick = async (
         payload: {
           tabId,
           updates: {
-            highlightMatchCount: matches.length,
+            highlightMatchCount: elementsToHighlight.length,
             highlightError: null,
           },
         },
@@ -312,7 +315,7 @@ export const handlePickerClick = async (
     )
 
     trackEvent(ANALYTICS_EVENTS.ELEMENTS_HIGHLIGHT, {
-      elements_count: matches.length,
+      elements_count: elementsToHighlight.length,
       is_row_highlight: false,
     })
 
