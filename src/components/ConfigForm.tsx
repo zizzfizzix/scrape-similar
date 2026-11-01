@@ -257,7 +257,11 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
     setMainSelectorDraft(value)
     const latest = latestConfigRef.current
     if (value !== latest.mainSelector.trim()) {
-      onChange({ ...latest, mainSelector: value })
+      const next = { ...latest, mainSelector: value }
+      // Written now rather than when the parent re-renders, so a blur commit
+      // already pending sees this one and does not repeat it.
+      latestConfigRef.current = next
+      onChange(next)
     }
     if (value) {
       onHighlight(value)
@@ -443,30 +447,23 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
     }, 150)
   }
 
-  // Cancels a pending blur commit: one scheduled when a button press blurred
-  // the field, or the one blur() schedules synchronously on the commit path.
-  const settleMainSelectorField = () => {
-    clearTimeout(blurCommitTimerRef.current)
-    setIsAutosuggestOpen(false)
-  }
-
   const commitMainSelectorNow = (draft: string) => {
     mainSelectorInputRef.current?.blur()
-    settleMainSelectorField()
+    setIsAutosuggestOpen(false)
     commitMainSelector(draft)
   }
 
   const scrapeCommittedMainSelector = () => {
-    settleMainSelectorField()
+    setIsAutosuggestOpen(false)
     setMainSelectorDraft(trimmedDraft)
     onScrape()
   }
 
   /**
-   * Cancelling the pending blur commit is what makes validating here work: the
-   * press blurs the textarea first, and that commit is deferred by 150ms so a
-   * click on a suggestion still lands, so scraping instead would carry the
-   * selector the user has just moved away from (#271).
+   * The press blurs the textarea before the click lands, and that commit is
+   * deferred by 150ms so a click on a suggestion still lands. An edited
+   * selector is committed here instead of scraped, or the scrape would carry
+   * the selector the user has just moved away from (#271).
    */
   const handleMainActionPress = () => {
     if (hasUncommittedChanges) {
