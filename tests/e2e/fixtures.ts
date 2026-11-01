@@ -406,7 +406,11 @@ export const TestHelpers = {
   },
 
   /**
-   * Opens full data view from sidepanel expand button
+   * Opens full data view from sidepanel expand button. The side panel closes
+   * itself once it has opened the tab, so the handle passed in is dead when this
+   * returns - call `openSidePanel()` again for a live one. Waiting for the close
+   * here keeps that call from finding the panel still on its way out and
+   * handing back a document that dies under the next action.
    */
   async openFullDataView(sidePanel: Page, context: BrowserContext): Promise<Page> {
     const [fullDataViewPage] = await Promise.all([
@@ -416,6 +420,7 @@ export const TestHelpers = {
           await p.locator('table').waitFor({ state: 'visible' })
           return p
         }),
+      sidePanel.waitForEvent('close'),
       sidePanel.getByRole('button', { name: /open in full view/i }).click(),
     ])
 
