@@ -435,13 +435,15 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
       if (hasMovedIntoDropdown) return
 
       setIsAutosuggestOpen(false)
-      // A preset load, tab switch or storage restore since the blur replaced
-      // the selector this draft was edited from.
+      // The parent replaced the selector after the blur (preset load, tab
+      // switch, storage restore), so the draft belongs to the old one. A
+      // replacement with an identical selector is not detected.
       if (latestConfigRef.current.mainSelector !== committedAtBlur) return
-      // Committing an unchanged selector highlights the page again and resets
-      // the match count while it re-validates.
+      // Re-highlighting a validated selector resets its match count while it
+      // re-validates. One without a result is highlighted again, which is how
+      // a failed highlight gets retried.
       const value = mainSelectorDraft.trim()
-      if (value === committedAtBlur.trim()) {
+      if (value === committedAtBlur.trim() && isMainSelectorValid) {
         setMainSelectorDraft(value)
         return
       }
@@ -465,7 +467,8 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
    * The press blurs the textarea before the click lands, and that commit is
    * deferred by 150ms so a click on a suggestion still lands. An edited
    * selector is committed here instead of scraped, or the scrape would carry
-   * the selector the user has just moved away from (#271).
+   * the selector the user has just moved away from (#271); commitMainSelector
+   * cancels the deferred commit.
    */
   const handleMainActionPress = () => {
     if (hasUncommittedChanges) {

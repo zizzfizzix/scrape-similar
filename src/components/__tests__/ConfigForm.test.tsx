@@ -17,7 +17,7 @@ import {
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
 
@@ -110,6 +110,12 @@ beforeEach(async () => {
   await userPresetsItem.setValue([])
 })
 
+// A failed assertion skips a test's own useRealTimers, and every later test
+// would then wait on timers nothing advances.
+afterEach(() => {
+  vi.useRealTimers()
+})
+
 describe('ConfigForm', () => {
   it('shows the configuration sections', async () => {
     view = await render()
@@ -198,6 +204,22 @@ describe('ConfigForm', () => {
 
       expect(onChange).not.toHaveBeenCalled()
       expect(onHighlight).not.toHaveBeenCalled()
+      vi.useRealTimers()
+    })
+
+    it('highlights an unchanged selector again when it has no result yet', async () => {
+      vi.useFakeTimers()
+      const onChange = vi.fn()
+      const onHighlight = vi.fn()
+      view = await render({ onChange, onHighlight, highlightMatchCount: undefined })
+
+      await act(() => {
+        mainSelectorInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
+        vi.advanceTimersByTime(200)
+      })
+
+      expect(onChange).not.toHaveBeenCalled()
+      expect(onHighlight).toHaveBeenCalledWith('//tr')
       vi.useRealTimers()
     })
 
