@@ -13,6 +13,7 @@ import {
   type Platform,
 } from '@/entrypoints/onboarding/navigation'
 import { isTest } from '@/utils/modeTest'
+import { reportRejection } from '@/utils/report-rejection'
 import {
   Ban,
   Check,
@@ -601,7 +602,9 @@ export const OnboardingApp: React.FC = () => {
 
             <Card className="relative">
               <CardHeader>
-                <ConsentCard onDecision={onConsentChange} />
+                <ConsentCard
+                  onDecision={(accepted) => reportRejection(onConsentChange(accepted))}
+                />
               </CardHeader>
               <CardContent className="space-y-6">
                 <ConsentContent />
@@ -650,7 +653,7 @@ export const OnboardingApp: React.FC = () => {
                     </Button>
                   )}
                   {currentSlide === slides.length - 1 ? (
-                    <Button size="sm" onClick={handleStartDemo}>
+                    <Button size="sm" onClick={() => reportRejection(handleStartDemo())}>
                       Start
                       <Rocket className="h-4 w-4 ml-2" />
                     </Button>

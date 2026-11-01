@@ -1,4 +1,5 @@
 import { isDevOrTest } from '@/utils/modeTest'
+import { reportingListener } from '@/utils/report-rejection'
 import log from 'loglevel'
 
 /**
@@ -38,10 +39,13 @@ export const initializeDebugMode = async (): Promise<void> => {
   }
 
   // React to debugMode changes
-  storage.watch<boolean>('local:debugMode', (debugMode) => {
-    if (!isDevOrTest) {
-      log.setLevel(debugMode ? 'trace' : 'error')
-    }
-    broadcastDebugMode(!!debugMode)
-  })
+  storage.watch<boolean>(
+    'local:debugMode',
+    reportingListener(async (debugMode) => {
+      if (!isDevOrTest) {
+        log.setLevel(debugMode ? 'trace' : 'error')
+      }
+      await broadcastDebugMode(!!debugMode)
+    }),
+  )
 }

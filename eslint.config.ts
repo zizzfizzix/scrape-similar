@@ -25,10 +25,10 @@ import { noConditionalAwait } from './tools/eslint-rules/no-conditional-await.ts
  * thing `pnpm compile` runs — keeps the `tsc` name. Neither package shadows the
  * other's binary. See the README for when that indirection can come out.
  *
- * Type-aware linting is switched on (`projectService`). The typed rules that are
- * on are the ones this codebase already passes (ALREADY_CLEAN) plus the boolean
- * naming rule; the rest are staged in DEFERRED below with the violation count
- * each one has today.
+ * Type-aware linting is switched on (`projectService`). What is on from it is
+ * the rules this codebase already passes (ALREADY_CLEAN), the promise pair
+ * (PROMISE_RULES) and the boolean naming rule; the rest is staged in DEFERRED
+ * below with the violation count each one has today.
  */
 
 const TEST_FILES = ['**/__tests__/**/*.{ts,tsx}', '**/*.test.{ts,tsx}', 'vitest.setup.ts']
@@ -48,6 +48,14 @@ const NO_INNER_HTML = {
   selector: "AssignmentExpression[left.property.name='innerHTML']",
   message:
     'Assigning `innerHTML` runs markup from the page. Build nodes and set `textContent` instead.',
+}
+
+// `no-floating-promises` only sees a `void` that is a whole statement; in an
+// arrow body, a `return` or any other expression position it hides the promise.
+const NO_VOID = {
+  selector: "UnaryExpression[operator='void']",
+  message:
+    '`void` hides a promise from `no-floating-promises`. Use `reportRejection(task())` for a promise; otherwise drop the `void`.',
 }
 
 interface RestrictedSelector {
@@ -138,17 +146,25 @@ const BOOLEAN_PREFIX: Linter.RulesRecord = {
 }
 
 /**
+ * Neither ships in `tseslint.configs.recommended`, so both are enabled here.
+ */
+const PROMISE_RULES: Linter.RulesRecord = {
+  // `void task` passes this rule; NO_VOID is what rejects it.
+  '@typescript-eslint/no-floating-promises': 'error',
+  // Every option on, `checksVoidReturn.attributes` included. An async
+  // `onClick` looks idiomatic, and would be if the alternative were
+  // `onClick={() => void handle()}` — the same dropped rejection, more syntax.
+  // The alternative is `reportRejection`, which reports what the handler threw.
+  '@typescript-eslint/no-misused-promises': 'error',
+}
+
+/**
  * Rules worth having that no longer fit in the diff that turned the linter on.
  * Each is off with the number of violations it reports today, so re-enabling one
  * is a line here plus the fixes it names — and so the count is a claim a reviewer
  * can check rather than an impression. See #7.
  */
 const DEFERRED = {
-  // 128, of which 65 are `trackEvent` — analytics calls that swallow their own
-  // errors, so the fix is one signature rather than 65 `void`s.
-  '@typescript-eslint/no-floating-promises': 'off',
-  // 35, nearly all `onClick={async () => …}`.
-  '@typescript-eslint/no-misused-promises': 'off',
   // 74: 28 in extension code, mostly the message-passing types, and 46 in unit
   // and e2e test scaffolding.
   '@typescript-eslint/no-explicit-any': 'off',
@@ -169,6 +185,10 @@ const DEFERRED = {
   // unparseable code.
   'jest-dom/prefer-to-have-text-content': 'off',
   'jest-dom/prefer-to-have-style': 'off',
+  // 154, none in extension code: 149 in unit tests, almost all `await act(() =>
+  // el.focus())`-style calls whose callback returns nothing, and 5 in e2e. Not
+  // in any enabled set, so listed for the count rather than to switch it off.
+  '@typescript-eslint/await-thenable': 'off',
 } as const
 
 export default defineConfig([
@@ -200,11 +220,12 @@ export default defineConfig([
             "Use WXT's auto-imported `browser`, which is typed and works on Chromium, Firefox and Edge.",
         },
       ],
-      ...restrictedSyntax(NO_ENUM, NO_DEFAULT_EXPORT),
+      ...restrictedSyntax(NO_ENUM, NO_DEFAULT_EXPORT, NO_VOID),
       // `== null` is the deliberate "null or undefined" check; everything else
       // compares by identity.
       eqeqeq: ['error', 'always', { null: 'ignore' }],
       ...ALREADY_CLEAN,
+      ...PROMISE_RULES,
       ...BOOLEAN_PREFIX,
       '@typescript-eslint/no-unused-vars': [
         'error',
@@ -221,7 +242,7 @@ export default defineConfig([
     // what the rule is about.
     files: ['src/**/*.{ts,tsx}'],
     ignores: TEST_FILES,
-    rules: restrictedSyntax(NO_ENUM, NO_DEFAULT_EXPORT, NO_INNER_HTML),
+    rules: restrictedSyntax(NO_ENUM, NO_DEFAULT_EXPORT, NO_INNER_HTML, NO_VOID),
   },
 
   {
@@ -241,12 +262,12 @@ export default defineConfig([
 
   {
     files: ['src/entrypoints/*/index.ts'],
-    rules: restrictedSyntax(NO_ENUM, NO_INNER_HTML),
+    rules: restrictedSyntax(NO_ENUM, NO_INNER_HTML, NO_VOID),
   },
 
   {
     files: ['*.config.{ts,js}', 'eslint.config.ts'],
-    rules: restrictedSyntax(NO_ENUM),
+    rules: restrictedSyntax(NO_ENUM, NO_VOID),
   },
 
   {
@@ -274,6 +295,9 @@ export default defineConfig([
       // `async ({}, use)` is how Playwright declares a fixture that depends on
       // no other fixture.
       'no-empty-pattern': 'off',
+      // Without NO_VOID: callbacks passed to `evaluate` run in the browser and
+      // cannot import `reportRejection`.
+      ...restrictedSyntax(NO_ENUM, NO_DEFAULT_EXPORT),
     },
   },
 

@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Toaster } from '@/components/ui/sonner'
+import { reportRejection } from '@/utils/report-rejection'
 import {
   buildConfigChangeUpdates,
   buildExportFilename,
@@ -109,7 +110,7 @@ const FullDataViewControls: React.FC<{
         <h2 className="text-2xl mb-4">Full Screen View Active</h2>
 
         <div className="flex flex-col gap-4">
-          <Button onClick={handleBackToTab}>
+          <Button onClick={() => reportRejection(handleBackToTab())}>
             <Minimize2 className="h-4 w-4" />
             Compact View
           </Button>
@@ -232,21 +233,23 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
         setTargetTabId(newTabId)
         setTabUrl(newTabUrl)
         const sessionKey = `sidepanel_config_${newTabId}`
-        storage.getItem<SidePanelConfig>(`session:${sessionKey}`).then((stored) => {
-          if (stored) {
-            log.debug('Initial data loaded from storage:', stored)
-            handleInitialData({
-              tabId: newTabId,
-              config: stored,
-            })
-          } else {
-            log.debug(`No initial data found in storage for tab ${newTabId}, using default state`)
-            handleInitialData({
-              tabId: newTabId,
-              config: createDefaultSidePanelState(),
-            })
-          }
-        })
+        reportRejection(
+          storage.getItem<SidePanelConfig>(`session:${sessionKey}`).then((stored) => {
+            if (stored) {
+              log.debug('Initial data loaded from storage:', stored)
+              handleInitialData({
+                tabId: newTabId,
+                config: stored,
+              })
+            } else {
+              log.debug(`No initial data found in storage for tab ${newTabId}, using default state`)
+              handleInitialData({
+                tabId: newTabId,
+                config: createDefaultSidePanelState(),
+              })
+            }
+          }),
+        )
       } else {
         log.error('No active tab found in last focused window')
       }
@@ -265,10 +268,12 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
 
   // --- Unified utility to save all sidepanel state to session storage ---
   const saveSidePanelState = useCallback((tabId: number, updates: Partial<SidePanelConfig>) => {
-    browser.runtime.sendMessage({
-      type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
-      payload: { tabId, updates },
-    })
+    reportRejection(
+      browser.runtime.sendMessage({
+        type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
+        payload: { tabId, updates },
+      }),
+    )
   }, [])
 
   // --- Update config state and trigger saveSidePanelState ---
@@ -298,10 +303,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
 
   // Initialize: load presets, listen for messages, AND listen for tab activation
   useEffect(() => {
-    // Load presets (system + user, respecting status). `getAllPresets` reports
-    // its own storage failures and falls back to an empty list, so there is no
-    // rejection to catch.
-    getAllPresets().then(setPresets)
+    reportRejection(getAllPresets().then(setPresets))
 
     // Listen for tab activation
     const tabActivationListener = (activeInfo: { tabId: number; previousTabId?: number }) => {
@@ -325,34 +327,36 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
 
       // Load data directly from storage for the new tab
       const sessionKey = `sidepanel_config_${newTabId}`
-      storage.getItem<SidePanelConfig>(`session:${sessionKey}`).then((stored) => {
-        if (browser.runtime.lastError) {
-          log.error(
-            `Error loading data from storage for tab ${newTabId}:`,
-            browser.runtime.lastError,
-          )
-          return
-        }
+      reportRejection(
+        storage.getItem<SidePanelConfig>(`session:${sessionKey}`).then((stored) => {
+          if (browser.runtime.lastError) {
+            log.error(
+              `Error loading data from storage for tab ${newTabId}:`,
+              browser.runtime.lastError,
+            )
+            return
+          }
 
-        if (stored) {
-          log.debug(`Data loaded from storage for newly activated tab ${newTabId}:`, stored)
-          handleInitialData({
-            tabId: newTabId,
-            config: stored,
-          })
-        } else {
-          log.debug(
-            `No data found in storage for newly activated tab ${newTabId}, using default state`,
-          )
+          if (stored) {
+            log.debug(`Data loaded from storage for newly activated tab ${newTabId}:`, stored)
+            handleInitialData({
+              tabId: newTabId,
+              config: stored,
+            })
+          } else {
+            log.debug(
+              `No data found in storage for newly activated tab ${newTabId}, using default state`,
+            )
 
-          // Just use default state without saving it to storage
-          const defaultState = createDefaultSidePanelState()
-          handleInitialData({
-            tabId: newTabId,
-            config: defaultState,
-          })
-        }
-      })
+            // Just use default state without saving it to storage
+            const defaultState = createDefaultSidePanelState()
+            handleInitialData({
+              tabId: newTabId,
+              config: defaultState,
+            })
+          }
+        }),
+      )
     }
 
     // Listen for tab URL changes in the current tab
@@ -405,11 +409,15 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
   useEffect(() => {
     const unwatchUserPresets = storage.watch<Preset[]>(
       `sync:${STORAGE_KEYS.USER_PRESETS}` as const,
-      () => getAllPresets().then(setPresets),
+      () => {
+        reportRejection(getAllPresets().then(setPresets))
+      },
     )
     const unwatchSystemPresetStatus = storage.watch<Record<string, boolean>>(
       'sync:system_preset_status' as const,
-      () => getAllPresets().then(setPresets),
+      () => {
+        reportRejection(getAllPresets().then(setPresets))
+      },
     )
     return () => {
       unwatchUserPresets()
@@ -461,18 +469,18 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
           setResultProducingConfig(configAtScrapeTime)
           saveSidePanelState(tabId, { resultProducingConfig: configAtScrapeTime })
           // Persist recent main selector (local only) if it is not a preset selector
-          // `getAllPresets` and `pushRecentMainSelector` both report their own
-          // storage failures and resolve, so there is nothing to catch here.
-          ;(async () => {
-            const selectorUsed = configAtScrapeTime.mainSelector.trim()
-            const allPresets = await getAllPresets()
-            const isPresetSelector = allPresets.some(
-              (p) => p.config.mainSelector.trim() === selectorUsed,
-            )
-            if (!isPresetSelector) {
-              await pushRecentMainSelector(selectorUsed)
-            }
-          })()
+          reportRejection(
+            (async () => {
+              const selectorUsed = configAtScrapeTime.mainSelector.trim()
+              const allPresets = await getAllPresets()
+              const isPresetSelector = allPresets.some(
+                (p) => p.config.mainSelector.trim() === selectorUsed,
+              )
+              if (!isPresetSelector) {
+                await pushRecentMainSelector(selectorUsed)
+              }
+            })(),
+          )
         }
         setLastScrapeRowCount(response?.data?.data?.length ?? 0)
       },
@@ -668,8 +676,10 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
     })
   }
 
+  const resetSystemPresets = () => reportRejection(handleResetSystemPresets())
+
   const handlePresetsImported = useCallback(() => {
-    getAllPresets().then(setPresets)
+    reportRejection(getAllPresets().then(setPresets))
   }, [])
 
   // Check if the current tab is showing the full data view
@@ -697,7 +707,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
         </ConsentWrapper>
         <Footer
           showSettings={true}
-          onResetSystemPresets={handleResetSystemPresets}
+          onResetSystemPresets={resetSystemPresets}
           onPresetsImported={handlePresetsImported}
           debugMode={debugMode}
           onDebugModeChange={onDebugModeChange}
@@ -723,7 +733,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
               presets={presets}
               onLoadPreset={handleLoadPreset}
               onSavePreset={handleSavePreset}
-              onDeletePreset={handleDeletePreset}
+              onDeletePreset={(preset) => reportRejection(handleDeletePreset(preset))}
               showPresets={shouldShowPresets}
               setShowPresets={setShouldShowPresets}
               lastScrapeRowCount={lastScrapeRowCount}
@@ -768,7 +778,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
       </ConsentWrapper>
       <Footer
         showSettings={true}
-        onResetSystemPresets={handleResetSystemPresets}
+        onResetSystemPresets={resetSystemPresets}
         onPresetsImported={handlePresetsImported}
         debugMode={debugMode}
         onDebugModeChange={onDebugModeChange}

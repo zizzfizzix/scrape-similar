@@ -15,7 +15,9 @@ async function runScenario({ env, debugMode }: Scenario): Promise<boolean[]> {
   const modeMock = { isDev, isTest, isDevOrTest: isDev || isTest }
   vi.doMock('@/utils/modeTest', () => modeMock)
 
-  if (debugMode !== null) storage.setItem('local:debugMode', debugMode)
+  if (debugMode !== null) {
+    await storage.setItem('local:debugMode', debugMode)
+  }
 
   vi.doMock('@/utils/consent', () => ({ getConsentState: () => Promise.resolve(true) }))
   vi.doMock('@/utils/distinct-id', () => ({ getOrCreateDistinctId: () => Promise.resolve('id') }))

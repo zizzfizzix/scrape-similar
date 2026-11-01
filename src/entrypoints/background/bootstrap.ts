@@ -13,6 +13,7 @@ import {
 } from '@/entrypoints/background/listeners/tabs'
 import { initializeAnalyticsQueue } from '@/entrypoints/background/services/analytics-queue'
 import { initializeDebugMode } from '@/entrypoints/background/services/debug-mode'
+import { reportRejection } from '@/utils/report-rejection'
 
 /**
  * What the background service worker wires up on startup.
@@ -23,9 +24,9 @@ import { initializeDebugMode } from '@/entrypoints/background/services/debug-mod
  */
 export const startBackground = (): void => {
   // Debug mode first, so everything below logs at the level the user chose.
-  initializeDebugMode()
-  initializeAnalyticsQueue()
-  initializeUninstallUrl()
+  reportRejection(initializeDebugMode())
+  reportRejection(initializeAnalyticsQueue())
+  reportRejection(initializeUninstallUrl())
 
   setupInstallListener()
   setupStartupListener()

@@ -5,6 +5,8 @@ import { ConsentContent } from '@/components/ConsentContent'
 import { ConsentModal } from '@/components/ConsentModal'
 import { ConsentWrapper } from '@/components/ConsentWrapper'
 import { ANALYTICS_CONSENT_STORAGE_KEY, getConsentState } from '@/utils/consent'
+import { reportRejection } from '@/utils/report-rejection'
+import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 import { type RenderResult, act, render as renderComponent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
@@ -15,9 +17,6 @@ import { storage } from 'wxt/utils/storage'
 let view: RenderResult
 
 const consentKey = `sync:${ANALYTICS_CONSENT_STORAGE_KEY}` as const
-
-/** Give storage watchers a macrotask to fire. */
-const flushWatchers = () => new Promise((resolve) => setTimeout(resolve, 0))
 
 const withProvider = (children: ReactNode) => <ConsentProvider>{children}</ConsentProvider>
 
@@ -37,7 +36,7 @@ describe('ConsentProvider', () => {
   const Probe = () => {
     const consent = useConsent()
     return (
-      <button data-testid="probe" onClick={() => void consent.setConsent(true)}>
+      <button data-testid="probe" onClick={() => reportRejection(consent.setConsent(true))}>
         {JSON.stringify({ loading: consent.loading, state: consent.state })}
       </button>
     )
@@ -91,7 +90,7 @@ describe('ConsentProvider', () => {
 
     await act(async () => {
       await storage.setItem(consentKey, true)
-      await flushWatchers()
+      await flushMicrotasks()
     })
 
     expect(probeText()).toBe(JSON.stringify({ loading: false, state: true }))
@@ -103,7 +102,7 @@ describe('ConsentProvider', () => {
 
     await act(async () => {
       await storage.removeItem(consentKey)
-      await flushWatchers()
+      await flushMicrotasks()
     })
 
     expect(probeText()).toBe(JSON.stringify({ loading: false }))
@@ -115,7 +114,7 @@ describe('ConsentProvider', () => {
 
     await act(async () => {
       await storage.setItem(consentKey, '')
-      await flushWatchers()
+      await flushMicrotasks()
     })
 
     expect(probeText()).toBe(JSON.stringify({ loading: false }))

@@ -6,9 +6,11 @@ import { describe, expect, it, vi } from 'vitest'
  * of them then do.
  */
 const wiring = vi.hoisted(() => ({
-  initializeDebugMode: vi.fn(),
-  initializeAnalyticsQueue: vi.fn(),
-  initializeUninstallUrl: vi.fn(),
+  // The three services are started, not awaited, so their stubs have to resolve
+  // rather than return `undefined`.
+  initializeDebugMode: vi.fn().mockResolvedValue(undefined),
+  initializeAnalyticsQueue: vi.fn().mockResolvedValue(undefined),
+  initializeUninstallUrl: vi.fn().mockResolvedValue(undefined),
   setupInstallListener: vi.fn(),
   setupStartupListener: vi.fn(),
   setupTabRemovedListener: vi.fn(),

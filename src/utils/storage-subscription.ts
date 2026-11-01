@@ -1,3 +1,5 @@
+import { reportRejection } from '@/utils/report-rejection'
+
 export interface StorageSubscriptionSource<T> {
   /** Must register the listener synchronously; returns its unsubscribe. */
   watch: (onChange: (value: T | null) => void) => () => void
@@ -29,11 +31,13 @@ export const subscribeWithBackfill = <T>(
     onValue(value)
   })
 
-  read().then((value) => {
-    if (isSubscribed && !hasWatchedValue && value != null) {
-      onValue(value)
-    }
-  })
+  reportRejection(
+    read().then((value) => {
+      if (isSubscribed && !hasWatchedValue && value != null) {
+        onValue(value)
+      }
+    }),
+  )
 
   return () => {
     isSubscribed = false
