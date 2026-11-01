@@ -93,6 +93,10 @@ const press = (key: string) =>
     )
   })
 
+/** jsdom runs frame callbacks in the order they were queued, so this one runs after the form's. */
+const nextFrame = () =>
+  act(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())))
+
 const focusField = () => act(() => mainSelectorInput().focus())
 
 const type = (value: string) =>
@@ -371,6 +375,88 @@ describe('the autosuggest dropdown', () => {
         expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ mainSelector: '//span' }))
       })
       expect(onChange).not.toHaveBeenCalledWith(expect.objectContaining({ mainSelector: '//sp' }))
+    })
+  })
+
+  /**
+   * The scroll runs in a frame callback the selection assertions above do not
+   * wait for, so these tests drain the frame before asserting on it (#297).
+   */
+  describe('keeping the highlighted entry in view', () => {
+    const spyOnScroll = () => vi.spyOn(Element.prototype, 'scrollIntoView')
+
+    const scrolledEntries = (scroll: ReturnType<typeof spyOnScroll>) =>
+      scroll.mock.contexts.map((el) => (el as HTMLElement).textContent)
+
+    it('scrolls to the first entry when ArrowDown opens the dropdown', async () => {
+      view = await render({ presets })
+      await focusField()
+      await press('Escape')
+      const scroll = spyOnScroll()
+
+      await press('ArrowDown')
+      await nextFrame()
+
+      expect(scroll).toHaveBeenCalledExactlyOnceWith({ block: 'nearest' })
+      expect(scrolledEntries(scroll)).toEqual([expect.stringContaining('Table rows')])
+    })
+
+    it('scrolls to the last entry when ArrowUp opens the dropdown', async () => {
+      view = await render({ presets })
+      await focusField()
+      await press('Escape')
+      const scroll = spyOnScroll()
+
+      await press('ArrowUp')
+      await nextFrame()
+
+      expect(scrolledEntries(scroll)).toEqual([expect.stringContaining('All links')])
+    })
+
+    it('follows the highlight as it moves through an open dropdown', async () => {
+      view = await render({ presets })
+      await focusField()
+      const scroll = spyOnScroll()
+
+      await press('ArrowDown')
+      await nextFrame()
+      await press('ArrowDown')
+      await nextFrame()
+      await press('ArrowUp')
+      await nextFrame()
+
+      expect(scrolledEntries(scroll)).toEqual([
+        expect.stringContaining('Table rows'),
+        expect.stringContaining('All links'),
+        expect.stringContaining('Table rows'),
+      ])
+    })
+
+    it('scrolls nothing when the dropdown opens with nothing to suggest', async () => {
+      view = await render({ presets: [] })
+      await focusField()
+      await press('Escape')
+      const scroll = spyOnScroll()
+
+      await press('ArrowDown')
+      await nextFrame()
+
+      expect(view.container.textContent).toContain('No suggestions found')
+      expect(scroll).not.toHaveBeenCalled()
+    })
+
+    it('scrolls nothing when the dropdown closes before the frame runs', async () => {
+      view = await render({ presets })
+      await focusField()
+      await press('Escape')
+      const scroll = spyOnScroll()
+
+      await press('ArrowDown')
+      await press('Escape')
+      await nextFrame()
+
+      expect(suggestionItems()).toHaveLength(0)
+      expect(scroll).not.toHaveBeenCalled()
     })
   })
 
