@@ -187,9 +187,8 @@ const DEFERRED = {
   'jest-dom/prefer-to-have-text-content': 'off',
   'jest-dom/prefer-to-have-style': 'off',
   // 154, none in extension code: 149 in unit tests, almost all `await act(() =>
-  // el.focus())`-style calls whose callback returns nothing, and 5 in e2e. Not
-  // in any enabled set, so listed for the count rather than to switch it off.
-  // #282.
+  // el.focus())`-style calls whose callback returns nothing, and 5 in e2e. On
+  // for extension code, which is clean, by the block after this one. #282.
   '@typescript-eslint/await-thenable': 'off',
 } as const
 
@@ -310,4 +309,13 @@ export default defineConfig([
 
   // Last, so it wins over the shared configs above that switch these on.
   { files: ['**/*.{ts,tsx}'], rules: DEFERRED },
+
+  {
+    // After DEFERRED, which holds it off for the tests. An `await` on a value
+    // that is not a promise is how a caller ends up not waiting for work it
+    // means to wait for, e.g. a prop typed `=> void` that the child awaits.
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: TEST_FILES,
+    rules: { '@typescript-eslint/await-thenable': 'error' },
+  },
 ])
