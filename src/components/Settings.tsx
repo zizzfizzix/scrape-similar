@@ -23,7 +23,6 @@ import { toast } from 'sonner'
 
 interface SettingsProps {
   onResetSystemPresets?: () => void
-  onPresetsImported?: () => void
   debugMode?: boolean
   onDebugModeChange?: (enabled: boolean) => void
   className?: string
@@ -51,7 +50,6 @@ const CLOSED_IMPORT_CONFIRM: ImportConfirmState = {
 export const Settings = React.memo(
   ({
     onResetSystemPresets,
-    onPresetsImported,
     debugMode = false,
     onDebugModeChange,
     className,
@@ -168,25 +166,23 @@ export const Settings = React.memo(
 
     const handleImportConfirm = useCallback(async () => {
       const { presets, skippedSystemCount } = importConfirm
-      try {
-        const isImported = await setPresets(presets)
-        if (!isImported) throw new Error('setPresets failed')
-        trackEvent(ANALYTICS_EVENTS.PRESET_IMPORT, {
-          success: true,
-          presetCount: presets.length,
-        })
-        setImportConfirm(CLOSED_IMPORT_CONFIRM)
-        toast.success(describeImportSuccess(presets.length, skippedSystemCount))
-        onPresetsImported?.()
-      } catch (error) {
-        log.error('Error importing presets:', error)
+      // `setPresets` logs its own storage failure and reports it as `false`.
+      const isImported = await setPresets(presets)
+      if (!isImported) {
         toast.error('Failed to import presets')
         trackEvent(ANALYTICS_EVENTS.PRESET_IMPORT, {
           success: false,
-          reason: error instanceof Error ? error.message : 'Import failed',
+          reason: 'setPresets failed',
         })
+        return
       }
-    }, [importConfirm, onPresetsImported])
+      trackEvent(ANALYTICS_EVENTS.PRESET_IMPORT, {
+        success: true,
+        presetCount: presets.length,
+      })
+      setImportConfirm(CLOSED_IMPORT_CONFIRM)
+      toast.success(describeImportSuccess(presets.length, skippedSystemCount))
+    }, [importConfirm])
 
     const handleImportCancel = useCallback(() => {
       setImportConfirm(CLOSED_IMPORT_CONFIRM)

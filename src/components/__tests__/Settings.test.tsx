@@ -228,8 +228,7 @@ describe('Settings', () => {
     })
 
     it('replaces the presets once confirmed', async () => {
-      const onPresetsImported = vi.fn()
-      view = await render({ onPresetsImported })
+      view = await render()
       await chooseFile(validFile)
 
       await act(() => {
@@ -245,7 +244,6 @@ describe('Settings', () => {
         success: true,
         presetCount: 1,
       })
-      expect(onPresetsImported).toHaveBeenCalled()
     })
 
     it('leaves the presets alone when cancelled', async () => {
@@ -312,29 +310,10 @@ describe('Settings', () => {
       })
 
       expect(toastMocks.toast.error).toHaveBeenCalledWith('Failed to import presets')
-      expect(errorSpy).toHaveBeenCalledWith('Error importing presets:', expect.any(Error))
-    })
-
-    it('falls back to a generic reason when the caller throws a non-Error', async () => {
-      const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
-      view = await render({
-        onPresetsImported: () => {
-          throw 'callback exploded'
-        },
-      })
-      await chooseFile(validFile)
-
-      await act(() => {
-        const confirmButton = [...document.querySelectorAll('button')].find(
-          (candidate) => candidate.textContent === 'Import' && candidate.closest('[role="dialog"]'),
-        )
-        confirmButton!.click()
-      })
-
-      expect(errorSpy).toHaveBeenCalledWith('Error importing presets:', 'callback exploded')
+      expect(errorSpy).toHaveBeenCalledWith('Error setting presets in storage:', expect.any(Error))
       expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.PRESET_IMPORT, {
         success: false,
-        reason: 'Import failed',
+        reason: 'setPresets failed',
       })
     })
 

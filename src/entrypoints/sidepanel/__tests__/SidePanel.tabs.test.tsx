@@ -718,6 +718,9 @@ describe('presets', () => {
     await savePresetNamed('Mine')
 
     await waitFor(async () => expect((await getPresets())[0]?.name).toBe('Mine'))
+    // The save drawer still locks pointer events on the body.
+    fireEvent.click(byLabel('Load'))
+    await waitFor(() => expect(presetRow('Mine')).toBeDefined())
     expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.PRESET_SAVE, {
       type: 'user',
       columns_count: 1,
@@ -748,6 +751,10 @@ describe('presets', () => {
       }),
     )
     expect(toastMocks.toast.success).toHaveBeenCalled()
+    // The closing confirmation still locks pointer events on the body.
+    fireEvent.click(byLabel('Load'))
+    await waitFor(() => expect(presetRow(SYSTEM_PRESETS[0]!.name)).toBeDefined())
+    expect(presetRow('Rows')).toBeUndefined()
   })
 
   it('reports a preset it could not delete', async () => {
@@ -832,6 +839,9 @@ describe('presets', () => {
     })
 
     await waitFor(async () => expect((await getPresets())[0]?.name).toBe('Rows'))
+    // The settings drawer still locks pointer events on the body.
+    fireEvent.click(byLabel('Load'))
+    await waitFor(() => expect(presetRow('Rows')).toBeDefined())
   })
 
   it('falls back to the system presets when the user ones cannot be read', async () => {
