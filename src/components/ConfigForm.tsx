@@ -472,7 +472,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
 
   // Keeps focus in the textarea while the button reads "Validate selector".
   // A press held past the 150ms blur defer would otherwise commit first and
-  // turn the click that follows into a scrape (#310).
+  // turn the click that follows into a scrape.
   const handleMainActionMouseDown = (e: React.MouseEvent) => {
     if (hasUncommittedChanges) e.preventDefault()
   }
