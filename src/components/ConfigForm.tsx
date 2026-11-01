@@ -559,30 +559,36 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
         if (suggestion?.kind === 'preset') handleAutosuggestSelect(suggestion.preset)
         return
       }
-      if (mainSelectorDraft.trim()) {
-        // Save to recents if not a preset, then either validate (if changed) or scrape (if unchanged and valid)
-        reportRejection(
-          (async () => {
-            const all = await getAllPresets()
-            if (!isSelectorAPreset(mainSelectorDraft, all)) {
-              await pushRecentMainSelector(mainSelectorDraft)
-            }
-            if (hasUncommittedChanges) {
-              // First Enter after changes: validate selector via highlight
-              commitMainSelector(mainSelectorDraft)
-              mainSelectorInputRef.current?.blur()
-            } else {
-              // No changes: if valid, trigger scrape; otherwise, validate again
-              if (isMainSelectorValid) {
-                onScrape()
-              } else {
-                commitMainSelector(mainSelectorDraft)
-                mainSelectorInputRef.current?.blur()
-              }
-            }
-          })(),
-        )
+      const value = mainSelectorDraft.trim()
+      if (!value) return
+
+      // Decided before any storage I/O, so typing, blurring or another Enter
+      // in the meantime cannot change what this keypress does.
+      const isValueValidated = isMainSelectorValidated({
+        mainSelector: value,
+        hasUncommittedChanges: value !== latestConfigRef.current.mainSelector,
+        highlightMatchCount,
+        highlightError,
+      })
+      if (isValueValidated) {
+        onScrape()
+      } else {
+        setMainSelectorDraft(value)
+        setIsAutosuggestOpen(false)
+        commitMainSelector(value)
+        mainSelectorInputRef.current?.blur()
+        // blur() runs the blur handler synchronously; its deferred commit
+        // would repeat the one above.
+        clearTimeout(blurCommitTimerRef.current)
       }
+
+      reportRejection(
+        (async () => {
+          const all = await getAllPresets()
+          if (isSelectorAPreset(value, all)) return
+          await pushRecentMainSelector(value)
+        })(),
+      )
       return
     }
 
