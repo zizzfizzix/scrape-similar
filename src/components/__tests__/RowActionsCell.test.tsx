@@ -90,12 +90,12 @@ describe('RowActionsCell', () => {
     expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.COPY_TO_CLIPBOARD_FAILURE)
   })
 
-  it('names each control in a tooltip', async () => {
+  it.each(['Highlight this element', 'Copy this row'])('names %s in a tooltip', async (label) => {
     render(filledRow)
 
-    await userEvent.hover(screen.getByRole('button', { name: 'Highlight this element' }))
+    await userEvent.hover(screen.getByRole('button', { name: label }))
 
-    expect(await screen.findByRole('tooltip')).toHaveTextContent('Highlight this element')
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(label)
   })
 
   it('disables both controls of an empty row and leaves them unlabelled', () => {

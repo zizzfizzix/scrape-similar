@@ -1,3 +1,4 @@
+import { RowActionsCell } from '@/components/RowActionsCell'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -29,8 +30,6 @@ import {
 } from '@/components/ui/table'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { reportingListener, reportRejection } from '@/utils/report-rejection'
-
-import { RowActionsCell } from '@/components/RowActionsCell'
 
 import {
   collectTabsWithData,
