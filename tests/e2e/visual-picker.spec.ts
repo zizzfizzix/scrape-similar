@@ -190,7 +190,7 @@ test.describe('Visual Element Picker', () => {
         sidePanel.getByText(`${DEMO_TARGET_PAGE_FACTS.tableRows} rows with data`),
       ).toBeVisible()
       await expect(sidePanel.locator('tbody tr').first()).toContainText(
-        DEMO_TARGET_PAGE_FACTS.firstRow[1],
+        DEMO_TARGET_PAGE_FACTS.firstCountry,
       )
     })
   })

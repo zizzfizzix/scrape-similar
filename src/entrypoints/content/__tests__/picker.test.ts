@@ -130,6 +130,7 @@ describe('buildPickerSelection', () => {
     const selection = buildPickerSelection(document.querySelector<HTMLElement>('#inner')!, state)
 
     expect(selection.config.columns).toEqual([{ name: 'List Item', selector: '.' }])
+    expect(selection.elementDetails.html).toBe('<b id="inner">a</b>')
   })
 
   it('builds the columns for the nearest ancestor when the candidate matches nested ones', () => {
@@ -653,6 +654,45 @@ describe('handlePickerClick', () => {
       xpath: expect.any(String),
       text: 'a',
       html: '<li id="first">a</li>',
+    })
+  })
+
+  it('takes the hovered element when the press and release landed on different elements', async () => {
+    state.currentHoveredElement = document.querySelector('#first')
+
+    await click([document.querySelector('ul')!]).result
+
+    expect(storedSelection()?.elementDetails?.html).toBe('<li id="first">a</li>')
+  })
+
+  it('takes the event target when it does not contain the hovered element', async () => {
+    state.currentHoveredElement = document.querySelector('#first')
+
+    await click([document.querySelectorAll('li')[1]!]).result
+
+    expect(storedSelection()?.elementDetails?.html).toBe('<li>b</li>')
+  })
+
+  it('highlights and counts the matches present once the config is stored', async () => {
+    const reply = (message: unknown, callback?: (r: unknown) => void) => {
+      const updates = (message as { payload?: { updates?: StoredSelection } }).payload?.updates
+      // The page re-renders while the config is stored.
+      if (updates?.currentScrapeConfig)
+        document.querySelector('ul')!.append(document.createElement('li'))
+      callback?.({ success: true })
+      return Promise.resolve({ success: true })
+    }
+    sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockImplementation(reply)
+
+    await click().result
+
+    expect(highlightMocks.highlightMatchingElements).toHaveBeenCalledWith(
+      [...document.querySelectorAll('li')],
+      { shouldScroll: false },
+    )
+    expect(sendMessage).toHaveBeenCalledWith({
+      type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
+      payload: { tabId: 3, updates: { highlightMatchCount: 3, highlightError: null } },
     })
   })
 

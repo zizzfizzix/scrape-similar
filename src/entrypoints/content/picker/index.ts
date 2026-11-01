@@ -265,12 +265,17 @@ export const handlePickerClick = async (
   event.preventDefault()
   event.stopPropagation()
 
+  // Read before disabling picker mode, which forgets it.
+  const hoveredElement = state.currentHoveredElement
   disablePickerMode('element_selected')
 
   // Hit-testing the click point here would land on the wrong element: disabling
   // picker mode removes the banner's margin and shifts the page.
-  const el = event.target
-  if (!(el instanceof HTMLElement)) return
+  const target = event.target
+  if (!(target instanceof HTMLElement)) return
+  // A press and release on different elements targets their common ancestor;
+  // the hovered element is the one under the release.
+  const el = hoveredElement && target.contains(hoveredElement) ? hoveredElement : target
 
   log.debug('Picker mode: element selected', el)
 

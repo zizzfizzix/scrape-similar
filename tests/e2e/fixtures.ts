@@ -51,6 +51,8 @@ export const DEMO_TARGET_PAGE = 'wikitable-demo.html'
 export const DEMO_TARGET_PAGE_FACTS = {
   /** Data rows in the `wikitable`, excluding its header row. */
   tableRows: 12,
+  /** Country link text of the first data row. */
+  firstCountry: 'India',
   /** Country link text of the last data row. */
   lastCountry: 'Japan',
   /** Rows the baked demo config selects: `position() > 1 and position() <= 11`. */
