@@ -117,15 +117,18 @@ export const ANALYTICS_EVENTS = {
 } as const
 
 /**
- * Values of the `trigger` property on `SCRAPE_BUTTON_PRESS`. The event keeps
- * its name for keyboard scrapes so existing reports still count every scrape.
+ * Values of the `source` property on `SCRAPE_BUTTON_PRESS`. The event keeps
+ * its name for Enter scrapes so existing reports still count every scrape.
+ * `source` matches the property `PICKER_MODE_ENABLE` uses for the same idea;
+ * `enter_key` is distinct from its `keyboard_shortcut`, which is a browser
+ * command rather than a key pressed in a field.
  */
-export const SCRAPE_TRIGGERS = {
+export const SCRAPE_SOURCES = {
   BUTTON: 'button',
-  KEYBOARD: 'keyboard',
+  ENTER_KEY: 'enter_key',
 } as const
 
-export type ScrapeTrigger = (typeof SCRAPE_TRIGGERS)[keyof typeof SCRAPE_TRIGGERS]
+export type ScrapeSource = (typeof SCRAPE_SOURCES)[keyof typeof SCRAPE_SOURCES]
 
 /**
  * The awaitable half of `trackEvent`, exported for the tests that assert on

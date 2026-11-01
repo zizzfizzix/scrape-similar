@@ -180,6 +180,10 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
   // Commits trim, so surrounding whitespace on either side is not a change.
   const hasUncommittedChanges = trimmedDraft !== config.mainSelector.trim()
 
+  // Shared by the scrape button and the Enter shortcut so neither can start a
+  // scrape the other would refuse.
+  const canScrape = !isLoading && config.columns.length > 0
+
   // Show highlight/error badges only when a non-empty selector is committed
   const isMainSelectorValid = isMainSelectorValidated({
     mainSelector: mainSelectorDraft,
@@ -469,8 +473,8 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
     commitMainSelector(draft)
   }
 
-  const scrapeCommittedMainSelector = (trigger: ScrapeTrigger) => {
-    trackEvent(ANALYTICS_EVENTS.SCRAPE_BUTTON_PRESS, { trigger })
+  const scrapeCommittedMainSelector = (source: ScrapeSource) => {
+    trackEvent(ANALYTICS_EVENTS.SCRAPE_BUTTON_PRESS, { source })
     setIsAutosuggestOpen(false)
     setMainSelectorDraft(trimmedDraft)
     onScrape()
@@ -489,7 +493,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
       return
     }
 
-    scrapeCommittedMainSelector(SCRAPE_TRIGGERS.BUTTON)
+    scrapeCommittedMainSelector(SCRAPE_SOURCES.BUTTON)
   }
 
   // Keeps focus in the textarea while the button reads "Validate selector".
@@ -603,6 +607,8 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
     if (e.key === 'Enter') {
       // Always prevent newline insertion
       e.preventDefault()
+      // A held key would otherwise start a scrape per repeat.
+      if (e.repeat) return
       if (isAutosuggestOpen && selectedAutosuggestIndex >= 0) {
         const suggestion = resolveSuggestion(
           combinedSuggestionValues[selectedAutosuggestIndex],
@@ -616,7 +622,8 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
       if (!trimmedDraft) return
 
       if (isMainSelectorValid) {
-        scrapeCommittedMainSelector(SCRAPE_TRIGGERS.KEYBOARD)
+        if (!canScrape) return
+        scrapeCommittedMainSelector(SCRAPE_SOURCES.ENTER_KEY)
       } else {
         commitMainSelectorNow(trimmedDraft)
       }
@@ -1147,11 +1154,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
             className="w-full max-w-2xl"
             onMouseDown={handleMainActionMouseDown}
             onClick={handleMainActionPress}
-            disabled={
-              isLoading ||
-              config.columns.length === 0 ||
-              (!isMainSelectorValid && !hasUncommittedChanges)
-            }
+            disabled={!canScrape || (!isMainSelectorValid && !hasUncommittedChanges)}
           >
             {isLoading ? (
               <Loader2 className="size-4 animate-spin" data-icon="inline-start" />
