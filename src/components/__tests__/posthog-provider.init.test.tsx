@@ -28,7 +28,7 @@ const loadProvider = async ({
 
   vi.doMock('@/utils/modeTest', () => ({ isDev: false, isTest: true, isDevOrTest: true }))
   vi.doMock('@/utils/consent', () => ({
-    ANALYTICS_CONSENT_STORAGE_KEY: 'analytics_consent',
+    toConsentState: (value: unknown) => !!value,
     getConsentState: () => Promise.resolve(true),
     setConsent: () => Promise.resolve(),
   }))

@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-import { ANALYTICS_CONSENT_STORAGE_KEY } from '@/utils/consent'
 import { spyOnBrowser } from '@@/tests/support/fake-browser'
 import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 import { type RenderResult, act, render as renderComponent } from '@testing-library/react'
@@ -29,7 +28,7 @@ const { SidePanelRoot } = await import('@/entrypoints/sidepanel/SidePanelRoot')
 
 let view: RenderResult
 
-const consentKey = `sync:${ANALYTICS_CONSENT_STORAGE_KEY}` as const
+const consentKey = analyticsConsentItem.key
 
 const render = () =>
   renderComponent(

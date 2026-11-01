@@ -166,7 +166,7 @@ const PROMISE_RULES: Linter.RulesRecord = {
  * two `jest-dom` rules are off on their merits and have none.
  */
 const DEFERRED = {
-  // 74: 28 in extension code, mostly the message-passing types, and 46 in unit
+  // 72: 26 in extension code, mostly the message-passing types, and 46 in unit
   // and e2e test scaffolding. #278.
   '@typescript-eslint/no-explicit-any': 'off',
   // 265. The component tests reach into `container` deliberately; the rule wants

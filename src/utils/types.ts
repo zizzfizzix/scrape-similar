@@ -132,4 +132,4 @@ export interface SystemPresetStatusMap {
   [presetId: string]: boolean
 }
 
-export const SYSTEM_PRESET_STATUS_KEY = 'system_preset_status' as const
+export type Theme = 'dark' | 'light' | 'system'

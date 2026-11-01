@@ -1,4 +1,4 @@
-import { getStorageMutex } from '@/utils/session-mutex'
+import { forgetStorageMutex, getStorageMutex } from '@/utils/session-mutex'
 import { describe, expect, it } from 'vitest'
 
 describe('getStorageMutex', () => {
@@ -66,5 +66,29 @@ describe('getStorageMutex', () => {
     ).rejects.toThrow('boom')
 
     await expect(mutex.runExclusive(async () => 'recovered')).resolves.toBe('recovered')
+  })
+})
+
+describe('forgetStorageMutex', () => {
+  it('hands out a new mutex for a forgotten key', () => {
+    const mutex = getStorageMutex('session:forget-test')
+
+    forgetStorageMutex('session:forget-test')
+
+    expect(getStorageMutex('session:forget-test')).not.toBe(mutex)
+  })
+
+  it('keeps a mutex that is still held', async () => {
+    const mutex = getStorageMutex('session:held-test')
+    const release = await mutex.acquire()
+
+    forgetStorageMutex('session:held-test')
+
+    expect(getStorageMutex('session:held-test')).toBe(mutex)
+    release()
+  })
+
+  it('ignores a key that has no mutex', () => {
+    expect(() => forgetStorageMutex('session:never-used')).not.toThrow()
   })
 })

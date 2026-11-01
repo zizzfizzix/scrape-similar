@@ -37,6 +37,7 @@ import {
   type TabData,
   visibleRows,
 } from '@/entrypoints/full-data-view/tab-data'
+import { useDebugMode } from '@/hooks/use-debug-mode'
 import { calculateOptimalColumnWidth, FULL_DATA_VIEW_COLUMN_METRICS } from '@/utils/column-width'
 import {
   type CellContext,
@@ -142,7 +143,7 @@ export const FullDataViewApp: React.FC = () => {
     const loadTabsData = async () => {
       try {
         const tabsWithData = await collectTabsWithData(await browser.tabs.query({}), (tabId) =>
-          storage.getItem<SidePanelConfig>(`session:sidepanel_config_${tabId}`),
+          sidePanelConfigItem(tabId).getValue(),
         )
 
         setAllTabsData(tabsWithData)
@@ -161,25 +162,7 @@ export const FullDataViewApp: React.FC = () => {
     reportRejection(loadTabsData())
   }, [currentTabId, reloadRequest])
 
-  useEffect(() => {
-    reportRejection(
-      storage.getItem<boolean>('local:debugMode').then((val) => {
-        if (isDevOrTest) {
-          log.setLevel('trace')
-        } else {
-          log.setLevel(val ? 'trace' : 'error')
-        }
-      }),
-    )
-
-    const unwatch = storage.watch<boolean>('local:debugMode', (val) => {
-      if (!isDevOrTest) {
-        log.setLevel(val ? 'trace' : 'error')
-      }
-    })
-
-    return () => unwatch()
-  }, [])
+  useDebugMode()
 
   // Update document title when current tab changes
   useEffect(() => {
@@ -196,9 +179,7 @@ export const FullDataViewApp: React.FC = () => {
 
     // Function to set up a watcher for a specific tab
     const setupSingleTabWatcher = (tabId: number) => {
-      const sessionKey = `sidepanel_config_${tabId}`
-      const unwatch = storage.watch<SidePanelConfig>(
-        `session:${sessionKey}`,
+      const unwatch = sidePanelConfigItem(tabId).watch(
         reportingListener(async (newValue) => {
           // Update only the specific tab that changed, preserve user's current selection
           const tabInfo = await browser.tabs.get(tabId).catch(() => null)

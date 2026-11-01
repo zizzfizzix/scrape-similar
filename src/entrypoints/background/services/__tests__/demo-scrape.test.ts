@@ -85,7 +85,7 @@ describe('handleDemoScrape', () => {
   })
 
   it('reports failure when the write to storage throws', async () => {
-    vi.spyOn(storage, 'setItem').mockRejectedValueOnce(new Error('quota exceeded'))
+    vi.spyOn(fakeBrowser.storage.local, 'set').mockRejectedValueOnce(new Error('quota exceeded'))
 
     await handleDemoScrape(senderWithTab(7), sendResponse)
 
@@ -231,9 +231,19 @@ describe('clearDemoScrapeFlag', () => {
     expect(await readPendingConfig(5)).toBeNull()
   })
 
-  it('swallows storage failures', async () => {
-    vi.spyOn(storage, 'removeItem').mockRejectedValueOnce(new Error('nope'))
+  it('drops the cached item for the tab', async () => {
+    const item = demoScrapePendingItem(5)
+
+    await clearDemoScrapeFlag(5)
+
+    expect(demoScrapePendingItem(5)).not.toBe(item)
+  })
+
+  it('swallows storage failures and still drops the cached item', async () => {
+    const item = demoScrapePendingItem(5)
+    vi.spyOn(fakeBrowser.storage.local, 'remove').mockRejectedValueOnce(new Error('nope'))
 
     await expect(clearDemoScrapeFlag(5)).resolves.toBeUndefined()
+    expect(demoScrapePendingItem(5)).not.toBe(item)
   })
 })

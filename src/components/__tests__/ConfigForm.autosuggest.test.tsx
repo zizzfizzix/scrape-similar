@@ -1,14 +1,10 @@
 // @vitest-environment jsdom
 import { ConfigForm } from '@/components/ConfigForm'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import {
-  getRecentMainSelectors,
-  setRecentMainSelectors,
-  STORAGE_KEYS,
-  userPresetsStorage,
-} from '@/utils/storage'
+import { getRecentMainSelectors, setRecentMainSelectors, userPresetsItem } from '@/utils/storage'
 import type { Preset, ScrapeConfig } from '@/utils/types'
 import { setLastError } from '@@/tests/support/fake-browser'
+import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 import {
   type RenderResult,
   act,
@@ -105,7 +101,7 @@ const type = (value: string) =>
 beforeEach(async () => {
   fakeBrowser.reset()
   setLastError(undefined)
-  await userPresetsStorage.setValue([])
+  await userPresetsItem.setValue([])
   await setRecentMainSelectors([])
 })
 
@@ -276,10 +272,28 @@ describe('the autosuggest dropdown', () => {
       expect(suggestionItems()).toHaveLength(1)
 
       await act(async () => {
-        await storage.setItem(`local:${STORAGE_KEYS.RECENT_MAIN_SELECTORS}`, 'not-a-list')
+        await storage.setItem(recentMainSelectorsItem.key, 'not-a-list')
       })
 
       await waitFor(() => expect(suggestionItems()).toHaveLength(0))
+    })
+
+    it('keeps a recent written while the first read is still pending', async () => {
+      let resolveRead!: (value: string[]) => void
+      vi.spyOn(recentMainSelectorsItem, 'getValue').mockReturnValueOnce(
+        new Promise((resolve) => (resolveRead = resolve)),
+      )
+      view = await render({ presets: [] })
+
+      await act(async () => {
+        await storage.setItem(recentMainSelectorsItem.key, ['//fresh'])
+        await flushMicrotasks()
+      })
+      await act(async () => resolveRead([]))
+      await focusField()
+
+      await waitFor(() => expect(suggestionItems()).toHaveLength(1))
+      expect(suggestionItems()[0]!.textContent).toContain('//fresh')
     })
   })
 
@@ -580,7 +594,7 @@ describe('the autosuggest dropdown', () => {
     })
 
     it('does not remember a selector a preset already covers', async () => {
-      await userPresetsStorage.setValue(presets)
+      await userPresetsItem.setValue(presets)
       view = await render({ presets })
       await focusField()
       await type('//tr')

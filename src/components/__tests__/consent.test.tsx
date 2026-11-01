@@ -4,7 +4,7 @@ import { ConsentCard } from '@/components/ConsentCard'
 import { ConsentContent } from '@/components/ConsentContent'
 import { ConsentModal } from '@/components/ConsentModal'
 import { ConsentWrapper } from '@/components/ConsentWrapper'
-import { ANALYTICS_CONSENT_STORAGE_KEY, getConsentState } from '@/utils/consent'
+import { getConsentState } from '@/utils/consent'
 import { reportRejection } from '@/utils/report-rejection'
 import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 import { type RenderResult, act, render as renderComponent } from '@testing-library/react'
@@ -16,7 +16,7 @@ import { storage } from 'wxt/utils/storage'
 
 let view: RenderResult
 
-const consentKey = `sync:${ANALYTICS_CONSENT_STORAGE_KEY}` as const
+const consentKey = analyticsConsentItem.key
 
 const withProvider = (children: ReactNode) => <ConsentProvider>{children}</ConsentProvider>
 
@@ -67,9 +67,39 @@ describe('ConsentProvider', () => {
   })
 
   it('treats an unreadable store as undecided', async () => {
-    vi.spyOn(storage, 'getItem').mockRejectedValueOnce(new Error('storage unavailable'))
+    vi.spyOn(analyticsConsentItem, 'getValue').mockRejectedValueOnce(
+      new Error('storage unavailable'),
+    )
 
     view = await render(withProvider(<Probe />))
+
+    expect(probeText()).toBe(JSON.stringify({ loading: false }))
+  })
+
+  it('keeps a decision written while the first read is still pending', async () => {
+    let resolveRead!: (value: boolean) => void
+    vi.spyOn(analyticsConsentItem, 'getValue').mockReturnValueOnce(
+      new Promise((resolve) => (resolveRead = resolve)),
+    )
+    view = renderComponent(withProvider(<Probe />))
+
+    await act(async () => {
+      await storage.setItem(consentKey, true)
+      await flushMicrotasks()
+    })
+    await act(async () => resolveRead(false))
+
+    expect(probeText()).toBe(JSON.stringify({ loading: false, state: true }))
+  })
+
+  it('returns to undecided when the stored decision is removed', async () => {
+    await storage.setItem(consentKey, true)
+    view = await render(withProvider(<Probe />))
+
+    await act(async () => {
+      await storage.removeItem(consentKey)
+      await flushMicrotasks()
+    })
 
     expect(probeText()).toBe(JSON.stringify({ loading: false }))
   })
@@ -303,7 +333,7 @@ describe('ConsentWrapper', () => {
 
   it('renders nothing until the decision has loaded', async () => {
     // Never resolve the initial read, so the provider stays in its loading state.
-    vi.spyOn(storage, 'getItem').mockReturnValue(new Promise(() => {}))
+    vi.spyOn(analyticsConsentItem, 'getValue').mockReturnValue(new Promise(() => {}))
 
     view = await render(withProvider(<ConsentWrapper>{child}</ConsentWrapper>))
 
