@@ -2,7 +2,7 @@
 import { ConfigForm } from '@/components/ConfigForm'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ANALYTICS_EVENTS, ANALYTICS_SOURCES } from '@/utils/analytics'
-import { getRecentMainSelectors, setRecentMainSelectors, userPresetsItem } from '@/utils/storage'
+import { getRecentMainSelectors, recentMainSelectorsItem, userPresetsItem } from '@/utils/storage'
 import type { Preset, ScrapeConfig } from '@/utils/types'
 import { setLastError } from '@@/tests/support/fake-browser'
 import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
@@ -97,7 +97,7 @@ beforeEach(async () => {
   fakeBrowser.reset()
   setLastError(undefined)
   await userPresetsItem.setValue([])
-  await setRecentMainSelectors([])
+  await recentMainSelectorsItem.setValue([])
 })
 
 describe('the autosuggest dropdown', () => {
@@ -155,7 +155,7 @@ describe('the autosuggest dropdown', () => {
      * recents swallowed the keypress and highlighted nothing.
      */
     it('navigates recents when no preset matches the query', async () => {
-      await setRecentMainSelectors(['//span'])
+      await recentMainSelectorsItem.setValue(['//span'])
       view = await render({ presets })
       await focusField()
       type('//span')
@@ -169,7 +169,7 @@ describe('the autosuggest dropdown', () => {
     })
 
     it('navigates recents when a preset matches too', async () => {
-      await setRecentMainSelectors(['//span'])
+      await recentMainSelectorsItem.setValue(['//span'])
       view = await render({ presets })
       await focusField()
 
@@ -261,7 +261,7 @@ describe('the autosuggest dropdown', () => {
     })
 
     it('treats a non-list value in storage as no recents at all', async () => {
-      await setRecentMainSelectors(['//span'])
+      await recentMainSelectorsItem.setValue(['//span'])
       view = await render({ presets: [] })
       await focusField()
       expect(suggestionItems()).toHaveLength(1)
@@ -329,7 +329,7 @@ describe('the autosuggest dropdown', () => {
     it('commits a highlighted recent selector', async () => {
       const onChange = vi.fn()
       const onHighlight = vi.fn()
-      await setRecentMainSelectors(['//span'])
+      await recentMainSelectorsItem.setValue(['//span'])
       view = await render({ presets: [], onChange, onHighlight })
       await focusField()
       await press('ArrowDown')
@@ -386,7 +386,7 @@ describe('the autosuggest dropdown', () => {
 
     it('does not commit the half-typed draft when the field blurs behind the click', async () => {
       const onChange = vi.fn()
-      await setRecentMainSelectors(['//span'])
+      await recentMainSelectorsItem.setValue(['//span'])
       view = await render({ presets: [], onChange })
       await focusField()
       type('//sp')
@@ -547,7 +547,7 @@ describe('the autosuggest dropdown', () => {
 
     it('does not commit when the pointer went down on a suggestion', async () => {
       const onChange = vi.fn()
-      await setRecentMainSelectors(['//span'])
+      await recentMainSelectorsItem.setValue(['//span'])
       view = await render({ presets: [], onChange })
       await focusField()
       type('//sp')
@@ -593,7 +593,7 @@ describe('the autosuggest dropdown', () => {
     })
 
     it('drops it from storage and keeps the dropdown open', async () => {
-      await setRecentMainSelectors(['//span', '//em'])
+      await recentMainSelectorsItem.setValue(['//span', '//em'])
       view = await render({ presets: [] })
       await focusField()
       expect(suggestionItems()).toHaveLength(2)
@@ -874,7 +874,7 @@ describe('the autosuggest dropdown', () => {
 
     it('still commits on a later blur after a suggestion click and an Enter', async () => {
       const onChange = vi.fn()
-      await setRecentMainSelectors(['//span'])
+      await recentMainSelectorsItem.setValue(['//span'])
       view = await render({ presets: [], onChange })
       await focusField()
       await type('//sp')

@@ -1,8 +1,12 @@
-import { queueMutex } from '@/utils/analytics'
-import { getPostHogBackground, resetPostHogInstance } from '@/utils/posthog-background'
+import {
+  currentPostHogBackground,
+  getPostHogBackground,
+  resetPostHogInstance,
+} from '@/utils/posthog-background'
 import { reportingListener } from '@/utils/report-rejection'
+import { withStorageLock } from '@/utils/storage-lock'
 import log from 'loglevel'
-import { PostHog } from 'posthog-js/dist/module.no-external'
+import type { PostHog } from 'posthog-js/dist/module.no-external'
 
 /**
  * Configure PostHog rate limiting
@@ -16,65 +20,64 @@ export const configurePostHogRateLimit = (ph: PostHog, eventsPerSecond: number =
   })
 }
 
+// Called under the queue lock.
+const sendQueuedEvents = async (): Promise<void> => {
+  const queue = await eventQueueItem.getValue()
+
+  if (queue.length === 0) {
+    log.debug('No queued events to flush')
+    return
+  }
+
+  // Taken after the last await: a consent decline resets the instance, and
+  // nothing may be sent through one it has reset.
+  const ph = currentPostHogBackground()
+  if (!ph) return
+
+  // Set rate limiting to match the queue length temporarily so PostHog doesn't drop events
+  configurePostHogRateLimit(ph, queue.length)
+  try {
+    log.debug(`Flushing ${queue.length} queued events...`)
+
+    for (const event of queue) {
+      try {
+        ph.capture(
+          event.name,
+          {
+            ...event.props,
+            buffered: true,
+          },
+          {
+            timestamp: new Date(event.timestamp),
+          },
+        )
+      } catch (error) {
+        log.error(`Failed to capture buffered event: ${event.name}`, error)
+      }
+    }
+
+    await eventQueueItem.setValue([])
+  } finally {
+    configurePostHogRateLimit(ph)
+  }
+  log.debug(`Successfully flushed ${queue.length} buffered analytics events`)
+}
+
 /**
  * Flush any queued events that were captured before consent
  */
 export const flushQueuedEvents = async (): Promise<void> => {
-  return queueMutex.runExclusive(async () => {
-    try {
-      const queue = await eventQueueItem.getValue()
-
-      if (queue.length === 0) {
-        log.debug('No queued events to flush')
-        return
-      }
-
-      const ph = await getPostHogBackground()
-      if (!ph) {
-        log.warn('PostHog not initialized when trying to flush queue')
-        return
-      }
-
-      // Set rate limiting to match the queue length temporarily so PostHog doesn't drop events
-      configurePostHogRateLimit(ph, queue.length)
-
-      log.debug(`Flushing ${queue.length} queued events...`)
-
-      // Process events sequentially to avoid overwhelming PostHog
-      for (const event of queue) {
-        try {
-          ph.capture(
-            event.name,
-            {
-              ...event.props,
-              buffered: true,
-            },
-            {
-              timestamp: new Date(event.timestamp),
-            },
-          )
-        } catch (error) {
-          log.error(`Failed to capture buffered event: ${event.name}`, error)
-          // Continue processing other events
-        }
-      }
-
-      // Reset rate limiting to default
-      configurePostHogRateLimit(ph)
-
-      // Clear the queue after successful processing
-      await eventQueueItem.setValue([])
-      log.debug(`Successfully flushed ${queue.length} buffered analytics events`)
-    } catch (error) {
-      const ph = await getPostHogBackground()
-
-      if (ph && ph instanceof PostHog) {
-        configurePostHogRateLimit(ph)
-      }
-
-      log.error('Error flushing queued events:', error)
+  try {
+    // Initialised before the lock, so pages queueing events do not wait on it,
+    // and a flush that cannot send never takes the lock.
+    if (!(await getPostHogBackground())) {
+      log.debug('PostHog not initialized, leaving queued events for later')
+      return
     }
-  })
+    await withStorageLock(eventQueueItem, sendQueuedEvents)
+  } catch (error) {
+    log.error('Error flushing queued events:', error)
+  }
 }
 
 /**
@@ -84,26 +87,17 @@ export const flushQueuedEvents = async (): Promise<void> => {
  * - Watch for new queued events
  */
 export const initializeAnalyticsQueue = async (): Promise<void> => {
-  // On background startup – attempt to init PostHog (if consent) and flush queue
-  await getPostHogBackground()
-  await flushQueuedEvents()
-
   // Listen for consent changes to (re)initialize PostHog and flush queued events
   analyticsConsentItem.watch(
     reportingListener(async (value) => {
       const sanitizedConsentState = toConsentState(value)
       if (sanitizedConsentState === true) {
-        // Consent granted - initialize PostHog and flush queue
-        await getPostHogBackground()
         await flushQueuedEvents()
       } else if (sanitizedConsentState === false) {
         // Consent declined - reset PostHog instance and clear the queue safely
         resetPostHogInstance()
 
-        // Acquire the same mutex used by queueEvent / flushQueuedEvents to avoid races
-        await queueMutex.runExclusive(async () => {
-          await eventQueueItem.setValue([])
-        })
+        await withStorageLock(eventQueueItem, () => eventQueueItem.setValue([]))
 
         log.debug('User declined consent - reset PostHog and cleared event queue')
       }
@@ -118,4 +112,8 @@ export const initializeAnalyticsQueue = async (): Promise<void> => {
       }
     }),
   )
+
+  // After the watchers: this flush can wait on a lock another context holds,
+  // and a consent change during that wait must still reach the handler above.
+  await flushQueuedEvents()
 }

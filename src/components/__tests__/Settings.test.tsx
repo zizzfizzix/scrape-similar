@@ -141,7 +141,9 @@ describe('Settings', () => {
       await userEvent.click(rowByLabel('System presets').querySelector('button')!)
 
       expect(await storage.getItem(systemPresetStatusItem.key)).toBeNull()
-      expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.SYSTEM_PRESETS_RESET)
+      expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.SYSTEM_PRESETS_RESET, {
+        type: 'system',
+      })
       expect(onResetSystemPresets).toHaveBeenCalled()
     })
 
@@ -150,7 +152,9 @@ describe('Settings', () => {
 
       await userEvent.click(rowByLabel('System presets').querySelector('button')!)
 
-      expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.SYSTEM_PRESETS_RESET)
+      expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.SYSTEM_PRESETS_RESET, {
+        type: 'system',
+      })
     })
 
     it('logs when the reset cannot be written', async () => {
@@ -161,7 +165,15 @@ describe('Settings', () => {
 
       await userEvent.click(rowByLabel('System presets').querySelector('button')!)
 
-      expect(errorSpy).toHaveBeenCalledWith('Error resetting system presets:', failure)
+      expect(errorSpy).toHaveBeenCalledWith(
+        'Error resetting system preset status in storage:',
+        failure,
+      )
+      expect(trackEvent).not.toHaveBeenCalledWith(
+        ANALYTICS_EVENTS.SYSTEM_PRESETS_RESET,
+        expect.anything(),
+      )
+      expect(toastMocks.toast.error).toHaveBeenCalledWith("Error, system presets couldn't be reset")
     })
   })
 

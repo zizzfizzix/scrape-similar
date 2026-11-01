@@ -119,6 +119,14 @@ describe('getSessionState', () => {
     expect(await getSessionState(1)).toBeNull()
   })
 
+  it('sees an update already in flight', async () => {
+    const update = applySidePanelDataUpdates(1, { highlightError: 'pending' })
+
+    const [state] = await Promise.all([getSessionState(1), update])
+
+    expect(state).toEqual({ highlightError: 'pending' })
+  })
+
   it('returns the stored state', async () => {
     await applySidePanelDataUpdates(1, { highlightError: 'hi' })
 
@@ -144,6 +152,15 @@ describe('initializeSessionState', () => {
 
     expect(await getSessionState(1)).toEqual({ highlightError: 'keep me' })
   })
+
+  it('keeps an update queued while it reads the existing state', async () => {
+    await Promise.all([
+      initializeSessionState(1),
+      applySidePanelDataUpdates(1, { highlightError: 'queued' }),
+    ])
+
+    expect(await getSessionState(1)).toEqual({ highlightError: 'queued' })
+  })
 })
 
 describe('clearSessionState', () => {
@@ -151,30 +168,65 @@ describe('clearSessionState', () => {
     fakeBrowser.reset()
   })
 
+  // A closed tab id stays closed for the life of the module, so each test
+  // closes a tab of its own.
+
   it('removes the tab entry', async () => {
-    await applySidePanelDataUpdates(1, { highlightError: 'bye' })
+    await applySidePanelDataUpdates(11, { highlightError: 'bye' })
 
-    await clearSessionState(1)
+    await clearSessionState(11)
 
-    expect(await getSessionState(1)).toBeNull()
+    expect(await getSessionState(11)).toBeNull()
   })
 
   it('removes the entry after an update already in flight', async () => {
-    const update = applySidePanelDataUpdates(1, { highlightError: 'late' })
+    const update = applySidePanelDataUpdates(12, { highlightError: 'late' })
 
-    await Promise.all([update, clearSessionState(1)])
+    await Promise.all([update, clearSessionState(12)])
 
-    expect(await getSessionState(1)).toBeNull()
+    expect(await getSessionState(12)).toBeNull()
   })
 
-  it('drops the cached item and mutex for the tab', async () => {
-    const item = sidePanelConfigItem(1)
-    const mutex = getStorageMutex(item.key)
+  it('refuses an update that requests the lock after the clear', async () => {
+    await applySidePanelDataUpdates(13, { highlightError: 'open' })
 
-    await clearSessionState(1)
+    const clear = clearSessionState(13)
+    const update = applySidePanelDataUpdates(13, { highlightError: 'after close' })
+    await Promise.all([clear, update])
 
-    expect(sidePanelConfigItem(1)).not.toBe(item)
-    expect(getStorageMutex(item.key)).not.toBe(mutex)
+    expect(await read(13)).toBeNull()
+  })
+
+  it('refuses an update that arrives after the clear has finished', async () => {
+    await clearSessionState(14)
+
+    await applySidePanelDataUpdates(14, { highlightMatchCount: 1 })
+
+    expect(await read(14)).toBeNull()
+  })
+
+  it('refuses to initialize state for a closed tab', async () => {
+    await clearSessionState(15)
+
+    await initializeSessionState(15)
+
+    expect(await read(15)).toBeNull()
+  })
+
+  it('leaves other tabs writable', async () => {
+    await clearSessionState(16)
+
+    await applySidePanelDataUpdates(17, { highlightMatchCount: 2 })
+
+    expect(await read(17)).toEqual({ highlightMatchCount: 2 })
+  })
+
+  it('drops the cached item for the tab', async () => {
+    const item = sidePanelConfigItem(18)
+
+    await clearSessionState(18)
+
+    expect(sidePanelConfigItem(18)).not.toBe(item)
   })
 
   it('logs and swallows storage failures', async () => {
@@ -183,12 +235,10 @@ describe('clearSessionState', () => {
     vi.spyOn(fakeBrowser.storage.session, 'remove').mockRejectedValueOnce(failure)
 
     const item = sidePanelConfigItem(9)
-    const mutex = getStorageMutex(item.key)
 
     await expect(clearSessionState(9)).resolves.toBeUndefined()
 
     expect(errorSpy).toHaveBeenCalledWith('Error clearing session state for tab 9:', failure)
     expect(sidePanelConfigItem(9)).not.toBe(item)
-    expect(getStorageMutex(item.key)).not.toBe(mutex)
   })
 })

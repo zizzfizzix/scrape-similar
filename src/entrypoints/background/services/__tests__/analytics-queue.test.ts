@@ -6,9 +6,16 @@ import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
 
 const posthogMocks = vi.hoisted(() => ({
+  currentPostHogBackground: vi.fn(),
   getPostHogBackground: vi.fn(),
   resetPostHogInstance: vi.fn(),
 }))
+
+/** Makes `ph` both what initialisation returns and the instance currently held. */
+const usePostHog = (ph: unknown) => {
+  posthogMocks.getPostHogBackground.mockResolvedValue(ph)
+  posthogMocks.currentPostHogBackground.mockReturnValue(ph)
+}
 vi.mock('@/utils/posthog-background', () => posthogMocks)
 
 const { PostHog } = await import('posthog-js/dist/module.no-external')
@@ -54,21 +61,27 @@ describe('configurePostHogRateLimit', () => {
 })
 
 describe('flushQueuedEvents', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     fakeBrowser.reset()
     posthogMocks.getPostHogBackground.mockReset()
+    posthogMocks.currentPostHogBackground.mockReset()
     posthogMocks.resetPostHogInstance.mockReset()
+    await storage.setItem(analyticsConsentItem.key, true)
   })
 
   it('does nothing when the queue is empty', async () => {
+    const ph = createFakePostHog()
+    usePostHog(ph)
+
     await flushQueuedEvents()
 
-    expect(posthogMocks.getPostHogBackground).not.toHaveBeenCalled()
+    expect(ph.capture).not.toHaveBeenCalled()
+    expect(ph.set_config).not.toHaveBeenCalled()
   })
 
   it('captures every queued event, marks it buffered and clears the queue', async () => {
     const ph = createFakePostHog()
-    posthogMocks.getPostHogBackground.mockResolvedValue(ph)
+    usePostHog(ph)
     await storage.setItem(queueKey, [event('first', 1000), event('second', 2000)])
 
     await flushQueuedEvents()
@@ -85,7 +98,7 @@ describe('flushQueuedEvents', () => {
 
   it('raises the rate limit to the queue length while flushing, then restores it', async () => {
     const ph = createFakePostHog()
-    posthogMocks.getPostHogBackground.mockResolvedValue(ph)
+    usePostHog(ph)
     await storage.setItem(queueKey, [event('a'), event('b'), event('c')])
 
     await flushQueuedEvents()
@@ -98,20 +111,54 @@ describe('flushQueuedEvents', () => {
     })
   })
 
+  it('leaves the queue and its lock alone while consent is undecided', async () => {
+    await storage.removeItem(analyticsConsentItem.key)
+    await storage.setItem(queueKey, [event('kept')])
+    const requestSpy = vi.spyOn(navigator.locks, 'request')
+
+    await flushQueuedEvents()
+
+    expect(await readQueue()).toEqual([event('kept')])
+    // Pages queueing events wait on this lock, so a flush that cannot send must not take it.
+    expect(requestSpy).not.toHaveBeenCalled()
+  })
+
   it('keeps the queue intact when PostHog is unavailable', async () => {
-    posthogMocks.getPostHogBackground.mockResolvedValue(null)
-    const warnSpy = vi.spyOn(log, 'warn').mockImplementation(() => {})
+    usePostHog(null)
     await storage.setItem(queueKey, [event('kept')])
 
     await flushQueuedEvents()
 
-    expect(warnSpy).toHaveBeenCalledWith('PostHog not initialized when trying to flush queue')
+    expect(await readQueue()).toEqual([event('kept')])
+  })
+
+  it('sends nothing when consent is withdrawn while it waits for the lock', async () => {
+    const ph = createFakePostHog()
+    usePostHog(ph)
+    await storage.setItem(queueKey, [event('kept')])
+    let release = () => {}
+    const held = navigator.locks.request(
+      queueKey,
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve
+        }),
+    )
+
+    const flushing = flushQueuedEvents()
+    await flushMicrotasks()
+    // The decline handler resets the instance while the flush waits.
+    posthogMocks.currentPostHogBackground.mockReturnValue(null)
+    release()
+    await Promise.all([held, flushing])
+
+    expect(ph.capture).not.toHaveBeenCalled()
     expect(await readQueue()).toEqual([event('kept')])
   })
 
   it('keeps flushing the rest of the queue when one capture throws', async () => {
     const ph = createFakePostHog()
-    posthogMocks.getPostHogBackground.mockResolvedValue(ph)
+    usePostHog(ph)
     vi.mocked(ph.capture).mockImplementationOnce(() => {
       throw new Error('capture failed')
     })
@@ -125,7 +172,7 @@ describe('flushQueuedEvents', () => {
 
   it('restores the default rate limit when the flush itself fails', async () => {
     const ph = createFakePostHog()
-    posthogMocks.getPostHogBackground.mockResolvedValue(ph)
+    usePostHog(ph)
     const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
     await storage.setItem(queueKey, [event('a')])
     const failure = new Error('write failed')
@@ -156,12 +203,14 @@ describe('initializeAnalyticsQueue', () => {
   beforeEach(() => {
     fakeBrowser.reset()
     posthogMocks.getPostHogBackground.mockReset()
+    posthogMocks.currentPostHogBackground.mockReset()
     posthogMocks.resetPostHogInstance.mockReset()
   })
 
   it('flushes anything already queued on startup', async () => {
     const ph = createFakePostHog()
-    posthogMocks.getPostHogBackground.mockResolvedValue(ph)
+    usePostHog(ph)
+    await storage.setItem(analyticsConsentItem.key, true)
     await storage.setItem(queueKey, [event('startup')])
 
     await initializeAnalyticsQueue()
@@ -170,11 +219,11 @@ describe('initializeAnalyticsQueue', () => {
   })
 
   it('flushes the queue when consent is granted later', async () => {
-    posthogMocks.getPostHogBackground.mockResolvedValue(null)
+    usePostHog(null)
     await initializeAnalyticsQueue()
 
     const ph = createFakePostHog()
-    posthogMocks.getPostHogBackground.mockResolvedValue(ph)
+    usePostHog(ph)
     await storage.setItem(queueKey, [event('queued')])
     await flushMicrotasks()
     await storage.setItem(analyticsConsentItem.key, true)
@@ -183,8 +232,30 @@ describe('initializeAnalyticsQueue', () => {
     expect(ph.capture).toHaveBeenCalledWith('queued', expect.anything(), expect.anything())
   })
 
+  it('hears a decline while the startup flush waits for the queue lock', async () => {
+    usePostHog(createFakePostHog())
+    await storage.setItem(analyticsConsentItem.key, true)
+    let release = () => {}
+    const held = navigator.locks.request(
+      queueKey,
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve
+        }),
+    )
+
+    const starting = initializeAnalyticsQueue()
+    await flushMicrotasks()
+    await storage.setItem(analyticsConsentItem.key, false)
+    await flushMicrotasks()
+
+    expect(posthogMocks.resetPostHogInstance).toHaveBeenCalled()
+    release()
+    await Promise.all([held, starting])
+  })
+
   it('resets PostHog and empties the queue when consent is declined', async () => {
-    posthogMocks.getPostHogBackground.mockResolvedValue(null)
+    usePostHog(null)
     await initializeAnalyticsQueue()
     await storage.setItem(queueKey, [event('discarded')])
     await flushMicrotasks()
@@ -197,7 +268,7 @@ describe('initializeAnalyticsQueue', () => {
   })
 
   it('ignores a consent value that is cleared back to undecided', async () => {
-    posthogMocks.getPostHogBackground.mockResolvedValue(null)
+    usePostHog(null)
     await storage.setItem(analyticsConsentItem.key, true)
     await initializeAnalyticsQueue()
     posthogMocks.getPostHogBackground.mockClear()
@@ -211,7 +282,8 @@ describe('initializeAnalyticsQueue', () => {
 
   it('flushes when new events land in the queue', async () => {
     const ph = createFakePostHog()
-    posthogMocks.getPostHogBackground.mockResolvedValue(ph)
+    usePostHog(ph)
+    await storage.setItem(analyticsConsentItem.key, true)
     await initializeAnalyticsQueue()
 
     await storage.setItem(queueKey, [event('late')])
@@ -222,7 +294,7 @@ describe('initializeAnalyticsQueue', () => {
 
   it('does not flush when the queue watcher reports an empty queue', async () => {
     const ph = createFakePostHog()
-    posthogMocks.getPostHogBackground.mockResolvedValue(ph)
+    usePostHog(ph)
     await initializeAnalyticsQueue()
 
     await storage.setItem(queueKey, [])
@@ -233,7 +305,7 @@ describe('initializeAnalyticsQueue', () => {
 
   it('does not flush when the queue is removed entirely', async () => {
     const ph = createFakePostHog()
-    posthogMocks.getPostHogBackground.mockResolvedValue(ph)
+    usePostHog(ph)
     await storage.setItem(queueKey, [])
     await initializeAnalyticsQueue()
 

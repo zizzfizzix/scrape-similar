@@ -1,7 +1,9 @@
 // React Testing Library's DOM matchers (`toBeInTheDocument`, `toHaveValue`,
 // `toBeDisabled`, ...), registered for every test file.
 import '@testing-library/jest-dom/vitest'
+import { beforeEach } from 'vitest'
 import { installTabDetachEvent } from './tests/support/fake-browser'
+import { createLockManager } from './tests/support/web-locks'
 
 installTabDetachEvent()
 
@@ -88,3 +90,9 @@ if (typeof window !== 'undefined') {
     } as unknown as typeof window.ResizeObserver
   }
 }
+
+// A fresh manager per test, so a task one test leaves unsettled cannot hold a
+// key that a later test locks.
+beforeEach(() => {
+  Object.defineProperty(navigator, 'locks', { value: createLockManager(), configurable: true })
+})

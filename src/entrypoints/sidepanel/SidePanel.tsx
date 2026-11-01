@@ -250,7 +250,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
     // is not something that can reach here.
     const isSaved = await savePreset(preset)
     if (isSaved) {
-      log.debug('Preset saved successfully and UI updated')
+      log.debug('Preset saved successfully')
       trackEvent(ANALYTICS_EVENTS.PRESET_SAVE, {
         type: 'user',
         columns_count: config.columns.length,
@@ -263,10 +263,14 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
   // A system preset is hidden rather than deleted.
   const handleDeletePreset = useCallback(async (preset: Preset) => {
     if (isSystemPreset(preset)) {
-      const statusMap = await getSystemPresetStatus()
-      statusMap[preset.id] = false
-      await setSystemPresetStatus(statusMap)
+      // `hideSystemPreset` reports a storage failure as `false` rather than rejecting.
+      const isHidden = await hideSystemPreset(preset.id)
+      if (!isHidden) {
+        toast.error(`Error, system preset "${preset.name}" couldn't be hidden`)
+        return
+      }
       toast.success(`System preset "${preset.name}" hidden.`)
+
       trackEvent(ANALYTICS_EVENTS.PRESET_HIDE, {
         type: 'system',
         preset_name: preset.name,
@@ -294,13 +298,11 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
     }
   }, [])
 
-  const handleResetSystemPresets = async () => {
-    await setSystemPresetStatus({})
+  // Settings has already reset and tracked by the time it calls this, and the
+  // status watch above reloads the presets.
+  const handleSystemPresetsReset = useCallback(() => {
     toast.success('System presets have been reset')
-    trackEvent(ANALYTICS_EVENTS.SYSTEM_PRESETS_RESET, {
-      type: 'system',
-    })
-  }
+  }, [])
 
   // The active tab and every live one were shown, so their URLs are known.
   const tabUrl = activeTabId === null ? null : tabUrls.get(activeTabId)!
@@ -346,7 +348,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
       {view !== 'full-data-view' && (
         <Footer
           showSettings={true}
-          onResetSystemPresets={() => reportRejection(handleResetSystemPresets())}
+          onResetSystemPresets={handleSystemPresetsReset}
           debugMode={debugMode}
           onDebugModeChange={onDebugModeChange}
         />

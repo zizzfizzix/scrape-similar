@@ -126,9 +126,32 @@ describe('captureEvent – context specific behaviour', () => {
     })
   })
 
+  it('hands an undecided-consent event from a content script to the background', async () => {
+    currentContext = contextDetection.EXTENSION_CONTEXTS.CONTENT_SCRIPT
+    vi.spyOn(consent, 'getConsentState').mockResolvedValue(undefined)
+    const sendMessage = vi.spyOn(browser.runtime, 'sendMessage').mockResolvedValue(undefined)
+
+    await captureEvent(EVENT_NAME)
+
+    expect(sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ type: MESSAGE_TYPES.TRACK_EVENT }),
+    )
+    expect(await getQueuedEvent()).toBeUndefined()
+  })
+
+  // Firefox's background and extension pages detect as unknown.
+  it('queues an undecided-consent event from an unknown context', async () => {
+    currentContext = contextDetection.EXTENSION_CONTEXTS.UNKNOWN
+    vi.spyOn(consent, 'getConsentState').mockResolvedValue(undefined)
+
+    await captureEvent(EVENT_NAME)
+
+    expect((await getQueuedEvent())?.name).toBe(EVENT_NAME)
+  })
+
   it('swallows a send failure from content-script context', async () => {
     currentContext = contextDetection.EXTENSION_CONTEXTS.CONTENT_SCRIPT
-    const debugSpy = vi.spyOn(log, 'debug').mockImplementation(() => {})
+    const warnSpy = vi.spyOn(log, 'warn').mockImplementation(() => {})
     const failure = new Error('receiving end does not exist')
     // `sendMessage` rejects rather than throwing, which is only caught because
     // the call is awaited.
@@ -136,7 +159,7 @@ describe('captureEvent – context specific behaviour', () => {
 
     await expect(captureEvent(EVENT_NAME)).resolves.toBeUndefined()
 
-    expect(debugSpy).toHaveBeenCalledWith(
+    expect(warnSpy).toHaveBeenCalledWith(
       'Failed to send tracking message from content script:',
       failure,
     )
