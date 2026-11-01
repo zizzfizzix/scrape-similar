@@ -25,12 +25,8 @@ import {
 import type { ContentScriptState } from '@/entrypoints/content/state'
 import { ANALYTICS_EVENTS, trackEvent } from '@/utils/analytics'
 import { reportingListener, reportRejection } from '@/utils/report-rejection'
-import {
-  evaluateXPath,
-  guessScrapeConfigForElement,
-  minimizeXPath,
-  scrapePage,
-} from '@/utils/scraper'
+import { buildColumnsForElement } from '@/utils/scrape-guess'
+import { evaluateXPath, minimizeXPath, scrapePage } from '@/utils/scraper'
 import type { ScrapeConfig, ScrapeResult } from '@/utils/types'
 import { MESSAGE_TYPES } from '@/utils/types'
 import log from 'loglevel'
@@ -142,9 +138,6 @@ const processMouseUpdate = (state: ContentScriptState): void => {
   }
   state.currentXPath = selector
 
-  // Cache guessed config (for columns); we'll override mainSelector on click
-  state.currentGuessedConfig = guessScrapeConfigForElement(el)
-
   // Find all matching elements using selected candidate
   const matchingElements = evaluateXPath(selector)
 
@@ -178,7 +171,7 @@ export const handlePickerMouseMove = (event: MouseEvent, state: ContentScriptSta
 export interface PickerSelection {
   /** Minimal XPath of the exact element that was clicked. */
   xpath: string
-  /** Config to scrape with: the guessed columns under the chosen selector. */
+  /** Config to scrape with: the chosen selector and the columns guessed for what it matches. */
   config: ScrapeConfig
   /** Details of the clicked element, shown in the side panel. */
   elementDetails: { xpath: string; text: string; html: string }
@@ -187,9 +180,10 @@ export interface PickerSelection {
 /**
  * Resolve a clicked element into the config to scrape with.
  *
- * The columns come from the element itself, but `mainSelector` comes from the
- * candidate level the user settled on, so the scrape covers every sibling
- * rather than just the one clicked.
+ * `mainSelector` is the candidate level the user settled on, so the scrape
+ * covers every sibling rather than just the one clicked. The columns are built
+ * for the element that selector matches on the clicked element's ancestor
+ * chain, since they are evaluated relative to each match.
  */
 export const buildPickerSelection = (
   element: HTMLElement,
@@ -197,11 +191,12 @@ export const buildPickerSelection = (
 ): PickerSelection => {
   const xpath = minimizeXPath(element)
   const selectedSelector = state.selectorCandidates[state.selectedCandidateIndex] || xpath
-  const guessedConfig = state.currentGuessedConfig ?? guessScrapeConfigForElement(element)
+  const selectedElement =
+    evaluateXPath(selectedSelector).find((match) => match.contains(element)) ?? element
 
   return {
     xpath,
-    config: { ...guessedConfig, mainSelector: selectedSelector },
+    config: { mainSelector: selectedSelector, columns: buildColumnsForElement(selectedElement) },
     elementDetails: {
       xpath,
       text: element.textContent || '',
