@@ -522,7 +522,10 @@ describe('handlePickerClick', () => {
   const storedConfig = () => storedSelection()?.currentScrapeConfig
 
   beforeEach(() => {
-    disable = vi.fn<(source?: string) => void>()
+    // Mirrors disablePickerMode, which forgets the hovered element.
+    disable = vi.fn<(source?: string) => void>(() => {
+      state.currentHoveredElement = null
+    })
     state.pickerModeActive = true
     state.selectorCandidates = ['//li[1]', '//li']
     state.selectedCandidateIndex = 1
@@ -658,11 +661,33 @@ describe('handlePickerClick', () => {
   })
 
   it('takes the hovered element when the press and release landed on different elements', async () => {
-    state.currentHoveredElement = document.querySelector('#first')
+    document.body.innerHTML = '<ul><li id="first">a</li><li id="second" data-id="7">b</li></ul>'
+    state.currentHoveredElement = document.querySelector('#second')
 
     await click([document.querySelector('ul')!]).result
 
+    expect(storedSelection()?.elementDetails?.html).toBe('<li id="second" data-id="7">b</li>')
+    expect(storedConfig()?.columns).toContainEqual({ name: 'data-id', selector: '@data-id' })
+  })
+
+  it('takes the hovered element when a drag across the page released on it', async () => {
+    state.currentHoveredElement = document.querySelector('#first')
+
+    await click([document.body]).result
+
     expect(storedSelection()?.elementDetails?.html).toBe('<li id="first">a</li>')
+  })
+
+  it.each([
+    ['the body', () => document.body],
+    ['the root element', () => document.documentElement],
+  ])('stays on when nothing hovered lies under a click on %s', async (_, target) => {
+    const { event, result } = click([target()])
+    await result
+
+    expect(event.preventDefault).toHaveBeenCalled()
+    expect(disable).not.toHaveBeenCalled()
+    expect(sendMessage).not.toHaveBeenCalled()
   })
 
   it('takes the event target when it does not contain the hovered element', async () => {
