@@ -266,6 +266,14 @@ describe('ConfigForm', () => {
       expect(byText('Validate selector')).toBeTruthy()
     })
 
+    it('still offers to scrape when the edit only adds surrounding whitespace', async () => {
+      view = await render()
+
+      fireEvent.change(mainSelectorInput(), { target: { value: ' //tr ' } })
+
+      expect(byText('Scrape')).toBeTruthy()
+    })
+
     describe('once the selector has been edited', () => {
       /**
        * Press the action button the way a pointer does: the press blurs the

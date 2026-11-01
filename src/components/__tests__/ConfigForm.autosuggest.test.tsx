@@ -773,6 +773,25 @@ describe('the autosuggest dropdown', () => {
       expect(onChange).not.toHaveBeenCalled()
     })
 
+    it('scrapes a validated selector that was committed with surrounding whitespace', async () => {
+      const onScrape = vi.fn()
+      const onChange = vi.fn()
+      view = await render({
+        presets: [],
+        onScrape,
+        onChange,
+        config: { ...config, mainSelector: ' //tr' },
+      })
+      await focusField()
+
+      await press('Enter')
+      await act(() => mainSelectorInput().blur())
+      await letTheBlurCommitFallDue()
+
+      expect(onScrape).toHaveBeenCalledTimes(1)
+      expect(onChange).not.toHaveBeenCalled()
+    })
+
     it('still commits on a later blur after a suggestion click and an Enter', async () => {
       const onChange = vi.fn()
       await setRecentMainSelectors(['//span'])

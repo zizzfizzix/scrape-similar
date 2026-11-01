@@ -170,7 +170,8 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
   const beginAdornmentRef = useRef<HTMLDivElement>(null)
 
   // Derived flags
-  const hasUncommittedChanges = mainSelectorDraft !== config.mainSelector
+  // Commits trim, so surrounding whitespace on either side is not a change.
+  const hasUncommittedChanges = mainSelectorDraft.trim() !== config.mainSelector.trim()
 
   // Show highlight/error badges only when a non-empty selector is committed
   const isMainSelectorValid = isMainSelectorValidated({
@@ -254,7 +255,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
     const value = draft.trim()
     setMainSelectorDraft(value)
     const latest = latestConfigRef.current
-    if (value !== latest.mainSelector) {
+    if (value !== latest.mainSelector.trim()) {
       onChange({ ...latest, mainSelector: value })
     }
     if (value) {
@@ -571,15 +572,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
       const value = mainSelectorDraft.trim()
       if (!value) return
 
-      // Decided before any storage I/O, so typing, blurring or another Enter
-      // in the meantime cannot change what this keypress does.
-      const isValueValidated = isMainSelectorValidated({
-        mainSelector: value,
-        hasUncommittedChanges: value !== config.mainSelector,
-        highlightMatchCount,
-        highlightError,
-      })
-      if (isValueValidated) {
+      if (isMainSelectorValid) {
         setMainSelectorDraft(value)
         onScrape()
       } else {
