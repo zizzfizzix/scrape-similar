@@ -150,9 +150,10 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
     // page never mounts a panel first.
     const activate = (tabId: number) => {
       browser.tabs.get(tabId, (tab) => {
+        // A tab that cannot be read has usually just closed, and showing it
+        // would bring back the panel `onRemoved` dropped.
         if (browser.runtime.lastError) {
           log.error('Error getting tab info:', browser.runtime.lastError)
-          dispatch({ type: 'activated', tabId, url: null })
         } else {
           dispatch({ type: 'activated', tabId, url: tab.url || '' })
         }
@@ -292,7 +293,8 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
     })
   }
 
-  const tabUrl = activeTabId === null ? null : (tabUrls.get(activeTabId) ?? null)
+  // The active tab and every live one were shown, so their URLs are known.
+  const tabUrl = activeTabId === null ? null : tabUrls.get(activeTabId)!
   const view = getTabView(tabUrl)
 
   const handleDeletePresetReported = useCallback(
@@ -328,7 +330,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
               key={tabId}
               mode={tabId === activeTabId && view === 'panel' ? 'visible' : 'hidden'}
             >
-              <TabPanel tabId={tabId} tabUrl={tabUrls.get(tabId) ?? null} {...tabPanelProps} />
+              <TabPanel tabId={tabId} tabUrl={tabUrls.get(tabId)!} {...tabPanelProps} />
             </Activity>
           ))}
       </ConsentWrapper>

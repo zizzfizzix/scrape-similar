@@ -196,16 +196,18 @@ describe('following the active tab', () => {
     await waitFor(() => expect(mainSelectorInput().value).toBe(''))
   })
 
-  it('forgets the URL when the new tab cannot be read', async () => {
+  it('stays on its tab when the activated one cannot be read, as a just-closed tab cannot', async () => {
     const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
+    await attachToTab(PAGE_URL, { currentScrapeConfig: config })
     view = await render()
+    await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
     tabsGetReplies({}, { message: 'No tab with id 7' })
 
     await activateTab(OTHER_TAB_ID)
 
-    await waitFor(() =>
-      expect(errorSpy).toHaveBeenCalledWith('Error getting tab info:', expect.anything()),
-    )
+    expect(errorSpy).toHaveBeenCalledWith('Error getting tab info:', expect.anything())
+    expect(allMainSelectorInputs()).toHaveLength(1)
+    expect(mainSelectorInput().value).toBe('//tr')
   })
 
   it('follows a URL change in the tab it is attached to', async () => {
@@ -1094,6 +1096,20 @@ describe('one panel per tab', () => {
     await navigate(PAGE_URL)
 
     await waitFor(() => expect(mainSelectorInput().value).toBe('//li'))
+  })
+
+  it('closes the suggestions of a tab hidden mid-edit', async () => {
+    view = await render()
+    await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
+    act(() => mainSelectorInput().focus())
+    const shownSuggestions = () =>
+      [...view.container.querySelectorAll('[cmdk-root]')].filter(isShown)
+    await waitFor(() => expect(shownSuggestions()).toHaveLength(1))
+
+    await switchTo(OTHER_TAB_ID)
+    await switchTo(TAB_ID)
+
+    expect(shownSuggestions()).toHaveLength(0)
   })
 
   it('drops a blur commit still pending when its tab is hidden', async () => {

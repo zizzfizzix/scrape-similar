@@ -15,7 +15,7 @@ const SETTINGS = 'chrome://settings'
 const run = (...actions: TabPanelsAction[]): TabPanelsState =>
   actions.reduce(tabPanelsReducer, INITIAL_TAB_PANELS_STATE)
 
-const activated = (tabId: number, url: string | null): TabPanelsAction => ({
+const activated = (tabId: number, url: string): TabPanelsAction => ({
   type: 'activated',
   tabId,
   url,
@@ -27,7 +27,7 @@ const navigated = (tabId: number, url: string): TabPanelsAction => ({
 })
 
 describe('getTabView', () => {
-  it('gives the panel to a tab whose URL is unknown', () => {
+  it('gives the panel when there is no tab yet', () => {
     expect(getTabView(null)).toBe('panel')
   })
 
@@ -54,19 +54,6 @@ describe('tabPanelsReducer', () => {
 
     expect(state.liveTabIds).toEqual([1])
     expect(state.tabUrls.get(1)).toBe(SETTINGS)
-  })
-
-  it('keeps the known URL of a tab that could not be read again', () => {
-    expect(run(activated(1, SETTINGS), activated(2, PAGE), activated(1, null)).tabUrls.get(1)).toBe(
-      SETTINGS,
-    )
-  })
-
-  it('records an unreadable URL for a tab it has not seen', () => {
-    const state = run(activated(1, null))
-
-    expect(state.tabUrls.get(1)).toBeNull()
-    expect(state.liveTabIds).toEqual([1])
   })
 
   it('evicts the least recently shown panel past the cap', () => {
@@ -107,5 +94,8 @@ describe('tabPanelsReducer', () => {
     expect(state.liveTabIds).toEqual([2])
     expect(state.tabUrls.has(1)).toBe(false)
     expect(state.activeTabId).toBe(2)
+  })
+  it('leaves no active tab when the active one closes', () => {
+    expect(run(activated(1, PAGE), { type: 'removed', tabId: 1 }).activeTabId).toBeNull()
   })
 })

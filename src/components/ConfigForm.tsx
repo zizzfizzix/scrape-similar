@@ -72,7 +72,6 @@ interface ConfigFormProps {
   onHighlight: (selector: string) => void
   onPickerMode: () => void
   isLoading: boolean
-  initialOptions: SelectionOptions | null
   presets: Preset[]
   onLoadPreset: (preset: Preset) => void
   onSavePreset: (name: string) => Promise<void>
@@ -268,7 +267,15 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
    */
   const blurCommitTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
-  useEffect(() => () => clearTimeout(blurCommitTimerRef.current), [])
+  // Also runs when a side panel tab is hidden, which drops the blur that would
+  // have closed the suggestions.
+  useEffect(
+    () => () => {
+      clearTimeout(blurCommitTimerRef.current)
+      setIsAutosuggestOpen(false)
+    },
+    [],
+  )
 
   const commitMainSelector = (draft: string) => {
     // A blur commit still pending holds the draft from before this commit.

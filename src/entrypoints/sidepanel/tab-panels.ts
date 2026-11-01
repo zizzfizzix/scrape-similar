@@ -4,7 +4,7 @@ import { chromeExtensionId } from '@@/package.json' with { type: 'json' }
 
 export type TabView = 'panel' | 'full-data-view' | 'unsupported'
 
-/** An unknown URL gets the panel, so a tab that cannot be read still shows the form. */
+/** No tab at all (`null`) gets the panel, so the form shows before a tab is resolved. */
 export const getTabView = (tabUrl: string | null): TabView => {
   if (tabUrl?.startsWith(`chrome-extension://${chromeExtensionId}/full-data-view.html`)) {
     return 'full-data-view'
@@ -20,13 +20,11 @@ export interface TabPanelsState {
    * pages, so leaving and coming back does not lose its unsaved state.
    */
   liveTabIds: readonly number[]
-  /** `null` for a tab whose URL could not be read. */
-  tabUrls: ReadonlyMap<number, string | null>
+  tabUrls: ReadonlyMap<number, string>
 }
 
 export type TabPanelsAction =
-  /** `url` is `null` when the tab could not be read; a known URL is kept then. */
-  | { type: 'activated'; tabId: number; url: string | null }
+  | { type: 'activated'; tabId: number; url: string }
   | { type: 'navigated'; tabId: number; url: string }
   | { type: 'removed'; tabId: number }
 
@@ -36,17 +34,14 @@ export const INITIAL_TAB_PANELS_STATE: TabPanelsState = {
   tabUrls: new Map(),
 }
 
-const show = (state: TabPanelsState, tabId: number, url: string | null): TabPanelsState => {
-  const tabUrls = new Map(state.tabUrls)
-  if (url !== null || !tabUrls.has(tabId)) tabUrls.set(tabId, url)
-  const isLive =
-    getTabView(tabUrls.get(tabId) ?? null) === 'panel' || state.liveTabIds.includes(tabId)
+const show = (state: TabPanelsState, tabId: number, url: string): TabPanelsState => {
+  const isLive = getTabView(url) === 'panel' || state.liveTabIds.includes(tabId)
   return {
     activeTabId: tabId,
     liveTabIds: isLive
       ? touchLiveTab(state.liveTabIds, tabId, LIVE_TAB_PANEL_CAP)
       : state.liveTabIds,
-    tabUrls,
+    tabUrls: new Map(state.tabUrls).set(tabId, url),
   }
 }
 
@@ -68,7 +63,8 @@ export const tabPanelsReducer = (
       return { ...state, tabUrls: new Map(state.tabUrls).set(action.tabId, action.url) }
     case 'removed':
       return {
-        activeTabId: state.activeTabId,
+        // Until the next activation, a closed active tab leaves no tab to show.
+        activeTabId: state.activeTabId === action.tabId ? null : state.activeTabId,
         liveTabIds: state.liveTabIds.filter((id) => id !== action.tabId),
         tabUrls: new Map([...state.tabUrls].filter(([id]) => id !== action.tabId)),
       }

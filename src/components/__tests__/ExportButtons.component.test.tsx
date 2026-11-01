@@ -11,6 +11,7 @@ import {
   screen,
   type RenderResult,
 } from '@testing-library/react'
+import { Activity } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 
@@ -433,6 +434,33 @@ describe('ExportButtons', () => {
         'Exported to Google Sheets',
         expect.anything(),
       )
+      vi.useRealTimers()
+    })
+
+    it('still gives up after being hidden and shown again mid-export', async () => {
+      vi.useFakeTimers()
+      spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockImplementation(
+        () => new Promise(() => {}),
+      )
+      const inPanel = (mode: 'visible' | 'hidden') => (
+        <Activity mode={mode}>
+          <ExportButtons scrapeResult={scrapeResult} config={config} showEmptyRows={false} />
+        </Activity>
+      )
+      view = renderComponent(inPanel('visible'))
+      await choose('Export all to Google Sheets')
+
+      view.rerender(inPanel('hidden'))
+      await act(() => {
+        vi.advanceTimersByTime(SHEETS_EXPORT_TIMEOUT_MS)
+      })
+      expect(toastMocks.toast.error).not.toHaveBeenCalled()
+      view.rerender(inPanel('visible'))
+      await act(() => {
+        vi.advanceTimersByTime(SHEETS_EXPORT_TIMEOUT_MS)
+      })
+
+      expect(toastMocks.toast.error).toHaveBeenCalledWith('Export timed out - please try again')
       vi.useRealTimers()
     })
 

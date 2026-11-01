@@ -1,3 +1,4 @@
+import { useShownToast } from '@/hooks/use-shown-toast'
 import { isSelectorAPreset } from '@/utils/autosuggest'
 import { reportRejection } from '@/utils/report-rejection'
 import {
@@ -10,7 +11,6 @@ import {
 } from '@/utils/sidepanel-state'
 import log from 'loglevel'
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
-import { toast } from 'sonner'
 
 export const CONTENT_SCRIPT_UNREACHABLE =
   'Could not connect to the content script. Please reload the page or ensure the extension is enabled for this site.'
@@ -39,7 +39,6 @@ export const TabPanel = memo(function TabPanel({
   onSavePreset,
   onDeletePreset,
 }: TabPanelProps) {
-  const [initialOptions, setInitialOptions] = useState<SelectionOptions | null>(null)
   const [config, setConfig] = useState<ScrapeConfig>(DEFAULT_SCRAPE_CONFIG)
   const [scrapeResult, setScrapeResult] = useState<ScrapeResult | null>(null)
   const [resultProducingConfig, setResultProducingConfig] = useState<ScrapeConfig | null>(null)
@@ -52,18 +51,18 @@ export const TabPanel = memo(function TabPanel({
   const [highlightError, setHighlightError] = useState<string | undefined>(undefined)
   const [shouldShowEmptyRows, setShouldShowEmptyRows] = useState(false)
   const [isPickerModeActive, setIsPickerModeActive] = useState(false)
+  const notify = useShownToast()
 
   const buildFilename = useCallback((now: Date) => buildExportFilename(tabUrl, now), [tabUrl])
 
   const applyStoredState = useCallback(
     (stored: SidePanelConfig) => {
       log.debug(`Applying stored state for tab ${tabId}:`, stored)
-      const { config: storedConfig, options } = resolveStoredConfig(stored)
+      const storedConfig = resolveStoredConfig(stored)
       // Showing a hidden panel re-reads its storage, which nearly always holds
       // what is already on screen; keeping the same references lets React skip
       // re-rendering the form and the table.
       setConfig((previous) => reuseIfEqual(previous, storedConfig))
-      setInitialOptions((previous) => reuseIfEqual(previous, options))
 
       const storedResult = stored.scrapeResult
       if (storedResult) {
@@ -141,12 +140,12 @@ export const TabPanel = memo(function TabPanel({
       (response) => {
         setIsScraping(false)
         if (!response && browser.runtime.lastError) {
-          toast.error(CONTENT_SCRIPT_UNREACHABLE)
+          notify.error(CONTENT_SCRIPT_UNREACHABLE)
           setLastScrapeRowCount(null)
           return
         }
         if (response?.error) {
-          toast.error(response.error)
+          notify.error(response.error)
           setLastScrapeRowCount(null)
           log.error('Error during scrape:', response.error)
           return
@@ -186,7 +185,7 @@ export const TabPanel = memo(function TabPanel({
       { type: MESSAGE_TYPES.HIGHLIGHT_ELEMENTS, payload: { selector } },
       (response) => {
         if (!response && browser.runtime.lastError) {
-          toast.error(CONTENT_SCRIPT_UNREACHABLE)
+          notify.error(CONTENT_SCRIPT_UNREACHABLE)
           return
         }
 
@@ -219,7 +218,7 @@ export const TabPanel = memo(function TabPanel({
       { type: MESSAGE_TYPES.HIGHLIGHT_ROW_ELEMENT, payload: { selector } },
       (response) => {
         if (!response && browser.runtime.lastError) {
-          toast.error(CONTENT_SCRIPT_UNREACHABLE)
+          notify.error(CONTENT_SCRIPT_UNREACHABLE)
         }
       },
     )
@@ -232,7 +231,7 @@ export const TabPanel = memo(function TabPanel({
       { type: MESSAGE_TYPES.TOGGLE_PICKER_MODE, payload: { source: ANALYTICS_SOURCES.BUTTON } },
       (response) => {
         if (!response && browser.runtime.lastError) {
-          toast.error(CONTENT_SCRIPT_UNREACHABLE)
+          notify.error(CONTENT_SCRIPT_UNREACHABLE)
         } else if (response && response.success) {
           log.debug('Picker mode toggled successfully')
         }
@@ -264,7 +263,6 @@ export const TabPanel = memo(function TabPanel({
           onHighlight={handleHighlight}
           onPickerMode={handlePickerMode}
           isLoading={isScraping}
-          initialOptions={initialOptions}
           presets={presets}
           onLoadPreset={handleLoadPreset}
           onSavePreset={(name) => onSavePreset(config, name)}

@@ -48,7 +48,6 @@ const baseProps = (): ConfigFormProps => ({
   onHighlight: () => {},
   onPickerMode: () => {},
   isLoading: false,
-  initialOptions: null,
   presets: [],
   onLoadPreset: () => {},
   onSavePreset: async () => {},

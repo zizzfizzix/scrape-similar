@@ -1,7 +1,6 @@
 import {
   buildConfigChangeUpdates,
   buildExportFilename,
-  createDefaultSidePanelState,
   DEFAULT_SCRAPE_CONFIG,
   hasConfigDrifted,
   isMainSelectorValidated,
@@ -144,22 +143,6 @@ describe('buildExportFilename', () => {
   })
 })
 
-describe('createDefaultSidePanelState', () => {
-  it('clears every field the panel restores from', () => {
-    expect(createDefaultSidePanelState()).toEqual({
-      initialSelectionText: undefined,
-      elementDetails: undefined,
-      selectionOptions: undefined,
-      currentScrapeConfig: undefined,
-      scrapeResult: undefined,
-    })
-  })
-
-  it('returns a fresh object each time', () => {
-    expect(createDefaultSidePanelState()).not.toBe(createDefaultSidePanelState())
-  })
-})
-
 describe('resolveStoredConfig', () => {
   const storedConfig: ScrapeConfig = {
     mainSelector: '//tr',
@@ -167,17 +150,17 @@ describe('resolveStoredConfig', () => {
   }
 
   it('starts blank when nothing is stored', () => {
-    expect(resolveStoredConfig({})).toEqual({ config: DEFAULT_SCRAPE_CONFIG, options: null })
+    expect(resolveStoredConfig({})).toEqual(DEFAULT_SCRAPE_CONFIG)
   })
 
   it('uses the stored config as-is', () => {
-    expect(resolveStoredConfig({ currentScrapeConfig: storedConfig }).config).toEqual(storedConfig)
+    expect(resolveStoredConfig({ currentScrapeConfig: storedConfig })).toEqual(storedConfig)
   })
 
   it('keeps the default columns when the stored config has none', () => {
     const config = resolveStoredConfig({
       currentScrapeConfig: { mainSelector: '//tr', columns: [] },
-    }).config
+    })
 
     expect(config).toEqual({ mainSelector: '//tr', columns: DEFAULT_SCRAPE_CONFIG.columns })
   })
@@ -185,7 +168,7 @@ describe('resolveStoredConfig', () => {
   it('keeps the default columns when the stored config’s columns are not a list', () => {
     const config = resolveStoredConfig({
       currentScrapeConfig: { mainSelector: '//tr' } as ScrapeConfig,
-    }).config
+    })
 
     expect(config.columns).toEqual(DEFAULT_SCRAPE_CONFIG.columns)
   })
@@ -193,7 +176,7 @@ describe('resolveStoredConfig', () => {
   it('seeds the selector from a right-clicked element when nothing is stored', () => {
     const config = resolveStoredConfig({
       elementDetails: { xpath: '/html/body/ul/li', text: 'a' },
-    }).config
+    })
 
     expect(config).toEqual({ ...DEFAULT_SCRAPE_CONFIG, mainSelector: '/html/body/ul/li' })
   })
@@ -202,7 +185,7 @@ describe('resolveStoredConfig', () => {
     const config = resolveStoredConfig({
       currentScrapeConfig: storedConfig,
       elementDetails: { xpath: '/html/body/ul/li', text: 'a' },
-    }).config
+    })
 
     expect(config.mainSelector).toBe('//tr')
   })
@@ -210,34 +193,9 @@ describe('resolveStoredConfig', () => {
   it('ignores element details with no xpath', () => {
     const config = resolveStoredConfig({
       elementDetails: { xpath: '' } as { xpath: string },
-    }).config
+    })
 
     expect(config).toEqual(DEFAULT_SCRAPE_CONFIG)
-  })
-
-  it('uses the stored selection options when present', () => {
-    const selectionOptions = { xpath: '//a', selectedText: 'link' }
-
-    expect(resolveStoredConfig({ selectionOptions }).options).toBe(selectionOptions)
-  })
-
-  it('builds selection options from a right-clicked element', () => {
-    expect(
-      resolveStoredConfig({ elementDetails: { xpath: '//li', text: 'first' } }).options,
-    ).toEqual({ xpath: '//li', selectedText: 'first' })
-  })
-
-  it('prefers the recorded selection text over the element text', () => {
-    expect(
-      resolveStoredConfig({
-        elementDetails: { xpath: '//li', text: 'element text' },
-        initialSelectionText: 'what the user highlighted',
-      }).options,
-    ).toEqual({ xpath: '//li', selectedText: 'what the user highlighted' })
-  })
-
-  it('reports no selection when nothing describes one', () => {
-    expect(resolveStoredConfig({ currentScrapeConfig: storedConfig }).options).toBeNull()
   })
 })
 
@@ -381,6 +339,12 @@ describe('reuseIfEqual', () => {
     const next = {}
 
     expect(reuseIfEqual<unknown>([], next)).toBe(next)
+  })
+
+  it('tells arrays of different lengths apart even when the extra entry is undefined', () => {
+    const next = ['a']
+
+    expect(reuseIfEqual<(string | undefined)[]>(['a', undefined], next)).toBe(next)
   })
 
   it('tells null from an object', () => {
