@@ -1,6 +1,7 @@
 // Analytics utility for tracking events with environment property
 // Can be used in background scripts, content scripts, and UI contexts
 
+import { reportRejection } from '@/utils/report-rejection'
 import { version } from '@@/package.json' with { type: 'json' }
 import { Mutex } from 'async-mutex'
 import log from 'loglevel'
@@ -215,11 +216,9 @@ export const captureEvent = async (
 }
 
 /**
- * `captureEvent` reports every failure it can see through `log` and resolves
- * either way, so a caller has nothing to await and nothing to handle. The
- * `void` return says so, rather than leaving every call site to discard a
- * promise that cannot reject.
+ * Fire-and-forget form of `captureEvent`, which logs its own failures, so
+ * callers have nothing to await.
  */
 export const trackEvent = (eventName: string, properties: Record<string, any> = {}): void => {
-  void captureEvent(eventName, properties)
+  reportRejection(captureEvent(eventName, properties))
 }

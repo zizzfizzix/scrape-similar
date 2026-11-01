@@ -1,4 +1,3 @@
-import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 // @vitest-environment jsdom
 import { ConsentProvider } from '@/components/consent-provider'
 import { ThemeProvider } from '@/components/theme-provider'
@@ -12,6 +11,7 @@ import {
   type SidePanelConfig,
 } from '@/utils/types'
 import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
+import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 import {
   type RenderResult,
   act,

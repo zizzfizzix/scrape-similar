@@ -1,6 +1,6 @@
-import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 // @vitest-environment jsdom
 import { ANALYTICS_CONSENT_STORAGE_KEY } from '@/utils/consent'
+import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 import { type RenderResult, act, render as renderComponent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import log from 'loglevel'

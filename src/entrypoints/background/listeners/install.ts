@@ -58,9 +58,7 @@ export const initializeUninstallUrl = async (): Promise<void> => {
   storage.watch<DistinctId>(DISTINCT_ID_KEY, (distinctId) => {
     log.debug('distinct_id changed in storage, updating uninstall URL')
     // Pass the distinctId from the watcher to avoid redundant storage read.
-    // `setupUninstallUrl` logs and swallows its own failures, so there is no
-    // rejection to attach a handler to.
-    void setupUninstallUrl(distinctId)
+    reportRejection(setupUninstallUrl(distinctId))
   })
 }
 

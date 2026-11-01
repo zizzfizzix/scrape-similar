@@ -13,9 +13,7 @@ describe('reportRejection', () => {
 
     expect(reportRejection(Promise.reject(failure))).toBeUndefined()
 
-    await vi.waitFor(() =>
-      expect(errorSpy).toHaveBeenCalledWith('Unhandled rejection in an unawaited task:', failure),
-    )
+    await vi.waitFor(() => expect(errorSpy).toHaveBeenCalledWith('Unawaited task failed:', failure))
   })
 
   it('says nothing about a task that resolves', async () => {
@@ -48,8 +46,6 @@ describe('reportingListener', () => {
       throw failure
     })()
 
-    await vi.waitFor(() =>
-      expect(errorSpy).toHaveBeenCalledWith('Unhandled rejection in an unawaited task:', failure),
-    )
+    await vi.waitFor(() => expect(errorSpy).toHaveBeenCalledWith('Unawaited task failed:', failure))
   })
 })

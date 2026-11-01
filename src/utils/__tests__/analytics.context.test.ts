@@ -85,19 +85,6 @@ describe('captureEvent – context specific behaviour', () => {
     expect(capturedProps.baz).toBe('qux')
   })
 
-  it('sends a message from content-script context', async () => {
-    currentContext = contextDetection.EXTENSION_CONTEXTS.CONTENT_SCRIPT
-    const sendMessageSpy = vi.spyOn(browser.runtime, 'sendMessage')
-
-    await captureEvent(EVENT_NAME, { alpha: 1 })
-
-    expect(sendMessageSpy).toHaveBeenCalledTimes(1)
-    const [{ type, payload }] = sendMessageSpy.mock.calls[0] as any[]
-    expect(type).toBeDefined()
-    expect(payload.eventName).toBe(EVENT_NAME)
-    expect(payload.properties.alpha).toBe(1)
-  })
-
   it('retains existing extension_context in properties', async () => {
     currentContext = contextDetection.EXTENSION_CONTEXTS.BACKGROUND
     const captureSpy = vi.fn()
@@ -121,7 +108,7 @@ describe('captureEvent – context specific behaviour', () => {
     expect(await getQueuedEvent()).toBeUndefined()
   })
 
-  it('hands the event to the background from content-script context', async () => {
+  it('sends a message from content-script context', async () => {
     currentContext = contextDetection.EXTENSION_CONTEXTS.CONTENT_SCRIPT
     const sendMessage = vi.spyOn(browser.runtime, 'sendMessage').mockResolvedValue(undefined)
 

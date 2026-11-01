@@ -29,7 +29,7 @@ vi.mock('@/utils/modeTest', () => ({
 }))
 
 const pickerMocks = vi.hoisted(() => ({
-  enablePickerMode: vi.fn(),
+  enablePickerMode: vi.fn().mockResolvedValue(undefined),
   disablePickerMode: vi.fn(),
 }))
 vi.mock('@/entrypoints/content/picker', async (importOriginal) => ({
@@ -39,8 +39,8 @@ vi.mock('@/entrypoints/content/picker', async (importOriginal) => ({
 
 const ctx = {} as ContentScriptContext
 
-/** Deliver a message to every registered `runtime.onMessage` listener. */
 /**
+ * Delivers a message to every registered `runtime.onMessage` listener.
  * `trigger` resolves as soon as every listener has been called, handing back
  * what each returned — so an async listener is still running inside the array
  * it resolves to. Settling those too is what makes `await broadcast(...)` mean
@@ -307,9 +307,12 @@ describe('startContentScript', () => {
 
   it('opens and closes the picker on request', async () => {
     startContentScript(ctx)
+    const sendResponse = vi.fn()
 
-    await broadcast({ type: MESSAGE_TYPES.ENABLE_PICKER_MODE })
+    await broadcast({ type: MESSAGE_TYPES.ENABLE_PICKER_MODE }, sendResponse)
     await broadcast({ type: MESSAGE_TYPES.DISABLE_PICKER_MODE })
+
+    expect(sendResponse).toHaveBeenCalledWith({ success: true, message: 'Picker mode enabled' })
 
     expect(pickerMocks.enablePickerMode).toHaveBeenCalledWith(
       ctx,

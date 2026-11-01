@@ -1,4 +1,3 @@
-import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 // @vitest-environment jsdom
 import { ConsentProvider } from '@/components/consent-provider'
 import { Settings } from '@/components/Settings'
@@ -9,6 +8,7 @@ import { ANALYTICS_CONSENT_STORAGE_KEY } from '@/utils/consent'
 import { HIDDEN_UNLOCK_WINDOW_MS, PRESET_EXPORT_FILENAME } from '@/utils/preset-transfer'
 import { getPresets, setPresets, userPresetsStorage } from '@/utils/storage'
 import { SYSTEM_PRESET_STATUS_KEY, type Preset } from '@/utils/types'
+import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 import { act, render as renderComponent, type RenderResult } from '@testing-library/react'
 import userEventBase from '@testing-library/user-event'
 import log from 'loglevel'

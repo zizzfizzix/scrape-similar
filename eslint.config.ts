@@ -138,12 +138,12 @@ const BOOLEAN_PREFIX: Linter.RulesRecord = {
 }
 
 /**
- * The pair type-aware linting was switched on for in #7, and cleaned up in
- * #277. Neither ships in `tseslint.configs.recommended`, so both are named
- * here rather than simply dropped from DEFERRED.
+ * Neither ships in `tseslint.configs.recommended`, so both are enabled here.
  */
 const PROMISE_RULES: Linter.RulesRecord = {
-  '@typescript-eslint/no-floating-promises': 'error',
+  // `void task` drops the rejection as surely as no handler at all; an
+  // unawaited promise goes through `reportRejection` instead.
+  '@typescript-eslint/no-floating-promises': ['error', { ignoreVoid: false }],
   // Every option on, `checksVoidReturn.attributes` included. An async
   // `onClick` looks idiomatic, and would be if the alternative were
   // `onClick={() => void handle()}` — the same dropped rejection, more syntax.
@@ -284,6 +284,9 @@ export default defineConfig([
       // `async ({}, use)` is how Playwright declares a fixture that depends on
       // no other fixture.
       'no-empty-pattern': 'off',
+      // Callbacks passed to `evaluate` run in the browser and cannot import
+      // `reportRejection`.
+      '@typescript-eslint/no-floating-promises': ['error', { ignoreVoid: true }],
     },
   },
 

@@ -1,6 +1,6 @@
-import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 // @vitest-environment jsdom
 import { ThemeProvider, useTheme } from '@/components/theme-provider'
+import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 import { act, render as renderComponent, waitFor, type RenderResult } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'

@@ -1,4 +1,3 @@
-import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 // @vitest-environment jsdom
 import { ConsentProvider } from '@/components/consent-provider'
 import { ThemeProvider } from '@/components/theme-provider'
@@ -6,6 +5,7 @@ import { FullDataViewApp } from '@/entrypoints/full-data-view/FullDataViewApp'
 import { ANALYTICS_CONSENT_STORAGE_KEY } from '@/utils/consent'
 import type { ScrapeConfig, ScrapedRow, SidePanelConfig } from '@/utils/types'
 import { spyOnBrowser } from '@@/tests/support/fake-browser'
+import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 import { type RenderResult, act, render as renderComponent, waitFor } from '@testing-library/react'
 import log from 'loglevel'
 import { beforeEach, describe, expect, it, vi } from 'vitest'

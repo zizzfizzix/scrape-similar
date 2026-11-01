@@ -1,19 +1,14 @@
 import log from 'loglevel'
 
 /**
- * Start an async task from a caller that has no way to await it.
- *
- * `void task` is the other discard `no-floating-promises` accepts, and it loses
- * the rejection — which in a service worker is a console line in a context
- * nobody has a console open on. This is that discard plus the report.
- *
- * Where the callee already logs its own failures and resolves either way, the
- * bare `void` is the more accurate spelling; this would only add a `catch` that
- * can never run, which the coverage gate then reports as dead.
+ * Start an async task from a caller that has no way to await it, and log what
+ * it rejects with. A bare `void task` would drop the rejection, which in a
+ * service worker means nobody sees it; the lint config rejects `void` on a
+ * promise for that reason.
  */
 export const reportRejection = (task: Promise<unknown>): void => {
   task.catch((error: unknown) => {
-    log.error('Unhandled rejection in an unawaited task:', error)
+    log.error('Unawaited task failed:', error)
   })
 }
 

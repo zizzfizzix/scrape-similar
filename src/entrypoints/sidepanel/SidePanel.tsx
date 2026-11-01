@@ -303,10 +303,8 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
 
   // Initialize: load presets, listen for messages, AND listen for tab activation
   useEffect(() => {
-    // Load presets (system + user, respecting status). `getAllPresets` reports
-    // its own storage failures and falls back to an empty list, so there is no
-    // rejection to catch.
-    void getAllPresets().then(setPresets)
+    // Load presets (system + user, respecting status).
+    reportRejection(getAllPresets().then(setPresets))
 
     // Listen for tab activation
     const tabActivationListener = (activeInfo: { tabId: number; previousTabId?: number }) => {
@@ -413,13 +411,13 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
     const unwatchUserPresets = storage.watch<Preset[]>(
       `sync:${STORAGE_KEYS.USER_PRESETS}` as const,
       () => {
-        void getAllPresets().then(setPresets)
+        reportRejection(getAllPresets().then(setPresets))
       },
     )
     const unwatchSystemPresetStatus = storage.watch<Record<string, boolean>>(
       'sync:system_preset_status' as const,
       () => {
-        void getAllPresets().then(setPresets)
+        reportRejection(getAllPresets().then(setPresets))
       },
     )
     return () => {
@@ -472,18 +470,18 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
           setResultProducingConfig(configAtScrapeTime)
           saveSidePanelState(tabId, { resultProducingConfig: configAtScrapeTime })
           // Persist recent main selector (local only) if it is not a preset selector
-          // `getAllPresets` and `pushRecentMainSelector` both report their own
-          // storage failures and resolve, so there is nothing to catch here.
-          void (async () => {
-            const selectorUsed = configAtScrapeTime.mainSelector.trim()
-            const allPresets = await getAllPresets()
-            const isPresetSelector = allPresets.some(
-              (p) => p.config.mainSelector.trim() === selectorUsed,
-            )
-            if (!isPresetSelector) {
-              await pushRecentMainSelector(selectorUsed)
-            }
-          })()
+          reportRejection(
+            (async () => {
+              const selectorUsed = configAtScrapeTime.mainSelector.trim()
+              const allPresets = await getAllPresets()
+              const isPresetSelector = allPresets.some(
+                (p) => p.config.mainSelector.trim() === selectorUsed,
+              )
+              if (!isPresetSelector) {
+                await pushRecentMainSelector(selectorUsed)
+              }
+            })(),
+          )
         }
         setLastScrapeRowCount(response?.data?.data?.length ?? 0)
       },
@@ -682,7 +680,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
   const resetSystemPresets = () => reportRejection(handleResetSystemPresets())
 
   const handlePresetsImported = useCallback(() => {
-    void getAllPresets().then(setPresets)
+    reportRejection(getAllPresets().then(setPresets))
   }, [])
 
   // Check if the current tab is showing the full data view
