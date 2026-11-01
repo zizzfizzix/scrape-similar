@@ -6,6 +6,7 @@ import {
 } from '@/entrypoints/background/listeners/install'
 import { ANALYTICS_EVENTS } from '@/utils/analytics'
 import { spyOnBrowser } from '@@/tests/support/fake-browser'
+import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 import log from 'loglevel'
 import { beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
@@ -184,10 +185,12 @@ describe('setupInstallListener', () => {
     setupInstallListener()
   })
 
-  const install = (reason: 'install' | 'update') =>
-    fakeBrowser.runtime.onInstalled.trigger({
+  const install = async (reason: 'install' | 'update') => {
+    await fakeBrowser.runtime.onInstalled.trigger({
       reason,
     } as Browser.runtime.InstalledDetails)
+    await flushMicrotasks()
+  }
 
   it('opens onboarding, registers menus and configures the panel on a fresh install', async () => {
     await install('install')
@@ -245,6 +248,7 @@ describe('setupStartupListener', () => {
     await fakeBrowser.tabs.create({ url: 'https://example.com' })
 
     await fakeBrowser.runtime.onStartup.trigger()
+    await flushMicrotasks()
 
     expect(fakeBrowser.scripting.executeScript).toHaveBeenCalledWith({
       target: { tabId: 1 },

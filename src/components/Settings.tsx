@@ -14,6 +14,7 @@ import {
   PRESET_EXPORT_MIME_TYPE,
   readPresetFile,
 } from '@/utils/preset-transfer'
+import { reportRejection } from '@/utils/report-rejection'
 import { getPresets, setPresets } from '@/utils/storage'
 import log from 'loglevel'
 import { Clipboard, Import, Upload } from 'lucide-react'
@@ -85,7 +86,7 @@ export const Settings = React.memo(
         clearTimeout(timerRef.current!)
         timerRef.current = null
 
-        setDebugUnlocked(true)
+        reportRejection(setDebugUnlocked(true))
 
         // Track hidden settings unlocked
         trackEvent(ANALYTICS_EVENTS.HIDDEN_SETTINGS_UNLOCK)
@@ -97,7 +98,7 @@ export const Settings = React.memo(
 
       // Turning debug mode off hides the row again until the next unlock
       if (!checked) {
-        debugUnlockedItem.removeValue()
+        reportRejection(debugUnlockedItem.removeValue())
       }
 
       // Track debug mode toggle
@@ -108,7 +109,7 @@ export const Settings = React.memo(
 
     const handleKeyboardShortcutClick = useCallback(() => {
       const url = 'chrome://extensions/shortcuts#:~:text=Scrape%20Similar'
-      navigator.clipboard.writeText(url)
+      reportRejection(navigator.clipboard.writeText(url))
       window.open('about:blank', '_blank')
 
       // Track keyboard shortcut copied
@@ -192,7 +193,7 @@ export const Settings = React.memo(
     }, [])
 
     const handleAnalyticsToggle = (checked: boolean) => {
-      setConsent(checked)
+      reportRejection(setConsent(checked))
     }
 
     // Generate unique ids for switch components for accessibility
@@ -247,7 +248,7 @@ export const Settings = React.memo(
             type="button"
             variant="outline"
             size="sm"
-            onClick={handleResetSystemPresets}
+            onClick={() => reportRejection(handleResetSystemPresets())}
             aria-labelledby={`${systemPresetsId}-label`}
           >
             Reset
@@ -263,7 +264,7 @@ export const Settings = React.memo(
             accept=".json,application/json"
             className="hidden"
             aria-hidden
-            onChange={handleImportFileChange}
+            onChange={(e) => reportRejection(handleImportFileChange(e))}
           />
           <ButtonGroup aria-label="User presets import and export">
             <Button
@@ -282,7 +283,7 @@ export const Settings = React.memo(
               type="button"
               variant="outline"
               size="sm"
-              onClick={handleExportPresets}
+              onClick={() => reportRejection(handleExportPresets())}
               aria-label="Export user presets"
             >
               <Upload className="mr-1 size-4" />
@@ -315,7 +316,11 @@ export const Settings = React.memo(
                   Cancel
                 </Button>
               </ResponsiveDialog.Close>
-              <Button type="button" variant="destructive" onClick={handleImportConfirm}>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={() => reportRejection(handleImportConfirm())}
+              >
                 Import
               </Button>
             </ResponsiveDialog.Footer>

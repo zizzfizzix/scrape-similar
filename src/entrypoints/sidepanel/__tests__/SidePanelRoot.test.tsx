@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { spyOnBrowser } from '@@/tests/support/fake-browser'
+import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 import { type RenderResult, act, render as renderComponent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import log from 'loglevel'
@@ -28,9 +29,6 @@ const { SidePanelRoot } = await import('@/entrypoints/sidepanel/SidePanelRoot')
 let view: RenderResult
 
 const consentKey = analyticsConsentItem.key
-
-/** Give storage watchers a macrotask to fire. */
-const flushWatchers = (): Promise<void> => new Promise((resolve) => setTimeout(() => resolve(), 0))
 
 const render = () =>
   renderComponent(
@@ -68,7 +66,7 @@ describe('SidePanelRoot', () => {
     const setLevel = vi.spyOn(log, 'setLevel').mockImplementation(() => {})
 
     view = render()
-    await act(flushWatchers)
+    await act(flushMicrotasks)
 
     expect(setLevel).toHaveBeenCalledWith('trace')
   })
@@ -77,7 +75,7 @@ describe('SidePanelRoot', () => {
     const setLevel = vi.spyOn(log, 'setLevel').mockImplementation(() => {})
 
     view = render()
-    await act(flushWatchers)
+    await act(flushMicrotasks)
 
     expect(setLevel).toHaveBeenCalledWith('error')
   })
@@ -87,7 +85,7 @@ describe('SidePanelRoot', () => {
     const setLevel = vi.spyOn(log, 'setLevel').mockImplementation(() => {})
 
     view = render()
-    await act(flushWatchers)
+    await act(flushMicrotasks)
 
     expect(setLevel).toHaveBeenCalledWith('trace')
   })
@@ -100,7 +98,7 @@ describe('SidePanelRoot', () => {
 
     await act(async () => {
       await storage.setItem('local:debugMode', true)
-      await flushWatchers()
+      await flushMicrotasks()
     })
 
     expect(setLevel).toHaveBeenCalledWith('trace')
@@ -115,7 +113,7 @@ describe('SidePanelRoot', () => {
 
     await act(async () => {
       await storage.setItem('local:debugMode', true)
-      await flushWatchers()
+      await flushMicrotasks()
     })
 
     expect(setLevel).not.toHaveBeenCalled()
@@ -124,15 +122,15 @@ describe('SidePanelRoot', () => {
   it('hands the panel a way to write the flag back', async () => {
     await storage.setItem('local:debugMode', true)
     view = render()
-    await act(flushWatchers)
+    await act(flushMicrotasks)
 
     await userEvent.click(
       view.container.querySelector<HTMLButtonElement>('button[aria-label="Settings"]')!,
     )
-    await flushWatchers()
+    await flushMicrotasks()
     await act(async () => {
       debugSwitch().click()
-      await flushWatchers()
+      await flushMicrotasks()
     })
 
     expect(await storage.getItem('local:debugMode')).toBe(false)

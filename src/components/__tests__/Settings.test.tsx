@@ -7,6 +7,7 @@ import { ANALYTICS_EVENTS } from '@/utils/analytics'
 import { HIDDEN_UNLOCK_WINDOW_MS, PRESET_EXPORT_FILENAME } from '@/utils/preset-transfer'
 import { getPresets, setPresets, userPresetsItem } from '@/utils/storage'
 import { type Preset } from '@/utils/types'
+import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 import { act, render as renderComponent, type RenderResult } from '@testing-library/react'
 import userEventBase from '@testing-library/user-event'
 import log from 'loglevel'
@@ -519,7 +520,7 @@ describe('Settings', () => {
 
       await act(async () => {
         await storage.setItem('local:debugMode', true)
-        await new Promise((resolve) => setTimeout(resolve, 0))
+        await flushMicrotasks()
       })
 
       expect(view.container.textContent).toContain('Debug mode')
@@ -530,7 +531,7 @@ describe('Settings', () => {
 
       await act(async () => {
         await storage.setItem('local:debugUnlocked', true)
-        await new Promise((resolve) => setTimeout(resolve, 0))
+        await flushMicrotasks()
       })
 
       expect(view.container.textContent).toContain('Debug mode')

@@ -1,6 +1,7 @@
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { SidePanel } from '@/entrypoints/sidepanel/SidePanel'
 import { useDebugMode } from '@/hooks/use-debug-mode'
+import { reportRejection } from '@/utils/report-rejection'
 import React from 'react'
 
 /**
@@ -15,7 +16,10 @@ export const SidePanelRoot: React.FC = () => {
   return (
     <ThemeProvider>
       <TooltipProvider>
-        <SidePanel debugMode={isDebugModeEnabled} onDebugModeChange={setDebugModeEnabled} />
+        <SidePanel
+          debugMode={isDebugModeEnabled}
+          onDebugModeChange={(enabled) => reportRejection(setDebugModeEnabled(enabled))}
+        />
       </TooltipProvider>
     </ThemeProvider>
   )

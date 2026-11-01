@@ -1,5 +1,6 @@
 import { ANALYTICS_EVENTS, trackEvent } from '@/utils/analytics'
 import type { DistinctId } from '@/utils/distinct-id'
+import { reportingListener, reportRejection } from '@/utils/report-rejection'
 import { initializeStorage } from '@/utils/storage'
 import log from 'loglevel'
 import { injectContentScriptToAllTabs } from '../utils/content-injection'
@@ -56,9 +57,7 @@ export const initializeUninstallUrl = async (): Promise<void> => {
   distinctIdItem.watch((distinctId) => {
     log.debug('distinct_id changed in storage, updating uninstall URL')
     // Pass the distinctId from the watcher to avoid redundant storage read.
-    // `setupUninstallUrl` logs and swallows its own failures, so there is no
-    // rejection to attach a handler to.
-    void setupUninstallUrl(distinctId)
+    reportRejection(setupUninstallUrl(distinctId))
   })
 }
 
@@ -66,54 +65,55 @@ export const initializeUninstallUrl = async (): Promise<void> => {
  * Handle extension installation and updates
  */
 export const setupInstallListener = (): void => {
-  browser.runtime.onInstalled.addListener(async (details: Browser.runtime.InstalledDetails) => {
-    log.debug('Scrape Similar extension installed')
+  browser.runtime.onInstalled.addListener(
+    reportingListener(async (details: Browser.runtime.InstalledDetails) => {
+      log.debug('Scrape Similar extension installed')
 
-    // Initialize storage
-    await initializeStorage()
+      await initializeStorage()
 
-    // Show onboarding on first install (no storage check)
-    if (details.reason === 'install') {
-      try {
-        await browser.tabs.create({
-          url: browser.runtime.getURL('/onboarding.html'),
-          active: true,
-        })
-        log.debug('Opened onboarding page for new installation')
-      } catch (error) {
-        log.error('Error opening onboarding page:', error)
+      // Show onboarding on first install (no storage check)
+      if (details.reason === 'install') {
+        try {
+          await browser.tabs.create({
+            url: browser.runtime.getURL('/onboarding.html'),
+            active: true,
+          })
+          log.debug('Opened onboarding page for new installation')
+        } catch (error) {
+          log.error('Error opening onboarding page:', error)
+        }
       }
-    }
 
-    // Create context menu items
-    initializeContextMenus()
+      initializeContextMenus()
 
-    // Set side panel behavior - make the action icon open/close the sidepanel
-    try {
-      await browser.sidePanel.setPanelBehavior({
-        openPanelOnActionClick: true,
-      })
-      log.debug('Side panel behavior set successfully - action icon will now toggle the panel')
-    } catch (error) {
-      log.error('Error setting side panel behavior:', error)
-    }
+      // Set side panel behavior - make the action icon open/close the sidepanel
+      try {
+        await browser.sidePanel.setPanelBehavior({
+          openPanelOnActionClick: true,
+        })
+        log.debug('Side panel behavior set successfully - action icon will now toggle the panel')
+      } catch (error) {
+        log.error('Error setting side panel behavior:', error)
+      }
 
-    // Inject content script into all tabs on install/update
-    injectContentScriptToAllTabs()
+      // Not awaited, so a failure here cannot cost the install event below.
+      reportRejection(injectContentScriptToAllTabs())
 
-    log.debug('Service worker is running')
+      log.debug('Service worker is running')
 
-    // Track extension installation/update
-    trackEvent(ANALYTICS_EVENTS.EXTENSION_INSTALLATION)
-  })
+      trackEvent(ANALYTICS_EVENTS.EXTENSION_INSTALLATION)
+    }),
+  )
 }
 
 /**
  * Handle browser startup (extension enabled)
  */
 export const setupStartupListener = (): void => {
-  browser.runtime.onStartup.addListener(async () => {
-    injectContentScriptToAllTabs()
-    log.debug('Service worker is running')
-  })
+  browser.runtime.onStartup.addListener(
+    reportingListener(async () => {
+      await injectContentScriptToAllTabs()
+      log.debug('Service worker is running')
+    }),
+  )
 }

@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 import { type RenderResult, act, render as renderComponent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import log from 'loglevel'
@@ -29,9 +30,6 @@ const { TooltipProvider } = await import('@/components/ui/tooltip')
 let view: RenderResult
 
 const consentKey = analyticsConsentItem.key
-
-/** Give storage watchers a macrotask to fire. */
-const flushWatchers = () => new Promise((resolve) => setTimeout(resolve, 0))
 
 /** Render, and let the consent gate's storage read settle before asserting. */
 const render = async () => {
@@ -151,7 +149,7 @@ describe('OptionsApp', () => {
 
     await act(async () => {
       await storage.setItem('local:debugMode', true)
-      await flushWatchers()
+      await flushMicrotasks()
     })
 
     expect(setLevel).toHaveBeenCalledWith('trace')
@@ -165,7 +163,7 @@ describe('OptionsApp', () => {
 
     await act(async () => {
       await storage.setItem('local:debugMode', true)
-      await flushWatchers()
+      await flushMicrotasks()
     })
 
     expect(setLevel).not.toHaveBeenCalled()

@@ -91,7 +91,11 @@ const definePerTab = <Item>(define: (tabId: number) => Item) => {
     }
     return item
   }
-  return Object.assign(get, { forget: (tabId: number) => void items.delete(tabId) })
+  return Object.assign(get, {
+    forget: (tabId: number) => {
+      items.delete(tabId)
+    },
+  })
 }
 
 export const sidePanelConfigItem = /* @__PURE__ */ definePerTab((tabId) =>

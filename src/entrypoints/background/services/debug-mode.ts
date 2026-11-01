@@ -1,4 +1,5 @@
 import { isDevOrTest } from '@/utils/modeTest'
+import { reportingListener } from '@/utils/report-rejection'
 import log from 'loglevel'
 
 /**
@@ -38,10 +39,12 @@ export const initializeDebugMode = async (): Promise<void> => {
   }
 
   // React to debugMode changes
-  debugModeItem.watch((isEnabled) => {
-    if (!isDevOrTest) {
-      log.setLevel(isEnabled ? 'trace' : 'error')
-    }
-    broadcastDebugMode(isEnabled)
-  })
+  debugModeItem.watch(
+    reportingListener(async (isEnabled) => {
+      if (!isDevOrTest) {
+        log.setLevel(isEnabled ? 'trace' : 'error')
+      }
+      await broadcastDebugMode(isEnabled)
+    }),
+  )
 }

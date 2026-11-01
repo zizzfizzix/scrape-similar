@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button'
 import { useMediaQuery } from '@/hooks/use-media-query'
+import { reportRejection } from '@/utils/report-rejection'
 import clsx from 'clsx'
 import { BarChart3, CheckIcon, X } from 'lucide-react'
 import React from 'react'
@@ -62,7 +63,7 @@ export const ConsentCard: React.FC<ConsentCardProps> = ({ onDecision, className 
           <Button
             variant="outline"
             size={isWide ? 'sm' : undefined}
-            onClick={() => handleDecision(false)}
+            onClick={() => reportRejection(handleDecision(false))}
             className={clsx(!isWide && 'flex-1 max-w-32')}
           >
             <X className="h-4 w-4 mr-2" />
@@ -70,7 +71,7 @@ export const ConsentCard: React.FC<ConsentCardProps> = ({ onDecision, className 
           </Button>
           <Button
             size={isWide ? 'sm' : undefined}
-            onClick={() => handleDecision(true)}
+            onClick={() => reportRejection(handleDecision(true))}
             className={clsx(!isWide && 'flex-1 max-w-32')}
           >
             <CheckIcon className="h-4 w-4 mr-2" />

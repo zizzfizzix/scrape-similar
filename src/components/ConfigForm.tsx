@@ -31,6 +31,7 @@ import {
   RECENT_SUGGESTION_PREFIX,
   resolveSuggestion,
 } from '@/utils/autosuggest'
+import { reportRejection } from '@/utils/report-rejection'
 import {
   sanitizeToSingleLine,
   withAddedColumn,
@@ -74,7 +75,7 @@ interface ConfigFormProps {
   initialOptions: SelectionOptions | null
   presets: Preset[]
   onLoadPreset: (preset: Preset) => void
-  onSavePreset: (name: string) => void
+  onSavePreset: (name: string) => Promise<void>
   onDeletePreset: (preset: Preset) => void
   showPresets: boolean
   setShowPresets: React.Dispatch<React.SetStateAction<boolean>>
@@ -560,25 +561,27 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
       }
       if (mainSelectorDraft.trim()) {
         // Save to recents if not a preset, then either validate (if changed) or scrape (if unchanged and valid)
-        ;(async () => {
-          const all = await getAllPresets()
-          if (!isSelectorAPreset(mainSelectorDraft, all)) {
-            await pushRecentMainSelector(mainSelectorDraft)
-          }
-          if (hasUncommittedChanges) {
-            // First Enter after changes: validate selector via highlight
-            commitMainSelector(mainSelectorDraft)
-            mainSelectorInputRef.current?.blur()
-          } else {
-            // No changes: if valid, trigger scrape; otherwise, validate again
-            if (isMainSelectorValid) {
-              onScrape()
-            } else {
+        reportRejection(
+          (async () => {
+            const all = await getAllPresets()
+            if (!isSelectorAPreset(mainSelectorDraft, all)) {
+              await pushRecentMainSelector(mainSelectorDraft)
+            }
+            if (hasUncommittedChanges) {
+              // First Enter after changes: validate selector via highlight
               commitMainSelector(mainSelectorDraft)
               mainSelectorInputRef.current?.blur()
+            } else {
+              // No changes: if valid, trigger scrape; otherwise, validate again
+              if (isMainSelectorValid) {
+                onScrape()
+              } else {
+                commitMainSelector(mainSelectorDraft)
+                mainSelectorInputRef.current?.blur()
+              }
             }
-          }
-        })()
+          })(),
+        )
       }
       return
     }
@@ -735,14 +738,14 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
                   className="ph_hidden"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && presetName.trim()) {
-                      handleSavePreset()
+                      reportRejection(handleSavePreset())
                     }
                   }}
                 />
               </div>
               <DrawerFooter>
                 <Button
-                  onClick={handleSavePreset}
+                  onClick={() => reportRejection(handleSavePreset())}
                   disabled={
                     isSaving ||
                     !presetName.trim() ||
@@ -857,12 +860,15 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
                                   onClick={(e) => {
                                     e.preventDefault()
                                     e.stopPropagation()
-                                    removeRecentMainSelector(selector).then(() => {
-                                      // Keep dropdown open and move focus back to Command root
-                                      requestAnimationFrame(() => {
-                                        commandRef.current?.focus()
-                                      })
-                                    })
+                                    reportRejection(
+                                      (async () => {
+                                        await removeRecentMainSelector(selector)
+                                        // Keep dropdown open and move focus back to Command root
+                                        requestAnimationFrame(() => {
+                                          commandRef.current?.focus()
+                                        })
+                                      })(),
+                                    )
                                   }}
                                 >
                                   <X className="h-3 w-3" />
@@ -1062,7 +1068,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  onClick={handleGuessConfig}
+                  onClick={() => reportRejection(handleGuessConfig())}
                   disabled={guessButtonState === 'generating' || !isMainSelectorValid}
                   aria-label="Auto-generate configuration from selector"
                 >

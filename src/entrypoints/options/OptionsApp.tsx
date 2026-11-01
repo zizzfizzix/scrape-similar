@@ -1,5 +1,6 @@
 import { Toaster } from '@/components/ui/sonner'
 import { useDebugMode } from '@/hooks/use-debug-mode'
+import { reportRejection } from '@/utils/report-rejection'
 import React, { useRef } from 'react'
 
 export const OptionsApp: React.FC = () => {
@@ -25,7 +26,7 @@ export const OptionsApp: React.FC = () => {
                 <Settings
                   ref={settingsRef}
                   debugMode={isDebugModeEnabled}
-                  onDebugModeChange={setDebugModeEnabled}
+                  onDebugModeChange={(enabled) => reportRejection(setDebugModeEnabled(enabled))}
                 />
               </div>
             </div>

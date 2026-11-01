@@ -3,6 +3,7 @@ import { getSessionState } from '@/entrypoints/background/services/session-stora
 import { ANALYTICS_EVENTS } from '@/utils/analytics'
 import type { ScrapeConfig } from '@/utils/types'
 import { spyOnBrowser } from '@@/tests/support/fake-browser'
+import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 import log from 'loglevel'
 import { beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
@@ -20,10 +21,10 @@ const config: ScrapeConfig = {
 }
 
 describe('setupContextMenuListener', () => {
-  let clickMenu: (
+  let dispatchMenuClick: (
     info: Partial<Browser.contextMenus.OnClickData>,
     tab?: Partial<Browser.tabs.Tab>,
-  ) => Promise<void>
+  ) => void
   let sendMessage: MockInstance
   let openSidePanel: MockInstance
 
@@ -35,15 +36,19 @@ describe('setupContextMenuListener', () => {
     // registered handler and invoke it directly.
     spyOnBrowser(fakeBrowser.contextMenus.onClicked, 'addListener').mockImplementation(
       (listener) => {
-        const handler = listener as (
-          info: Partial<Browser.contextMenus.OnClickData>,
-          tab?: Partial<Browser.tabs.Tab>,
-        ) => Promise<void>
-        clickMenu = handler
+        dispatchMenuClick = listener as typeof dispatchMenuClick
       },
     )
     setupContextMenuListener()
   })
+
+  const clickMenu = async (
+    info: Partial<Browser.contextMenus.OnClickData>,
+    tab?: Partial<Browser.tabs.Tab>,
+  ) => {
+    dispatchMenuClick(info, tab)
+    await flushMicrotasks()
+  }
 
   /** Reply to each content-script message type with a canned response. */
   const replyWith = (responses: Record<string, unknown>) => {

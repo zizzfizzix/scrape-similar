@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
 
-import { MAX_QUEUED_EVENTS, queueEvent, trackEvent } from '@/utils/analytics'
+import { captureEvent, MAX_QUEUED_EVENTS, queueEvent } from '@/utils/analytics'
 import * as consent from '@/utils/consent'
 
 const QUEUE_KEY = eventQueueItem.key
@@ -54,11 +54,11 @@ describe('analytics utilities', () => {
     })
   })
 
-  describe('trackEvent', () => {
+  describe('captureEvent', () => {
     it('does not queue or track when consent is declined', async () => {
       vi.spyOn(consent, 'getConsentState').mockResolvedValue(false)
 
-      await trackEvent('declined_event')
+      await captureEvent('declined_event')
 
       const queue = await storage.getItem<any[]>(QUEUE_KEY)
       expect(queue).toBeNull()
@@ -67,7 +67,7 @@ describe('analytics utilities', () => {
     it('queues the event when consent is undefined', async () => {
       vi.spyOn(consent, 'getConsentState').mockResolvedValue(undefined)
 
-      await trackEvent('pending_consent_event', { extra: 'data' })
+      await captureEvent('pending_consent_event', { extra: 'data' })
 
       const queue = await storage.getItem<any[]>(QUEUE_KEY)
       expect(queue).toHaveLength(1)

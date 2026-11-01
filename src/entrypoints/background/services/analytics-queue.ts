@@ -1,5 +1,6 @@
 import { queueMutex } from '@/utils/analytics'
 import { getPostHogBackground, resetPostHogInstance } from '@/utils/posthog-background'
+import { reportingListener } from '@/utils/report-rejection'
 import log from 'loglevel'
 import { PostHog } from 'posthog-js/dist/module.no-external'
 
@@ -84,31 +85,37 @@ export const flushQueuedEvents = async (): Promise<void> => {
  */
 export const initializeAnalyticsQueue = async (): Promise<void> => {
   // On background startup – attempt to init PostHog (if consent) and flush queue
-  await getPostHogBackground().then(flushQueuedEvents)
+  await getPostHogBackground()
+  await flushQueuedEvents()
 
   // Listen for consent changes to (re)initialize PostHog and flush queued events
-  analyticsConsentItem.watch((value) => {
-    const sanitizedConsentState = toConsentState(value)
-    if (sanitizedConsentState === true) {
-      // Consent granted - initialize PostHog and flush queue
-      getPostHogBackground().then(flushQueuedEvents)
-    } else if (sanitizedConsentState === false) {
-      // Consent declined - reset PostHog instance and clear the queue safely
-      resetPostHogInstance()
+  analyticsConsentItem.watch(
+    reportingListener(async (value) => {
+      const sanitizedConsentState = toConsentState(value)
+      if (sanitizedConsentState === true) {
+        // Consent granted - initialize PostHog and flush queue
+        await getPostHogBackground()
+        await flushQueuedEvents()
+      } else if (sanitizedConsentState === false) {
+        // Consent declined - reset PostHog instance and clear the queue safely
+        resetPostHogInstance()
 
-      // Acquire the same mutex used by queueEvent / flushQueuedEvents to avoid races
-      queueMutex.runExclusive(async () => {
-        await eventQueueItem.setValue([])
-      })
+        // Acquire the same mutex used by queueEvent / flushQueuedEvents to avoid races
+        await queueMutex.runExclusive(async () => {
+          await eventQueueItem.setValue([])
+        })
 
-      log.debug('User declined consent - reset PostHog and cleared event queue')
-    }
-  })
+        log.debug('User declined consent - reset PostHog and cleared event queue')
+      }
+    }),
+  )
 
   // Watch for new items added to the analytics queue in case consent was granted after startup
-  eventQueueItem.watch((queue) => {
-    if (queue.length > 0) {
-      flushQueuedEvents()
-    }
-  })
+  eventQueueItem.watch(
+    reportingListener(async (queue) => {
+      if (queue.length > 0) {
+        await flushQueuedEvents()
+      }
+    }),
+  )
 }

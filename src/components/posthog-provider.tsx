@@ -1,3 +1,4 @@
+import { reportRejection } from '@/utils/report-rejection'
 import log from 'loglevel'
 // Posthog needs to be imported this way, otherwise the extension doesn't pass the Chrome Web Store review
 // https://github.com/PostHog/posthog-js/issues/1464#issuecomment-2792093981
@@ -143,7 +144,7 @@ export const PostHogWrapper: React.FC<PostHogWrapperProps> = ({ children }) => {
     if (consentState === true) {
       // `initializePostHog` is a no-op once an instance exists, so there is no
       // second check to keep in step here.
-      initializePostHog()
+      reportRejection(initializePostHog())
     } else {
       // Declined or still undecided – ensure PostHog is reset.
       resetPostHogUI()

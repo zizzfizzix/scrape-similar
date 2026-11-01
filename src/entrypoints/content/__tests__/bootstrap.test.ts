@@ -29,7 +29,7 @@ vi.mock('@/utils/modeTest', () => ({
 }))
 
 const pickerMocks = vi.hoisted(() => ({
-  enablePickerMode: vi.fn(),
+  enablePickerMode: vi.fn().mockResolvedValue(undefined),
   disablePickerMode: vi.fn(),
 }))
 vi.mock('@/entrypoints/content/picker', async (importOriginal) => ({
@@ -39,9 +39,13 @@ vi.mock('@/entrypoints/content/picker', async (importOriginal) => ({
 
 const ctx = {} as ContentScriptContext
 
-/** Deliver a message to every registered `runtime.onMessage` listener. */
-const broadcast = (message: Message, sendResponse: (response: unknown) => void = () => {}) =>
-  fakeBrowser.runtime.onMessage.trigger(message, {}, sendResponse)
+/**
+ * Deliver a message to every registered `runtime.onMessage` listener. An
+ * `onMessage` listener may return a promise, so `trigger` resolves to whatever
+ * each returned and `Promise.all` settles any that are promises.
+ */
+const broadcast = async (message: Message, sendResponse: (response: unknown) => void = () => {}) =>
+  Promise.all(await fakeBrowser.runtime.onMessage.trigger(message, {}, sendResponse))
 
 /** Answer `browser.runtime.sendMessage` per message type. */
 const backgroundReplies = (replies: Record<string, MessageResponse | undefined>) =>
@@ -121,32 +125,32 @@ describe('applyDebugMode', () => {
     expect(setLevel).not.toHaveBeenCalled()
   })
 
-  it('follows a later broadcast of the flag', () => {
+  it('follows a later broadcast of the flag', async () => {
     backgroundReplies({ [MESSAGE_TYPES.GET_DEBUG_MODE]: { success: true, debugMode: false } })
     applyDebugMode()
     setLevel.mockClear()
 
-    broadcast({ type: MESSAGE_TYPES.DEBUG_MODE_CHANGED, payload: { debugMode: true } })
+    await broadcast({ type: MESSAGE_TYPES.DEBUG_MODE_CHANGED, payload: { debugMode: true } })
 
     expect(setLevel).toHaveBeenCalledWith('trace')
   })
 
-  it('treats a broadcast with no payload as the flag being off', () => {
+  it('treats a broadcast with no payload as the flag being off', async () => {
     backgroundReplies({ [MESSAGE_TYPES.GET_DEBUG_MODE]: { success: true, debugMode: true } })
     applyDebugMode()
     setLevel.mockClear()
 
-    broadcast({ type: MESSAGE_TYPES.DEBUG_MODE_CHANGED })
+    await broadcast({ type: MESSAGE_TYPES.DEBUG_MODE_CHANGED })
 
     expect(setLevel).toHaveBeenCalledWith('error')
   })
 
-  it('ignores messages about anything else', () => {
+  it('ignores messages about anything else', async () => {
     backgroundReplies({ [MESSAGE_TYPES.GET_DEBUG_MODE]: { success: true, debugMode: false } })
     applyDebugMode()
     setLevel.mockClear()
 
-    broadcast({ type: MESSAGE_TYPES.GET_DEBUG_MODE })
+    await broadcast({ type: MESSAGE_TYPES.GET_DEBUG_MODE })
 
     expect(setLevel).not.toHaveBeenCalled()
   })
@@ -301,9 +305,12 @@ describe('startContentScript', () => {
 
   it('opens and closes the picker on request', async () => {
     startContentScript(ctx)
+    const sendResponse = vi.fn()
 
-    await broadcast({ type: MESSAGE_TYPES.ENABLE_PICKER_MODE })
+    await broadcast({ type: MESSAGE_TYPES.ENABLE_PICKER_MODE }, sendResponse)
     await broadcast({ type: MESSAGE_TYPES.DISABLE_PICKER_MODE })
+
+    expect(sendResponse).toHaveBeenCalledWith({ success: true, message: 'Picker mode enabled' })
 
     expect(pickerMocks.enablePickerMode).toHaveBeenCalledWith(
       ctx,
