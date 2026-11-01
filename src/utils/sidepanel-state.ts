@@ -149,3 +149,29 @@ export const hasConfigDrifted = (current: ScrapeConfig, producing: ScrapeConfig)
     )
   })
 }
+
+/**
+ * How many tabs keep a live side panel. Each costs a React tree and its DOM
+ * even without results, and every one re-renders when the presets change; the
+ * results they hold are bounded by the session storage quota instead.
+ */
+export const LIVE_TAB_PANEL_CAP = 50
+
+/**
+ * The live panels after `tabId` is shown, least recently shown first.
+ *
+ * Panels past `cap` are dropped from the front, so the one being shown always
+ * survives.
+ */
+export const touchLiveTab = (liveTabIds: readonly number[], tabId: number, cap: number): number[] =>
+  [...liveTabIds.filter((id) => id !== tabId), tabId].slice(-cap)
+
+/**
+ * `previous` when `next` holds the same data, otherwise `next`.
+ *
+ * Every storage read hands back a fresh object, and components that reset on a
+ * new reference (the results table returns to page 1) would reset on a write
+ * that changed nothing they show.
+ */
+export const reuseIfEqual = <T>(previous: T, next: T): T =>
+  JSON.stringify(previous) === JSON.stringify(next) ? previous : next

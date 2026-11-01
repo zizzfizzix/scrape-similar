@@ -1,20 +1,13 @@
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Toaster } from '@/components/ui/sonner'
-import { isSelectorAPreset } from '@/utils/autosuggest'
+import { TabPanel } from '@/entrypoints/sidepanel/TabPanel'
 import { reportRejection } from '@/utils/report-rejection'
-import {
-  buildConfigChangeUpdates,
-  buildExportFilename,
-  createDefaultSidePanelState,
-  hasConfigDrifted,
-  parseFullDataViewTabId,
-  resolveStoredConfig,
-} from '@/utils/sidepanel-state'
+import { LIVE_TAB_PANEL_CAP, parseFullDataViewTabId, touchLiveTab } from '@/utils/sidepanel-state'
 import { chromeExtensionId } from '@@/package.json' with { type: 'json' }
 import log from 'loglevel'
 import { Minimize2, X } from 'lucide-react'
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { Activity, useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
 // Simple splash screen component
@@ -125,97 +118,44 @@ const FullDataViewControls: React.FC<{
     </div>
   )
 }
+type TabView = 'panel' | 'full-data-view' | 'unsupported'
+
+/** An unknown URL gets the panel, so a tab still being resolved shows the form. */
+const getTabView = (tabUrl: string | null): TabView => {
+  if (tabUrl?.startsWith(`chrome-extension://${chromeExtensionId}/full-data-view.html`)) {
+    return 'full-data-view'
+  }
+  return tabUrl !== null && !isInjectableUrl(tabUrl) ? 'unsupported' : 'panel'
+}
+
 interface SidePanelProps {
   debugMode: boolean
   onDebugModeChange: (enabled: boolean) => void
 }
 
+/**
+ * The side panel shell: follows the active tab and keeps a live `TabPanel` for
+ * each recently shown one, hidden while its tab is in the background. Only
+ * state shared by every tab (presets, the footer's settings) lives here.
+ */
 export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChange }) => {
-  // State
-  const [targetTabId, setTargetTabId] = useState<number | null>(null)
-  // Ref to hold the current targetTabId
-  const targetTabIdRef = useRef<number | null>(targetTabId)
-  const [initialOptions, setInitialOptions] = useState<SelectionOptions | null>(null)
-  const [config, setConfig] = useState<ScrapeConfig>({
-    mainSelector: '',
-    columns: [{ name: 'Text', selector: '.' }],
-  })
-  const [scrapeResult, setScrapeResult] = useState<ScrapeResult | null>(null)
-  // Track the configuration that produced the current scrapeResult
-  const [resultProducingConfig, setResultProducingConfig] = useState<ScrapeConfig | null>(null)
+  const [activeTabId, setActiveTabId] = useState<number | null>(null)
+  // Least recently shown first, so eviction drops from the front.
+  const [liveTabIds, setLiveTabIds] = useState<number[]>([])
+  const [tabUrls, setTabUrls] = useState<ReadonlyMap<number, string | null>>(new Map())
   const [presets, setPresets] = useState<Preset[]>([])
-  const [isScraping, setIsScraping] = useState(false)
-  const [tabUrl, setTabUrl] = useState<string | null>(null)
-  const [shouldShowPresets, setShouldShowPresets] = useState(false)
-  const [contentScriptCommsError, setContentScriptCommsError] = useState<string | null>(null)
-  // Track last scrape row count for button feedback
-  const [lastScrapeRowCount, setLastScrapeRowCount] = useState<number | null>(null)
-  const clearLastScrapeRowCount = useCallback(() => setLastScrapeRowCount(null), [])
-  const dataTableRef = useRef<HTMLDivElement | null>(null)
-  const [highlightMatchCount, setHighlightMatchCount] = useState<number | undefined>(undefined)
-  const [highlightError, setHighlightError] = useState<string | undefined>(undefined)
-  const [shouldShowEmptyRows, setShouldShowEmptyRows] = useState(false)
-  const [isPickerModeActive, setIsPickerModeActive] = useState(false)
 
-  // Memoized export filename (regenerates if tabUrl changes)
-  const exportFilename = React.useMemo(() => buildExportFilename(tabUrl, new Date()), [tabUrl])
+  const setTabUrl = (tabId: number, url: string | null) =>
+    setTabUrls((previous) => new Map(previous).set(tabId, url))
 
-  // Keep the ref updated whenever the state changes
+  const showTab = (tabId: number) => {
+    setActiveTabId(tabId)
+    setLiveTabIds((previous) => touchLiveTab(previous, tabId, LIVE_TAB_PANEL_CAP))
+  }
+
+  const reloadPresets = useCallback(() => reportRejection(getAllPresets().then(setPresets)), [])
+
   useEffect(() => {
-    targetTabIdRef.current = targetTabId
-  }, [targetTabId])
-
-  const handleInitialData = useCallback((payload: { tabId: number; config: SidePanelConfig }) => {
-    // Only compare with targetTabIdRef if it has been set
-    const currentExpectedTabId = targetTabIdRef.current
-    if (currentExpectedTabId !== null && payload.tabId !== currentExpectedTabId) {
-      log.warn(
-        `handleInitialData called for wrong tab ${payload.tabId}, expected ${currentExpectedTabId}`,
-      )
-      return
-    }
-
-    log.debug(`Processing data for tab ${payload.tabId}:`, payload.config)
-    // Every caller either reads a stored object or builds a default one, and
-    // `subscribeWithBackfill` drops a cleared key, so this is never nullish.
-    const storedState = payload.config
-    const {
-      scrapeResult,
-      resultProducingConfig,
-      highlightMatchCount,
-      highlightError,
-      pickerModeActive: isPickerModeActive,
-    } = storedState
-
-    const { config: newConfig, options: newOptions } = resolveStoredConfig(storedState)
-    setConfig(newConfig)
-    setInitialOptions(newOptions)
-
-    // Load saved scraped data from session storage if available
-    if (scrapeResult) {
-      setScrapeResult(scrapeResult)
-      // Set the config that produced these results
-      if (resultProducingConfig) {
-        setResultProducingConfig(resultProducingConfig)
-      }
-    } else {
-      setScrapeResult(null)
-      setResultProducingConfig(null)
-    }
-
-    setIsScraping(false)
-
-    // Restore highlight state if present
-    setHighlightMatchCount(highlightMatchCount ?? undefined)
-    setHighlightError(highlightError ?? undefined)
-
-    // Restore picker mode state if present
-    setIsPickerModeActive(isPickerModeActive ?? false)
-  }, [])
-
-  // Request tabId and tabUrl from browser.tabs API on mount
-  useEffect(() => {
-    log.debug('SidePanel mounted, requesting tabId and URL from browser.tabs API...')
     // Use `currentWindow: true` instead of `lastFocusedWindow: true` because the
     // side-panel itself becomes the *last focused* window in certain testing/
     // automation scenarios (e.g. Playwright) - likely due to PW_CHROMIUM_ATTACH_TO_OTHER = '1'.
@@ -228,368 +168,70 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
         log.error('Error querying tabs:', browser.runtime.lastError.message)
       } else if (tabs && tabs[0] && tabs[0].id) {
         log.debug(`Got initial tabId directly: ${tabs[0].id}`)
-        const newTabId = tabs[0].id
-        const newTabUrl = tabs[0].url || ''
-        targetTabIdRef.current = newTabId
-        setTargetTabId(newTabId)
-        setTabUrl(newTabUrl)
-        reportRejection(
-          sidePanelConfigItem(newTabId)
-            .getValue()
-            .then((stored) => {
-              if (stored) {
-                log.debug('Initial data loaded from storage:', stored)
-                handleInitialData({
-                  tabId: newTabId,
-                  config: stored,
-                })
-              } else {
-                log.debug(
-                  `No initial data found in storage for tab ${newTabId}, using default state`,
-                )
-                handleInitialData({
-                  tabId: newTabId,
-                  config: createDefaultSidePanelState(),
-                })
-              }
-            }),
-        )
+        setTabUrl(tabs[0].id, tabs[0].url || '')
+        showTab(tabs[0].id)
       } else {
         log.error('No active tab found in last focused window')
       }
     })
-  }, [handleInitialData])
 
-  // Results belong to the tab they were scraped from, so switching tabs drops
-  // them during the render that switches rather than in an effect afterwards —
-  // which would cascade a second render, and would land after the restore that
-  // `handleInitialData` schedules for the tab being switched to.
-  const [resultProducingTabId, setResultProducingTabId] = useState(targetTabId)
-  if (resultProducingTabId !== targetTabId) {
-    setResultProducingTabId(targetTabId)
-    setResultProducingConfig(null)
-  }
-
-  // --- Unified utility to save all sidepanel state to session storage ---
-  const saveSidePanelState = useCallback((tabId: number, updates: Partial<SidePanelConfig>) => {
-    reportRejection(
-      browser.runtime.sendMessage({
-        type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
-        payload: { tabId, updates },
-      }),
-    )
-  }, [])
-
-  // --- Update config state and trigger saveSidePanelState ---
-  const handleConfigChange = (newConfig: ScrapeConfig) => {
-    const previousMainSelector = config.mainSelector
-    const hasMainSelectorChanged = newConfig.mainSelector !== previousMainSelector
-
-    setConfig(newConfig)
-
-    // The row count belongs to the scrape that produced the current results.
-    // Once the config changes it is stale, so drop it instead of letting it
-    // resurface (e.g. as "0 found") when the new selector is validated.
-    setLastScrapeRowCount(null)
-
-    // Only clear highlight state if the main selector actually changed
-    if (hasMainSelectorChanged) {
-      setHighlightMatchCount(undefined)
-      setHighlightError(undefined)
-    }
-
-    if (targetTabId !== null) {
-      // Also resets the persisted highlight result when the main selector
-      // changed, so the storage watcher can't restore a stale match count.
-      saveSidePanelState(targetTabId, buildConfigChangeUpdates(config, newConfig))
-    }
-  }
-
-  // Initialize: load presets, listen for messages, AND listen for tab activation
-  useEffect(() => {
-    reportRejection(getAllPresets().then(setPresets))
-
-    // Listen for tab activation
-    const tabActivationListener = (activeInfo: { tabId: number; previousTabId?: number }) => {
-      log.debug(`SidePanel detected tab activation: ${activeInfo.tabId}`)
-      const newTabId = activeInfo.tabId
-
-      // Update ref directly for immediate use
-      targetTabIdRef.current = newTabId
-      // Also update state for component re-renders
-      setTargetTabId(newTabId)
-
-      // Get the new tab's URL and update tabUrl state
-      browser.tabs.get(newTabId, (tab) => {
+    const tabActivationListener = ({ tabId }: { tabId: number }) => {
+      log.debug(`SidePanel detected tab activation: ${tabId}`)
+      showTab(tabId)
+      browser.tabs.get(tabId, (tab) => {
         if (browser.runtime.lastError) {
           log.error('Error getting tab info:', browser.runtime.lastError)
-          setTabUrl(null)
+          setTabUrl(tabId, null)
         } else {
-          setTabUrl(tab.url || '')
+          setTabUrl(tabId, tab.url || '')
         }
       })
-
-      // Load data directly from storage for the new tab
-      reportRejection(
-        sidePanelConfigItem(newTabId)
-          .getValue()
-          .then((stored) => {
-            if (browser.runtime.lastError) {
-              log.error(
-                `Error loading data from storage for tab ${newTabId}:`,
-                browser.runtime.lastError,
-              )
-              return
-            }
-
-            if (stored) {
-              log.debug(`Data loaded from storage for newly activated tab ${newTabId}:`, stored)
-              handleInitialData({
-                tabId: newTabId,
-                config: stored,
-              })
-            } else {
-              log.debug(
-                `No data found in storage for newly activated tab ${newTabId}, using default state`,
-              )
-
-              // Just use default state without saving it to storage
-              const defaultState = createDefaultSidePanelState()
-              handleInitialData({
-                tabId: newTabId,
-                config: defaultState,
-              })
-            }
-          }),
-      )
     }
 
-    // Listen for tab URL changes in the current tab
-    const tabUpdateListener = (tabId: number) => {
-      if (tabId === targetTabId) {
-        browser.tabs.get(tabId, (updatedTab) => {
-          if (browser.runtime.lastError) {
-            setTabUrl('')
-          } else {
-            setTabUrl(updatedTab.url || '')
-          }
-        })
-      }
+    const tabRemovalListener = (tabId: number) => {
+      setLiveTabIds((previous) => previous.filter((id) => id !== tabId))
+      setTabUrls((previous) => {
+        const next = new Map(previous)
+        next.delete(tabId)
+        return next
+      })
     }
 
     browser.tabs.onActivated.addListener(tabActivationListener)
-    browser.tabs.onUpdated.addListener(tabUpdateListener)
-
-    // Cleanup listeners on component unmount
+    browser.tabs.onRemoved.addListener(tabRemovalListener)
     return () => {
-      log.debug('SidePanel unmounting, removing listeners...')
       browser.tabs.onActivated.removeListener(tabActivationListener)
-      browser.tabs.onUpdated.removeListener(tabUpdateListener)
+      browser.tabs.onRemoved.removeListener(tabRemovalListener)
     }
-  }, [targetTabId, handleInitialData])
+  }, [])
 
-  // ---------------------------------------------------------------------------
-  // Watch current tab's per-session state and patch UI whenever it changes
-  // ---------------------------------------------------------------------------
+  // A background tab's URL is read again when it is activated, so only the
+  // active tab's navigation is followed.
   useEffect(() => {
-    if (!targetTabId) return
-    const item = sidePanelConfigItem(targetTabId)
+    if (activeTabId === null) return
+    const tabUpdateListener = (tabId: number) => {
+      if (tabId !== activeTabId) return
+      browser.tabs.get(tabId, (updatedTab) => {
+        setTabUrl(tabId, browser.runtime.lastError ? '' : updatedTab.url || '')
+      })
+    }
+    browser.tabs.onUpdated.addListener(tabUpdateListener)
+    return () => browser.tabs.onUpdated.removeListener(tabUpdateListener)
+  }, [activeTabId])
 
-    // The tab's state is also read when the tab resolves, before this watcher
-    // exists; the backfill picks up whatever landed in that gap - an auto-scrape
-    // finishing while the panel is still starting up, say.
-    return subscribeWithBackfill<SidePanelConfig>(
-      {
-        watch: item.watch,
-        read: item.getValue,
-      },
-      (config) => handleInitialData({ tabId: targetTabId, config }),
-    )
-  }, [targetTabId, handleInitialData])
-
-  // ---------------------------------------------------------------------------
-  // Watch preset collections (sync-area keys) – keeps local state in sync when
-  // presets are created, deleted or system-preset visibility changes elsewhere.
-  // ---------------------------------------------------------------------------
+  // Presets are shared by every tab; this also follows changes made from
+  // another extension page (a preset saved or a system preset hidden).
   useEffect(() => {
-    const unwatchUserPresets = userPresetsItem.watch(() => {
-      reportRejection(getAllPresets().then(setPresets))
-    })
-    const unwatchSystemPresetStatus = systemPresetStatusItem.watch(() => {
-      reportRejection(getAllPresets().then(setPresets))
-    })
+    reloadPresets()
+    const unwatchUserPresets = userPresetsItem.watch(reloadPresets)
+    const unwatchSystemPresetStatus = systemPresetStatusItem.watch(reloadPresets)
     return () => {
       unwatchUserPresets()
       unwatchSystemPresetStatus()
     }
-  }, [])
+  }, [reloadPresets])
 
-  // Show toast when contentScriptCommsError changes
-  React.useEffect(() => {
-    if (contentScriptCommsError) {
-      toast.error(contentScriptCommsError)
-    }
-  }, [contentScriptCommsError])
-
-  // Handle scrape request
-  // The button only scrapes a selector the page has already matched, and that
-  // match comes from the content script, so a tab is always attached by here
-  // and the selector is never blank.
-  const handleScrape = () => {
-    setShouldShowPresets(false)
-    setContentScriptCommsError(null)
-    const tabId = targetTabId!
-    setIsScraping(true)
-    // Capture the exact config used for this scrape
-    const configAtScrapeTime = config
-    browser.tabs.sendMessage(
-      tabId,
-      {
-        type: MESSAGE_TYPES.START_SCRAPE,
-        payload: config,
-      },
-      (response) => {
-        setIsScraping(false)
-        if (!response && browser.runtime.lastError) {
-          setContentScriptCommsError(
-            'Could not connect to the content script. Please reload the page or ensure the extension is enabled for this site.',
-          )
-          setLastScrapeRowCount(null)
-          return
-        }
-        if (response?.error) {
-          setContentScriptCommsError(response.error)
-          setLastScrapeRowCount(null)
-          log.error('Error during scrape:', response.error)
-          return
-        }
-        const rowCount = response?.data?.data?.length ?? 0
-        if (response?.success === true) {
-          setResultProducingConfig(configAtScrapeTime)
-          saveSidePanelState(tabId, { resultProducingConfig: configAtScrapeTime })
-          // Selectors validated by the picker, the context menu or an earlier session
-          // never reach handleHighlight, so the scrape feeds the recents as well.
-          if (rowCount > 0 && !isSelectorAPreset(configAtScrapeTime.mainSelector, presets)) {
-            reportRejection(pushRecentMainSelector(configAtScrapeTime.mainSelector))
-          }
-        }
-        setLastScrapeRowCount(rowCount)
-      },
-    )
-  }
-
-  // Scroll table into view when it appears (first time or after clearing)
-  const scrapedRowCount = scrapeResult?.data.length ?? 0
-  React.useEffect(() => {
-    if (scrapedRowCount > 0 && dataTableRef.current) {
-      dataTableRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }
-  }, [scrapedRowCount])
-
-  // Handle highlight request
-  const handleHighlight = (selector: string) => {
-    setContentScriptCommsError(null)
-    if (!targetTabId) return
-    browser.tabs.sendMessage(
-      targetTabId,
-      {
-        type: MESSAGE_TYPES.HIGHLIGHT_ELEMENTS,
-        payload: { selector },
-      },
-      (response) => {
-        if (!response && browser.runtime.lastError) {
-          setContentScriptCommsError(
-            'Could not connect to the content script. Please reload the page or ensure the extension is enabled for this site.',
-          )
-          return
-        }
-
-        if (response && response.success === false && response.error) {
-          // Update local state immediately for responsive UI
-          setHighlightMatchCount(undefined)
-          setHighlightError(response.error)
-          saveSidePanelState(targetTabId, {
-            highlightMatchCount: null,
-            highlightError: response.error,
-          })
-        } else if (response && typeof response.matchCount === 'number') {
-          // Update local state immediately for responsive UI
-          setHighlightMatchCount(response.matchCount)
-          setHighlightError(undefined)
-          saveSidePanelState(targetTabId, {
-            highlightMatchCount: response.matchCount,
-            highlightError: null,
-          })
-          // Only a selector that matched elements is remembered, so one that fails
-          // to parse or matches nothing never becomes a suggestion.
-          if (response.matchCount > 0 && !isSelectorAPreset(selector, presets)) {
-            reportRejection(pushRecentMainSelector(selector))
-          }
-        }
-      },
-    )
-  }
-
-  // Handle row highlight request (separately to avoid updating main selector state).
-  // Only the results table calls this, and results only exist once a tab has
-  // been resolved and its stored state read, so the id is always known here.
-  const handleRowHighlight = (selector: string) => {
-    setContentScriptCommsError(null)
-    browser.tabs.sendMessage(
-      targetTabId!,
-      {
-        type: MESSAGE_TYPES.HIGHLIGHT_ROW_ELEMENT,
-        payload: { selector },
-      },
-      (response) => {
-        if (!response && browser.runtime.lastError) {
-          setContentScriptCommsError(
-            'Could not connect to the content script. Please reload the page or ensure the extension is enabled for this site.',
-          )
-        }
-      },
-    )
-  }
-
-  // Handle picker mode toggle
-  const handlePickerMode = () => {
-    setContentScriptCommsError(null)
-    if (!targetTabId) return
-    browser.tabs.sendMessage(
-      targetTabId,
-      {
-        type: MESSAGE_TYPES.TOGGLE_PICKER_MODE,
-        payload: { source: ANALYTICS_SOURCES.BUTTON },
-      },
-      (response) => {
-        if (!response && browser.runtime.lastError) {
-          setContentScriptCommsError(
-            'Could not connect to the content script. Please reload the page or ensure the extension is enabled for this site.',
-          )
-        } else if (response && response.success) {
-          log.debug('Picker mode toggled successfully')
-        }
-      },
-    )
-  }
-
-  const handleLoadPreset = (preset: Preset) => {
-    handleConfigChange(preset.config)
-
-    // Trigger highlighting if the preset has a main selector
-    if (preset.config.mainSelector) {
-      handleHighlight(preset.config.mainSelector)
-    }
-
-    // Track preset loaded event
-    trackEvent(ANALYTICS_EVENTS.PRESET_LOAD, {
-      type: isSystemPreset(preset) ? 'system' : 'user',
-      preset_name: isSystemPreset(preset) ? preset.name : null,
-      preset_id: isSystemPreset(preset) ? preset.id : null,
-    })
-  }
-
-  const handleSavePreset = async (name: string) => {
+  const handleSavePreset = async (config: ScrapeConfig, name: string) => {
     const preset: Preset = {
       id: Date.now().toString(),
       name,
@@ -600,11 +242,8 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
     // is not something that can reach here.
     const isSaved = await savePreset(preset)
     if (isSaved) {
-      const updatedPresets = await getAllPresets()
-      setPresets(updatedPresets)
+      setPresets(await getAllPresets())
       log.debug('Preset saved successfully and UI updated')
-
-      // Track preset saved event
       trackEvent(ANALYTICS_EVENTS.PRESET_SAVE, {
         type: 'user',
         columns_count: config.columns.length,
@@ -614,19 +253,14 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
     }
   }
 
-  // Hide system preset or delete user preset
+  // A system preset is hidden rather than deleted.
   const handleDeletePreset = async (preset: Preset) => {
     if (isSystemPreset(preset)) {
-      // Hide system preset by setting enabled=false in status map
       const statusMap = await getSystemPresetStatus()
       statusMap[preset.id] = false
       await setSystemPresetStatus(statusMap)
       toast.success(`System preset "${preset.name}" hidden.`)
-      // Reload all presets
-      const updatedPresets = await getAllPresets()
-      setPresets(updatedPresets)
-
-      // Track preset hidden event
+      setPresets(await getAllPresets())
       trackEvent(ANALYTICS_EVENTS.PRESET_HIDE, {
         type: 'system',
         preset_name: preset.name,
@@ -634,19 +268,15 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
       })
       return
     }
-    // Otherwise, delete user preset as before. `deletePreset` reports a storage
-    // failure as `false` rather than rejecting.
+    // `deletePreset` reports a storage failure as `false` rather than rejecting.
     const isDeleted = await deletePreset(preset.id)
     if (isDeleted) {
-      const updatedPresets = await getAllPresets()
-      setPresets(updatedPresets)
+      setPresets(await getAllPresets())
       toast.success(
         <>
           Preset "<span className="ph_hidden">{preset.name}</span>" deleted
         </>,
       )
-
-      // Track preset deleted event
       trackEvent(ANALYTICS_EVENTS.PRESET_DELETION, {
         type: 'user',
       })
@@ -659,124 +289,57 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
     }
   }
 
-  // Reset (enable) all system presets
   const handleResetSystemPresets = async () => {
-    await setSystemPresetStatus({}) // Clear all disables
-    const updatedPresets = await getAllPresets()
-    setPresets(updatedPresets)
+    await setSystemPresetStatus({})
+    setPresets(await getAllPresets())
     toast.success('System presets have been reset')
-
-    // Track system presets reset event
     trackEvent(ANALYTICS_EVENTS.SYSTEM_PRESETS_RESET, {
       type: 'system',
     })
   }
 
-  const resetSystemPresets = () => reportRejection(handleResetSystemPresets())
+  const tabUrl = activeTabId === null ? null : (tabUrls.get(activeTabId) ?? null)
+  const view = getTabView(tabUrl)
 
-  const handlePresetsImported = useCallback(() => {
-    reportRejection(getAllPresets().then(setPresets))
-  }, [])
-
-  // Check if the current tab is showing the full data view
-  if (tabUrl?.startsWith(`chrome-extension://${chromeExtensionId}/full-data-view.html`)) {
-    return (
-      <div className="flex flex-col h-screen font-sans min-w-0 max-w-full w-full box-border">
-        <Toaster />
-        <ConsentWrapper>
-          <main className="flex-1 flex min-w-0 w-full">
-            <FullDataViewControls currentTabUrl={tabUrl} currentTabId={targetTabId} />
-          </main>
-        </ConsentWrapper>
-      </div>
-    )
-  }
-
-  const footer = (
-    <Footer
-      showSettings={true}
-      onResetSystemPresets={resetSystemPresets}
-      onPresetsImported={handlePresetsImported}
-      debugMode={debugMode}
-      onDebugModeChange={onDebugModeChange}
-    />
-  )
-
-  if (tabUrl !== null && !isInjectableUrl(tabUrl)) {
-    return (
-      <div className="flex flex-col h-screen font-sans min-w-0 max-w-full w-full box-border">
-        <Toaster />
-        <ConsentWrapper>
-          <main className="flex-1 flex min-w-0 w-full">
-            <SplashScreen tabUrl={tabUrl} />
-          </main>
-        </ConsentWrapper>
-        {footer}
-      </div>
-    )
+  const tabPanelProps = {
+    presets,
+    onSavePreset: handleSavePreset,
+    onDeletePreset: (preset: Preset) => reportRejection(handleDeletePreset(preset)),
   }
 
   return (
-    <div className="flex flex-col h-screen font-sans overflow-visible min-w-0 max-w-full w-full box-border">
+    <div className="flex flex-col h-screen font-sans min-w-0 max-w-full w-full box-border">
       <Toaster />
       <ConsentWrapper>
-        <main className="flex-1 overflow-y-auto p-4 w-full min-w-0 box-border">
-          <div className="flex flex-col gap-10 w-full min-w-0 box-border">
-            <ConfigForm
-              config={config}
-              onChange={handleConfigChange}
-              onScrape={handleScrape}
-              onHighlight={handleHighlight}
-              onPickerMode={handlePickerMode}
-              isLoading={isScraping}
-              initialOptions={initialOptions}
-              presets={presets}
-              onLoadPreset={handleLoadPreset}
-              onSavePreset={handleSavePreset}
-              onDeletePreset={(preset) => reportRejection(handleDeletePreset(preset))}
-              showPresets={shouldShowPresets}
-              setShowPresets={setShouldShowPresets}
-              lastScrapeRowCount={lastScrapeRowCount}
-              onClearLastScrapeRowCount={clearLastScrapeRowCount}
-              highlightMatchCount={highlightMatchCount}
-              highlightError={highlightError}
-              pickerModeActive={isPickerModeActive}
-              // Show rescrape hint when there is data and config differs from the config that produced it
-              rescrapeAdvised={
-                !!scrapeResult?.data?.length &&
-                !!resultProducingConfig &&
-                hasConfigDrifted(config, resultProducingConfig)
-              }
-            />
-            {scrapeResult && scrapeResult.data.length > 0 && (
-              <div className="flex flex-col gap-6" ref={dataTableRef}>
-                <div className="flex items-center justify-between gap-4">
-                  <h2 className="text-2xl font-bold">Extracted Data</h2>
-                  <ExportButtons
-                    scrapeResult={scrapeResult}
-                    config={resultProducingConfig || config}
-                    showEmptyRows={shouldShowEmptyRows}
-                    filename={exportFilename}
-                    variant="outline"
-                  />
-                </div>
-                <DataTable
-                  // The block above only renders once `scrapeResult.data` has
-                  // rows, so there is nothing to fall back to.
-                  data={scrapeResult.data}
-                  onRowHighlight={handleRowHighlight}
-                  config={resultProducingConfig || config}
-                  columnOrder={scrapeResult.columnOrder}
-                  showEmptyRows={shouldShowEmptyRows}
-                  onShowEmptyRowsChange={setShouldShowEmptyRows}
-                  tabId={targetTabId}
-                />
-              </div>
-            )}
-          </div>
-        </main>
+        {view === 'full-data-view' && (
+          <main className="flex-1 flex min-w-0 w-full">
+            <FullDataViewControls currentTabUrl={tabUrl!} currentTabId={activeTabId} />
+          </main>
+        )}
+        {view === 'unsupported' && (
+          <main className="flex-1 flex min-w-0 w-full">
+            <SplashScreen tabUrl={tabUrl!} />
+          </main>
+        )}
+        {activeTabId === null && <TabPanel tabId={null} tabUrl={null} {...tabPanelProps} />}
+        {/* A tab on a page the panel cannot work on has no panel to keep. */}
+        {liveTabIds
+          .filter((tabId) => getTabView(tabUrls.get(tabId) ?? null) === 'panel')
+          .map((tabId) => (
+            <Activity key={tabId} mode={tabId === activeTabId ? 'visible' : 'hidden'}>
+              <TabPanel tabId={tabId} tabUrl={tabUrls.get(tabId) ?? null} {...tabPanelProps} />
+            </Activity>
+          ))}
       </ConsentWrapper>
-      {footer}
+      {view !== 'full-data-view' && (
+        <Footer
+          showSettings={true}
+          onResetSystemPresets={() => reportRejection(handleResetSystemPresets())}
+          onPresetsImported={reloadPresets}
+          debugMode={debugMode}
+          onDebugModeChange={onDebugModeChange}
+        />
+      )}
     </div>
   )
 }

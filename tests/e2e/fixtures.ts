@@ -381,8 +381,9 @@ export const TestHelpers = {
     await testPage.goto(testPageUrl)
     await testPage.bringToFront()
 
-    // Configure selector and scrape data
-    const mainSelector = sidePanel.locator('#mainSelector')
+    // Configure selector and scrape data. Each tab keeps its own hidden panel,
+    // so a spec scraping a second tab sees the first tab's field too.
+    const mainSelector = sidePanel.locator('#mainSelector:visible')
     await mainSelector.fill(selector)
     await mainSelector.press('Enter')
 
@@ -394,7 +395,7 @@ export const TestHelpers = {
     // Wait for selector validation. The fixture pages are static, so the badge
     // must report the exact match count rather than any number.
     const countBadge = sidePanel
-      .locator('[data-slot="badge"]')
+      .locator('[data-slot="badge"]:visible')
       .filter({ hasText: new RegExp(`^${expectedMatchCount}$`) })
     await base.expect(countBadge).toBeVisible()
 

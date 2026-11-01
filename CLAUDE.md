@@ -57,6 +57,12 @@ The Cursor rule (`.cursor/rules/browser-extension.mdc`) instructs **never to run
 - `content/` — content script injected into all http(s) pages. `handlers.ts` dispatches messages; `picker/` implements the visual element picker; `highlight.ts` paints matches; `state.ts` holds per-tab state including `lastRightClickedElement`.
 - `sidepanel/`, `options/`, `onboarding/`, `full-data-view/` — React UIs. Each has `index.html` + `main.tsx` + an App component.
 
+**The side panel is one panel per tab.** `SidePanel.tsx` is a shell that follows the active tab and holds only what every tab shares (presets, the footer); `TabPanel.tsx` holds everything that belongs to one tab, including its `sidePanelConfigItem(tabId)` subscription. The shell keeps a `TabPanel` per recently shown tab (`LIVE_TAB_PANEL_CAP`, least recently shown evicted) inside React `<Activity>`, hidden while its tab is in the background, so unsaved UI state (drafts, open drawers, the table page) survives a switch and cannot reach another tab. Never fix a cross-tab leak by resetting or remounting on tab change. Three consequences:
+
+- **Effects in a hidden panel are torn down and re-run when it is shown again.** An effect that does something visible on mount (scrolls, toasts, focuses) fires again on every return to the tab; guard it with a ref holding what it last acted on (`TabPanel`'s results scroll).
+- **Hidden panels stay in the DOM**, so a fixed `id` appears once per live tab. E2E specs that use more than one supported tab scope locators to what is shown (`#mainSelector:visible`, `getByRole`), as `tests/e2e/sidepanel-per-tab.spec.ts` does.
+- **Portals are hidden with their panel only from React 19.3** ([facebook/react#35091](https://github.com/facebook/react/pull/35091)); on 19.2 an overlay opened in one tab stayed over the next. Keep `react-dom` at 19.3 or later.
+
 **Two WXT rules constrain how these files are written.** Neither shows up in `tsc` or the unit suite — both only fail `pnpm build`, so verify an entrypoint change with a build, not just tests.
 
 - **Nothing but an entrypoint goes directly in `src/entrypoints/`.** Every file at that level is auto-discovered as an entrypoint and must default-export one, so a shared helper placed there fails the build with `requireDefaultExport`. Put it in a subdirectory beside the entrypoint that uses it (`content/bootstrap.ts`, `background/bootstrap.ts`) or under `src/components/` when several entrypoints share it (`components/extension-page.tsx`).

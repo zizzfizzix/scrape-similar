@@ -7,6 +7,8 @@ import {
   isMainSelectorValidated,
   parseFullDataViewTabId,
   resolveStoredConfig,
+  reuseIfEqual,
+  touchLiveTab,
 } from '@/utils/sidepanel-state'
 import type { ScrapeConfig } from '@/utils/types'
 import { describe, expect, it } from 'vitest'
@@ -333,5 +335,33 @@ describe('hasConfigDrifted', () => {
     const empty: ScrapeConfig = { mainSelector: '//tr', columns: [] }
 
     expect(hasConfigDrifted(empty, empty)).toBe(false)
+  })
+})
+
+describe('touchLiveTab', () => {
+  it('adds a new tab as the most recent', () => {
+    expect(touchLiveTab([1, 2], 3, 10)).toEqual([1, 2, 3])
+  })
+
+  it('moves a tab that is already live to the end', () => {
+    expect(touchLiveTab([1, 2, 3], 1, 10)).toEqual([2, 3, 1])
+  })
+
+  it('drops the least recently shown tabs past the cap', () => {
+    expect(touchLiveTab([1, 2, 3], 4, 3)).toEqual([2, 3, 4])
+  })
+})
+
+describe('reuseIfEqual', () => {
+  it('keeps the previous reference for equal data', () => {
+    const previous = { data: [{ a: '1' }] }
+
+    expect(reuseIfEqual(previous, { data: [{ a: '1' }] })).toBe(previous)
+  })
+
+  it('takes the next value when the data differs', () => {
+    const next = { data: [{ a: '2' }] }
+
+    expect(reuseIfEqual({ data: [{ a: '1' }] }, next)).toBe(next)
   })
 })

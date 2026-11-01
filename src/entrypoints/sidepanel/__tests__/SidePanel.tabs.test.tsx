@@ -4,6 +4,7 @@ import { ThemeProvider } from '@/components/theme-provider'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { SidePanel } from '@/entrypoints/sidepanel/SidePanel'
 import { ANALYTICS_EVENTS } from '@/utils/analytics'
+import { LIVE_TAB_PANEL_CAP } from '@/utils/sidepanel-state'
 import { getPresets, getRecentMainSelectors, userPresetsItem } from '@/utils/storage'
 import { SYSTEM_PRESETS } from '@/utils/system_presets'
 import {
@@ -103,8 +104,17 @@ const render = () =>
     </ConsentProvider>,
   )
 
+/** Hidden panels stay in the DOM under a `display: none` ancestor. */
+const isShown = (element: Element) => !element.closest('[style*="display: none"]')
+
+/** The main selector field of the panel on screen. */
 const mainSelectorInput = () =>
-  view.container.querySelector<HTMLTextAreaElement>('textarea#mainSelector')!
+  [...view.container.querySelectorAll<HTMLTextAreaElement>('textarea#mainSelector')].find(isShown)!
+
+/** The main selector field of every live panel, shown or hidden. */
+const allMainSelectorInputs = () => [
+  ...view.container.querySelectorAll<HTMLTextAreaElement>('textarea#mainSelector'),
+]
 
 const activateTab = (tabId: number) =>
   act(async () => {
@@ -355,12 +365,13 @@ describe('reading the stored state', () => {
     expect(view.container.textContent).toContain('Extracted Data')
   })
 
-  it('ignores state that arrives for a tab it has already left', async () => {
-    const warnSpy = vi.spyOn(log, 'warn').mockImplementation(() => {})
+  it('keeps a slow read for one tab out of another', async () => {
+    await attachToTab(PAGE_URL, { currentScrapeConfig: config })
     view = await render()
+    await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
 
-    // Hold the activation's storage read open, switch tabs again underneath it,
-    // then let the stale read land.
+    // Hold the other tab's first read open, switch back underneath it, then let
+    // it land.
     let release: ((value: SidePanelConfig | null) => void) | undefined
     const getItem = vi
       .spyOn(sidePanelConfigItem(OTHER_TAB_ID), 'getValue')
@@ -368,36 +379,14 @@ describe('reading the stored state', () => {
     tabsGetReplies({ id: OTHER_TAB_ID, url: 'https://example.org/list' })
     await activateTab(OTHER_TAB_ID)
     getItem.mockRestore()
+    tabsGetReplies({ id: TAB_ID, url: PAGE_URL })
     await activateTab(TAB_ID)
 
     await act(async () => {
       release!({ currentScrapeConfig: { ...config, mainSelector: '//stale' } })
     })
 
-    await waitFor(() =>
-      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('called for wrong tab')),
-    )
-    expect(mainSelectorInput().value).not.toBe('//stale')
-  })
-
-  it('reports a stored read the browser refused after a tab switch', async () => {
-    const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
-    view = await render()
-    tabsGetReplies({ id: OTHER_TAB_ID, url: 'https://example.org/list' })
-    vi.spyOn(sidePanelConfigItem(OTHER_TAB_ID), 'getValue').mockImplementationOnce(async () => {
-      setLastError({ message: 'session storage unavailable' })
-      return null
-    })
-
-    await activateTab(OTHER_TAB_ID)
-    setLastError(undefined)
-
-    await waitFor(() =>
-      expect(errorSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Error loading data from storage'),
-        expect.anything(),
-      ),
-    )
+    expect(mainSelectorInput().value).toBe('//tr')
   })
 
   it('blanks the URL of an activated tab that reports none', async () => {
@@ -972,5 +961,231 @@ describe('talking to the content script', () => {
     )
 
     await waitFor(() => expect(toastMocks.toast.error).toHaveBeenCalledWith(CONNECT_ERROR))
+  })
+})
+
+describe('one panel per tab', () => {
+  const OTHER_URL = 'https://example.org/list'
+  const otherConfig: ScrapeConfig = {
+    mainSelector: '//tr',
+    columns: [{ name: 'Name', selector: './td[2]' }],
+  }
+
+  /** Activate `tabId`, reporting `url` for it. */
+  const switchTo = async (tabId: number, url = tabId === TAB_ID ? PAGE_URL : OTHER_URL) => {
+    tabsGetReplies({ id: tabId, url })
+    await activateTab(tabId)
+  }
+
+  const shownButton = (label: string) =>
+    [...view.container.querySelectorAll('button')]
+      .filter(isShown)
+      .find((candidate) => candidate.textContent?.trim() === label)
+
+  const sidePanelWrites = (sendMessage: ReturnType<typeof spyOnBrowser>) =>
+    sendMessage.mock.calls
+      .map(([message]) => message as Message<typeof MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA>)
+      .filter((message) => message.type === MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA)
+      .map((message) => message.payload)
+
+  const rows = (count: number) =>
+    Array.from({ length: count }, (_, index) => ({
+      data: { Rank: String(index + 1) },
+      metadata: { originalIndex: index, isEmpty: false },
+    }))
+
+  beforeEach(async () => {
+    await attachToTab(PAGE_URL, { currentScrapeConfig: config, highlightMatchCount: 3 })
+    await storage.setItem(`session:sidepanel_config_${OTHER_TAB_ID}`, {
+      currentScrapeConfig: otherConfig,
+      highlightMatchCount: 3,
+    })
+  })
+
+  it('keeps an uncommitted selector draft with its own tab', async () => {
+    view = await render()
+    await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
+    fireEvent.change(mainSelectorInput(), { target: { value: '//li' } })
+    const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
+      undefined as never,
+    )
+
+    await switchTo(OTHER_TAB_ID)
+    await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
+    await act(async () => {
+      mainSelectorInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
+      await new Promise((resolve) => setTimeout(resolve, 200))
+    })
+    await switchTo(TAB_ID)
+
+    expect(mainSelectorInput().value).toBe('//li')
+    expect(sidePanelWrites(sendMessage)).toEqual([])
+  })
+
+  it('drops a blur commit still pending when its tab is hidden', async () => {
+    view = await render()
+    await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
+    fireEvent.change(mainSelectorInput(), { target: { value: '//li' } })
+    const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
+      undefined as never,
+    )
+
+    // The blur defers its commit by 150ms; the switch lands inside that window.
+    act(() => {
+      mainSelectorInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
+    })
+    await switchTo(OTHER_TAB_ID)
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 200))
+    })
+
+    expect(sidePanelWrites(sendMessage)).toEqual([])
+  })
+
+  it('keeps an open save drawer and its typed name with its own tab', async () => {
+    view = await render()
+    await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
+    await userEvent.click(shownButton('Save')!)
+    const nameField = () =>
+      [...document.querySelectorAll<HTMLInputElement>('input[placeholder="Preset name"]')].find(
+        isShown,
+      )
+    fireEvent.change(nameField()!, { target: { value: 'Mine' } })
+    expect(document.body.style.pointerEvents).toBe('none')
+
+    await switchTo(OTHER_TAB_ID)
+    expect(nameField()).toBeUndefined()
+    // The modal's lock on the rest of the page is an effect, so hiding releases it.
+    expect(document.body.style.pointerEvents).toBe('')
+
+    await switchTo(TAB_ID)
+    expect(nameField()?.value).toBe('Mine')
+    expect(document.body.style.pointerEvents).toBe('none')
+  })
+
+  it('keeps a running scrape with the tab it runs in', async () => {
+    let reply: ((response: unknown) => void) | undefined
+    spyOnBrowser(fakeBrowser.tabs, 'sendMessage').mockImplementation(
+      (_tabId: number, _message: unknown, callback?: (r: unknown) => void) => {
+        reply = callback
+        return Promise.resolve(undefined)
+      },
+    )
+    view = await render()
+    await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
+    await act(async () => {
+      shownButton('Scrape')!.click()
+      await Promise.resolve()
+    })
+    const isShownScrapeRunning = () =>
+      [...view.container.querySelectorAll('.animate-spin')].some(isShown)
+    expect(isShownScrapeRunning()).toBe(true)
+
+    await switchTo(OTHER_TAB_ID)
+    await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
+    expect(isShownScrapeRunning()).toBe(false)
+
+    await switchTo(TAB_ID)
+    expect(isShownScrapeRunning()).toBe(true)
+    act(() => reply!({ success: true, data: { data: [], columnOrder: ['Rank'] } }))
+    expect(isShownScrapeRunning()).toBe(false)
+  })
+
+  it('keeps the results page with its own tab', async () => {
+    await attachToTab(PAGE_URL, {
+      currentScrapeConfig: config,
+      highlightMatchCount: 3,
+      scrapeResult: { data: rows(25), columnOrder: ['Rank'] },
+    })
+    view = await render()
+    await waitFor(() => expect(view.container.textContent).toContain('Page 1 of 3'))
+    await userEvent.click(
+      view.container.querySelector<HTMLButtonElement>('button[aria-label="Next page"]')!,
+    )
+    await waitFor(() => expect(view.container.textContent).toContain('Page 2 of 3'))
+
+    await switchTo(OTHER_TAB_ID)
+    await switchTo(TAB_ID)
+    // A write that leaves the rows as they were does not reset the page either.
+    await act(async () => {
+      await storage.setItem(`session:sidepanel_config_${TAB_ID}`, {
+        currentScrapeConfig: config,
+        highlightMatchCount: 4,
+        scrapeResult: { data: rows(25), columnOrder: ['Rank'] },
+      })
+    })
+
+    expect(view.container.textContent).toContain('Page 2 of 3')
+  })
+
+  it('scrolls to the results only when they arrive, not when the tab is shown again', async () => {
+    await attachToTab(PAGE_URL, {
+      currentScrapeConfig: config,
+      highlightMatchCount: 3,
+      scrapeResult: { data: rows(2), columnOrder: ['Rank'] },
+    })
+    const scrollIntoView = vi.spyOn(Element.prototype, 'scrollIntoView')
+    view = await render()
+    await waitFor(() => expect(view.container.textContent).toContain('Extracted Data'))
+    expect(scrollIntoView).toHaveBeenCalledTimes(1)
+
+    await switchTo(OTHER_TAB_ID)
+    await switchTo(TAB_ID)
+
+    expect(scrollIntoView).toHaveBeenCalledTimes(1)
+  })
+
+  it('stops following a hidden tab’s storage and catches up when shown', async () => {
+    view = await render()
+    await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
+    await switchTo(OTHER_TAB_ID)
+
+    await act(async () => {
+      await storage.setItem(`session:sidepanel_config_${TAB_ID}`, {
+        currentScrapeConfig: { ...config, mainSelector: '//td' },
+      })
+    })
+    expect(allMainSelectorInputs().map((input) => input.value)).toEqual(['//tr', '//tr'])
+
+    await switchTo(TAB_ID)
+    await waitFor(() => expect(mainSelectorInput().value).toBe('//td'))
+  })
+
+  it('drops the panel of a closed tab', async () => {
+    view = await render()
+    await switchTo(OTHER_TAB_ID)
+    expect(allMainSelectorInputs()).toHaveLength(2)
+
+    await act(async () => {
+      await fakeBrowser.tabs.onRemoved.trigger(TAB_ID, { windowId: 1, isWindowClosing: false })
+    })
+
+    expect(allMainSelectorInputs()).toHaveLength(1)
+  })
+
+  it('evicts the least recently shown panel past the cap and restores it from storage', async () => {
+    view = await render()
+    for (let tabId = 100; tabId < 100 + LIVE_TAB_PANEL_CAP; tabId++) {
+      await switchTo(tabId, OTHER_URL)
+    }
+    expect(allMainSelectorInputs()).toHaveLength(LIVE_TAB_PANEL_CAP)
+
+    await switchTo(TAB_ID)
+
+    await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
+    expect(allMainSelectorInputs()).toHaveLength(LIVE_TAB_PANEL_CAP)
+  })
+
+  it('shows the splash for an unsupported tab without dropping the others', async () => {
+    view = await render()
+
+    await switchTo(OTHER_TAB_ID, 'chrome://settings')
+
+    await waitFor(() => expect(view.container.textContent).toContain('Unsupported URL'))
+    expect(mainSelectorInput()).toBeUndefined()
+    // That tab keeps no hidden panel of its own.
+    expect(allMainSelectorInputs()).toHaveLength(1)
+    await switchTo(TAB_ID)
+    expect(mainSelectorInput().value).toBe('//tr')
   })
 })
