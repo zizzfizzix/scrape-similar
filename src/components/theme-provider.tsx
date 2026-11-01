@@ -1,6 +1,6 @@
 import { useStorageItem } from '@/hooks/use-storage-item'
 import { reportRejection } from '@/utils/report-rejection'
-import { createContext, useContext, useEffect } from 'react'
+import { createContext, useContext, useLayoutEffect } from 'react'
 
 interface ThemeProviderProps {
   children: React.ReactNode
@@ -30,8 +30,9 @@ export function ThemeProvider({ children, rootElement, ...props }: ThemeProvider
   const [storedTheme, setStoredTheme] = useStorageItem(themeItem)
   const theme = isTheme(storedTheme) ? storedTheme : themeItem.fallback
 
-  // Listen for system theme changes if theme is "system"
-  useEffect(() => {
+  // Layout effects set the class in the same commit that changes the theme, so
+  // no frame is painted with the new theme and the previous class.
+  useLayoutEffect(() => {
     if (theme !== 'system') return
 
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
@@ -51,8 +52,7 @@ export function ThemeProvider({ children, rootElement, ...props }: ThemeProvider
     }
   }, [theme, rootElement])
 
-  // Apply theme when theme changes (except for "system", which is handled above)
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (theme === 'system') return
     const root = (rootElement as Element) || window.document.documentElement
     root.classList.remove('light', 'dark')
