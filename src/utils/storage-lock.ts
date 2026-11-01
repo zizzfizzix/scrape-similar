@@ -26,11 +26,21 @@ export const withStorageLock = async <T>(
   if (!(navigator.locks as LockManager | undefined)) {
     throw new Error(`Web Locks are unavailable here, so ${item.key} cannot be locked`)
   }
-  return navigator.locks.request(
-    item.key,
-    { signal: AbortSignal.timeout(STORAGE_LOCK_TIMEOUT_MS) },
-    task,
+  // A timer of our own rather than `AbortSignal.timeout`, which would keep
+  // running for the full timeout after every lock is granted.
+  const controller = new AbortController()
+  const timer = setTimeout(
+    () => controller.abort(new DOMException(`Timed out waiting for ${item.key}`, 'TimeoutError')),
+    STORAGE_LOCK_TIMEOUT_MS,
   )
+  try {
+    return await navigator.locks.request(item.key, { signal: controller.signal }, () => {
+      clearTimeout(timer)
+      return task()
+    })
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 interface UpdatableItem<T> {

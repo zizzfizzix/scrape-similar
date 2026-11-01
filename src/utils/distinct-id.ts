@@ -11,7 +11,7 @@ export const generateDistinctId = (): DistinctId => uuidv7()
 export const getOrCreateDistinctId = async (): Promise<DistinctId> => {
   try {
     // Under the lock, so pages and the background starting together agree on one id.
-    return await updateStorageItem(distinctIdItem, (stored) => stored ?? generateDistinctId())
+    return await updateStorageItem(distinctIdItem, (stored) => stored || generateDistinctId())
   } catch (err) {
     log.warn('Failed to access storage for distinct_id, generating a new one', err)
     return generateDistinctId()

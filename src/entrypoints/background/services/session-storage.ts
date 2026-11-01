@@ -38,29 +38,24 @@ export const applySidePanelDataUpdates = async (
  * Get session state for a tab
  */
 export const getSessionState = async (tabId: number): Promise<SidePanelConfig | null> => {
-  // Unlocked: a single read is atomic, but it can return the state from before
-  // a merge already waiting on this tab's lock.
-  return await sidePanelConfigItem(tabId).getValue()
+  const item = sidePanelConfigItem(tabId)
+  // Under the lock, so the read sees any merge already waiting for this tab.
+  return await withStorageLock(item, () => item.getValue())
 }
 
 /**
  * Initialize default session state for a tab if it doesn't exist
  */
 export const initializeSessionState = async (tabId: number): Promise<void> => {
-  const item = sidePanelConfigItem(tabId)
-  // Read and write under one lock, so an update queued between them is not
-  // overwritten with the defaults.
-  await withStorageLock(item, async () => {
-    const existing = await item.getValue()
-    if (existing) return
-    const defaultPanelState: SidePanelConfig = {
+  await updateStorageItem(sidePanelConfigItem(tabId), (existing) => {
+    if (existing) return existing
+    log.debug(`Initializing default session state for tab ${tabId}`)
+    return {
       initialSelectionText: undefined,
       elementDetails: undefined,
       selectionOptions: undefined,
       currentScrapeConfig: undefined,
     }
-    log.debug(`Initializing default session state for tab ${tabId}`)
-    await item.setValue(defaultPanelState)
   })
 }
 

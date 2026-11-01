@@ -119,6 +119,14 @@ describe('getSessionState', () => {
     expect(await getSessionState(1)).toBeNull()
   })
 
+  it('sees an update already in flight', async () => {
+    const update = applySidePanelDataUpdates(1, { initialSelectionText: 'pending' })
+
+    const [state] = await Promise.all([getSessionState(1), update])
+
+    expect(state).toEqual({ initialSelectionText: 'pending' })
+  })
+
   it('returns the stored state', async () => {
     await applySidePanelDataUpdates(1, { initialSelectionText: 'hi' })
 

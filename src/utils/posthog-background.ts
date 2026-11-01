@@ -72,8 +72,8 @@ const initializePostHog = async (): Promise<PostHog | null> => {
     const isDebugModeEnabled = await debugModeItem.getValue()
 
     // Initialize PostHog instance
-    const posthogInstance = new PostHog()
-    posthogInstance.init(apiKey, {
+    const instance = new PostHog()
+    instance.init(apiKey, {
       debug: isDevOrTest || isDebugModeEnabled,
       // Supply our own distinct_id to ensure consistent distinct_id across extension contexts
       bootstrap: {
@@ -106,15 +106,15 @@ const initializePostHog = async (): Promise<PostHog | null> => {
     // React to debugMode changes in production to keep config in sync
     if (!isDevOrTest) {
       stopWatchingDebugMode.set(
-        posthogInstance,
+        instance,
         debugModeItem.watch((isEnabled) => {
-          posthogInstance.set_config({ debug: isEnabled })
+          instance.set_config({ debug: isEnabled })
         }),
       )
     }
 
     log.debug('PostHog background service worker initialized successfully')
-    return posthogInstance
+    return instance
   } catch (error) {
     log.error('Failed to initialize PostHog in background:', error)
     return null

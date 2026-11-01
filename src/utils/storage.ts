@@ -232,16 +232,6 @@ const updateRecentMainSelectors = async (
   }
 }
 
-export const setRecentMainSelectors = async (selectors: string[]): Promise<void> => {
-  try {
-    await withStorageLock(recentMainSelectorsItem, () =>
-      recentMainSelectorsItem.setValue(selectors),
-    )
-  } catch (error) {
-    log.error('Error setting recent main selectors:', error)
-  }
-}
-
 export const pushRecentMainSelector = async (selector: string): Promise<void> => {
   const sanitized = selector.trim()
   if (!sanitized) return

@@ -40,6 +40,15 @@ describe('getOrCreateDistinctId', () => {
     expect(second).toEqual(first)
   })
 
+  it('replaces an empty stored id', async () => {
+    await storage.setItem(distinctIdItem.key, '')
+
+    const created = await getOrCreateDistinctId()
+
+    expect(String(created)).toMatch(UUID_V7)
+    expect(await storage.getItem<DistinctId>(distinctIdItem.key)).toEqual(created)
+  })
+
   it('reuses an id written directly to storage', async () => {
     await storage.setItem(distinctIdItem.key, '0198d5f0-0000-7000-8000-000000000000')
 

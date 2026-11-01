@@ -624,9 +624,6 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
         return
       }
       toast.success(`System preset "${preset.name}" hidden.`)
-      // Reload all presets
-      const updatedPresets = await getAllPresets()
-      setPresets(updatedPresets)
 
       // Track preset hidden event
       trackEvent(ANALYTICS_EVENTS.PRESET_HIDE, {

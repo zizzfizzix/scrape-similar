@@ -1,4 +1,4 @@
-import { withStorageLock } from '@/utils/storage-lock'
+import { STORAGE_LOCK_TIMEOUT_MS, withStorageLock } from '@/utils/storage-lock'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 describe('withStorageLock', () => {
@@ -79,6 +79,7 @@ describe('withStorageLock', () => {
   })
 
   it('gives up on a lock that is not granted in time', async () => {
+    vi.useFakeTimers()
     let release = () => {}
     const held = withStorageLock(
       { key: 'session:stuck' },
@@ -87,13 +88,28 @@ describe('withStorageLock', () => {
           release = resolve
         }),
     )
-    vi.spyOn(AbortSignal, 'timeout').mockReturnValueOnce(AbortSignal.abort(new Error('timed out')))
-
-    await expect(withStorageLock({ key: 'session:stuck' }, async () => 'ran')).rejects.toThrow(
-      'timed out',
+    const failure = withStorageLock({ key: 'session:stuck' }, async () => 'ran').catch(
+      (error: unknown) => error,
     )
+
+    await vi.advanceTimersByTimeAsync(STORAGE_LOCK_TIMEOUT_MS)
+
+    expect(await failure).toMatchObject({
+      name: 'TimeoutError',
+      message: 'Timed out waiting for session:stuck',
+    })
     release()
     await held
+    vi.useRealTimers()
+  })
+
+  it('clears its timeout once the lock is granted', async () => {
+    vi.useFakeTimers()
+
+    await withStorageLock({ key: 'session:quick' }, async () => {})
+
+    expect(vi.getTimerCount()).toBe(0)
+    vi.useRealTimers()
   })
 
   it('fails with a reason where Web Locks are unavailable', async () => {

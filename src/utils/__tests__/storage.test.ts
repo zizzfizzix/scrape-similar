@@ -11,7 +11,6 @@ import {
   resetSystemPresetStatus,
   savePreset,
   setPresets,
-  setRecentMainSelectors,
   userPresetsItem,
 } from '@/utils/storage'
 import { SYSTEM_PRESETS } from '@/utils/system_presets'
@@ -334,7 +333,7 @@ describe('recent main selectors', () => {
   })
 
   it('round-trips a list', async () => {
-    await setRecentMainSelectors(['//a', '//div'])
+    await recentMainSelectorsItem.setValue(['//a', '//div'])
 
     expect(await getRecentMainSelectors()).toEqual(['//a', '//div'])
   })
@@ -375,7 +374,7 @@ describe('recent main selectors', () => {
   })
 
   it('removes a selector', async () => {
-    await setRecentMainSelectors(['//a', '//div'])
+    await recentMainSelectorsItem.setValue(['//a', '//div'])
 
     await removeRecentMainSelector('//a')
 
@@ -383,7 +382,7 @@ describe('recent main selectors', () => {
   })
 
   it('leaves the list alone when removing a selector that is not there', async () => {
-    await setRecentMainSelectors(['//a'])
+    await recentMainSelectorsItem.setValue(['//a'])
 
     await removeRecentMainSelector('//missing')
 
@@ -399,19 +398,10 @@ describe('recent main selectors', () => {
     expect(errorSpy).toHaveBeenCalledWith('Error getting recent main selectors:', failure)
   })
 
-  it('logs and swallows a write failure', async () => {
-    const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
-    const failure = new Error('quota exceeded')
-    vi.spyOn(recentMainSelectorsItem, 'setValue').mockRejectedValueOnce(failure)
-
-    await expect(setRecentMainSelectors(['//a'])).resolves.toBeUndefined()
-    expect(errorSpy).toHaveBeenCalledWith('Error setting recent main selectors:', failure)
-  })
-
   it('logs and swallows a failure while pushing', async () => {
     const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
     const failure = new Error('storage unavailable')
-    await setRecentMainSelectors(['//kept'])
+    await recentMainSelectorsItem.setValue(['//kept'])
     vi.spyOn(recentMainSelectorsItem, 'getValue').mockRejectedValue(failure)
     const setSpy = vi.spyOn(recentMainSelectorsItem, 'setValue')
 
@@ -423,7 +413,7 @@ describe('recent main selectors', () => {
 
   it('logs and swallows a failure while removing', async () => {
     const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
-    await setRecentMainSelectors(['//a'])
+    await recentMainSelectorsItem.setValue(['//a'])
     const failure = new Error('quota exceeded')
     vi.spyOn(recentMainSelectorsItem, 'setValue').mockRejectedValue(failure)
 
@@ -438,19 +428,11 @@ describe('recent main selectors', () => {
   })
 
   it('applies a push and a remove that race each other', async () => {
-    await setRecentMainSelectors(['//a', '//b'])
+    await recentMainSelectorsItem.setValue(['//a', '//b'])
 
     await Promise.all([pushRecentMainSelector('//c'), removeRecentMainSelector('//a')])
 
     expect(await getRecentMainSelectors()).toEqual(['//c', '//b'])
-  })
-
-  it('applies an explicit set queued behind a push, in call order', async () => {
-    await setRecentMainSelectors(['//a'])
-
-    await Promise.all([pushRecentMainSelector('//b'), setRecentMainSelectors(['//x'])])
-
-    expect(await getRecentMainSelectors()).toEqual(['//x'])
   })
 })
 
