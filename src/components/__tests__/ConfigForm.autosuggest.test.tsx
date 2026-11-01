@@ -617,6 +617,48 @@ describe('the autosuggest dropdown', () => {
       expect(onScrape).not.toHaveBeenCalled()
     })
 
+    describe('while an IME is composing', () => {
+      it.each([
+        ['the event reports the composition', { isComposing: true }],
+        ['Safari reports it only through keyCode 229', { keyCode: 229 }],
+      ])('leaves Enter to the IME when %s', async (_, composition) => {
+        const onChange = vi.fn()
+        const onScrape = vi.fn()
+        const onHighlight = vi.fn()
+        view = await render({ presets: [], onChange, onScrape, onHighlight })
+        await focusField()
+        type('//h1')
+
+        const wasNotCancelled = fireEvent.keyDown(mainSelectorInput(), {
+          key: 'Enter',
+          ...composition,
+        })
+        await act(flushMicrotasks)
+
+        expect(wasNotCancelled).toBe(true)
+        expect(onChange).not.toHaveBeenCalled()
+        expect(onScrape).not.toHaveBeenCalled()
+        expect(onHighlight).not.toHaveBeenCalled()
+        expect(mainSelectorInput()).toHaveFocus()
+        expect(await getRecentMainSelectors()).toEqual([])
+      })
+
+      it('leaves the arrow keys to the IME', async () => {
+        view = await render({ presets })
+        await focusField()
+        await press('Escape')
+
+        const wasNotCancelled = fireEvent.keyDown(mainSelectorInput(), {
+          key: 'ArrowDown',
+          isComposing: true,
+        })
+        await nextFrame()
+
+        expect(wasNotCancelled).toBe(true)
+        expect(suggestionItems()).toHaveLength(0)
+      })
+    })
+
     /** Outlast the 150ms defer on the blur commit. */
     const letTheBlurCommitFallDue = () =>
       act(async () => {

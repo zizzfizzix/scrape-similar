@@ -7,7 +7,7 @@ import { SYSTEM_PRESETS } from '@/utils/system_presets'
 import { type Preset, type ScrapeConfig } from '@/utils/types'
 import { stubOffsetWidth } from '@@/tests/support/dom'
 import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
-import { renderSettled } from '@@/tests/support/settle'
+import { renderSettled, settleEffects } from '@@/tests/support/settle'
 import {
   act,
   fireEvent,
@@ -17,7 +17,7 @@ import {
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
 
@@ -110,6 +110,12 @@ beforeEach(async () => {
   await userPresetsItem.setValue([])
 })
 
+// A failed assertion skips a test's own useRealTimers, and every later test
+// would then wait on timers nothing advances.
+afterEach(() => {
+  vi.useRealTimers()
+})
+
 describe('ConfigForm', () => {
   it('shows the configuration sections', async () => {
     view = await render()
@@ -182,6 +188,102 @@ describe('ConfigForm', () => {
       })
 
       expect(onHighlight).not.toHaveBeenCalled()
+      vi.useRealTimers()
+    })
+
+    it('does not highlight again when the field is left unchanged', async () => {
+      vi.useFakeTimers()
+      const onChange = vi.fn()
+      const onHighlight = vi.fn()
+      view = await render({ onChange, onHighlight })
+
+      await act(() => {
+        mainSelectorInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
+        vi.advanceTimersByTime(200)
+      })
+
+      expect(onChange).not.toHaveBeenCalled()
+      expect(onHighlight).not.toHaveBeenCalled()
+      vi.useRealTimers()
+    })
+
+    it('highlights an unchanged selector again when it has no result yet', async () => {
+      vi.useFakeTimers()
+      const onChange = vi.fn()
+      const onHighlight = vi.fn()
+      view = await render({ onChange, onHighlight, highlightMatchCount: undefined })
+
+      await act(() => {
+        mainSelectorInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
+        vi.advanceTimersByTime(200)
+      })
+
+      expect(onChange).not.toHaveBeenCalled()
+      expect(onHighlight).toHaveBeenCalledWith('//tr')
+      vi.useRealTimers()
+    })
+
+    it('does not highlight again when the result arrives before the blur commits', async () => {
+      vi.useFakeTimers()
+      const onHighlight = vi.fn()
+      view = await render({ onHighlight, highlightMatchCount: undefined })
+
+      fireEvent.focusOut(mainSelectorInput())
+      view.rerender(
+        <TooltipProvider>
+          <ConfigForm {...baseProps()} onHighlight={onHighlight} highlightMatchCount={3} />
+        </TooltipProvider>,
+      )
+      act(() => {
+        vi.advanceTimersByTime(200)
+      })
+
+      expect(onHighlight).not.toHaveBeenCalled()
+    })
+
+    it('trims a whitespace-only edit on blur without highlighting again', async () => {
+      vi.useFakeTimers()
+      const onChange = vi.fn()
+      const onHighlight = vi.fn()
+      view = await render({ onChange, onHighlight })
+
+      fireEvent.change(mainSelectorInput(), { target: { value: ' //tr ' } })
+      await act(() => {
+        mainSelectorInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
+        vi.advanceTimersByTime(200)
+      })
+
+      expect(onChange).not.toHaveBeenCalled()
+      expect(onHighlight).not.toHaveBeenCalled()
+      expect(mainSelectorInput().value).toBe('//tr')
+      vi.useRealTimers()
+    })
+
+    it('drops a blur commit when its parent replaces the selector first', async () => {
+      vi.useFakeTimers()
+      const onChange = vi.fn()
+      const onHighlight = vi.fn()
+      view = await render({ onChange, onHighlight })
+
+      fireEvent.change(mainSelectorInput(), { target: { value: '//li' } })
+      fireEvent.focusOut(mainSelectorInput())
+      view.rerender(
+        <TooltipProvider>
+          <ConfigForm
+            {...baseProps()}
+            onChange={onChange}
+            onHighlight={onHighlight}
+            config={{ ...config, mainSelector: '//section' }}
+          />
+        </TooltipProvider>,
+      )
+      act(() => {
+        vi.advanceTimersByTime(200)
+      })
+
+      expect(onChange).not.toHaveBeenCalled()
+      expect(onHighlight).not.toHaveBeenCalled()
+      expect(mainSelectorInput().value).toBe('//section')
       vi.useRealTimers()
     })
 
@@ -276,15 +378,12 @@ describe('ConfigForm', () => {
 
     describe('once the selector has been edited', () => {
       /**
-       * Press the action button the way a pointer does: the press blurs the
-       * textarea, whose commit is deferred, before the click lands.
+       * A real pointer press, so the button's mousedown handling decides
+       * whether the textarea blurs: it keeps focus for "Validate selector" and
+       * not for "Scrape".
        */
       const pressActionButton = async (label: string) => {
-        fireEvent.focusOut(mainSelectorInput())
-        await act(async () => {
-          byText(label).click()
-          await Promise.resolve()
-        })
+        await userEvent.setup().click(byText(label))
       }
 
       const editSelector = (value: string) => {
@@ -314,6 +413,38 @@ describe('ConfigForm', () => {
         expect(trackEvent).not.toHaveBeenCalledWith(ANALYTICS_EVENTS.SCRAPE_BUTTON_PRESS)
       })
 
+      it('validates on a press held past the blur commit delay', async () => {
+        const onScrape = vi.fn()
+        const onHighlight = vi.fn()
+        view = await render({ onScrape, onHighlight })
+        editSelector('//li')
+        const validate = byText('Validate selector')
+
+        const user = userEvent.setup()
+        await user.pointer({ keys: '[MouseLeft>]', target: validate })
+        await letTheBlurCommitFallDue()
+        await user.pointer({ keys: '[/MouseLeft]', target: validate })
+
+        expect(onScrape).not.toHaveBeenCalled()
+        expect(onHighlight).toHaveBeenCalledTimes(1)
+        expect(onHighlight).toHaveBeenCalledWith('//li')
+      })
+
+      it('leaves the field focused and uncommitted when the press is dragged off', async () => {
+        const onHighlight = vi.fn()
+        view = await render({ onHighlight })
+        editSelector('//li')
+
+        const user = userEvent.setup()
+        await user.pointer({ keys: '[MouseLeft>]', target: byText('Validate selector') })
+        await letTheBlurCommitFallDue()
+        await user.pointer({ keys: '[/MouseLeft]', target: view.container })
+
+        expect(onHighlight).not.toHaveBeenCalled()
+        expect(mainSelectorInput()).toHaveFocus()
+        expect(byText('Validate selector')).toBeTruthy()
+      })
+
       it('validates the selector without its surrounding whitespace', async () => {
         const onHighlight = vi.fn()
         const onChange = vi.fn()
@@ -336,6 +467,31 @@ describe('ConfigForm', () => {
         await letTheBlurCommitFallDue()
 
         expect(onHighlight).toHaveBeenCalledTimes(1)
+      })
+
+      it('keeps a selector its parent sets right after validating', async () => {
+        const onChange = vi.fn()
+        const onHighlight = vi.fn()
+        view = await render({ onChange, onHighlight })
+        editSelector('//li')
+
+        await pressActionButton('Validate selector')
+        const replaced = { mainSelector: '//section', columns: [{ name: 'Other', selector: '.' }] }
+        view.rerender(
+          <TooltipProvider>
+            <ConfigForm
+              {...baseProps()}
+              onChange={onChange}
+              onHighlight={onHighlight}
+              config={replaced}
+            />
+          </TooltipProvider>,
+        )
+        await letTheBlurCommitFallDue()
+
+        expect(onChange).toHaveBeenCalledTimes(1)
+        expect(onHighlight).toHaveBeenCalledTimes(1)
+        expect(mainSelectorInput().value).toBe('//section')
       })
 
       it('scrapes a whitespace-only edit without highlighting again', async () => {
@@ -788,6 +944,21 @@ describe('ConfigForm', () => {
         })
 
         expect(onSavePreset).toHaveBeenCalledWith('From the keyboard')
+      })
+
+      it.each([
+        ['the event reports the composition', { isComposing: true }],
+        ['Safari reports it only through keyCode 229', { keyCode: 229 }],
+      ])('leaves Enter to the IME when %s', async (_, composition) => {
+        const onSavePreset = vi.fn().mockResolvedValue(undefined)
+        view = await render({ onSavePreset })
+        const nameField = await openSaveDrawer()
+        fireEvent.change(nameField, { target: { value: '名前' } })
+
+        fireEvent.keyDown(nameField, { key: 'Enter', ...composition })
+        await settleEffects()
+
+        expect(onSavePreset).not.toHaveBeenCalled()
       })
 
       it('ignores Enter while the name is blank', async () => {
