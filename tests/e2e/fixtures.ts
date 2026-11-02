@@ -4,6 +4,7 @@ import {
   test as base,
   chromium,
   type BrowserContext,
+  type Locator,
   type Page,
   type Worker,
 } from '@playwright/test'
@@ -262,6 +263,20 @@ export const getFirstWorksheet = (workbook: ExcelJS.Workbook): ExcelJS.Worksheet
   return worksheet
 }
 
+/** `locator.boundingBox()`, failing the test if the element is not visible. */
+export const getBoundingBox = async (
+  locator: Locator,
+): Promise<NonNullable<Awaited<ReturnType<Locator['boundingBox']>>>> => {
+  const box = await locator.boundingBox()
+  if (!box) {
+    throw new Error('Element has no bounding box: it is not visible')
+  }
+  return box
+}
+
+/** `BLUR_COMMIT_DELAY_MS` in `ConfigForm.tsx`, which cannot be imported outside the extension build. */
+const BLUR_COMMIT_DELAY_MS = 150
+
 // Shared test helpers
 // What `stubClipboard` records in the page, for `getCopiedText` to read back.
 type ClipboardStubWindow = Window & { __copied?: string | null }
@@ -274,6 +289,42 @@ export const TestHelpers = {
     await serviceWorker.evaluate(async () => {
       await chrome.storage.sync.set({ analytics_consent: false })
     })
+  },
+
+  /**
+   * Resolves once the main selector's last blur has run its deferred commit.
+   *
+   * The commit waits on a timer armed at the blur. A timer with the same delay
+   * armed after it fires after it, and the zero-delay one behind that gives
+   * React the task it renders the commit's state updates in.
+   */
+  async waitForBlurCommit(page: Page): Promise<void> {
+    await page.evaluate(
+      (delay) =>
+        new Promise<void>((resolve) => {
+          setTimeout(() => setTimeout(resolve, 0), delay)
+        }),
+      BLUR_COMMIT_DELAY_MS,
+    )
+  },
+
+  /**
+   * Fails if `locator` matches anything at any of `samples` checks spaced
+   * `intervalMs` apart. Each check reads the count once rather than retrying,
+   * so a match that appears and goes again is caught instead of waited away.
+   */
+  async expectAbsentThroughout(
+    locator: Locator,
+    message: string,
+    samples: number,
+    intervalMs = 150,
+  ): Promise<void> {
+    for (let i = 0; i < samples; i++) {
+      // eslint-disable-next-line playwright/prefer-to-have-count -- `toHaveCount(0)` retries until a transient match is gone, which is what this rules out
+      base.expect(await locator.count(), message).toBe(0)
+      // eslint-disable-next-line playwright/no-wait-for-timeout, no-restricted-syntax -- the interval between samples, not a wait for a condition
+      await locator.page().waitForTimeout(intervalMs)
+    }
   },
 
   /**
@@ -681,7 +732,7 @@ export const test = base.extend<
         // Handled so a failed attempt cannot surface as an unhandled rejection.
         sidePanelPage.catch(() => {})
 
-        await page.click('#openSidePanelBtn')
+        await page.locator('#openSidePanelBtn').click()
 
         // Wait for the sidepanel to appear *before* closing the transition page:
         // the background opens the panel for `sender.tab`, so a tab that is

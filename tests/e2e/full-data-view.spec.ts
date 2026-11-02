@@ -4,6 +4,7 @@ import {
   DEFAULT_SCRAPE_ROW_COUNT,
   expect,
   FIXTURE_PAGE_COUNTS,
+  getBoundingBox,
   getFirstWorksheet,
   SCRAPE_TARGET_PAGE,
   test,
@@ -226,21 +227,18 @@ test.describe('Full Data View', () => {
     // Get initial column width
     const initialWidth = await dataColumnHeader.evaluate((el) => el.getBoundingClientRect().width)
 
-    // Perform resize by dragging the handle at the right edge of the header
-    const headerBox = await dataColumnHeader.boundingBox()
-    if (headerBox) {
-      // Drag from right edge to make column wider
-      await fullDataViewPage.mouse.move(
-        headerBox.x + headerBox.width - 2,
-        headerBox.y + headerBox.height / 2,
-      )
-      await fullDataViewPage.mouse.down()
-      await fullDataViewPage.mouse.move(
-        headerBox.x + headerBox.width + 50,
-        headerBox.y + headerBox.height / 2,
-      )
-      await fullDataViewPage.mouse.up()
-    }
+    // Drag the handle at the right edge of the header to make the column wider
+    const headerBox = await getBoundingBox(dataColumnHeader)
+    await fullDataViewPage.mouse.move(
+      headerBox.x + headerBox.width - 2,
+      headerBox.y + headerBox.height / 2,
+    )
+    await fullDataViewPage.mouse.down()
+    await fullDataViewPage.mouse.move(
+      headerBox.x + headerBox.width + 50,
+      headerBox.y + headerBox.height / 2,
+    )
+    await fullDataViewPage.mouse.up()
 
     // Verify column width changed
     const newWidth = await dataColumnHeader.evaluate((el) => el.getBoundingClientRect().width)
@@ -268,9 +266,9 @@ test.describe('Full Data View', () => {
     await expect(fullDataViewPage.getByRole('row')).toHaveCount(scrapedRowCount + 1)
 
     // Change page size to a smaller value to ensure pagination appears
-    const pageSizeButton = fullDataViewPage.getByRole('button').filter({ hasText: /^20$/ })
-    await expect(pageSizeButton).toBeVisible()
-    await pageSizeButton.click()
+    const rowsPerPageButton = fullDataViewPage.getByRole('button').filter({ hasText: /^20$/ })
+    await expect(rowsPerPageButton).toBeVisible()
+    await rowsPerPageButton.click()
 
     // Select smaller page size
     await fullDataViewPage.getByRole('menuitemradio', { name: '10', exact: true }).click()
@@ -477,23 +475,21 @@ test.describe('Full Data View', () => {
 
     // Validate headers and row count match UI
     const filePath = await download.path()
-    if (filePath) {
-      const content = await (await import('fs/promises')).readFile(filePath, 'utf-8')
-      const lines = content.trim().split(/\r?\n/)
-      const headers = (lines[0] ?? '').split(',').map((header) => header.replace(/"/g, ''))
+    const content = await (await import('fs/promises')).readFile(filePath, 'utf-8')
+    const lines = content.trim().split(/\r?\n/)
+    const headers = (lines[0] ?? '').split(',').map((header) => header.replace(/"/g, ''))
 
-      const uiHeaders = await fullDataViewPage.evaluate(() => {
-        const ths = Array.from(document.querySelectorAll('table thead th'))
-        // Exclude selection checkbox (empty), row index '#', and 'Actions'
-        return ths
-          .map((th) => th.textContent.trim())
-          .filter((txt) => txt && txt !== '#' && txt.toLowerCase() !== 'actions')
-      })
-      expect(headers).toEqual(uiHeaders)
+    const uiHeaders = await fullDataViewPage.evaluate(() => {
+      const ths = Array.from(document.querySelectorAll('table thead th'))
+      // Exclude selection checkbox (empty), row index '#', and 'Actions'
+      return ths
+        .map((th) => th.textContent.trim())
+        .filter((txt) => txt && txt !== '#' && txt.toLowerCase() !== 'actions')
+    })
+    expect(headers).toEqual(uiHeaders)
 
-      const uiRowCount = await fullDataViewPage.locator('tbody tr').count()
-      expect(lines.length - 1).toBe(uiRowCount)
-    }
+    const uiRowCount = await fullDataViewPage.locator('tbody tr').count()
+    expect(lines.length - 1).toBe(uiRowCount)
   })
 
   test('exports all rows to Excel (.xlsx) from full data view', async ({
@@ -521,29 +517,27 @@ test.describe('Full Data View', () => {
     expect(fileName.toLowerCase()).toMatch(/\.xlsx$/)
 
     const filePath = await download.path()
-    if (filePath) {
-      const ExcelJS = await import('exceljs')
-      const data = await (await import('fs/promises')).readFile(filePath)
-      const workbook = new ExcelJS.default.Workbook()
-      // Playwright's Buffer type differs from Node's Buffer type, but they're compatible at runtime
-      // @ts-expect-error - TS2345: Buffer.from creates Buffer<ArrayBuffer> vs expected Buffer
-      await workbook.xlsx.load(Buffer.from(data.buffer, data.byteOffset, data.byteLength))
-      const worksheet = getFirstWorksheet(workbook)
-      const values = worksheet.getSheetValues()
-      // getSheetValues returns 1-based array with first element undefined
-      const aoa = values.slice(1).map((row) => (Array.isArray(row) ? row.slice(1) : []))
+    const ExcelJS = await import('exceljs')
+    const data = await (await import('fs/promises')).readFile(filePath)
+    const workbook = new ExcelJS.default.Workbook()
+    // Playwright's Buffer type differs from Node's Buffer type, but they're compatible at runtime
+    // @ts-expect-error - TS2345: Buffer.from creates Buffer<ArrayBuffer> vs expected Buffer
+    await workbook.xlsx.load(Buffer.from(data.buffer, data.byteOffset, data.byteLength))
+    const worksheet = getFirstWorksheet(workbook)
+    const values = worksheet.getSheetValues()
+    // getSheetValues returns 1-based array with first element undefined
+    const aoa = values.slice(1).map((row) => (Array.isArray(row) ? row.slice(1) : []))
 
-      const uiHeaders = await fullDataViewPage.evaluate(() => {
-        const ths = Array.from(document.querySelectorAll('table thead th'))
-        return ths
-          .map((th) => th.textContent.trim())
-          .filter((txt) => txt && txt !== '#' && txt.toLowerCase() !== 'actions')
-      })
-      expect(aoa[0]).toEqual(uiHeaders)
+    const uiHeaders = await fullDataViewPage.evaluate(() => {
+      const ths = Array.from(document.querySelectorAll('table thead th'))
+      return ths
+        .map((th) => th.textContent.trim())
+        .filter((txt) => txt && txt !== '#' && txt.toLowerCase() !== 'actions')
+    })
+    expect(aoa[0]).toEqual(uiHeaders)
 
-      const uiRowCount = await fullDataViewPage.locator('tbody tr').count()
-      expect(aoa.length - 1).toBe(uiRowCount)
-    }
+    const uiRowCount = await fullDataViewPage.locator('tbody tr').count()
+    expect(aoa.length - 1).toBe(uiRowCount)
   })
 
   test('exports only selected rows to CSV from full data view', async ({
@@ -577,12 +571,10 @@ test.describe('Full Data View', () => {
     expect(fileName.toLowerCase()).toMatch(/\.csv$/)
 
     const filePath = await download.path()
-    if (filePath) {
-      const content = await (await import('fs/promises')).readFile(filePath, 'utf-8')
-      const lines = content.trim().split(/\r?\n/)
-      // 1 header + 1 data row
-      expect(lines.length).toBe(2)
-    }
+    const content = await (await import('fs/promises')).readFile(filePath, 'utf-8')
+    const lines = content.trim().split(/\r?\n/)
+    // 1 header + 1 data row
+    expect(lines).toHaveLength(2)
   })
 
   test('exports only selected rows to Excel (.xlsx) from full data view', async ({
@@ -620,20 +612,18 @@ test.describe('Full Data View', () => {
     expect(fileName.toLowerCase()).toMatch(/\.xlsx$/)
 
     const filePath = await download.path()
-    if (filePath) {
-      const ExcelJS = await import('exceljs')
-      const data = await (await import('fs/promises')).readFile(filePath)
-      const workbook = new ExcelJS.default.Workbook()
-      // Playwright's Buffer type differs from Node's Buffer type, but they're compatible at runtime
-      // @ts-expect-error - TS2345: Buffer.from creates Buffer<ArrayBuffer> vs expected Buffer
-      await workbook.xlsx.load(Buffer.from(data.buffer, data.byteOffset, data.byteLength))
-      const worksheet = getFirstWorksheet(workbook)
-      const values = worksheet.getSheetValues()
-      // getSheetValues returns 1-based array with first element undefined
-      const aoa = values.slice(1).map((row) => (Array.isArray(row) ? row.slice(1) : []))
-      // 1 header + 2 data rows
-      expect(aoa.length).toBe(3)
-    }
+    const ExcelJS = await import('exceljs')
+    const data = await (await import('fs/promises')).readFile(filePath)
+    const workbook = new ExcelJS.default.Workbook()
+    // Playwright's Buffer type differs from Node's Buffer type, but they're compatible at runtime
+    // @ts-expect-error - TS2345: Buffer.from creates Buffer<ArrayBuffer> vs expected Buffer
+    await workbook.xlsx.load(Buffer.from(data.buffer, data.byteOffset, data.byteLength))
+    const worksheet = getFirstWorksheet(workbook)
+    const values = worksheet.getSheetValues()
+    // getSheetValues returns 1-based array with first element undefined
+    const aoa = values.slice(1).map((row) => (Array.isArray(row) ? row.slice(1) : []))
+    // 1 header + 2 data rows
+    expect(aoa).toHaveLength(3)
   })
 
   test('shows empty rows toggle when empty rows are present', async ({
@@ -745,10 +735,7 @@ test.describe('Full Data View', () => {
 
     // Wait for the full data view to update with the new row
     // The storage watcher should detect the change and update the UI
-    await expect(async () => {
-      const newRowCount = await fullDataViewPage.getByRole('row').count()
-      expect(newRowCount).toBe(initialRowCount + 1)
-    }).toPass()
+    await expect(fullDataViewPage.getByRole('row')).toHaveCount(initialRowCount + 1)
 
     // Verify the new row appears in the table
     await expect(fullDataViewPage.getByText('New Test Link Added')).toBeVisible()
@@ -771,28 +758,23 @@ test.describe('Full Data View', () => {
     }, tabId)
 
     // Wait for the row to be removed from the full data view
-    await expect(async () => {
-      const finalRowCount = await fullDataViewPage.getByRole('row').count()
-      expect(finalRowCount).toBe(initialRowCount)
-    }).toPass()
+    await expect(fullDataViewPage.getByRole('row')).toHaveCount(initialRowCount)
 
     // Verify the added row is no longer visible
     await expect(fullDataViewPage.getByText('New Test Link Added')).toBeHidden()
   })
 
-  test('handles error states gracefully', async ({ context, extensionId }) => {
-    // Open full data view with invalid tab ID
+  test('shows the no-data state for a tab id that does not exist', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    await TestHelpers.dismissAnalyticsConsent(serviceWorker)
     const fullDataViewPage = await context.newPage()
     await fullDataViewPage.goto(`chrome-extension://${extensionId}/full-data-view.html?tabId=99999`)
 
-    // Should either show no data message or handle gracefully
-    // The app should not crash and should show appropriate feedback
-    await expect(fullDataViewPage.locator('body')).toBeVisible()
-
-    // Should show either "No Data Available" or load with empty state
-    const noDataHeading = fullDataViewPage.getByRole('heading', { name: /no data available/i })
-    if (await noDataHeading.isVisible()) {
-      await expect(noDataHeading).toBeVisible()
-    }
+    await expect(
+      fullDataViewPage.locator('[data-slot="card-title"]', { hasText: 'No Data Available' }),
+    ).toBeVisible()
   })
 })

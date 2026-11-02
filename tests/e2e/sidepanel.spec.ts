@@ -265,15 +265,11 @@ test.describe('Sidepanel Core Functionality', () => {
     await input.fill('//span')
     await input.press('Enter')
 
-    // Sampled with non-retrying assertions so that a transient "0 found"
-    // cannot be waited away.
-    const zeroFoundButton = sidePanel.getByRole('button', { name: /0 found/i })
-    for (let i = 0; i < 20; i++) {
-      expect(await zeroFoundButton.count(), 'scrape button showed "0 found" while validating').toBe(
-        0,
-      )
-      await sidePanel.waitForTimeout(150)
-    }
+    await TestHelpers.expectAbsentThroughout(
+      sidePanel.getByRole('button', { name: /0 found/i }),
+      'scrape button showed "0 found" while validating',
+      20,
+    )
 
     // The selector input badge reports the fixture's real match count
     await expect(
@@ -319,13 +315,11 @@ test.describe('Sidepanel Core Functionality', () => {
         .locator('[data-slot="badge"]')
         .filter({ hasText: new RegExp(`^${FIXTURE_PAGE_COUNTS.span}$`) }),
     ).toBeVisible()
-    // Sampled with non-retrying assertions so a table that appears and is then
-    // cleared cannot be waited away.
-    const resultsHeading = sidePanel.getByRole('heading', { name: /extracted data/i })
-    for (let i = 0; i < 10; i++) {
-      expect(await resultsHeading.count(), 'validating a selector scraped the page').toBe(0)
-      await sidePanel.waitForTimeout(150)
-    }
+    await TestHelpers.expectAbsentThroughout(
+      sidePanel.getByRole('heading', { name: /extracted data/i }),
+      'validating a selector scraped the page',
+      10,
+    )
   })
 
   test('can save preset and reload it via Load combobox', async ({
@@ -412,24 +406,22 @@ test.describe('Sidepanel Core Functionality', () => {
 
     // Check the file headers correspond to the table headers and row counts match
     const fileData = await download.path()
-    if (fileData) {
-      const fileContent = await fs.readFile(fileData, 'utf-8')
+    const fileContent = await fs.readFile(fileData, 'utf-8')
 
-      const lines = fileContent.trim().split(/\r?\n/)
-      const headers = (lines[0] ?? '').split(',').map((header) => header.replace(/"/g, ''))
+    const lines = fileContent.trim().split(/\r?\n/)
+    const headers = (lines[0] ?? '').split(',').map((header) => header.replace(/"/g, ''))
 
-      const uiHeaders = await sidePanel.evaluate(() => {
-        const ths = Array.from(document.querySelectorAll('table thead th'))
-        // Exclude selection checkbox (empty), row index '#', and 'Actions'
-        return ths
-          .map((th) => th.textContent.trim())
-          .filter((txt) => txt && txt !== '#' && txt.toLowerCase() !== 'actions')
-      })
-      expect(headers).toEqual(uiHeaders)
+    const uiHeaders = await sidePanel.evaluate(() => {
+      const ths = Array.from(document.querySelectorAll('table thead th'))
+      // Exclude selection checkbox (empty), row index '#', and 'Actions'
+      return ths
+        .map((th) => th.textContent.trim())
+        .filter((txt) => txt && txt !== '#' && txt.toLowerCase() !== 'actions')
+    })
+    expect(headers).toEqual(uiHeaders)
 
-      const uiRowCount = await sidePanel.locator('tbody tr').count()
-      expect(lines.length - 1).toBe(uiRowCount)
-    }
+    const uiRowCount = await sidePanel.locator('tbody tr').count()
+    expect(lines.length - 1).toBe(uiRowCount)
   })
 
   test('exports scraped data as Excel (.xlsx) download', async ({
@@ -458,29 +450,27 @@ test.describe('Sidepanel Core Functionality', () => {
     expect(fileName.toLowerCase()).toMatch(/\.xlsx$/)
 
     const filePath = await download.path()
-    if (filePath) {
-      const ExcelJS = await import('exceljs')
-      const data = await fs.readFile(filePath)
-      const workbook = new ExcelJS.default.Workbook()
-      // Playwright's Buffer type differs from Node's Buffer type, but they're compatible at runtime
-      // @ts-expect-error - TS2345: Buffer.from creates Buffer<ArrayBuffer> vs expected Buffer
-      await workbook.xlsx.load(Buffer.from(data.buffer, data.byteOffset, data.byteLength))
-      const worksheet = getFirstWorksheet(workbook)
-      const values = worksheet.getSheetValues()
-      // getSheetValues returns 1-based array with first element undefined
-      const aoa = values.slice(1).map((row) => (Array.isArray(row) ? row.slice(1) : []))
+    const ExcelJS = await import('exceljs')
+    const data = await fs.readFile(filePath)
+    const workbook = new ExcelJS.default.Workbook()
+    // Playwright's Buffer type differs from Node's Buffer type, but they're compatible at runtime
+    // @ts-expect-error - TS2345: Buffer.from creates Buffer<ArrayBuffer> vs expected Buffer
+    await workbook.xlsx.load(Buffer.from(data.buffer, data.byteOffset, data.byteLength))
+    const worksheet = getFirstWorksheet(workbook)
+    const values = worksheet.getSheetValues()
+    // getSheetValues returns 1-based array with first element undefined
+    const aoa = values.slice(1).map((row) => (Array.isArray(row) ? row.slice(1) : []))
 
-      const uiHeaders = await sidePanel.evaluate(() => {
-        const ths = Array.from(document.querySelectorAll('table thead th'))
-        return ths
-          .map((th) => th.textContent.trim())
-          .filter((txt) => txt && txt !== '#' && txt.toLowerCase() !== 'actions')
-      })
-      expect(aoa[0]).toEqual(uiHeaders)
+    const uiHeaders = await sidePanel.evaluate(() => {
+      const ths = Array.from(document.querySelectorAll('table thead th'))
+      return ths
+        .map((th) => th.textContent.trim())
+        .filter((txt) => txt && txt !== '#' && txt.toLowerCase() !== 'actions')
+    })
+    expect(aoa[0]).toEqual(uiHeaders)
 
-      const uiRowCount = await sidePanel.locator('tbody tr').count()
-      expect(aoa.length - 1).toBe(uiRowCount)
-    }
+    const uiRowCount = await sidePanel.locator('tbody tr').count()
+    expect(aoa.length - 1).toBe(uiRowCount)
   })
 
   test('shows rescrape indicator when config changes after successful scrape', async ({
@@ -638,7 +628,7 @@ test.describe('Sidepanel Core Functionality', () => {
     // Verify clipboard capture holds the header plus every fixture row
     const text = await TestHelpers.getCopiedText(sidePanel)
     expect(text).not.toBeNull()
-    expect(text!.split('\n').length).toBe(DEFAULT_SCRAPE_ROW_COUNT + 1)
+    expect(text!.split('\n')).toHaveLength(DEFAULT_SCRAPE_ROW_COUNT + 1)
   })
 })
 
