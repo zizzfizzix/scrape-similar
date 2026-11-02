@@ -381,8 +381,8 @@ const OFF_ON_MERITS = {
   // turn each one back into that branch or into a disable carrying the same
   // comment. In tests, a `!` reads back what the test just rendered or set up.
   // `expect(x).not.toBeNull()` does not narrow the type; `assert.exists(x)` from
-  // vitest does, and fails sooner and more clearly than a `!` (whose missing
-  // value surfaces at its first use), but the rule would demand that extra line
+  // vitest does, and fails with a clearer message, at the assertion rather than
+  // at a later use of the value, but the rule would demand that extra line
   // at 342 sites only to improve the message of a test that is already failing.
   // Only the `strict`, `strictTypeChecked` and `all` presets ship the rule; it
   // is listed so the decision survives a move to one of them.
