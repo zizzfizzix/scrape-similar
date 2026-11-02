@@ -49,8 +49,9 @@ export const TYPE_ONLY_EXCLUSIONS = ['src/entrypoints/background/types.ts']
  * needs a real extension context rather than jsdom. The E2E suite covers it.
  *
  * The logic these files used to hold now lives in modules beside them
- * (`content/bootstrap.ts`, `sidepanel/SidePanelRoot.tsx`), and the gate test
- * holds them to a line budget so it cannot drift back in unmeasured.
+ * (`content/bootstrap.ts`, `sidepanel/SidePanelRoot.tsx`), and `eslint.config.ts`
+ * holds them to `BOOTSTRAP_LINE_BUDGET` with `max-lines` so it cannot drift back
+ * in unmeasured.
  *
  * Re-argued at 100%: this is the only group left resting on judgement, so the
  * claim was checked rather than repeated — and where it did not hold, the code

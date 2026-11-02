@@ -2,10 +2,6 @@ import { noConditionalAwait } from '@@/tools/eslint-rules/no-conditional-await.t
 import { RuleTester } from 'eslint'
 import tseslint from 'typescript-eslint'
 
-/**
- * The cases the hand-rolled scan in `coverage-hazards.ts` carried before this
- * rule replaced it (#7), plus the ones ESTree shapes differently from Babel.
- */
 const ruleTester = new RuleTester({
   languageOptions: { parser: tseslint.parser, parserOptions: { ecmaVersion: 'latest' } },
 })
