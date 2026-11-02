@@ -70,13 +70,15 @@ const handleQuickScrape = async (
           payload: { selector: config.mainSelector, shouldScroll: false },
         },
       )
+      // A content script that throws while handling the message never replies.
+      if (!highlightResp) throw new Error('No reply to HIGHLIGHT_ELEMENTS')
       // Store highlight result in session storage immediately
       await applySidePanelDataUpdates(targetTabId, {
-        highlightMatchCount: highlightResp?.matchCount,
-        highlightError: highlightResp?.error,
+        highlightMatchCount: highlightResp.matchCount,
+        highlightError: highlightResp.error,
       })
       if (
-        !highlightResp?.success ||
+        !highlightResp.success ||
         typeof highlightResp.matchCount !== 'number' ||
         highlightResp.matchCount === 0
       ) {

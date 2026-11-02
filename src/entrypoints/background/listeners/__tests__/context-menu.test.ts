@@ -231,6 +231,26 @@ describe('setupContextMenuListener', () => {
       )
     })
 
+    it('logs an error and skips the scrape when the highlight gets no reply', async () => {
+      const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
+      await seedConfig(2, config)
+      replyWith({
+        [MESSAGE_TYPES.SAVE_ELEMENT_DETAILS_TO_STORAGE]: { success: true },
+        [MESSAGE_TYPES.HIGHLIGHT_ELEMENTS]: undefined,
+      })
+
+      await quickScrape()
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        'Error in right-click scrape flow:',
+        new Error('No reply to HIGHLIGHT_ELEMENTS'),
+      )
+      expect(sendMessage).not.toHaveBeenCalledWith(
+        2,
+        expect.objectContaining({ type: MESSAGE_TYPES.START_SCRAPE }),
+      )
+    })
+
     it('logs when the scrape itself is rejected', async () => {
       const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
       await seedConfig(2, config)

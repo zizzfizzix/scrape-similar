@@ -64,12 +64,6 @@ export type ElementDetailsPayload = {
   text?: string
 } | null
 
-export interface ExportResult {
-  success: boolean
-  url?: string
-  error?: string
-}
-
 export interface Message<T = unknown> {
   type: string
   payload?: T
@@ -102,6 +96,11 @@ export type MessageResponse =
 export interface StatusReply {
   success: boolean
   error?: string
+}
+
+/** The background's reply to EXPORT_TO_SHEETS, and what the export returns. */
+export interface ExportResult extends StatusReply {
+  url?: string
 }
 
 /** A content script's reply to HIGHLIGHT_ELEMENTS. */

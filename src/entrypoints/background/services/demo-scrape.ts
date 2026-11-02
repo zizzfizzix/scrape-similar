@@ -71,14 +71,19 @@ export const executeDemoScrape = async (tabId: number, config: ScrapeConfig): Pr
       type: MESSAGE_TYPES.HIGHLIGHT_ELEMENTS,
       payload: { selector: config.mainSelector },
     })
+    // A content script that throws while handling the message never replies.
+    if (!highlightResp) throw new Error('No reply to HIGHLIGHT_ELEMENTS')
 
     await applySidePanelDataUpdates(tabId, {
-      highlightMatchCount: highlightResp?.matchCount,
-      highlightError: highlightResp?.error,
+      highlightMatchCount: highlightResp.matchCount,
+      highlightError: highlightResp.error,
     })
 
-    // A successful highlight always reports its match count.
-    if (highlightResp?.success && highlightResp.matchCount! > 0) {
+    if (
+      highlightResp.success &&
+      typeof highlightResp.matchCount === 'number' &&
+      highlightResp.matchCount > 0
+    ) {
       // Trigger the scrape
       const scrapeResp: StatusReply | undefined = await browser.tabs.sendMessage(tabId, {
         type: MESSAGE_TYPES.START_SCRAPE,

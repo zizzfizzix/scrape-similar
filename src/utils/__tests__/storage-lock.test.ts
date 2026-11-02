@@ -19,7 +19,9 @@ describe('withStorageLock', () => {
       expect.anything(),
       expect.any(Function),
     )
-    expect(requestSpy.mock.lastCall?.[1]?.signal).toBeInstanceOf(AbortSignal)
+    const options = requestSpy.mock.lastCall?.[1]
+    expect(Object.keys(options ?? {})).toEqual(['signal'])
+    expect(options?.signal).toBeInstanceOf(AbortSignal)
   })
 
   it("resolves with the task's result", async () => {

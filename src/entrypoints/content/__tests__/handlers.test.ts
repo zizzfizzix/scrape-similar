@@ -159,6 +159,7 @@ describe('createMessageHandler', () => {
   const expectFailureReply = () => {
     expect(sendResponse).toHaveBeenCalledOnce()
     const [reply] = sendResponse.mock.lastCall!
+    expect(Object.keys(reply as object).sort()).toEqual(['error', 'success'])
     expect(reply).toMatchObject({ success: false })
     expect(reply).toHaveProperty('error', expect.any(String))
   }
