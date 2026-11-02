@@ -65,7 +65,7 @@ export const isMainSelectorValidated = ({
   highlightMatchCount,
   highlightError,
 }: MainSelectorValidationState): boolean =>
-  !!mainSelector.trim() &&
+  !!mainSelector &&
   !hasUncommittedChanges &&
   typeof highlightMatchCount === 'number' &&
   !highlightError

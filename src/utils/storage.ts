@@ -234,10 +234,9 @@ const updateRecentMainSelectors = async (
 }
 
 export const pushRecentMainSelector = async (selector: string): Promise<void> => {
-  const sanitized = selector.trim()
-  if (!sanitized) return
+  if (!selector) return
   await updateRecentMainSelectors((current) =>
-    [sanitized, ...current.filter((s) => s !== sanitized)].slice(0, 5),
+    [selector, ...current.filter((s) => s !== selector)].slice(0, 5),
   )
 }
 

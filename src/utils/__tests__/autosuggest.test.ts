@@ -200,8 +200,7 @@ describe('isSelectorAPreset', () => {
     expect(isSelectorAPreset('//a', allPresets)).toBe(true)
   })
 
-  it('ignores surrounding whitespace on both sides', () => {
-    expect(isSelectorAPreset('  //a  ', allPresets)).toBe(true)
+  it('ignores surrounding whitespace on the preset selector', () => {
     expect(isSelectorAPreset('//a', [preset('p', 'Padded', '  //a  ')])).toBe(true)
   })
 

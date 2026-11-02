@@ -83,7 +83,5 @@ export const resolveSuggestion = (
 }
 
 /** True when `selector` is already stored as a preset, so it needs no recents entry. */
-export const isSelectorAPreset = (selector: string, presets: Preset[]): boolean => {
-  const needle = selector.trim()
-  return presets.some((preset) => (preset.config.mainSelector || '').trim() === needle)
-}
+export const isSelectorAPreset = (selector: string, presets: Preset[]): boolean =>
+  presets.some((preset) => (preset.config.mainSelector || '').trim() === selector)

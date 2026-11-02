@@ -111,6 +111,17 @@ describe('applySidePanelDataUpdates', () => {
     expect((await read(1)).currentScrapeConfig).toEqual({ mainSelector: '//div', columns })
   })
 
+  it('trims a padded stored main selector when an update only changes the columns', async () => {
+    await applySidePanelDataUpdates(1, {
+      currentScrapeConfig: { mainSelector: ' //div ', columns: [] },
+    })
+    const columns = [{ name: 'Href', selector: '@href' }]
+
+    await applySidePanelDataUpdates(1, { currentScrapeConfig: { columns } })
+
+    expect((await read(1)).currentScrapeConfig).toEqual({ mainSelector: '//div', columns })
+  })
+
   it('defaults the main selector to blank when neither side has one', async () => {
     const columns = [{ name: 'Href', selector: '@href' }]
 

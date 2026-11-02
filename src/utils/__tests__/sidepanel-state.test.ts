@@ -105,7 +105,7 @@ describe('isMainSelectorValidated', () => {
   it('is false for an empty selector even if a stale match count is present', () => {
     expect(
       isMainSelectorValidated({
-        mainSelector: '   ',
+        mainSelector: '',
         hasUncommittedChanges: false,
         highlightMatchCount: 42,
         highlightError: undefined,

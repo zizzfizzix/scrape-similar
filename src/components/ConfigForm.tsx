@@ -195,7 +195,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
 
   // Show highlight/error badges only when a non-empty selector is committed
   const isMainSelectorValid = isMainSelectorValidated({
-    mainSelector: mainSelectorDraft,
+    mainSelector: trimmedDraft,
     hasUncommittedChanges,
     highlightMatchCount,
     highlightError,
@@ -322,11 +322,10 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
    * Guess the columns for the current selector.
    *
    * The button is disabled until the selector is non-blank, committed and
-   * validated, so the draft agrees with the config by the time this runs, and
-   * validating needs a tab, so one is attached.
+   * validated, and validating needs a tab, so one is attached.
    */
   const handleGuessConfig = () => {
-    const selector = mainSelectorDraft.trim()
+    const selector = config.mainSelector
 
     // Track auto-generate config button press
     trackEvent(ANALYTICS_EVENTS.AUTO_GENERATE_CONFIG_BUTTON_PRESS)

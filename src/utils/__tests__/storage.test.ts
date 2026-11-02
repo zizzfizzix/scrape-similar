@@ -353,14 +353,8 @@ describe('recent main selectors', () => {
     expect(await getRecentMainSelectors()).toEqual(['//a', '//div'])
   })
 
-  it('trims surrounding whitespace before storing', async () => {
-    await pushRecentMainSelector('  //a  ')
-
-    expect(await getRecentMainSelectors()).toEqual(['//a'])
-  })
-
-  it('ignores a blank selector', async () => {
-    await pushRecentMainSelector('   ')
+  it('ignores an empty selector', async () => {
+    await pushRecentMainSelector('')
 
     expect(await read()).toBeNull()
   })
