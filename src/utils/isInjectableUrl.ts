@@ -10,7 +10,7 @@ const CHROME_WEB_STORE: NonInjectableUrls = {
   match: ['^https://chrome\\.google\\.com/(.+/)?webstore/'],
 }
 
-// Edge installs from the Chrome Web Store too, so it is refused alongside Edge's own.
+// Edge keeps content scripts off both its own store and the Chrome Web Store.
 const EDGE: NonInjectableUrls = {
   startsWith: [...CHROME_WEB_STORE.startsWith, 'https://microsoftedge.microsoft.com/addons/'],
   match: CHROME_WEB_STORE.match,
