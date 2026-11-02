@@ -1,3 +1,4 @@
+import { BLUR_COMMIT_DELAY_MS } from '@/utils/blur-commit'
 import { MESSAGE_TYPES } from '@/utils/types'
 import pkg from '@@/package.json' with { type: 'json' }
 import {
@@ -273,9 +274,6 @@ export const getBoundingBox = async (
   }
   return box
 }
-
-/** `BLUR_COMMIT_DELAY_MS` in `ConfigForm.tsx`, which cannot be imported outside the extension build. */
-const BLUR_COMMIT_DELAY_MS = 150
 
 // Shared test helpers
 // What `stubClipboard` records in the page, for `getCopiedText` to read back.
