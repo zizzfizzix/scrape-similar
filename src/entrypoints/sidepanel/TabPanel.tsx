@@ -76,10 +76,9 @@ export const TabPanel = memo(function TabPanel({
   const lastConfigSeqRef = useRef(0)
   const awaitedConfigSeqRef = useRef(0)
   const inFlightConfigSeqsRef = useRef(new Set<number>())
+  // Set wherever the config is, not from an effect: ConfigForm's effects run
+  // before this component's, and its held blur commit reads the config from one.
   const shownConfigRef = useRef(config)
-  useEffect(() => {
-    shownConfigRef.current = config
-  }, [config])
 
   const applyStoredState = useCallback(
     (stored: SidePanelConfig) => {
@@ -97,6 +96,7 @@ export const TabPanel = memo(function TabPanel({
       // Showing a hidden panel re-reads its storage, which nearly always holds
       // what is already on screen; keeping the same references lets React skip
       // re-rendering the form and the table.
+      shownConfigRef.current = storedConfig
       setConfig((previous) => reuseIfEqual(previous, storedConfig))
 
       const storedResult = stored.scrapeResult
@@ -144,6 +144,7 @@ export const TabPanel = memo(function TabPanel({
     const newConfig = withTrimmedMainSelector(incomingConfig)
     const hasMainSelectorChanged = newConfig.mainSelector !== config.mainSelector
 
+    shownConfigRef.current = newConfig
     setConfig(newConfig)
 
     // The row count belongs to the scrape that produced the current results.
@@ -189,14 +190,12 @@ export const TabPanel = memo(function TabPanel({
     // A later write is still awaited, or was stored and is already shown.
     if (inFlight.some((other) => other > seq) || awaitedConfigSeqRef.current > seq) return false
     // No stored state will record this write, so wait for the newest write still
-    // on its way instead, or, with none, show what is stored now.
-    if (inFlight.length > 0) {
-      awaitedConfigSeqRef.current = Math.max(...inFlight)
-      return false
-    }
-    awaitedConfigSeqRef.current = 0
+    // on its way instead, or for none. The state recording that write may already
+    // have arrived and been skipped, so storage is read now as well; the read is
+    // skipped in turn if it predates that write.
+    awaitedConfigSeqRef.current = inFlight.length > 0 ? Math.max(...inFlight) : 0
     const stored = await sidePanelConfigItem(id).getValue()
-    // Nothing stored is shown as the watcher would show it: the default config.
+    // With nothing stored, show the default config, as a panel opened on this tab would.
     applyStoredState(stored ?? {})
     return false
   }

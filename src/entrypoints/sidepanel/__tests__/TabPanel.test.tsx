@@ -19,6 +19,7 @@ import {
   type SidePanelConfigUpdate,
 } from '@/utils/types'
 import { spyOnBrowser } from '@@/tests/support/fake-browser'
+import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 import { renderSettled, settleEffects } from '@@/tests/support/settle'
 import { act, waitFor } from '@testing-library/react'
 import log from 'loglevel'
@@ -480,20 +481,45 @@ describe('TabPanel numbered config writes', () => {
   it('waits for an earlier write still on its way when the latest one fails', async () => {
     await render()
     const { answer } = scriptedBackground()
-    const readBack = vi.spyOn(sidePanelConfigItem(TAB_ID), 'getValue')
     vi.spyOn(log, 'error').mockImplementation(() => {})
 
     act(() => {
       form.props!.onMainSelectorChange('//li')
     })
     edit(rename)
-    readBack.mockClear()
     await answer(1, 'fail')
 
-    expect(readBack).not.toHaveBeenCalled()
-    expect(form.props!.config.mainSelector).toBe('//li')
+    // The read-back predates the selector write still on its way, so it is skipped.
+    expect(form.props!.config).toEqual({ mainSelector: '//li', columns: [rename.column] })
 
     await answer(0, 'store')
+
+    expect(form.props!.config).toEqual({ mainSelector: '//li', columns: config.columns })
+  })
+
+  it('shows an earlier write already stored, though unanswered, when the latest one fails', async () => {
+    await render()
+    const firstReply = Promise.withResolvers<unknown>()
+    const secondReply = Promise.withResolvers<unknown>()
+    vi.spyOn(log, 'error').mockImplementation(() => {})
+    spyOnBrowser(fakeBrowser.runtime, 'sendMessage')
+      .mockImplementationOnce(async (message: unknown) => {
+        const { tabId, updates } = (message as Message<UpdatePayload>).payload!
+        await applySidePanelDataUpdates(tabId, updates)
+        return await firstReply.promise
+      })
+      .mockReturnValueOnce(secondReply.promise)
+
+    act(() => {
+      form.props!.onMainSelectorChange('//li')
+    })
+    edit(rename)
+    await settleEffects()
+    // The selector write's stored state arrived while the rename was awaited, and was skipped.
+    expect(form.props!.config.columns).toEqual([rename.column])
+
+    secondReply.resolve({ success: false, error: 'Lock timed out' })
+    await settleEffects()
 
     expect(form.props!.config).toEqual({ mainSelector: '//li', columns: config.columns })
   })
@@ -572,6 +598,27 @@ describe('TabPanel numbered config writes', () => {
     await release()
 
     expect(form.props!.config).toEqual({ mainSelector: '//li', columns: [rename.column] })
+  })
+
+  it('builds a selector commit on stored columns it has not rendered yet', async () => {
+    await render()
+    const { release } = heldBackground()
+
+    // ConfigForm's held blur commit runs in an effect of the render that applied
+    // the stored state, before this component's own effects.
+    await act(async () => {
+      await storage.setItem(storageKey, {
+        currentScrapeConfig: { ...config, columns: guessedColumns },
+      })
+      await flushMicrotasks()
+      form.props!.onMainSelectorChange('//li')
+    })
+
+    expect(form.props!.config).toEqual({ mainSelector: '//li', columns: guessedColumns })
+
+    await release()
+
+    expect(form.props!.config).toEqual({ mainSelector: '//li', columns: guessedColumns })
   })
 
   it('sends nothing without a tab', async () => {
