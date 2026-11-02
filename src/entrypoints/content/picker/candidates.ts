@@ -1,4 +1,10 @@
+import { buildTableRowSelector } from '@/utils/scrape-guess'
 import { evaluateXPath, minimizeXPath } from '@/utils/scraper'
+
+// A row's own path also matches the header row, which then scrapes as data;
+// the table-row selector keeps the same rows the context-menu guess picks.
+const candidateFor = (node: HTMLElement): string =>
+  (node.tagName.toLowerCase() === 'tr' ? buildTableRowSelector(node) : null) ?? minimizeXPath(node)
 
 /**
  * Generate selector candidates by walking up the DOM tree from a starting element
@@ -17,7 +23,7 @@ export const generateSelectorCandidates = (start: HTMLElement, maxLevels = 10): 
     node !== document.documentElement &&
     levels <= maxLevels
   ) {
-    candidates.add(minimizeXPath(node))
+    candidates.add(candidateFor(node))
     node = node.parentElement
     levels += 1
   }

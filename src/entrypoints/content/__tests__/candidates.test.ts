@@ -82,6 +82,41 @@ describe('generateSelectorCandidates', () => {
     expect(candidates.length).toBe(uniqueCandidates.length)
   })
 
+  describe('at a table row', () => {
+    beforeEach(() => {
+      document.body.innerHTML = `
+        <table><tr><td>other</td></tr></table>
+        <table>
+          <tr><th id="header">Rank</th></tr>
+          <tr><td id="cell">1</td></tr>
+          <tr><td>2</td></tr>
+        </table>`
+    })
+
+    it('selects only the data rows of the row’s table', () => {
+      const candidates = generateSelectorCandidates(document.getElementById('cell')!)
+
+      expect(candidates[1]).toBe('(//table)[2]//tr[td]')
+      expect(evaluateXPath(candidates[1]!).map((row) => row.textContent)).toEqual(['1', '2'])
+    })
+
+    it('selects the data rows from a header cell too', () => {
+      const candidates = generateSelectorCandidates(document.getElementById('header')!)
+
+      expect(candidates[1]).toBe('(//table)[2]//tr[td]')
+    })
+
+    it('keeps the row’s own path for a row outside a table', () => {
+      const row = document.createElement('tr')
+      const cell = row.appendChild(document.createElement('td'))
+      document.body.replaceChildren(row)
+
+      const candidates = generateSelectorCandidates(cell)
+
+      expect(evaluateXPath(candidates[1]!)).toEqual([row])
+    })
+  })
+
   it('returns at least one candidate (the element itself)', () => {
     document.body.innerHTML = `<span id="target">Text</span>`
     const target = document.getElementById('target')!
