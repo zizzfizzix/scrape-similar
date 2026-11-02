@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { useDebugMode } from '@/hooks/use-debug-mode'
-import { useStorageItem } from '@/hooks/use-storage-item'
+import { useLoadedStorageItem, useStorageItem } from '@/hooks/use-storage-item'
 import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import log from 'loglevel'
@@ -92,6 +92,36 @@ describe('useStorageItem', () => {
       await flushMicrotasks()
     })
     expect(result.current[0]).toBe(true)
+  })
+})
+
+describe('useLoadedStorageItem', () => {
+  it('has no value until the stored one has been read', async () => {
+    await storage.setItem('local:debugMode', true)
+
+    const { result } = renderHook(() => useLoadedStorageItem(debugModeItem))
+
+    expect(result.current[0]).toBeUndefined()
+    await waitFor(() => expect(result.current[0]).toBe(true))
+  })
+
+  it('settles on the default when nothing is stored', async () => {
+    const { result } = renderHook(() => useLoadedStorageItem(debugModeItem))
+
+    await waitFor(() => expect(result.current[0]).toBe(false))
+  })
+
+  it('has no value for a new item until that item has been read', async () => {
+    await storage.setItem('local:debugUnlocked', true)
+    const { result, rerender } = renderHook(({ item }) => useLoadedStorageItem(item), {
+      initialProps: { item: debugModeItem },
+    })
+    await waitFor(() => expect(result.current[0]).toBe(false))
+
+    rerender({ item: debugUnlockedItem })
+
+    expect(result.current[0]).toBeUndefined()
+    await waitFor(() => expect(result.current[0]).toBe(true))
   })
 })
 

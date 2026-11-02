@@ -5,7 +5,8 @@ import { ThemeProvider } from '@/components/theme-provider'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ANALYTICS_EVENTS } from '@/utils/analytics'
 import { userPresetsItem } from '@/utils/storage'
-import { render, screen } from '@testing-library/react'
+import { renderSettled } from '@@/tests/support/settle'
+import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
@@ -19,7 +20,7 @@ vi.mock('@/utils/analytics', async (importOriginal) => ({
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
 const renderDrawer = () =>
-  render(
+  renderSettled(
     <ConsentProvider>
       <ThemeProvider>
         <TooltipProvider>
@@ -38,14 +39,14 @@ beforeEach(async () => {
 
 describe('SettingsDrawer', () => {
   it('keeps the settings out of the document until the drawer is opened', async () => {
-    renderDrawer()
+    await renderDrawer()
 
     expect(screen.queryByText('Theme')).not.toBeInTheDocument()
     expect(trackEvent).not.toHaveBeenCalledWith(ANALYTICS_EVENTS.SETTINGS_OPEN)
   })
 
   it('reports the drawer being opened', async () => {
-    renderDrawer()
+    await renderDrawer()
 
     await openDrawer()
 
@@ -54,7 +55,7 @@ describe('SettingsDrawer', () => {
   })
 
   it('unlocks the hidden debug row from five clicks on the drawer title', async () => {
-    renderDrawer()
+    await renderDrawer()
     await openDrawer()
 
     const title = await screen.findByText('Settings', { selector: '[data-slot="drawer-title"]' })

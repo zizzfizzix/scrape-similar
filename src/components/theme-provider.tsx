@@ -1,6 +1,7 @@
-import { useStorageItem } from '@/hooks/use-storage-item'
+import { useLoadedStorageItem } from '@/hooks/use-storage-item'
 import { reportRejection } from '@/utils/report-rejection'
-import { createContext, useContext, useLayoutEffect, useMemo } from 'react'
+import { isTheme, writeThemeMirror } from '@/utils/theme-mirror'
+import { createContext, useContext, useEffect, useLayoutEffect, useMemo } from 'react'
 
 interface ThemeProviderProps {
   children: React.ReactNode
@@ -22,39 +23,45 @@ const initialState: ThemeProviderState = {
 
 const ThemeProviderContext = createContext<ThemeProviderState>(initialState)
 
-/** The stored value is whatever was last written there, not necessarily a theme. */
-const isTheme = (value: unknown): value is Theme =>
-  value === 'light' || value === 'dark' || value === 'system'
-
-const applyTheme = (rootElement: Element | null | undefined, theme: Exclude<Theme, 'system'>) => {
-  const root = rootElement ?? document.documentElement
+const applyTheme = (root: Element, theme: Exclude<Theme, 'system'>) => {
   root.classList.remove('light', 'dark')
   root.classList.add(theme)
 }
 
 export function ThemeProvider({ children, rootElement, ...props }: ThemeProviderProps) {
-  const [storedTheme, setStoredTheme] = useStorageItem(themeItem)
+  const [storedTheme, setStoredTheme] = useLoadedStorageItem(themeItem)
+  const isLoaded = storedTheme !== undefined
   const theme = isTheme(storedTheme) ? storedTheme : themeItem.fallback
 
   // A layout effect sets the class in the same commit that changes the theme;
   // a passive effect can run after a frame has been painted with the new theme
   // and the previous class.
   useLayoutEffect(() => {
+    if (!isLoaded) return
+
+    const root = rootElement ?? document.documentElement
+    const removeClass = () => root.classList.remove('light', 'dark')
+
     if (theme !== 'system') {
-      applyTheme(rootElement, theme)
-      return
+      applyTheme(root, theme)
+      return removeClass
     }
 
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-    const handleChange = () => applyTheme(rootElement, mediaQuery.matches ? 'dark' : 'light')
+    const handleChange = () => applyTheme(root, mediaQuery.matches ? 'dark' : 'light')
 
     mediaQuery.addEventListener('change', handleChange)
     handleChange()
 
     return () => {
       mediaQuery.removeEventListener('change', handleChange)
+      removeClass()
     }
-  }, [theme, rootElement])
+  }, [isLoaded, theme, rootElement])
+
+  useEffect(() => {
+    if (isLoaded) writeThemeMirror(theme)
+  }, [isLoaded, theme])
 
   const value = useMemo(
     () => ({
@@ -64,6 +71,10 @@ export function ThemeProvider({ children, rootElement, ...props }: ThemeProvider
     }),
     [theme, setStoredTheme, rootElement],
   )
+
+  // Rendering before the stored theme is known would paint the page in the
+  // fallback theme and then switch.
+  if (!isLoaded) return null
 
   return (
     <ThemeProviderContext.Provider {...props} value={value}>

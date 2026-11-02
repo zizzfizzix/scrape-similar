@@ -6,7 +6,8 @@ import { ThemeProvider } from '@/components/theme-provider'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ANALYTICS_EVENTS } from '@/utils/analytics'
 import { author } from '@@/package.json' with { type: 'json' }
-import { type RenderResult, render as renderComponent } from '@testing-library/react'
+import { renderSettled } from '@@/tests/support/settle'
+import { render as renderComponent, type RenderResult } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
@@ -20,7 +21,7 @@ vi.mock('@/utils/analytics', async (importOriginal) => ({
 let view: RenderResult
 
 const render = (props: Parameters<typeof Footer>[0] = {}) =>
-  renderComponent(
+  renderSettled(
     <ConsentProvider>
       <ThemeProvider>
         <TooltipProvider>
@@ -40,14 +41,14 @@ beforeEach(() => {
 
 describe('Footer', () => {
   it('credits the author', async () => {
-    view = render()
+    view = await render()
 
     expect(view.container.textContent).toContain('Made by')
     expect(authorLink().textContent).toBe(author)
   })
 
   it('opens the author link in a new tab', async () => {
-    view = render()
+    view = await render()
 
     expect(authorLink().href).toContain('linkedin.com/in/kubaserafinowski')
     expect(authorLink().target).toBe('_blank')
@@ -55,13 +56,13 @@ describe('Footer', () => {
   })
 
   it('tags the author link with the extension as its source', async () => {
-    view = render()
+    view = await render()
 
     expect(authorLink().href).toContain('utm_source=scrape-similar-extension')
   })
 
   it('records a click on the author link', async () => {
-    view = render()
+    view = await render()
 
     await userEvent.click(authorLink())
 
@@ -71,14 +72,14 @@ describe('Footer', () => {
   })
 
   it('offers a support link', async () => {
-    view = render()
+    view = await render()
 
     expect(supportLink().href).toContain('ko-fi.com/kubaserafinowski')
     expect(supportLink()).toHaveAttribute('aria-label', 'Support Kuba Serafinowski on Ko-fi')
   })
 
   it('records a click on the support link', async () => {
-    view = render()
+    view = await render()
 
     await userEvent.click(supportLink())
 
@@ -88,33 +89,33 @@ describe('Footer', () => {
   })
 
   it('offers a feedback button', async () => {
-    view = render()
+    view = await render()
 
     expect(view.container.querySelector('#feedback-button')!).toBeTruthy()
   })
 
   it('applies an extra class', async () => {
-    view = render({ className: 'my-footer' })
+    view = await render({ className: 'my-footer' })
 
     expect(view.container.querySelector('footer')!.className).toContain('my-footer')
   })
 
   it('centres its content when there are no settings', async () => {
-    view = render()
+    view = await render()
 
     expect(view.container.querySelector('footer')!.className).toContain('justify-center')
     expect(view.container.querySelector('button[aria-label="Settings"]')).toBeNull()
   })
 
   it('adds the settings drawer when asked', async () => {
-    view = render({ showSettings: true })
+    view = await render({ showSettings: true })
 
     expect(view.container.querySelector('footer')!.className).toContain('justify-between')
     expect(view.container.querySelector('button[aria-label="Settings"]')!).toBeTruthy()
   })
 
   it('marks the settings variant with a slot for styling hooks', async () => {
-    view = render({ showSettings: true })
+    view = await render({ showSettings: true })
 
     expect(view.container.querySelector('footer')!).toHaveAttribute('data-slot', 'footer')
   })
