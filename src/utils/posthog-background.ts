@@ -12,8 +12,8 @@ import { PostHog } from 'posthog-js/dist/module.no-external'
 import 'posthog-js/dist/tracing-headers.js'
 
 let posthogInstance: PostHog | null = null
-// Set when an initialisation found no consent or no API key or host, none of
-// which can change before the next reset.
+// Set when an initialisation found no consent or no API key or host. Kept until
+// the next reset, which every consent decision triggers.
 let isUnavailable = false
 let initializationPromise: Promise<PostHog | null> | null = null
 // Bumped by every reset, so an initialisation the reset overtook can tell its
@@ -156,8 +156,8 @@ export const getPostHogBackground = async (): Promise<PostHog | null> => {
   const pending = (async (): Promise<PostHog | null> => {
     const outcome = await initializePostHog(startedIn)
     const instance = outcome instanceof PostHog ? outcome : null
-    // Consent was withdrawn after the instance was built: keeping it would let
-    // it capture (exceptions included) after the user said no.
+    // A reset overtook this initialisation: after a decline the instance must
+    // not capture (exceptions included), and after a grant a newer one replaces it.
     if (generation !== startedIn) {
       if (instance) retire(instance)
       return null

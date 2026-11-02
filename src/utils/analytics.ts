@@ -18,8 +18,8 @@ export interface QueuedEvent {
 export const queueEvent = async (event: QueuedEvent): Promise<void> => {
   try {
     const queue = await withStorageLock(eventQueueItem, async () => {
-      // A decline writes consent and then empties the queue under this lock, so
-      // consent read here cannot be declined without that emptying still to come.
+      // A decline writes consent before it empties the queue under this lock, so
+      // an event appended after reading consent as not declined is still emptied.
       if ((await getConsentState()) === false) return null
       const current = await eventQueueItem.getValue()
       let next: QueuedEvent[]
