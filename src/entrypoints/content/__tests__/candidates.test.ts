@@ -143,15 +143,16 @@ describe('generateSelectorCandidates', () => {
       expect(rowLevelTexts('cell')).toEqual(['A', 'B', 'C'])
     })
 
-    it('builds the candidates for the only row on the page', () => {
+    it('builds only valid candidates for a row that minimizes to the root', () => {
+      // The sibling div gives the row's path a positional step, which minimizeXPath trims down to "/".
       document.body.innerHTML = `
         <div></div>
         <div><table><tr><td id="cell">only</td><td>other</td></tr></table></div>`
 
       const candidates = generateSelectorCandidates(document.getElementById('cell')!)
 
-      expect(candidates).toContain('/')
       expect(candidates).not.toContain('/[td]')
+      for (const candidate of candidates) expect(() => evaluateXPath(candidate)).not.toThrow()
     })
 
     it('leaves out the rows of a table nested in a row', () => {
