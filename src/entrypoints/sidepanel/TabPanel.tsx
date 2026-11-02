@@ -12,10 +12,14 @@ import {
   buildExportFilename,
   buildMainSelectorUpdates,
   hasConfigDrifted,
+  hasSameData,
   reuseIfEqual,
 } from '@/utils/sidepanel-state'
 import log from 'loglevel'
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
+
+export const COLUMN_EDIT_NOT_SAVED =
+  'Could not save the column change. The saved columns are shown.'
 
 export const CONTENT_SCRIPT_UNREACHABLE =
   'Could not connect to the content script. Please reload the page or ensure the extension is enabled for this site.'
@@ -62,15 +66,24 @@ export const TabPanel = memo(function TabPanel({
   const buildFilename = useCallback((now: Date) => buildExportFilename(tabUrl, now), [tabUrl])
 
   // Column edits sent and not yet answered. Storage lags the panel while any
-  // are, so a watcher event would put back columns from before the latest
-  // keystrokes, and every edit built on those would be refused.
+  // are, so the watcher holds the columns it reports instead of showing them:
+  // columns from before the latest keystrokes would make every edit built on
+  // them fail its check.
   const pendingColumnEditsRef = useRef(0)
+  const heldColumnsRef = useRef<ColumnDefinition[] | null>(null)
+  // Set when an edit in the current run was refused or failed.
+  const hasColumnEditMissedRef = useRef(false)
+  const shownColumnsRef = useRef(config.columns)
+  useEffect(() => {
+    shownColumnsRef.current = config.columns
+  }, [config.columns])
 
   const applyStoredState = useCallback(
     (stored: SidePanelConfig) => {
       log.debug(`Applying stored state for tab ${String(tabId)}:`, stored)
       const resolvedConfig = resolveStoredConfig(stored)
       const hasPendingColumnEdits = pendingColumnEditsRef.current > 0
+      if (hasPendingColumnEdits) heldColumnsRef.current = resolvedConfig.columns
       // Showing a hidden panel re-reads its storage, which nearly always holds
       // what is already on screen; keeping the same references lets React skip
       // re-rendering the form and the table.
@@ -154,27 +167,54 @@ export const TabPanel = memo(function TabPanel({
     )
   }
 
-  // Once the last pending edit is answered, the panel reads the stored columns
-  // back: the watcher skipped them meanwhile, and a superseded edit can leave
-  // storage unchanged, in which case no watcher fires at all.
-  const storeColumnEdit = async (id: number, edit: ColumnEdit) => {
-    pendingColumnEditsRef.current += 1
+  /** Send one column edit; resolves to whether storage may now differ from the panel. */
+  const sendColumnEdit = async (id: number, edit: ColumnEdit): Promise<boolean> => {
     let reply: SidePanelUpdateReply | undefined
     try {
       reply = await browser.runtime.sendMessage({
         type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
         payload: { tabId: id, updates: { columnEdit: edit } },
       })
-    } finally {
-      pendingColumnEditsRef.current -= 1
+    } catch (error) {
+      log.error(`Could not send a column edit for tab ${String(id)}:`, error)
+      notify.error(COLUMN_EDIT_NOT_SAVED)
+      return true
     }
-    if (reply?.isColumnEditSuperseded) {
-      log.debug(`Column edit for tab ${String(id)} no longer matched the stored column`)
+    if (reply?.success !== true) {
+      log.error(`Could not store a column edit for tab ${String(id)}:`, reply?.error)
+      notify.error(COLUMN_EDIT_NOT_SAVED)
+      return true
     }
+    return reply.isColumnEditSuperseded === true
+  }
+
+  // Once the last pending edit is answered, the columns the watcher held are
+  // checked against the panel's. Only a mismatch, or an edit that was refused
+  // or failed (which can leave storage unchanged, so no watcher fires), costs a
+  // read, and the read replaces only the columns: a snapshot taken now can be
+  // older than a main selector the panel has already sent.
+  const storeColumnEdit = async (id: number, edit: ColumnEdit) => {
+    pendingColumnEditsRef.current += 1
+    const hasMissed = await sendColumnEdit(id, edit)
+    pendingColumnEditsRef.current -= 1
+    if (hasMissed) hasColumnEditMissedRef.current = true
     if (pendingColumnEditsRef.current > 0) return
+
+    const held = heldColumnsRef.current
+    heldColumnsRef.current = null
+    const hasDiverged =
+      hasColumnEditMissedRef.current ||
+      (held !== null && !hasSameData(held, shownColumnsRef.current))
+    hasColumnEditMissedRef.current = false
+    if (!hasDiverged) return
+
     const stored = await sidePanelConfigItem(id).getValue()
+    // A new edit started during the read; its own settling decides what to show.
+    if (pendingColumnEditsRef.current > 0) return
     // Null only once the tab has closed, and its panel goes with it.
-    if (stored) applyStoredState(stored)
+    if (!stored) return
+    const { columns } = resolveStoredConfig(stored)
+    setConfig((previous) => reuseIfEqual(previous, { ...previous, columns }))
   }
 
   const handleColumnEdit = (edit: ColumnEdit) => {

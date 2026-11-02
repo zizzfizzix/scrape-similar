@@ -43,12 +43,19 @@ describe('applyColumnEdit', () => {
   it('compares the key as well as the name and selector', () => {
     const keyed = [{ ...rank, key: 'rank' }]
 
-    expect(applyColumnEdit(keyed, { type: 'remove', index: 0, expected: rank })).toBeNull()
-    expect(applyColumnEdit(keyed, { type: 'remove', index: 0, expected: keyed[0]! })).toEqual([])
+    const update = (expected: ColumnDefinition) =>
+      applyColumnEdit(keyed, { type: 'update', index: 0, expected, column: country })
+
+    expect(update(rank)).toBeNull()
+    expect(update(keyed[0]!)).toEqual([country])
   })
 
   it('refuses an edit whose index is past the end', () => {
     expect(applyColumnEdit(columns(), { type: 'remove', index: 2, expected: rank })).toBeNull()
+  })
+
+  it('refuses to remove the only column', () => {
+    expect(applyColumnEdit([rank], { type: 'remove', index: 0, expected: rank })).toBeNull()
   })
 
   it('drops the column at the index when it is the one the edit expects', () => {

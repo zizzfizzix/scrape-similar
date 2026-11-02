@@ -11,7 +11,8 @@ const isSameColumn = (a: ColumnDefinition, b: ColumnDefinition): boolean =>
 
 /**
  * `columns` with `edit` applied, or `null` when the edit targets a column that
- * is no longer at its index as it was when the edit was made. An added column
+ * is no longer at its index as it was when the edit was made, or would remove
+ * the only column. An added column
  * is numbered after the list it lands on, which may be longer than the one the
  * editor showed.
  */
@@ -26,7 +27,10 @@ export const applyColumnEdit = (
   const stored = columns[edit.index]
   if (!stored || !isSameColumn(stored, edit.expected)) return null
 
-  if (edit.type === 'remove') return columns.filter((_, i) => i !== edit.index)
+  if (edit.type === 'remove') {
+    // The form never removes the last column, and neither may an edit that lands on a shorter list.
+    return columns.length > 1 ? columns.filter((_, i) => i !== edit.index) : null
+  }
   return columns.map((column, i) => (i === edit.index ? edit.column : column))
 }
 
