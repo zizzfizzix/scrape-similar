@@ -1,6 +1,6 @@
 import { useStorageItem } from '@/hooks/use-storage-item'
 import { reportRejection } from '@/utils/report-rejection'
-import { createContext, useContext, useLayoutEffect } from 'react'
+import { createContext, useContext, useLayoutEffect, useMemo } from 'react'
 
 interface ThemeProviderProps {
   children: React.ReactNode
@@ -56,11 +56,14 @@ export function ThemeProvider({ children, rootElement, ...props }: ThemeProvider
     }
   }, [theme, rootElement])
 
-  const value = {
-    theme,
-    setTheme: (next: Theme) => reportRejection(setStoredTheme(next)),
-    rootElement,
-  }
+  const value = useMemo(
+    () => ({
+      theme,
+      setTheme: (next: Theme) => reportRejection(setStoredTheme(next)),
+      rootElement,
+    }),
+    [theme, setStoredTheme, rootElement],
+  )
 
   return (
     <ThemeProviderContext.Provider {...props} value={value}>
