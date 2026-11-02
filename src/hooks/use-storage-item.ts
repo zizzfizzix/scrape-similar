@@ -1,5 +1,5 @@
 import { subscribeWithBackfill } from '@/utils/storage-subscription'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 type Item<T> = WxtStorageItem<T, Record<string, unknown>>
 
@@ -29,7 +29,7 @@ const useSubscribedValue = <T extends NonNullable<unknown>>(
     const settleOnFallback = () =>
       setLoaded((previous) => (previous?.item === item ? previous : { item, value: item.fallback }))
     return subscribeWithBackfill<T>(
-      { watch: item.watch, read: readStored },
+      { watch: (callback) => item.watch(callback), read: readStored },
       (value) => setLoaded({ item, value }),
       shouldSettleUnset ? settleOnFallback : undefined,
     )
@@ -38,10 +38,14 @@ const useSubscribedValue = <T extends NonNullable<unknown>>(
   return loaded?.item === item ? loaded : null
 }
 
+/** The item's `setValue`, with an identity that changes only with the item. */
+const useSetter = <T extends NonNullable<unknown>>(item: Item<T>) =>
+  useCallback((value: T) => item.setValue(value), [item])
+
 /**
  * The current value of a storage item, kept in step with every write to it.
  *
- * Writers call the returned setter (the item's own `setValue`) and let the
+ * Writers call the returned setter (the item's `setValue`) and let the
  * watch deliver the new value, so storage stays the only source of truth: a
  * write from another page lands the same way as one from this page. A removed
  * key arrives as the item's fallback, so it resets to its default.
@@ -57,7 +61,7 @@ export const useStorageItem = <T extends NonNullable<unknown>>(
   item: Item<T>,
 ): [T, (value: T) => Promise<void>] => {
   const loaded = useSubscribedValue(item, false)
-  return [loaded ? loaded.value : item.fallback, item.setValue]
+  return [loaded ? loaded.value : item.fallback, useSetter(item)]
 }
 
 /**
@@ -69,5 +73,5 @@ export const useLoadedStorageItem = <T extends NonNullable<unknown>>(
   item: Item<T>,
 ): [T | undefined, (value: T) => Promise<void>] => {
   const loaded = useSubscribedValue(item, true)
-  return [loaded?.value, item.setValue]
+  return [loaded?.value, useSetter(item)]
 }

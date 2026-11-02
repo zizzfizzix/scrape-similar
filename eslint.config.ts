@@ -29,12 +29,13 @@ import { noContentScriptLock } from './tools/eslint-rules/no-content-script-lock
  *
  * Type-aware linting is switched on (`projectService`). What is on from it is
  * the rules this codebase already passes (ALREADY_CLEAN), the correctness,
- * stylistic, assertion, unsafe-`any` and promise rules (CORRECTNESS_RULES,
- * TIDY_RULES, ASSERTION_RULES, UNSAFE_ANY_RULES, PROMISE_RULES) and the boolean
- * naming rule; the rest is a backlog tracked in #282, and any rule held off
- * with violations to fix goes in DEFERRED below with the count it has. A rule
- * that is wrong for this codebase rather than merely unfixed goes in
- * OFF_ON_MERITS instead, which is not a worklist.
+ * stylistic, assertion, unsafe-`any`, promise and unbound-method rules
+ * (CORRECTNESS_RULES, TIDY_RULES, ASSERTION_RULES, UNSAFE_ANY_RULES,
+ * PROMISE_RULES, UNBOUND_METHOD) and the boolean naming rule; the rest is a
+ * backlog tracked in #282, and any rule held off with violations to fix goes
+ * in DEFERRED below with the count it has. A rule that is wrong for this
+ * codebase rather than merely unfixed goes in OFF_ON_MERITS instead, which is
+ * not a worklist.
  */
 
 const TEST_FILES = [
@@ -278,6 +279,17 @@ const PROMISE_RULES: Linter.RulesRecord = {
 }
 
 /**
+ * A method passed by reference loses `this` (#379). WXT's storage items are
+ * built from closures and would survive it, but their type declares methods,
+ * so callers wrap them in arrows rather than lean on how they are built. Test
+ * files take `vitest/unbound-method` instead, which reads `expect(obj.method)`
+ * and `vi.mocked(obj.method)` as the assertions they are.
+ */
+const UNBOUND_METHOD: Linter.RulesRecord = {
+  '@typescript-eslint/unbound-method': 'error',
+}
+
+/**
  * Rules worth having that no longer fit in the diff that turned the linter on.
  * Each is off with the number of violations it reports today, so re-enabling one
  * is a line here plus the fixes it names — and so the count is a claim a reviewer
@@ -352,6 +364,7 @@ export default defineConfig([
       ...ASSERTION_RULES,
       ...UNSAFE_ANY_RULES,
       ...PROMISE_RULES,
+      ...UNBOUND_METHOD,
       ...BOOLEAN_PREFIX,
       '@typescript-eslint/no-unused-vars': [
         'error',
@@ -499,6 +512,8 @@ export default defineConfig([
       'vitest/valid-expect': ['error', { maxArgs: 2 }],
       // A test whose assertion sits in a helper still asserts.
       'vitest/expect-expect': ['error', { assertFunctionNames: ['expect', 'expect*', 'waitFor*'] }],
+      '@typescript-eslint/unbound-method': 'off',
+      'vitest/unbound-method': 'error',
     },
   },
 
