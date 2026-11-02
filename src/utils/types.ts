@@ -117,7 +117,7 @@ export const MESSAGE_TYPES = {
 
 // Analytics message payload interface
 export interface TrackEventPayload {
-  eventName: string
+  eventName: AnalyticsEvent
   properties: AnalyticsProperties
 }
 

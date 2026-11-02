@@ -10,7 +10,7 @@ import log from 'loglevel'
 export const MAX_QUEUED_EVENTS = 1000 // Prevent unbounded growth
 
 export interface QueuedEvent {
-  name: string
+  name: AnalyticsEvent
   props: AnalyticsProperties
   timestamp: number
 }
@@ -105,6 +105,8 @@ export const ANALYTICS_EVENTS = {
   PICKER_CONTEXT_MENU_OPEN: 'picker_context_menu_open',
   PICKER_LEVEL_CHANGE: 'picker_level_change',
 } as const
+
+export type AnalyticsEvent = (typeof ANALYTICS_EVENTS)[keyof typeof ANALYTICS_EVENTS]
 
 /**
  * Values of the `source` property, which records how the user started an
@@ -282,7 +284,7 @@ export type ScrapeSource = typeof ANALYTICS_SOURCES.BUTTON | typeof ANALYTICS_SO
  * - Content script: hands the event to the background script over a message
  */
 export const captureEvent = async (
-  eventName: string,
+  eventName: AnalyticsEvent,
   properties: AnalyticsProperties = {},
 ): Promise<void> => {
   try {
@@ -378,6 +380,9 @@ export const captureEvent = async (
  * Fire-and-forget form of `captureEvent`, which logs its own failures, so
  * callers have nothing to await.
  */
-export const trackEvent = (eventName: string, properties: AnalyticsProperties = {}): void => {
+export const trackEvent = (
+  eventName: AnalyticsEvent,
+  properties: AnalyticsProperties = {},
+): void => {
   reportRejection(captureEvent(eventName, properties))
 }

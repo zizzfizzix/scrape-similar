@@ -32,7 +32,7 @@ const createFakePostHog = () => {
 
 const queueKey = eventQueueItem.key
 const readQueue = () => storage.getItem<QueuedEvent[]>(queueKey)
-const event = (name: string, timestamp = 1_700_000_000_000): QueuedEvent => ({
+const event = (name: AnalyticsEvent, timestamp = 1_700_000_000_000): QueuedEvent => ({
   name,
   props: { source: 'test' },
   timestamp,
@@ -82,14 +82,17 @@ describe('flushQueuedEvents', () => {
   it('captures every queued event, marks it buffered and clears the queue', async () => {
     const ph = createFakePostHog()
     usePostHog(ph)
-    await storage.setItem(queueKey, [event('first', 1000), event('second', 2000)])
+    await storage.setItem(queueKey, [
+      event(ANALYTICS_EVENTS.PRESET_LOAD, 1000),
+      event(ANALYTICS_EVENTS.PRESET_SAVE, 2000),
+    ])
 
     await flushQueuedEvents()
 
     expect(ph.capture).toHaveBeenCalledTimes(2)
     expect(ph.capture).toHaveBeenNthCalledWith(
       1,
-      'first',
+      ANALYTICS_EVENTS.PRESET_LOAD,
       { source: 'test', buffered: true },
       { timestamp: new Date(1000) },
     )
@@ -99,7 +102,11 @@ describe('flushQueuedEvents', () => {
   it('raises the rate limit to the queue length while flushing, then restores it', async () => {
     const ph = createFakePostHog()
     usePostHog(ph)
-    await storage.setItem(queueKey, [event('a'), event('b'), event('c')])
+    await storage.setItem(queueKey, [
+      event(ANALYTICS_EVENTS.PRESET_LOAD),
+      event(ANALYTICS_EVENTS.PRESET_SAVE),
+      event(ANALYTICS_EVENTS.PRESET_DELETION),
+    ])
 
     await flushQueuedEvents()
 
@@ -113,29 +120,29 @@ describe('flushQueuedEvents', () => {
 
   it('leaves the queue and its lock alone while consent is undecided', async () => {
     await storage.removeItem(analyticsConsentItem.key)
-    await storage.setItem(queueKey, [event('kept')])
+    await storage.setItem(queueKey, [event(ANALYTICS_EVENTS.PRESET_LOAD)])
     const requestSpy = vi.spyOn(navigator.locks, 'request')
 
     await flushQueuedEvents()
 
-    expect(await readQueue()).toEqual([event('kept')])
+    expect(await readQueue()).toEqual([event(ANALYTICS_EVENTS.PRESET_LOAD)])
     // Pages queueing events wait on this lock, so a flush that cannot send must not take it.
     expect(requestSpy).not.toHaveBeenCalled()
   })
 
   it('keeps the queue intact when PostHog is unavailable', async () => {
     usePostHog(null)
-    await storage.setItem(queueKey, [event('kept')])
+    await storage.setItem(queueKey, [event(ANALYTICS_EVENTS.PRESET_LOAD)])
 
     await flushQueuedEvents()
 
-    expect(await readQueue()).toEqual([event('kept')])
+    expect(await readQueue()).toEqual([event(ANALYTICS_EVENTS.PRESET_LOAD)])
   })
 
   it('sends nothing when consent is withdrawn while it waits for the lock', async () => {
     const ph = createFakePostHog()
     usePostHog(ph)
-    await storage.setItem(queueKey, [event('kept')])
+    await storage.setItem(queueKey, [event(ANALYTICS_EVENTS.PRESET_LOAD)])
     let release = () => {}
     const held = navigator.locks.request(
       queueKey,
@@ -153,7 +160,7 @@ describe('flushQueuedEvents', () => {
     await Promise.all([held, flushing])
 
     expect(ph.capture).not.toHaveBeenCalled()
-    expect(await readQueue()).toEqual([event('kept')])
+    expect(await readQueue()).toEqual([event(ANALYTICS_EVENTS.PRESET_LOAD)])
   })
 
   it('keeps flushing the rest of the queue when one capture throws', async () => {
@@ -162,7 +169,10 @@ describe('flushQueuedEvents', () => {
     vi.mocked(ph.capture).mockImplementationOnce(() => {
       throw new Error('capture failed')
     })
-    await storage.setItem(queueKey, [event('bad'), event('good')])
+    await storage.setItem(queueKey, [
+      event(ANALYTICS_EVENTS.PRESET_LOAD),
+      event(ANALYTICS_EVENTS.PRESET_SAVE),
+    ])
 
     await flushQueuedEvents()
 
@@ -174,7 +184,7 @@ describe('flushQueuedEvents', () => {
     const ph = createFakePostHog()
     usePostHog(ph)
     const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
-    await storage.setItem(queueKey, [event('a')])
+    await storage.setItem(queueKey, [event(ANALYTICS_EVENTS.PRESET_LOAD)])
     const failure = new Error('write failed')
     vi.spyOn(eventQueueItem, 'setValue').mockRejectedValueOnce(failure)
 
@@ -188,7 +198,7 @@ describe('flushQueuedEvents', () => {
 
   it('logs the failure even when no PostHog instance is available to reset', async () => {
     const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
-    await storage.setItem(queueKey, [event('a')])
+    await storage.setItem(queueKey, [event(ANALYTICS_EVENTS.PRESET_LOAD)])
     posthogMocks.getPostHogBackground
       .mockRejectedValueOnce(new Error('init failed'))
       .mockResolvedValueOnce(null)
@@ -211,11 +221,15 @@ describe('initializeAnalyticsQueue', () => {
     const ph = createFakePostHog()
     usePostHog(ph)
     await storage.setItem(analyticsConsentItem.key, true)
-    await storage.setItem(queueKey, [event('startup')])
+    await storage.setItem(queueKey, [event(ANALYTICS_EVENTS.PRESET_LOAD)])
 
     await initializeAnalyticsQueue()
 
-    expect(ph.capture).toHaveBeenCalledWith('startup', expect.anything(), expect.anything())
+    expect(ph.capture).toHaveBeenCalledWith(
+      ANALYTICS_EVENTS.PRESET_LOAD,
+      expect.anything(),
+      expect.anything(),
+    )
   })
 
   it('flushes the queue when consent is granted later', async () => {
@@ -224,12 +238,16 @@ describe('initializeAnalyticsQueue', () => {
 
     const ph = createFakePostHog()
     usePostHog(ph)
-    await storage.setItem(queueKey, [event('queued')])
+    await storage.setItem(queueKey, [event(ANALYTICS_EVENTS.PRESET_LOAD)])
     await flushMicrotasks()
     await storage.setItem(analyticsConsentItem.key, true)
     await flushMicrotasks()
 
-    expect(ph.capture).toHaveBeenCalledWith('queued', expect.anything(), expect.anything())
+    expect(ph.capture).toHaveBeenCalledWith(
+      ANALYTICS_EVENTS.PRESET_LOAD,
+      expect.anything(),
+      expect.anything(),
+    )
   })
 
   it('hears a decline while the startup flush waits for the queue lock', async () => {
@@ -257,7 +275,7 @@ describe('initializeAnalyticsQueue', () => {
   it('resets PostHog and empties the queue when consent is declined', async () => {
     usePostHog(null)
     await initializeAnalyticsQueue()
-    await storage.setItem(queueKey, [event('discarded')])
+    await storage.setItem(queueKey, [event(ANALYTICS_EVENTS.PRESET_LOAD)])
     await flushMicrotasks()
 
     await storage.setItem(analyticsConsentItem.key, false)
@@ -286,10 +304,14 @@ describe('initializeAnalyticsQueue', () => {
     await storage.setItem(analyticsConsentItem.key, true)
     await initializeAnalyticsQueue()
 
-    await storage.setItem(queueKey, [event('late')])
+    await storage.setItem(queueKey, [event(ANALYTICS_EVENTS.PRESET_LOAD)])
     await flushMicrotasks()
 
-    expect(ph.capture).toHaveBeenCalledWith('late', expect.anything(), expect.anything())
+    expect(ph.capture).toHaveBeenCalledWith(
+      ANALYTICS_EVENTS.PRESET_LOAD,
+      expect.anything(),
+      expect.anything(),
+    )
   })
 
   it('does not flush when the queue watcher reports an empty queue', async () => {

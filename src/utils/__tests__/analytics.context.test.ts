@@ -24,7 +24,7 @@ import * as posthogBg from '@/utils/posthog-background'
 import { captureEvent, trackEvent } from '@/utils/analytics'
 
 const QUEUE_KEY = eventQueueItem.key
-const EVENT_NAME = 'contextual_event'
+const EVENT_NAME = ANALYTICS_EVENTS.SETTINGS_OPEN
 
 // Helper to get the last queued event
 const getQueuedEvent = async () => {
