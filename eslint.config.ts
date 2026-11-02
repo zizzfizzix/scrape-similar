@@ -75,11 +75,11 @@ const NO_VOID = {
 const OWN_ORIGIN_MESSAGE =
   "Extension origins differ per browser and install. Build or match the extension's own URLs with `browser.runtime.getURL(path)`."
 const NO_HARD_CODED_EXTENSION_ORIGIN = [
-  { selector: 'Literal[value=/^(chrome|moz)-extension:/]', message: OWN_ORIGIN_MESSAGE },
-  {
-    selector: 'TemplateElement[value.raw=/^(chrome|moz)-extension:/]',
-    message: OWN_ORIGIN_MESSAGE,
-  },
+  ...[
+    'Literal[value=/^(chrome|moz)-extension\\b/]',
+    'Literal[regex.pattern=/(chrome|moz)-extension/]',
+    'TemplateElement[value.raw=/^(chrome|moz)-extension\\b/]',
+  ].map((selector) => ({ selector, message: OWN_ORIGIN_MESSAGE })),
   // Any position: a named import, a member read, a destructured binding.
   { selector: "Identifier[name='chromeExtensionId']", message: OWN_ORIGIN_MESSAGE },
   ...[
