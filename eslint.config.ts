@@ -33,9 +33,9 @@ import { noContentScriptLock } from './tools/eslint-rules/no-content-script-lock
  * (CORRECTNESS_RULES, TIDY_RULES, ASSERTION_RULES, UNSAFE_ANY_RULES,
  * PROMISE_RULES, UNBOUND_METHOD) and the boolean naming rule; the rest is a
  * backlog tracked in #282, and any rule held off with violations to fix goes
- * in DEFERRED below with the count it has. A rule
- * that is wrong for this codebase rather than merely unfixed goes in
- * OFF_ON_MERITS instead, which is not a worklist.
+ * in DEFERRED below with the count it has. A rule that is wrong for this
+ * codebase rather than merely unfixed goes in OFF_ON_MERITS instead, which is
+ * not a worklist.
  */
 
 const TEST_FILES = [
