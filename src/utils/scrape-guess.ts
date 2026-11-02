@@ -276,7 +276,10 @@ for (const tag of ['pre', 'code']) {
   }
 }
 
-/** `col` shares `colgroup`'s shape; lists share `li`'s. */
+/**
+ * `col` shares `colgroup`'s shape (a key of the literal above, so always set);
+ * lists share `li`'s.
+ */
 COLUMN_BUILDERS.col = COLUMN_BUILDERS.colgroup!
 for (const tag of ['ul', 'ol']) {
   COLUMN_BUILDERS[tag] = () => [{ name: 'List Item', selector: 'li' }]
