@@ -364,7 +364,7 @@ const capture = async (
             type: MESSAGE_TYPES.TRACK_EVENT,
             payload: { eventName, properties } satisfies TrackEventPayload,
           })
-          log.debug(`Tracked event (content script context): ${eventName}`, eventProperties)
+          log.debug(`Tracked event (content script context): ${eventName}`, properties)
         } catch (error) {
           log.warn('Failed to send tracking message from content script:', error)
         }
