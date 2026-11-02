@@ -24,9 +24,6 @@ export interface ExportPayload {
 export type ExportPayloadValidation =
   { isValid: true; data: ExportPayload } | { isValid: false; error: string }
 
-/**
- * Validate EXPORT_TO_SHEETS payload structure
- */
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null
 
