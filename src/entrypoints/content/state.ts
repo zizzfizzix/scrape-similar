@@ -57,6 +57,12 @@ export interface PickerState {
 // Banner UI state
 export interface BannerState {
   pickerBannerUi: ShadowRootUi | null
+  /**
+   * Identifies the latest banner mount still awaiting its shadow root. A mount
+   * that finds another value here once its awaits settle was cancelled or
+   * superseded, and discards its UI.
+   */
+  pendingBannerMount: symbol | null
   bannerRootEl: HTMLDivElement | null
   bannerCountEl: HTMLSpanElement | null
   bannerXPathEl: HTMLInputElement | null
@@ -70,6 +76,8 @@ export interface BannerState {
 export interface ContextMenuState {
   pickerContextMenuHost: HTMLDivElement | null
   pickerContextMenuUi: ShadowRootUi | null
+  /** Same as `pendingBannerMount`, for the context menu. */
+  pendingContextMenuMount: symbol | null
   pickerContextMenuOpen: boolean
   pickerContextMenuApi: PickerContextMenuApi | null
   originalFixedElementTops: Map<HTMLElement, string>
@@ -101,6 +109,7 @@ export const createState = (): ContentScriptState => ({
 
   // Banner UI state
   pickerBannerUi: null,
+  pendingBannerMount: null,
   bannerRootEl: null,
   bannerCountEl: null,
   bannerXPathEl: null,
@@ -112,6 +121,7 @@ export const createState = (): ContentScriptState => ({
   // Context menu state
   pickerContextMenuHost: null,
   pickerContextMenuUi: null,
+  pendingContextMenuMount: null,
   pickerContextMenuOpen: false,
   pickerContextMenuApi: null,
   originalFixedElementTops: new Map(),

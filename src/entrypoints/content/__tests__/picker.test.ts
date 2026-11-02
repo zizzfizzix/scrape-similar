@@ -938,6 +938,16 @@ describe('enablePickerMode', () => {
     }
   })
 
+  it('stops once picker mode is turned off while the banner mounts', async () => {
+    bannerMocks.mountPickerBanner.mockImplementationOnce(async () => {
+      state.pickerModeActive = false
+    })
+
+    await enablePickerMode(ctx, state, disable)
+
+    expect(state.lastMouseX).toBe(0)
+  })
+
   it('re-offsets the page when the window is resized', async () => {
     await enablePickerMode(ctx, state, disable)
     bannerMocks.updateBodyMarginForBanner.mockClear()

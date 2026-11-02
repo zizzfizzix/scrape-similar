@@ -71,10 +71,17 @@ export const showPickerContextMenu = async (
     return
   }
 
+  // A menu still mounting reads the position when its React component mounts,
+  // so the coordinates set above already move it.
+  if (state.pickerContextMenuUi || state.pendingContextMenuMount) return
+
   // Track context menu open (only when newly opening, not updating position)
   trackEvent(ANALYTICS_EVENTS.PICKER_CONTEXT_MENU_OPEN, {
     [ANALYTICS_PROPERTIES.LEVELS_AVAILABLE]: state.selectorCandidates.length,
   })
+
+  const mount = Symbol('picker context menu mount')
+  state.pendingContextMenuMount = mount
 
   // Create shadow root UI using WXT's helper (handles CSS injection)
   try {
@@ -90,6 +97,9 @@ export const showPickerContextMenu = async (
         // Dynamically import and mount the React component
         reportRejection(
           import('@/entrypoints/content/ui/PickerContextMenu').then((mod) => {
+            // `onRemove` clears the host, so a menu removed during the import
+            // stays unmounted.
+            if (state.pickerContextMenuHost !== container) return
             const { mountPickerContextMenuReact } = mod
             const api = mountPickerContextMenuReact(
               appRoot,
@@ -122,6 +132,10 @@ export const showPickerContextMenu = async (
         state.pickerContextMenuApi = null
       },
     })
+    // Nothing is attached to the page before `mount`, so a cancelled UI is
+    // dropped as it is.
+    if (state.pendingContextMenuMount !== mount) return
+    state.pendingContextMenuMount = null
     state.pickerContextMenuUi = ui
     ui.mount()
   } catch (e) {
@@ -189,6 +203,8 @@ export const removePickerContextMenu = (
   if (state.contextMenuWheelHandler) {
     document.removeEventListener('wheel', state.contextMenuWheelHandler)
   }
+
+  state.pendingContextMenuMount = null
 
   // Remove the shadow root UI
   if (state.pickerContextMenuUi) {
