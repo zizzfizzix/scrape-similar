@@ -2,10 +2,15 @@
 import type { ConfigForm } from '@/components/ConfigForm'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { TabPanel } from '@/entrypoints/sidepanel/TabPanel'
-import { MESSAGE_TYPES, type ScrapeConfig } from '@/utils/types'
+import {
+  MESSAGE_TYPES,
+  type ColumnDefinition,
+  type ColumnEdit,
+  type ScrapeConfig,
+} from '@/utils/types'
 import { spyOnBrowser } from '@@/tests/support/fake-browser'
-import { renderSettled } from '@@/tests/support/settle'
-import { act } from '@testing-library/react'
+import { renderSettled, settleEffects } from '@@/tests/support/settle'
+import { act, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
@@ -33,11 +38,11 @@ const sidePanelWrites = (sendMessage: ReturnType<typeof spyOnBrowser>) =>
     ([message]) => (message as { type: string }).type === MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
   )
 
-const render = () =>
+const render = (tabId: number | null = TAB_ID) =>
   renderSettled(
     <TooltipProvider>
       <TabPanel
-        tabId={TAB_ID}
+        tabId={tabId}
         tabUrl="https://example.com/table"
         presets={[]}
         onSavePreset={() => Promise.resolve()}
@@ -58,13 +63,8 @@ describe('TabPanel config edits', () => {
     const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
       undefined,
     )
-    const shown = form.props!.config
-
     act(() => {
-      form.props!.onChange({
-        mainSelector: shown.mainSelector,
-        columns: shown.columns.map((column) => ({ ...column })),
-      })
+      form.props!.onMainSelectorChange(form.props!.config.mainSelector)
     })
 
     expect(sidePanelWrites(sendMessage)).toEqual([])
@@ -77,7 +77,7 @@ describe('TabPanel config edits', () => {
     )
 
     act(() => {
-      form.props!.onChange({ ...form.props!.config, mainSelector: '//li' })
+      form.props!.onMainSelectorChange('//li')
     })
 
     expect(sidePanelWrites(sendMessage)).toEqual([
@@ -104,7 +104,7 @@ describe('TabPanel config edits', () => {
     )
 
     act(() => {
-      form.props!.onChange({ ...form.props!.config, mainSelector: '  //li ' })
+      form.props!.onMainSelectorChange('  //li ')
     })
 
     expect(form.props!.config.mainSelector).toBe('//li')
@@ -179,5 +179,90 @@ describe('TabPanel config edits', () => {
     await render()
 
     expect(form.props!.rescrapeAdvised).toBe(false)
+  })
+})
+
+describe('TabPanel column edits', () => {
+  const [rank] = config.columns as [ColumnDefinition]
+  const rename: ColumnEdit = {
+    type: 'update',
+    index: 0,
+    expected: rank,
+    column: { name: 'Position', selector: './td[1]' },
+  }
+
+  beforeEach(async () => {
+    fakeBrowser.reset()
+    form.props = undefined
+    await storage.setItem(`session:sidepanel_config_${TAB_ID}`, { currentScrapeConfig: config })
+  })
+
+  it('shows the edit and sends it as an operation rather than the column list', async () => {
+    await render()
+    const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue({
+      success: true,
+      isColumnEditSuperseded: false,
+    })
+
+    act(() => {
+      form.props!.onColumnEdit(rename)
+    })
+    await settleEffects()
+
+    expect(form.props!.config.columns).toEqual([rename.column])
+    expect(sidePanelWrites(sendMessage)).toEqual([
+      [
+        {
+          type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
+          payload: { tabId: TAB_ID, updates: { columnEdit: rename } },
+        },
+      ],
+    ])
+  })
+
+  it('reads back the stored columns once the background reports the edit superseded', async () => {
+    await render()
+    // Storage is left as it was, so no watcher fires and only the read-back can restore it.
+    spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue({
+      success: true,
+      isColumnEditSuperseded: true,
+    })
+
+    act(() => {
+      form.props!.onColumnEdit(rename)
+    })
+    expect(form.props!.config.columns).toEqual([rename.column])
+
+    await waitFor(() => expect(form.props!.config.columns).toEqual(config.columns))
+  })
+
+  it('keeps the edit on screen when the background applied it', async () => {
+    await render()
+    spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue({
+      success: true,
+      isColumnEditSuperseded: false,
+    })
+
+    act(() => {
+      form.props!.onColumnEdit(rename)
+    })
+    await settleEffects()
+
+    expect(form.props!.config.columns).toEqual([rename.column])
+  })
+
+  it('sends nothing without a tab', async () => {
+    await render(null)
+    const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
+      undefined,
+    )
+
+    act(() => {
+      form.props!.onColumnEdit({ type: 'add', column: { name: 'Column 2', selector: '.' } })
+    })
+    await settleEffects()
+
+    expect(form.props!.config.columns).toHaveLength(2)
+    expect(sidePanelWrites(sendMessage)).toEqual([])
   })
 })

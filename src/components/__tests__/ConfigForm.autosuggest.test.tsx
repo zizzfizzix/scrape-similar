@@ -46,7 +46,8 @@ const baseProps = (): ConfigFormProps => ({
   tabId: 4,
   storedConfigVersion: 0,
   config,
-  onChange: () => {},
+  onMainSelectorChange: () => {},
+  onColumnEdit: () => {},
   onScrape: () => {},
   onHighlight: () => {},
   onPickerMode: () => {},
@@ -341,17 +342,17 @@ describe('the autosuggest dropdown', () => {
     })
 
     it('commits a highlighted recent selector', async () => {
-      const onChange = vi.fn()
+      const onMainSelectorChange = vi.fn()
       const onHighlight = vi.fn()
       await recentMainSelectorsItem.setValue(['//span'])
-      view = await render({ presets: [], onChange, onHighlight })
+      view = await render({ presets: [], onMainSelectorChange, onHighlight })
       focusField()
       press('ArrowDown')
       await waitFor(() => expect(selectedSuggestion().textContent).toContain('//span'))
 
       press('Enter')
 
-      expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ mainSelector: '//span' }))
+      expect(onMainSelectorChange).toHaveBeenCalledWith('//span')
       expect(onHighlight).toHaveBeenCalledWith('//span')
       expect(scrapeEvents()).toBe(0)
     })
@@ -399,9 +400,9 @@ describe('the autosuggest dropdown', () => {
     })
 
     it('does not commit the half-typed draft when the field blurs behind the click', async () => {
-      const onChange = vi.fn()
+      const onMainSelectorChange = vi.fn()
       await recentMainSelectorsItem.setValue(['//span'])
-      view = await render({ presets: [], onChange })
+      view = await render({ presets: [], onMainSelectorChange })
       focusField()
       type('//sp')
 
@@ -415,9 +416,9 @@ describe('the autosuggest dropdown', () => {
       })
 
       await waitFor(() => {
-        expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ mainSelector: '//span' }))
+        expect(onMainSelectorChange).toHaveBeenCalledWith('//span')
       })
-      expect(onChange).not.toHaveBeenCalledWith(expect.objectContaining({ mainSelector: '//sp' }))
+      expect(onMainSelectorChange).not.toHaveBeenCalledWith('//sp')
     })
   })
 
@@ -517,33 +518,29 @@ describe('the autosuggest dropdown', () => {
 
   describe('leaving the field', () => {
     it('commits the draft once the deferred blur runs', async () => {
-      const onChange = vi.fn()
-      view = await render({ presets: [], onChange })
+      const onMainSelectorChange = vi.fn()
+      view = await render({ presets: [], onMainSelectorChange })
       focusField()
       type('//h2')
 
       act(() => mainSelectorInput().blur())
-      await waitFor(() =>
-        expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ mainSelector: '//h2' })),
-      )
+      await waitFor(() => expect(onMainSelectorChange).toHaveBeenCalledWith('//h2'))
     })
 
     it('commits the draft without its surrounding whitespace', async () => {
-      const onChange = vi.fn()
-      view = await render({ presets: [], onChange })
+      const onMainSelectorChange = vi.fn()
+      view = await render({ presets: [], onMainSelectorChange })
       focusField()
       type('  //h2 ')
 
       act(() => mainSelectorInput().blur())
-      await waitFor(() =>
-        expect(onChange).toHaveBeenCalledWith({ ...config, mainSelector: '//h2' }),
-      )
+      await waitFor(() => expect(onMainSelectorChange).toHaveBeenCalledWith('//h2'))
       expect(mainSelectorInput().value).toBe('//h2')
     })
 
     it('keeps the dropdown open when focus moves into it', async () => {
-      const onChange = vi.fn()
-      view = await render({ presets, onChange })
+      const onMainSelectorChange = vi.fn()
+      view = await render({ presets, onMainSelectorChange })
       focusField()
       type('//t')
 
@@ -556,13 +553,13 @@ describe('the autosuggest dropdown', () => {
       await settleEffects()
 
       expect(suggestionItems()).not.toHaveLength(0)
-      expect(onChange).not.toHaveBeenCalled()
+      expect(onMainSelectorChange).not.toHaveBeenCalled()
     })
 
     it('does not commit when the pointer went down on a suggestion', async () => {
-      const onChange = vi.fn()
+      const onMainSelectorChange = vi.fn()
       await recentMainSelectorsItem.setValue(['//span'])
-      view = await render({ presets: [], onChange })
+      view = await render({ presets: [], onMainSelectorChange })
       focusField()
       type('//sp')
 
@@ -575,12 +572,12 @@ describe('the autosuggest dropdown', () => {
       await outlastBlurCommit()
       await settleEffects()
 
-      expect(onChange).not.toHaveBeenCalled()
+      expect(onMainSelectorChange).not.toHaveBeenCalled()
     })
 
     it('cancels a pending blur when focus comes straight back', async () => {
-      const onChange = vi.fn()
-      view = await render({ presets: [], onChange })
+      const onMainSelectorChange = vi.fn()
+      view = await render({ presets: [], onMainSelectorChange })
       focusField()
       type('//h2')
 
@@ -589,7 +586,7 @@ describe('the autosuggest dropdown', () => {
       await outlastBlurCommit()
       await settleEffects()
 
-      expect(onChange).not.toHaveBeenCalled()
+      expect(onMainSelectorChange).not.toHaveBeenCalled()
     })
   })
 
@@ -662,10 +659,10 @@ describe('the autosuggest dropdown', () => {
         ['the event reports the composition', { isComposing: true }],
         ['Safari reports it only through keyCode 229', { keyCode: 229 }],
       ])('leaves Enter to the IME when %s', async (_, composition) => {
-        const onChange = vi.fn()
+        const onMainSelectorChange = vi.fn()
         const onScrape = vi.fn()
         const onHighlight = vi.fn()
-        view = await render({ presets: [], onChange, onScrape, onHighlight })
+        view = await render({ presets: [], onMainSelectorChange, onScrape, onHighlight })
         focusField()
         type('//h1')
 
@@ -676,7 +673,7 @@ describe('the autosuggest dropdown', () => {
         await act(flushMicrotasks)
 
         expect(wasNotCancelled).toBe(true)
-        expect(onChange).not.toHaveBeenCalled()
+        expect(onMainSelectorChange).not.toHaveBeenCalled()
         expect(onScrape).not.toHaveBeenCalled()
         expect(onHighlight).not.toHaveBeenCalled()
         expect(mainSelectorInput()).toHaveFocus()
@@ -700,43 +697,43 @@ describe('the autosuggest dropdown', () => {
     })
 
     it('commits an edited selector on the keypress and leaves the field', async () => {
-      const onChange = vi.fn()
+      const onMainSelectorChange = vi.fn()
       const onHighlight = vi.fn()
-      view = await render({ presets: [], onChange, onHighlight })
+      view = await render({ presets: [], onMainSelectorChange, onHighlight })
       focusField()
       type('//h1')
 
       press('Enter')
 
-      expect(onChange).toHaveBeenCalledWith({ ...config, mainSelector: '//h1' })
+      expect(onMainSelectorChange).toHaveBeenCalledWith('//h1')
       expect(onHighlight).toHaveBeenCalledWith('//h1')
       expect(mainSelectorInput()).not.toHaveFocus()
       expect(suggestionItems()).toHaveLength(0)
     })
 
     it('commits once, not again when the blur it causes falls due', async () => {
-      const onChange = vi.fn()
+      const onMainSelectorChange = vi.fn()
       const onHighlight = vi.fn()
-      view = await render({ presets: [], onChange, onHighlight })
+      view = await render({ presets: [], onMainSelectorChange, onHighlight })
       focusField()
       type('//h1')
 
       press('Enter')
       await outlastBlurCommit()
 
-      expect(onChange).toHaveBeenCalledTimes(1)
+      expect(onMainSelectorChange).toHaveBeenCalledTimes(1)
       expect(onHighlight).toHaveBeenCalledTimes(1)
     })
 
     it('commits the selector without its surrounding whitespace', async () => {
-      const onChange = vi.fn()
-      view = await render({ presets: [], onChange })
+      const onMainSelectorChange = vi.fn()
+      view = await render({ presets: [], onMainSelectorChange })
       focusField()
       type('  //h1  ')
 
       press('Enter')
 
-      expect(onChange).toHaveBeenCalledWith({ ...config, mainSelector: '//h1' })
+      expect(onMainSelectorChange).toHaveBeenCalledWith('//h1')
     })
 
     it('scrapes an unchanged, validated selector on the keypress', async () => {
@@ -813,8 +810,8 @@ describe('the autosuggest dropdown', () => {
     })
 
     it('keeps focus on a field the user went back to after Enter', async () => {
-      const onChange = vi.fn()
-      view = await render({ presets: [], onChange })
+      const onMainSelectorChange = vi.fn()
+      view = await render({ presets: [], onMainSelectorChange })
       focusField()
       type('//h1')
 
@@ -824,17 +821,17 @@ describe('the autosuggest dropdown', () => {
 
       expect(mainSelectorInput()).toHaveFocus()
       expect(mainSelectorInput().value).toBe('//h2')
-      expect(onChange).toHaveBeenCalledTimes(1)
-      expect(onChange).toHaveBeenCalledWith({ ...config, mainSelector: '//h1' })
+      expect(onMainSelectorChange).toHaveBeenCalledTimes(1)
+      expect(onMainSelectorChange).toHaveBeenCalledWith('//h1')
     })
 
     it('trims the field when Enter scrapes, so leaving it commits nothing', async () => {
       const onScrape = vi.fn()
-      const onChange = vi.fn()
+      const onMainSelectorChange = vi.fn()
       view = await render({
         presets: [],
         onScrape,
-        onChange,
+        onMainSelectorChange,
         config: { ...config, mainSelector: '//tr' },
       })
       focusField()
@@ -846,7 +843,7 @@ describe('the autosuggest dropdown', () => {
 
       expect(onScrape).toHaveBeenCalledTimes(1)
       expect(mainSelectorInput().value).toBe('//tr')
-      expect(onChange).not.toHaveBeenCalled()
+      expect(onMainSelectorChange).not.toHaveBeenCalled()
     })
 
     it('closes the dropdown when Enter scrapes', async () => {
@@ -862,9 +859,9 @@ describe('the autosuggest dropdown', () => {
     })
 
     it('still commits on a later blur after a suggestion click and an Enter', async () => {
-      const onChange = vi.fn()
+      const onMainSelectorChange = vi.fn()
       await recentMainSelectorsItem.setValue(['//span'])
-      view = await render({ presets: [], onChange })
+      view = await render({ presets: [], onMainSelectorChange })
       focusField()
       type('//sp')
       const row = suggestionItems()[0]!
@@ -881,7 +878,7 @@ describe('the autosuggest dropdown', () => {
       act(() => mainSelectorInput().blur())
       await outlastBlurCommit()
 
-      expect(onChange).toHaveBeenLastCalledWith({ ...config, mainSelector: '//h2' })
+      expect(onMainSelectorChange).toHaveBeenLastCalledWith('//h2')
     })
   })
 })

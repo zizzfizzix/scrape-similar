@@ -2,14 +2,15 @@ import { useShownToast } from '@/hooks/use-shown-toast'
 import { isSelectorAPreset } from '@/utils/autosuggest'
 import { reportRejection } from '@/utils/report-rejection'
 import {
+  applyColumnEdit,
   DEFAULT_SCRAPE_CONFIG,
   resolveStoredConfig,
   withTrimmedMainSelector,
 } from '@/utils/scrape-config'
 import {
-  buildConfigChangeUpdates,
   buildConfigReplaceUpdates,
   buildExportFilename,
+  buildMainSelectorUpdates,
   hasConfigDrifted,
   reuseIfEqual,
 } from '@/utils/sidepanel-state'
@@ -136,8 +137,32 @@ export const TabPanel = memo(function TabPanel({
     return newConfig
   }
 
-  const handleConfigChange = (newConfig: ScrapeConfig) => {
-    showConfig(newConfig, (trimmed) => buildConfigChangeUpdates(config, trimmed))
+  const handleMainSelectorChange = (mainSelector: string) => {
+    showConfig({ ...config, mainSelector }, (trimmed) =>
+      buildMainSelectorUpdates(config.mainSelector, trimmed.mainSelector),
+    )
+  }
+
+  // A superseded edit can leave storage unchanged, in which case no watcher
+  // fires, so the panel reads back the columns that replaced the ones it edited.
+  const storeColumnEdit = async (id: number, edit: ColumnEdit) => {
+    const reply: SidePanelUpdateReply | undefined = await browser.runtime.sendMessage({
+      type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
+      payload: { tabId: id, updates: { columnEdit: edit } },
+    })
+    if (!reply?.isColumnEditSuperseded) return
+    log.debug(`Column edit for tab ${String(id)} was superseded by a newer write`)
+    const stored = await sidePanelConfigItem(id).getValue()
+    // The update that reported this left a stored state, and only closing the tab removes it.
+    applyStoredState(stored!)
+  }
+
+  const handleColumnEdit = (edit: ColumnEdit) => {
+    // The form builds the edit from the config this render passed it, so it always applies.
+    showConfig({ ...config, columns: applyColumnEdit(config.columns, edit)! }, () => null)
+    if (tabId !== null) {
+      reportRejection(storeColumnEdit(tabId, edit))
+    }
   }
 
   // The button only scrapes a selector the page has already matched, and that
@@ -276,7 +301,8 @@ export const TabPanel = memo(function TabPanel({
           tabId={tabId}
           storedConfigVersion={storedConfigVersion}
           config={config}
-          onChange={handleConfigChange}
+          onMainSelectorChange={handleMainSelectorChange}
+          onColumnEdit={handleColumnEdit}
           onScrape={handleScrape}
           onHighlight={handleHighlight}
           onPickerMode={handlePickerMode}

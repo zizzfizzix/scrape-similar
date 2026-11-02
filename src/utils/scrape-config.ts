@@ -6,43 +6,25 @@
 /** Selector a freshly added column starts with: the row's own text. */
 export const DEFAULT_COLUMN_SELECTOR = '.'
 
-/** Rename one column, leaving the config untouched if the index is out of range. */
-export const withColumnName = (config: ScrapeConfig, index: number, name: string): ScrapeConfig => {
-  const column = config.columns[index]
-  if (!column) return config
+const isSameColumn = (a: ColumnDefinition, b: ColumnDefinition): boolean =>
+  a.name === b.name && a.selector === b.selector && a.key === b.key
 
-  const columns = [...config.columns]
-  columns[index] = { ...column, name }
-  return { ...config, columns }
+/**
+ * `columns` with `edit` applied, or `null` when the edit targets a column that
+ * is no longer at its index as it was when the edit was made.
+ */
+export const applyColumnEdit = (
+  columns: ColumnDefinition[],
+  edit: ColumnEdit,
+): ColumnDefinition[] | null => {
+  if (edit.type === 'add') return [...columns, edit.column]
+
+  const stored = columns[edit.index]
+  if (!stored || !isSameColumn(stored, edit.expected)) return null
+
+  if (edit.type === 'remove') return columns.filter((_, i) => i !== edit.index)
+  return columns.map((column, i) => (i === edit.index ? edit.column : column))
 }
-
-export const withColumnSelector = (
-  config: ScrapeConfig,
-  index: number,
-  selector: string,
-): ScrapeConfig => {
-  const column = config.columns[index]
-  if (!column) return config
-
-  const columns = [...config.columns]
-  columns[index] = { ...column, selector }
-  return { ...config, columns }
-}
-
-/** Append a column named `name`. Blank names are ignored. */
-export const withAddedColumn = (config: ScrapeConfig, name: string): ScrapeConfig => {
-  if (!name.trim()) return config
-
-  return {
-    ...config,
-    columns: [...config.columns, { name, selector: DEFAULT_COLUMN_SELECTOR }],
-  }
-}
-
-export const withoutColumn = (config: ScrapeConfig, index: number): ScrapeConfig => ({
-  ...config,
-  columns: config.columns.filter((_, i) => i !== index),
-})
 
 /**
  * Collapse newlines to spaces.

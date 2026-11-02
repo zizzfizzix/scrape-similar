@@ -1,15 +1,12 @@
 import {
+  applyColumnEdit,
   DEFAULT_COLUMN_SELECTOR,
   DEFAULT_SCRAPE_CONFIG,
   resolveStoredConfig,
   sanitizeToSingleLine,
-  withAddedColumn,
-  withColumnName,
-  withColumnSelector,
-  withoutColumn,
   withTrimmedMainSelector,
 } from '@/utils/scrape-config'
-import type { ScrapeConfig } from '@/utils/types'
+import type { ColumnDefinition, ScrapeConfig } from '@/utils/types'
 import { describe, expect, it } from 'vitest'
 
 const config = (): ScrapeConfig => ({
@@ -20,135 +17,65 @@ const config = (): ScrapeConfig => ({
   ],
 })
 
-describe('withColumnName', () => {
-  it('renames the column at the given index', () => {
-    expect(withColumnName(config(), 1, 'Territory').columns).toEqual([
-      { name: 'Rank', selector: './td[1]' },
-      { name: 'Territory', selector: './td[2]' },
+describe('applyColumnEdit', () => {
+  const columns = () => config().columns
+  const [rank, country] = config().columns as [ColumnDefinition, ColumnDefinition]
+
+  it('replaces the column at the index when it is the one the edit expects', () => {
+    const column = { name: 'Territory', selector: './td[2]' }
+
+    expect(
+      applyColumnEdit(columns(), { type: 'update', index: 1, expected: country, column }),
+    ).toEqual([rank, column])
+  })
+
+  it('refuses an update whose column has since changed', () => {
+    const edit = {
+      type: 'update',
+      index: 0,
+      expected: { name: 'Text', selector: '.' },
+      column: { name: 'Label', selector: '.' },
+    } as const
+
+    expect(applyColumnEdit(columns(), edit)).toBeNull()
+  })
+
+  it('compares the key as well as the name and selector', () => {
+    const keyed = [{ ...rank, key: 'rank' }]
+
+    expect(applyColumnEdit(keyed, { type: 'remove', index: 0, expected: rank })).toBeNull()
+    expect(applyColumnEdit(keyed, { type: 'remove', index: 0, expected: keyed[0]! })).toEqual([])
+  })
+
+  it('refuses an edit whose index is past the end', () => {
+    expect(applyColumnEdit(columns(), { type: 'remove', index: 2, expected: rank })).toBeNull()
+  })
+
+  it('drops the column at the index when it is the one the edit expects', () => {
+    expect(applyColumnEdit(columns(), { type: 'remove', index: 0, expected: rank })).toEqual([
+      country,
     ])
   })
 
-  it('leaves the selector and the rest of the config alone', () => {
-    const updated = withColumnName(config(), 0, 'Position')
-
-    expect(updated.mainSelector).toBe('//tr')
-    expect(updated.columns[0]?.selector).toBe('./td[1]')
+  it('refuses a removal whose column has since moved', () => {
+    expect(applyColumnEdit(columns(), { type: 'remove', index: 0, expected: country })).toBeNull()
   })
 
-  it('does not mutate the config it was given', () => {
-    const original = config()
+  it('appends a column to whatever list it is given', () => {
+    const column = { name: 'Notes', selector: DEFAULT_COLUMN_SELECTOR }
 
-    withColumnName(original, 0, 'Position')
-
-    expect(original.columns[0]?.name).toBe('Rank')
+    expect(applyColumnEdit(columns(), { type: 'add', column })).toEqual([rank, country, column])
+    expect(applyColumnEdit([], { type: 'add', column })).toEqual([column])
   })
 
-  it('accepts a blank name', () => {
-    expect(withColumnName(config(), 0, '').columns[0]?.name).toBe('')
-  })
+  it('does not mutate the list it was given', () => {
+    const original = columns()
 
-  it('ignores an index past the end', () => {
-    const original = config()
+    applyColumnEdit(original, { type: 'remove', index: 0, expected: rank })
+    applyColumnEdit(original, { type: 'add', column: rank })
+    applyColumnEdit(original, { type: 'update', index: 0, expected: rank, column: country })
 
-    expect(withColumnName(original, 9, 'Nope')).toBe(original)
-  })
-
-  it('ignores a negative index', () => {
-    const original = config()
-
-    expect(withColumnName(original, -1, 'Nope')).toBe(original)
-  })
-})
-
-describe('withColumnSelector', () => {
-  it('repoints the column at the given index', () => {
-    expect(withColumnSelector(config(), 0, '@data-rank').columns[0]).toEqual({
-      name: 'Rank',
-      selector: '@data-rank',
-    })
-  })
-
-  it('does not mutate the config it was given', () => {
-    const original = config()
-
-    withColumnSelector(original, 0, '@data-rank')
-
-    expect(original.columns[0]?.selector).toBe('./td[1]')
-  })
-
-  it('ignores an index past the end', () => {
-    const original = config()
-
-    expect(withColumnSelector(original, 9, '.')).toBe(original)
-  })
-})
-
-describe('withAddedColumn', () => {
-  it('appends a column selecting the row’s own text', () => {
-    expect(withAddedColumn(config(), 'Notes').columns.at(-1)).toEqual({
-      name: 'Notes',
-      selector: DEFAULT_COLUMN_SELECTOR,
-    })
-  })
-
-  it('keeps the existing columns', () => {
-    expect(withAddedColumn(config(), 'Notes').columns).toHaveLength(3)
-  })
-
-  it('adds to an empty column list', () => {
-    const empty: ScrapeConfig = { mainSelector: '//tr', columns: [] }
-
-    expect(withAddedColumn(empty, 'First').columns).toHaveLength(1)
-  })
-
-  it('ignores a blank name', () => {
-    const original = config()
-
-    expect(withAddedColumn(original, '   ')).toBe(original)
-  })
-
-  it('ignores an empty name', () => {
-    const original = config()
-
-    expect(withAddedColumn(original, '')).toBe(original)
-  })
-
-  it('keeps the name exactly as typed, padding included', () => {
-    expect(withAddedColumn(config(), ' Notes ').columns.at(-1)?.name).toBe(' Notes ')
-  })
-
-  it('does not mutate the config it was given', () => {
-    const original = config()
-
-    withAddedColumn(original, 'Notes')
-
-    expect(original.columns).toHaveLength(2)
-  })
-})
-
-describe('withoutColumn', () => {
-  it('drops the column at the given index', () => {
-    expect(withoutColumn(config(), 0).columns).toEqual([{ name: 'Country', selector: './td[2]' }])
-  })
-
-  it('leaves the rest of the config alone', () => {
-    expect(withoutColumn(config(), 0).mainSelector).toBe('//tr')
-  })
-
-  it('does not mutate the config it was given', () => {
-    const original = config()
-
-    withoutColumn(original, 0)
-
-    expect(original.columns).toHaveLength(2)
-  })
-
-  it('leaves the columns intact for an index past the end', () => {
-    expect(withoutColumn(config(), 9).columns).toHaveLength(2)
-  })
-
-  it('can empty the list entirely', () => {
-    expect(withoutColumn(withoutColumn(config(), 0), 0).columns).toEqual([])
+    expect(original).toEqual([rank, country])
   })
 })
 

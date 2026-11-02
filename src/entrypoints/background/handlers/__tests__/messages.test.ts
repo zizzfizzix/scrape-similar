@@ -48,7 +48,20 @@ describe('setupMessageListener', () => {
       await flushMicrotasks()
 
       expect((await getSessionState(5))?.highlightMatchCount).toBe(3)
-      expect(sendResponse).toHaveBeenCalledWith({ success: true })
+      expect(sendResponse).toHaveBeenCalledWith({ success: true, isColumnEditSuperseded: false })
+    })
+
+    it('reports a column edit that no longer matches the stored column', async () => {
+      const column = { name: 'Text', selector: '.' }
+      update({
+        tabId: 5,
+        updates: {
+          columnEdit: { type: 'remove', index: 0, expected: { ...column, name: 'Gone' } },
+        },
+      })
+      await flushMicrotasks()
+
+      expect(sendResponse).toHaveBeenCalledWith({ success: true, isColumnEditSuperseded: true })
     })
 
     it('falls back to the sender tab when the payload omits the id', async () => {

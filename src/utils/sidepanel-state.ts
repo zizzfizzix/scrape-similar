@@ -2,39 +2,30 @@ import type { ScrapeConfig, SidePanelConfigUpdate } from '@/utils/types'
 import slugify from 'slugify'
 
 /**
- * Build the session-storage updates to persist when the user edits one field
- * of the scrape config, or `null` when nothing changed.
+ * Build the session-storage updates to persist when the user commits a main
+ * selector, or `null` when it did not change.
  *
- * Only the fields that changed are sent. Another context (Guess, the picker,
- * a context-menu selection) can write this tab's config before the panel has
- * applied it, and a field the panel did not change must not overwrite that
- * write with the panel's older copy.
+ * Only the selector is sent. Another context (Guess, the picker, a
+ * context-menu selection) can write this tab's columns before the panel has
+ * applied them, and the panel's older copy must not overwrite that write.
+ * Column edits travel as a `ColumnEdit` instead.
  *
  * A stored highlight result only describes the main selector it was produced
  * for, so changing (or clearing) that selector invalidates it. It has to be
  * reset in storage as well as in local state - otherwise the side panel's
  * storage watcher restores the stale match count right after the change.
  */
-export const buildConfigChangeUpdates = (
-  previousConfig: ScrapeConfig,
-  nextConfig: ScrapeConfig,
-): SidePanelConfigUpdate | null => {
-  const hasMainSelectorChanged = nextConfig.mainSelector !== previousConfig.mainSelector
-  const hasColumnListChanged = !hasSameData(nextConfig.columns, previousConfig.columns)
-  if (!hasMainSelectorChanged && !hasColumnListChanged) return null
-
-  const changedConfig: Partial<ScrapeConfig> = {}
-  const updates: SidePanelConfigUpdate = { currentScrapeConfig: changedConfig }
-  if (hasMainSelectorChanged) {
-    changedConfig.mainSelector = nextConfig.mainSelector
-    updates.highlightMatchCount = null
-    updates.highlightError = null
-  }
-  if (hasColumnListChanged) {
-    changedConfig.columns = nextConfig.columns
-  }
-  return updates
-}
+export const buildMainSelectorUpdates = (
+  previousSelector: string,
+  nextSelector: string,
+): SidePanelConfigUpdate | null =>
+  nextSelector === previousSelector
+    ? null
+    : {
+        currentScrapeConfig: { mainSelector: nextSelector },
+        highlightMatchCount: null,
+        highlightError: null,
+      }
 
 /**
  * Build the session-storage updates that replace the whole scrape config, as

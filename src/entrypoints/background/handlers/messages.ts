@@ -39,7 +39,9 @@ export const setupMessageListener = (): void => {
           return true
         }
         applySidePanelDataUpdates(targetId, updates)
-          .then(() => sendResponse({ success: true }))
+          .then(({ isColumnEditSuperseded }) =>
+            sendResponse({ success: true, isColumnEditSuperseded }),
+          )
           .catch((error: unknown) => {
             log.error('Error updating sidepanel state:', error)
             sendResponse({ success: false, error: (error as Error).message })

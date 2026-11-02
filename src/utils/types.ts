@@ -57,7 +57,20 @@ export interface SidePanelConfigUpdate extends Omit<
   'currentScrapeConfig'
 > {
   currentScrapeConfig?: Partial<ScrapeConfig>
+  /** Applied to the stored columns after `currentScrapeConfig`; never stored itself. */
+  columnEdit?: ColumnEdit
 }
+
+/**
+ * One edit to the column list, applied to whatever list is stored when it
+ * lands. An edit that targets an existing column carries that column as the
+ * editor saw it, and is dropped when the stored column at `index` differs, so
+ * it cannot change a column another context has since replaced.
+ */
+export type ColumnEdit =
+  | { type: 'update'; index: number; expected: ColumnDefinition; column: ColumnDefinition }
+  | { type: 'remove'; index: number; expected: ColumnDefinition }
+  | { type: 'add'; column: ColumnDefinition }
 
 export type ElementDetailsPayload = {
   xpath: string
@@ -74,6 +87,8 @@ export type MessageResponse =
       success: true
       tabId?: number
       debugMode?: boolean
+      /** Whether an UPDATE_SIDEPANEL_DATA's `columnEdit` was dropped (see `ColumnEdit`). */
+      isColumnEditSuperseded?: boolean
     }
   | {
       success: false
@@ -106,6 +121,11 @@ export interface ExportResult extends StatusReply {
 /** A content script's reply to HIGHLIGHT_ELEMENTS. */
 export interface HighlightReply extends StatusReply {
   matchCount?: number
+}
+
+/** The background's reply to UPDATE_SIDEPANEL_DATA. */
+export interface SidePanelUpdateReply extends StatusReply {
+  isColumnEditSuperseded?: boolean
 }
 
 /** A content script's reply to START_SCRAPE. */

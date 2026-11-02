@@ -1,4 +1,4 @@
-import { resolveStoredConfig } from '@/utils/scrape-config'
+import { applyColumnEdit, resolveStoredConfig } from '@/utils/scrape-config'
 import { updateStorageItem, withStorageLock } from '@/utils/storage-lock'
 import log from 'loglevel'
 
@@ -19,16 +19,18 @@ const isTabClosed = (tabId: number, operation: string): boolean => {
  * Atomically merge updates into a tab's session storage blob. A field that a
  * `currentScrapeConfig` update omits keeps the value the side panel shows for
  * the stored state (`resolveStoredConfig`), so the panel's own partial writes
- * never change a field the user did not edit.
+ * never change a field the user did not edit. A `columnEdit` is applied to the
+ * columns shown for the merged state, and dropped when it no longer matches.
  */
 export const applySidePanelDataUpdates = async (
   tabId: number,
   updates: SidePanelConfigUpdate,
-): Promise<void> => {
-  if (isTabClosed(tabId, 'side panel update')) return
+): Promise<{ isColumnEditSuperseded: boolean }> => {
+  let isColumnEditSuperseded = false
+  if (isTabClosed(tabId, 'side panel update')) return { isColumnEditSuperseded }
   await updateStorageItem(sidePanelConfigItem(tabId), (stored) => {
     const current = stored ?? {}
-    const { currentScrapeConfig: incoming, ...topLevel } = updates
+    const { currentScrapeConfig: incoming, columnEdit, ...topLevel } = updates
     const next: SidePanelConfig = { ...current, ...topLevel }
     if (incoming && (incoming.mainSelector !== undefined || incoming.columns !== undefined)) {
       const shown = resolveStoredConfig(current)
@@ -40,8 +42,19 @@ export const applySidePanelDataUpdates = async (
         columns: Array.isArray(incoming.columns) ? incoming.columns : shown.columns,
       }
     }
+    if (columnEdit) {
+      const shown = resolveStoredConfig(next)
+      const columns = applyColumnEdit(shown.columns, columnEdit)
+      if (columns) {
+        next.currentScrapeConfig = { mainSelector: shown.mainSelector, columns }
+      } else {
+        log.debug(`Dropped superseded column edit for tab ${String(tabId)}`)
+        isColumnEditSuperseded = true
+      }
+    }
     return next
   })
+  return { isColumnEditSuperseded }
 }
 
 /**

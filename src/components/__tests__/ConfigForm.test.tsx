@@ -3,6 +3,7 @@ import { ConfigForm } from '@/components/ConfigForm'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ANALYTICS_EVENTS, ANALYTICS_SOURCES } from '@/utils/analytics'
 import { BLUR_COMMIT_DELAY_MS } from '@/utils/blur-commit'
+import { applyColumnEdit } from '@/utils/scrape-config'
 import { recentMainSelectorsItem, userPresetsItem } from '@/utils/storage'
 import { SYSTEM_PRESETS } from '@/utils/system_presets'
 import { type Preset, type ScrapeConfig } from '@/utils/types'
@@ -57,7 +58,8 @@ const baseProps = (): ConfigFormProps => ({
   tabId: 4,
   storedConfigVersion: 0,
   config,
-  onChange: () => {},
+  onMainSelectorChange: () => {},
+  onColumnEdit: () => {},
   onScrape: () => {},
   onHighlight: () => {},
   onPickerMode: () => {},
@@ -83,7 +85,16 @@ const render = (overrides: Partial<ConfigFormProps> = {}) =>
 /** A ConfigForm whose parent actually applies the config it reports. */
 const ControlledConfigForm = () => {
   const [current, setCurrent] = useState(config)
-  return <ConfigForm {...baseProps()} config={current} onChange={setCurrent} />
+  return (
+    <ConfigForm
+      {...baseProps()}
+      config={current}
+      onMainSelectorChange={(mainSelector) => setCurrent({ ...current, mainSelector })}
+      onColumnEdit={(edit) =>
+        setCurrent({ ...current, columns: applyColumnEdit(current.columns, edit)! })
+      }
+    />
+  )
 }
 
 const mainSelectorInput = () =>
@@ -147,12 +158,12 @@ describe('ConfigForm', () => {
 
   describe('the main selector', () => {
     it('does not report a change until the field is left', async () => {
-      const onChange = vi.fn()
-      view = await render({ onChange })
+      const onMainSelectorChange = vi.fn()
+      view = await render({ onMainSelectorChange })
 
       fireEvent.change(mainSelectorInput(), { target: { value: '//li' } })
 
-      expect(onChange).not.toHaveBeenCalled()
+      expect(onMainSelectorChange).not.toHaveBeenCalled()
       expect(mainSelectorInput().value).toBe('//li')
     })
 
@@ -166,9 +177,9 @@ describe('ConfigForm', () => {
 
     it('commits the change and asks for a highlight on blur', async () => {
       vi.useFakeTimers()
-      const onChange = vi.fn()
+      const onMainSelectorChange = vi.fn()
       const onHighlight = vi.fn()
-      view = await render({ onChange, onHighlight })
+      view = await render({ onMainSelectorChange, onHighlight })
 
       fireEvent.change(mainSelectorInput(), { target: { value: '//li' } })
       // React delivers onBlur from the bubbling focusout event.
@@ -177,7 +188,7 @@ describe('ConfigForm', () => {
         vi.advanceTimersByTime(BLUR_COMMIT_DELAY_MS)
       })
 
-      expect(onChange).toHaveBeenCalledWith({ ...config, mainSelector: '//li' })
+      expect(onMainSelectorChange).toHaveBeenCalledWith('//li')
       expect(onHighlight).toHaveBeenCalledWith('//li')
       vi.useRealTimers()
     })
@@ -200,32 +211,32 @@ describe('ConfigForm', () => {
 
     it('does not highlight again when the field is left unchanged', async () => {
       vi.useFakeTimers()
-      const onChange = vi.fn()
+      const onMainSelectorChange = vi.fn()
       const onHighlight = vi.fn()
-      view = await render({ onChange, onHighlight })
+      view = await render({ onMainSelectorChange, onHighlight })
 
       fireEvent.focusOut(mainSelectorInput())
       act(() => {
         vi.advanceTimersByTime(BLUR_COMMIT_DELAY_MS)
       })
 
-      expect(onChange).not.toHaveBeenCalled()
+      expect(onMainSelectorChange).not.toHaveBeenCalled()
       expect(onHighlight).not.toHaveBeenCalled()
       vi.useRealTimers()
     })
 
     it('highlights an unchanged selector again when it has no result yet', async () => {
       vi.useFakeTimers()
-      const onChange = vi.fn()
+      const onMainSelectorChange = vi.fn()
       const onHighlight = vi.fn()
-      view = await render({ onChange, onHighlight, highlightMatchCount: undefined })
+      view = await render({ onMainSelectorChange, onHighlight, highlightMatchCount: undefined })
 
       fireEvent.focusOut(mainSelectorInput())
       act(() => {
         vi.advanceTimersByTime(BLUR_COMMIT_DELAY_MS)
       })
 
-      expect(onChange).not.toHaveBeenCalled()
+      expect(onMainSelectorChange).not.toHaveBeenCalled()
       expect(onHighlight).toHaveBeenCalledWith('//tr')
       vi.useRealTimers()
     })
@@ -250,9 +261,9 @@ describe('ConfigForm', () => {
 
     it('trims a whitespace-only edit on blur without highlighting again', async () => {
       vi.useFakeTimers()
-      const onChange = vi.fn()
+      const onMainSelectorChange = vi.fn()
       const onHighlight = vi.fn()
-      view = await render({ onChange, onHighlight })
+      view = await render({ onMainSelectorChange, onHighlight })
 
       fireEvent.change(mainSelectorInput(), { target: { value: ' //tr ' } })
       fireEvent.focusOut(mainSelectorInput())
@@ -260,7 +271,7 @@ describe('ConfigForm', () => {
         vi.advanceTimersByTime(BLUR_COMMIT_DELAY_MS)
       })
 
-      expect(onChange).not.toHaveBeenCalled()
+      expect(onMainSelectorChange).not.toHaveBeenCalled()
       expect(onHighlight).not.toHaveBeenCalled()
       expect(mainSelectorInput().value).toBe('//tr')
       vi.useRealTimers()
@@ -268,9 +279,9 @@ describe('ConfigForm', () => {
 
     it('drops a blur commit when its parent replaces the selector first', async () => {
       vi.useFakeTimers()
-      const onChange = vi.fn()
+      const onMainSelectorChange = vi.fn()
       const onHighlight = vi.fn()
-      view = await render({ onChange, onHighlight })
+      view = await render({ onMainSelectorChange, onHighlight })
 
       fireEvent.change(mainSelectorInput(), { target: { value: '//li' } })
       fireEvent.focusOut(mainSelectorInput())
@@ -278,7 +289,7 @@ describe('ConfigForm', () => {
         <TooltipProvider>
           <ConfigForm
             {...baseProps()}
-            onChange={onChange}
+            onMainSelectorChange={onMainSelectorChange}
             onHighlight={onHighlight}
             config={{ ...config, mainSelector: '//section' }}
           />
@@ -288,7 +299,7 @@ describe('ConfigForm', () => {
         vi.advanceTimersByTime(BLUR_COMMIT_DELAY_MS)
       })
 
-      expect(onChange).not.toHaveBeenCalled()
+      expect(onMainSelectorChange).not.toHaveBeenCalled()
       expect(onHighlight).not.toHaveBeenCalled()
       expect(mainSelectorInput().value).toBe('//section')
       vi.useRealTimers()
@@ -308,50 +319,58 @@ describe('ConfigForm', () => {
   })
 
   describe('columns', () => {
-    it('reports a renamed column', async () => {
-      const onChange = vi.fn()
-      view = await render({ onChange })
+    it('reports a renamed column with the column it replaces', async () => {
+      const onColumnEdit = vi.fn()
+      view = await render({ onColumnEdit })
 
       fireEvent.change(columnNameInputs()[0]!, { target: { value: 'Position' } })
 
-      expect(onChange).toHaveBeenCalledWith({
-        ...config,
-        columns: [{ name: 'Position', selector: './td[1]' }, config.columns[1]],
+      expect(onColumnEdit).toHaveBeenCalledWith({
+        type: 'update',
+        index: 0,
+        expected: config.columns[0],
+        column: { name: 'Position', selector: './td[1]' },
       })
     })
 
-    it('reports a repointed column', async () => {
-      const onChange = vi.fn()
-      view = await render({ onChange })
+    it('reports a repointed column with the column it replaces', async () => {
+      const onColumnEdit = vi.fn()
+      view = await render({ onColumnEdit })
 
       fireEvent.change(columnSelectorInputs()[1]!, { target: { value: '@data-country' } })
 
-      expect(onChange).toHaveBeenCalledWith({
-        ...config,
-        columns: [config.columns[0], { name: 'Country', selector: '@data-country' }],
+      expect(onColumnEdit).toHaveBeenCalledWith({
+        type: 'update',
+        index: 1,
+        expected: config.columns[1],
+        column: { name: 'Country', selector: '@data-country' },
       })
     })
 
     it('adds a numbered column', async () => {
-      const onChange = vi.fn()
-      view = await render({ onChange })
+      const onColumnEdit = vi.fn()
+      view = await render({ onColumnEdit })
 
       await userEvent.click(button('Add column'))
 
-      expect(onChange).toHaveBeenCalledWith({
-        ...config,
-        columns: [...config.columns, { name: 'Column 3', selector: '.' }],
+      expect(onColumnEdit).toHaveBeenCalledWith({
+        type: 'add',
+        column: { name: 'Column 3', selector: '.' },
       })
       expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.ADD_COLUMN_BUTTON_PRESS)
     })
 
     it('removes a column and records the removal', async () => {
-      const onChange = vi.fn()
-      view = await render({ onChange })
+      const onColumnEdit = vi.fn()
+      view = await render({ onColumnEdit })
 
       await userEvent.click(allButtons('Remove column')[0]!)
 
-      expect(onChange).toHaveBeenCalledWith({ ...config, columns: [config.columns[1]] })
+      expect(onColumnEdit).toHaveBeenCalledWith({
+        type: 'remove',
+        index: 0,
+        expected: config.columns[0],
+      })
       expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.REMOVE_COLUMN_BUTTON_PRESS)
     })
   })
@@ -405,15 +424,15 @@ describe('ConfigForm', () => {
         // #271: the press scraped the selector the field held before the edit.
         const onScrape = vi.fn()
         const onHighlight = vi.fn()
-        const onChange = vi.fn()
-        view = await render({ onScrape, onHighlight, onChange })
+        const onMainSelectorChange = vi.fn()
+        view = await render({ onScrape, onHighlight, onMainSelectorChange })
         editSelector('//li')
 
         await pressActionButton('Validate selector')
 
         expect(onScrape).not.toHaveBeenCalled()
         expect(onHighlight).toHaveBeenCalledWith('//li')
-        expect(onChange).toHaveBeenCalledWith({ ...config, mainSelector: '//li' })
+        expect(onMainSelectorChange).toHaveBeenCalledWith('//li')
         expect(scrapeEvents()).toBe(0)
       })
 
@@ -451,13 +470,13 @@ describe('ConfigForm', () => {
 
       it('validates the selector without its surrounding whitespace', async () => {
         const onHighlight = vi.fn()
-        const onChange = vi.fn()
-        view = await render({ onHighlight, onChange })
+        const onMainSelectorChange = vi.fn()
+        view = await render({ onHighlight, onMainSelectorChange })
         editSelector('  //li ')
 
         await pressActionButton('Validate selector')
 
-        expect(onChange).toHaveBeenCalledWith({ ...config, mainSelector: '//li' })
+        expect(onMainSelectorChange).toHaveBeenCalledWith('//li')
         expect(onHighlight).toHaveBeenCalledWith('//li')
         expect(mainSelectorInput().value).toBe('//li')
       })
@@ -474,9 +493,9 @@ describe('ConfigForm', () => {
       })
 
       it('keeps a selector its parent sets right after validating', async () => {
-        const onChange = vi.fn()
+        const onMainSelectorChange = vi.fn()
         const onHighlight = vi.fn()
-        view = await render({ onChange, onHighlight })
+        view = await render({ onMainSelectorChange, onHighlight })
         editSelector('//li')
 
         await pressActionButton('Validate selector')
@@ -485,7 +504,7 @@ describe('ConfigForm', () => {
           <TooltipProvider>
             <ConfigForm
               {...baseProps()}
-              onChange={onChange}
+              onMainSelectorChange={onMainSelectorChange}
               onHighlight={onHighlight}
               config={replaced}
             />
@@ -493,7 +512,7 @@ describe('ConfigForm', () => {
         )
         await outlastBlurCommit()
 
-        expect(onChange).toHaveBeenCalledTimes(1)
+        expect(onMainSelectorChange).toHaveBeenCalledTimes(1)
         expect(onHighlight).toHaveBeenCalledTimes(1)
         expect(mainSelectorInput().value).toBe('//section')
       })
