@@ -339,7 +339,9 @@ const capture = async (
           backgroundPostHog.capture(eventName, eventProperties)
           log.debug(`Tracked event (background context): ${eventName}`, eventProperties)
         } else {
-          log.warn('PostHog not available in background context')
+          // A remembered null can outlive a consent grant until the grant's
+          // reset arrives; the flush that follows the reset sends the event.
+          await queueEvent({ name: eventName, props: eventProperties, timestamp: Date.now() })
         }
         break
       }
