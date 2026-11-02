@@ -1,0 +1,159 @@
+import { noContentScriptLock } from '@@/tools/eslint-rules/no-content-script-lock.ts'
+import { RuleTester } from 'eslint'
+import path from 'node:path'
+import tseslint from 'typescript-eslint'
+
+// A typed rule needs a program, so the code under test is linted as one of the
+// fixture files, against modules that exist on disk beside it.
+const FIXTURES = path.join(import.meta.dirname, 'fixtures/content-script-lock')
+const CONTENT = path.join(FIXTURES, 'content.ts')
+const VIEW = path.join(FIXTURES, 'view.tsx')
+
+const ROUTE_BOUNDARY = {
+  boundaries: [
+    {
+      module: path.join(FIXTURES, 'helpers.ts'),
+      name: 'route',
+      reason: 'takes the lock only outside a content script',
+    },
+  ],
+}
+
+const ruleTester = new RuleTester({
+  languageOptions: {
+    parser: tseslint.parser,
+    parserOptions: { project: './tsconfig.json', tsconfigRootDir: FIXTURES },
+  },
+})
+
+const chain = (name: string, ...rest: string[]) => ({
+  messageId: 'reachesLock',
+  data: { name, chain: [...rest, 'locks'].join(' → ') },
+})
+
+ruleTester.run('no-content-script-lock', noContentScriptLock, {
+  valid: [
+    { filename: CONTENT, code: "import { pure } from './helpers'\npure(1)" },
+    // Library code is not walked: `navigator` itself is no lock.
+    { filename: CONTENT, code: 'export const agent = navigator.userAgent' },
+    // A local declaration is linted in place, not walked.
+    { filename: CONTENT, code: 'const local = (): number => 1\nlocal()' },
+    { filename: CONTENT, code: "import { ping } from './helpers'\nping(3)" },
+    // The walk stops at a boundary, so neither it nor its callers are reported.
+    {
+      filename: CONTENT,
+      code: "import { route } from './helpers'\nroute(true)",
+      options: [ROUTE_BOUNDARY],
+    },
+    {
+      filename: CONTENT,
+      code: "import { viaRoute } from './helpers'\nviaRoute()",
+      options: [ROUTE_BOUNDARY],
+    },
+    { filename: CONTENT, code: 'autoRoute(true)', options: [ROUTE_BOUNDARY] },
+    { filename: CONTENT, code: 'autoPure(1)' },
+    // A type that names a lock-taking function is not a call to it.
+    {
+      filename: CONTENT,
+      code: "import type { saveThing } from './helpers'\nexport type T = typeof saveThing",
+    },
+  ],
+  invalid: [
+    {
+      filename: CONTENT,
+      code: "import { saveThing } from './helpers'\nsaveThing()",
+      errors: [chain('saveThing', 'saveThing', 'withLock')],
+    },
+    {
+      filename: CONTENT,
+      code: "import { withLock } from './lock'\nwithLock('k', async () => {})",
+      errors: [chain('withLock', 'withLock')],
+    },
+    {
+      // The content script's own reference to the lock.
+      filename: CONTENT,
+      code: 'navigator.locks.query()',
+      errors: [chain('locks')],
+    },
+    {
+      // A reference is enough; the walk does not need to see a call.
+      filename: CONTENT,
+      code: "import { saveThing } from './helpers'\nexport const later = saveThing",
+      errors: [chain('saveThing', 'saveThing', 'withLock')],
+    },
+    {
+      filename: CONTENT,
+      code: "import * as helpers from './helpers'\nhelpers.saveThing()",
+      errors: [chain('saveThing', 'saveThing', 'withLock')],
+    },
+    {
+      // A WXT auto-import, declared in a `.d.ts` with no import statement.
+      filename: CONTENT,
+      code: 'autoSaveThing()',
+      errors: [chain('autoSaveThing', 'saveThing', 'withLock')],
+    },
+    {
+      // Without the boundary, the branch that takes the lock is reported.
+      filename: CONTENT,
+      code: "import { viaRoute } from './helpers'\nviaRoute()",
+      errors: [chain('viaRoute', 'viaRoute', 'route', 'saveThing', 'withLock')],
+    },
+    {
+      // `inCycle` is first met half-walked, inside `enterCycle`; that miss must
+      // not be cached as lock-free.
+      filename: CONTENT,
+      code: "import { enterCycle, inCycle } from './helpers'\nenterCycle(1)\ninCycle(1)",
+      errors: [
+        chain('enterCycle', 'enterCycle', 'saveThing', 'withLock'),
+        chain('inCycle', 'inCycle', 'enterCycle', 'saveThing', 'withLock'),
+      ],
+    },
+    {
+      // Inside a local declaration, the reference is reported where it appears.
+      filename: CONTENT,
+      code: "import { saveThing } from './helpers'\nconst run = () => saveThing()\nrun()",
+      errors: [chain('saveThing', 'saveThing', 'withLock')],
+    },
+    {
+      filename: VIEW,
+      code: "import { Banner } from './components'\nexport const view = <Banner />",
+      errors: [chain('Banner', 'Banner', 'saveThing', 'withLock')],
+    },
+    {
+      // An auto-import whose export carries a type annotation: the walk follows
+      // the import type's qualifier, not the annotated type.
+      filename: CONTENT,
+      code: 'autoTypedSave()',
+      errors: [chain('autoTypedSave', 'typedSave', 'saveThing', 'withLock')],
+    },
+    {
+      filename: VIEW,
+      code: 'export const view = <AutoFcBanner />',
+      errors: [chain('AutoFcBanner', 'FcBanner', 'saveThing', 'withLock')],
+    },
+    {
+      filename: CONTENT,
+      code: "import { saveThing } from './helpers'\nexport const handlers = { saveThing }",
+      errors: [chain('saveThing', 'saveThing', 'withLock')],
+    },
+    {
+      filename: CONTENT,
+      code: "import { actions } from './helpers'\nactions.saveThing()",
+      errors: [chain('actions', 'actions', 'saveThing', 'withLock')],
+    },
+    {
+      // A `LockManager` method counts however the manager was reached.
+      filename: CONTENT,
+      code: "import { destructured, indexed } from './helpers'\ndestructured()\nindexed()",
+      errors: [
+        { messageId: 'reachesLock', data: { name: 'destructured', chain: 'destructured → query' } },
+        { messageId: 'reachesLock', data: { name: 'indexed', chain: 'indexed → query' } },
+      ],
+    },
+    {
+      filename: CONTENT,
+      code: 'const { locks } = navigator\nlocks.query()',
+      errors: [{ messageId: 'reachesLock', data: { name: 'query', chain: 'query' } }],
+    },
+  ],
+})

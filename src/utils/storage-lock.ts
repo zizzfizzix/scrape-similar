@@ -16,6 +16,7 @@ export const STORAGE_LOCK_TIMEOUT_MS = 10_000
  * separate lock manager, and its writes are then not serialised against the
  * rest. A content script gets the lock manager of the page it runs in, so it
  * must not call this: it hands its storage writes to the background instead.
+ * `content-script/no-lock` reports a content script that reaches this.
  *
  * The lock is not re-entrant: a task that requests the same key again waits on
  * itself forever.

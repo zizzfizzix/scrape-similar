@@ -10,5 +10,8 @@
     // TS 7 no longer auto-includes @types/chrome here, and the E2E specs rely on
     // its `chrome.*` globals inside serviceWorker.evaluate callbacks.
     "types": ["chrome"]
-  }
+  },
+  // Replaces the list in .wxt/tsconfig.json, so it restates that one. The lint
+  // rule fixtures declare globals of their own and have their own tsconfig.
+  "exclude": ["**/node_modules", ".output", "tools/eslint-rules/__tests__/fixtures"]
 }
