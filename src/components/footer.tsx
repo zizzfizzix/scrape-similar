@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { getBrowserFamily } from '@/utils/browser-family'
 import { author } from '@@/package.json' with { type: 'json' }
 import { HeartPlus, MessageSquare } from 'lucide-react'
 import React from 'react'
@@ -26,7 +27,7 @@ export const Footer: React.FC<FooterProps> = ({
       Made by{' '}
       <a
         className="underline hover:text-primary"
-        href={`https://www.linkedin.com/in/kubaserafinowski/?utm_source=scrape-similar-extension&utm_campaign=${import.meta.env.BROWSER}-${context}`}
+        href={`https://www.linkedin.com/in/kubaserafinowski/?utm_source=scrape-similar-extension&utm_campaign=${getBrowserFamily()}-${context}`}
         target="_blank"
         rel="noopener"
         onClick={(e) =>
@@ -39,7 +40,7 @@ export const Footer: React.FC<FooterProps> = ({
       </a>
       <a
         className="hover:scale-110 transition-transform"
-        href={`https://ko-fi.com/kubaserafinowski?utm_source=scrape-similar-extension&utm_campaign=${import.meta.env.BROWSER}-${context}`}
+        href={`https://ko-fi.com/kubaserafinowski?utm_source=scrape-similar-extension&utm_campaign=${getBrowserFamily()}-${context}`}
         target="_blank"
         rel="noopener"
         aria-label="Support Kuba Serafinowski on Ko-fi"

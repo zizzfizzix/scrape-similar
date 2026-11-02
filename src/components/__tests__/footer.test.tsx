@@ -9,7 +9,7 @@ import { author } from '@@/package.json' with { type: 'json' }
 import { renderSettled } from '@@/tests/support/settle'
 import { render as renderComponent, type RenderResult } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 
 const trackEvent = vi.hoisted(() => vi.fn())
@@ -59,6 +59,22 @@ describe('Footer', () => {
     view = await render()
 
     expect(authorLink().href).toContain('utm_source=scrape-similar-extension')
+  })
+
+  describe('campaign', () => {
+    afterEach(() => {
+      vi.unstubAllGlobals()
+    })
+
+    it('names the running browser, not the build', () => {
+      vi.stubGlobal('navigator', {
+        ...navigator,
+        userAgent: 'Mozilla/5.0 Chrome/130.0.0.0 Edg/130.0.0.0',
+      })
+      view = render()
+
+      expect(authorLink().href).toMatch(/utm_campaign=edge-/)
+    })
   })
 
   it('records a click on the author link', async () => {

@@ -84,7 +84,7 @@ const NO_HARD_CODED_EXTENSION_ORIGIN = [
   { selector: "MemberExpression[property.name='chromeExtensionId']", message: OWN_ORIGIN_MESSAGE },
   {
     selector:
-      "MemberExpression[object.property.name='env'][property.name=/^(CHROME|EDGE|FIREFOX)$/]",
+      "MemberExpression[object.property.name='env'][property.name=/^(BROWSER|CHROME|EDGE|FIREFOX)$/]",
     message:
       'Chrome and Edge run the same build, so a build flag cannot tell them apart. Branch on `getBrowserFamily()`.',
   },
