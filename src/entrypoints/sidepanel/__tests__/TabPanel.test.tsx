@@ -2,6 +2,7 @@
 import type { ConfigForm } from '@/components/ConfigForm'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { COLUMN_EDIT_NOT_SAVED, TabPanel } from '@/entrypoints/sidepanel/TabPanel'
+import { DEFAULT_SCRAPE_CONFIG } from '@/utils/scrape-config'
 import {
   MESSAGE_TYPES,
   type ColumnDefinition,
@@ -363,19 +364,94 @@ describe('TabPanel column edits', () => {
     },
   )
 
-  it('leaves the panel as it is when the tab closed before the read-back', async () => {
+  it('shows the default columns when nothing is stored for the tab', async () => {
     await render()
     spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockImplementation(async () => {
       await storage.removeItem(storageKey)
       return superseded
     })
-    const logError = vi.spyOn(log, 'error')
+
+    edit(rename)
+
+    await waitFor(() => expect(form.props!.config.columns).toEqual(DEFAULT_SCRAPE_CONFIG.columns))
+  })
+
+  it('reads back on the next settle when a read-back fails', async () => {
+    await render()
+    const added = { name: 'Column 2', selector: '.' }
+    spyOnBrowser(fakeBrowser.runtime, 'sendMessage')
+      .mockResolvedValueOnce(superseded)
+      // Stores exactly what the panel shows, so only the failed read calls for another.
+      .mockImplementationOnce(applyAndReply([rename.column, added]))
+    const readBack = spyOnReadBack().mockRejectedValueOnce(new Error('Storage unavailable'))
+    vi.spyOn(log, 'error').mockImplementation(() => {})
 
     edit(rename)
     await settleEffects()
+    edit({ type: 'add' })
+    await settleEffects()
 
-    expect(form.props!.config.columns).toEqual([rename.column])
-    expect(logError).not.toHaveBeenCalled()
+    expect(readBack).toHaveBeenCalledTimes(2)
+  })
+
+  it('counts a preset load with the column edits it overtakes', async () => {
+    await render()
+    const editReply = Promise.withResolvers<unknown>()
+    const presetReply = Promise.withResolvers<unknown>()
+    const presetColumns = [{ name: 'Price', selector: './/span' }]
+    spyOnBrowser(fakeBrowser.runtime, 'sendMessage')
+      .mockReturnValueOnce(editReply.promise)
+      .mockReturnValueOnce(presetReply.promise)
+    const readBack = spyOnReadBack()
+
+    edit(rename)
+    // The edit's own write reaches the watcher; the preset's has not landed yet.
+    await storage.setItem(storageKey, {
+      currentScrapeConfig: { ...config, columns: [rename.column] },
+    })
+    act(() => {
+      form.props!.onLoadPreset({
+        id: 'p',
+        name: 'Prices',
+        // A blank selector, so the load starts no highlight.
+        config: { mainSelector: '', columns: presetColumns },
+        createdAt: 0,
+      })
+    })
+    editReply.resolve(applied)
+    await settleEffects()
+
+    expect(form.props!.config.columns).toEqual(presetColumns)
+
+    await storage.setItem(storageKey, {
+      currentScrapeConfig: { mainSelector: '', columns: presetColumns },
+    })
+    presetReply.resolve({ success: true })
+    await settleEffects()
+
+    expect(readBack).not.toHaveBeenCalled()
+    expect(form.props!.config.columns).toEqual(presetColumns)
+  })
+
+  it('reads back on the next settle when a preset write fails to send', async () => {
+    await render()
+    spyOnBrowser(fakeBrowser.runtime, 'sendMessage')
+      .mockRejectedValueOnce(new Error('Receiving end does not exist'))
+      .mockImplementationOnce(applyAndReply(guessedColumns))
+    vi.spyOn(log, 'error').mockImplementation(() => {})
+
+    act(() => {
+      form.props!.onLoadPreset({
+        id: 'p',
+        name: 'Prices',
+        config: { mainSelector: '', columns: [rank] },
+        createdAt: 0,
+      })
+    })
+    await settleEffects()
+    edit({ type: 'add' })
+
+    await waitFor(() => expect(form.props!.config.columns).toEqual(guessedColumns))
   })
 
   it('sends nothing without a tab', async () => {
@@ -388,6 +464,22 @@ describe('TabPanel column edits', () => {
     await settleEffects()
 
     expect(form.props!.config.columns).toHaveLength(2)
+    expect(sidePanelWrites(sendMessage)).toEqual([])
+  })
+
+  it('loads a preset without writing it when there is no tab', async () => {
+    await render(null)
+    const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
+      undefined,
+    )
+    const preset = { mainSelector: '', columns: guessedColumns }
+
+    act(() => {
+      form.props!.onLoadPreset({ id: 'p', name: 'Titles', config: preset, createdAt: 0 })
+    })
+    await settleEffects()
+
+    expect(form.props!.config).toEqual(preset)
     expect(sidePanelWrites(sendMessage)).toEqual([])
   })
 })

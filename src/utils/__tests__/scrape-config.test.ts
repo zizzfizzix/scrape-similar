@@ -2,6 +2,7 @@ import {
   applyColumnEdit,
   DEFAULT_COLUMN_SELECTOR,
   DEFAULT_SCRAPE_CONFIG,
+  isColumnEdit,
   resolveStoredConfig,
   sanitizeToSingleLine,
   withTrimmedMainSelector,
@@ -83,6 +84,40 @@ describe('applyColumnEdit', () => {
     applyColumnEdit(original, { type: 'update', index: 0, expected: rank, column: country })
 
     expect(original).toEqual([rank, country])
+  })
+})
+
+describe('isColumnEdit', () => {
+  const column = { name: 'Rank', selector: './td[1]' }
+
+  it.each([
+    ['an add', { type: 'add' }],
+    ['a removal', { type: 'remove', index: 0, expected: column }],
+    ['an update', { type: 'update', index: 1, expected: column, column }],
+    [
+      'an update of a keyed column',
+      { type: 'update', index: 0, expected: { ...column, key: 'r' }, column },
+    ],
+  ])('accepts %s', (_, value) => {
+    expect(isColumnEdit(value)).toBe(true)
+  })
+
+  it.each([
+    ['nothing', undefined],
+    ['null', null],
+    ['a string', 'add'],
+    ['an unknown type', { type: 'rename', index: 0, expected: column, column }],
+    ['a fractional index', { type: 'remove', index: 0.5, expected: column }],
+    ['a missing expected column', { type: 'remove', index: 0 }],
+    ['an expected column that is not an object', { type: 'remove', index: 0, expected: 'Rank' }],
+    [
+      'an expected column with no selector',
+      { type: 'remove', index: 0, expected: { name: 'Rank' } },
+    ],
+    ['a key that is not a string', { type: 'remove', index: 0, expected: { ...column, key: 1 } }],
+    ['an update with no column', { type: 'update', index: 0, expected: column }],
+  ])('refuses %s', (_, value) => {
+    expect(isColumnEdit(value)).toBe(false)
   })
 })
 

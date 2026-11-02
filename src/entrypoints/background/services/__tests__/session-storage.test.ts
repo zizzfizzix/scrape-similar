@@ -332,6 +332,29 @@ describe('applySidePanelDataUpdates with a column edit', () => {
     })
   })
 
+  it('drops a malformed column edit and reports it', async () => {
+    const outcome = await applySidePanelDataUpdates(1, {
+      columnEdit: { type: 'rename', index: 0, expected: text } as unknown as ColumnEdit,
+    })
+
+    expect(outcome).toEqual({ isColumnEditSuperseded: true })
+    expect((await read(1)).currentScrapeConfig).toEqual(shownInPanel)
+  })
+
+  it('still writes the config of an update whose column edit is superseded', async () => {
+    await storeGuess()
+
+    await applySidePanelDataUpdates(1, {
+      currentScrapeConfig: { mainSelector: '//li' },
+      columnEdit: renameText,
+    })
+
+    expect((await read(1)).currentScrapeConfig).toEqual({
+      mainSelector: '//li',
+      columns: guessedColumns,
+    })
+  })
+
   it('never stores the edit itself', async () => {
     await applySidePanelDataUpdates(1, { columnEdit: renameText })
 

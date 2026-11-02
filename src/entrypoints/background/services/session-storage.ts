@@ -1,4 +1,4 @@
-import { applyColumnEdit, resolveStoredConfig } from '@/utils/scrape-config'
+import { applyColumnEdit, isColumnEdit, resolveStoredConfig } from '@/utils/scrape-config'
 import { updateStorageItem, withStorageLock } from '@/utils/storage-lock'
 import log from 'loglevel'
 
@@ -42,16 +42,20 @@ export const applySidePanelDataUpdates = async (
         columns: Array.isArray(incoming.columns) ? incoming.columns : shown.columns,
       }
     }
-    if (columnEdit) {
+    // Checked for the same reason as the config fields above.
+    const edit: unknown = columnEdit
+    if (edit !== undefined) {
       const shown = resolveStoredConfig(next)
-      const columns = applyColumnEdit(shown.columns, columnEdit)
+      const columns = isColumnEdit(edit) ? applyColumnEdit(shown.columns, edit) : null
       if (columns) {
         next.currentScrapeConfig = { mainSelector: shown.mainSelector, columns }
       } else {
-        log.debug(`Dropped superseded column edit for tab ${String(tabId)}`)
+        log.debug(`Dropped a superseded or malformed column edit for tab ${String(tabId)}`)
         isColumnEditSuperseded = true
-        // An update carrying only the edit has nothing left to write.
-        if (Object.keys(updates).length === 1) return stored
+        const hasNothingElse =
+          next.currentScrapeConfig === current.currentScrapeConfig &&
+          Object.keys(topLevel).length === 0
+        if (hasNothingElse) return stored
       }
     }
     return next

@@ -26,11 +26,39 @@ export const applyColumnEdit = (
   const stored = columns[edit.index]
   if (!stored || !isSameColumn(stored, edit.expected)) return null
 
-  if (edit.type === 'remove') {
-    // The form never removes the last column, and neither may an edit that lands on a shorter list.
-    return columns.length > 1 ? columns.filter((_, i) => i !== edit.index) : null
+  switch (edit.type) {
+    case 'remove':
+      // The form never removes the last column, and neither may an edit that lands on a shorter list.
+      return columns.length > 1 ? columns.filter((_, i) => i !== edit.index) : null
+    case 'update':
+      return columns.map((column, i) => (i === edit.index ? edit.column : column))
   }
-  return columns.map((column, i) => (i === edit.index ? edit.column : column))
+}
+
+const isColumnDefinition = (value: unknown): value is ColumnDefinition => {
+  if (typeof value !== 'object' || value === null) return false
+  const { name, selector, key } = value as Record<string, unknown>
+  return (
+    typeof name === 'string' &&
+    typeof selector === 'string' &&
+    (key === undefined || typeof key === 'string')
+  )
+}
+
+/** Whether a message's `columnEdit` has the shape `applyColumnEdit` expects. */
+export const isColumnEdit = (value: unknown): value is ColumnEdit => {
+  if (typeof value !== 'object' || value === null) return false
+  const { type, index, expected, column } = value as Record<string, unknown>
+  switch (type) {
+    case 'add':
+      return true
+    case 'remove':
+      return Number.isInteger(index) && isColumnDefinition(expected)
+    case 'update':
+      return Number.isInteger(index) && isColumnDefinition(expected) && isColumnDefinition(column)
+    default:
+      return false
+  }
 }
 
 /**

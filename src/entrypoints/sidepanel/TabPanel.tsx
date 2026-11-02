@@ -65,14 +65,14 @@ export const TabPanel = memo(function TabPanel({
 
   const buildFilename = useCallback((now: Date) => buildExportFilename(tabUrl, now), [tabUrl])
 
-  // Column edits sent and not yet answered. Storage lags the panel while any
-  // are, so the watcher holds the columns it reports instead of showing them:
-  // columns from before the latest keystrokes would make every edit built on
-  // them fail its check.
-  const pendingColumnEditsRef = useRef(0)
+  // Writes that set the columns (column edits, preset loads) sent and not yet
+  // answered. Storage lags the panel while any are, so the watcher holds the
+  // columns it reports instead of showing them: columns from before the latest
+  // keystrokes would make every edit built on them fail its check.
+  const pendingColumnWritesRef = useRef(0)
   const heldColumnsRef = useRef<ColumnDefinition[] | null>(null)
-  // Set when an edit in the current run was refused or failed.
-  const hasColumnEditMissedRef = useRef(false)
+  // Set when storage may differ from the panel's columns, until a read-back lands.
+  const needsColumnReadBackRef = useRef(false)
   const shownColumnsRef = useRef(config.columns)
   useEffect(() => {
     shownColumnsRef.current = config.columns
@@ -82,7 +82,7 @@ export const TabPanel = memo(function TabPanel({
     (stored: SidePanelConfig) => {
       log.debug(`Applying stored state for tab ${String(tabId)}:`, stored)
       const resolvedConfig = resolveStoredConfig(stored)
-      const hasPendingColumnEdits = pendingColumnEditsRef.current > 0
+      const hasPendingColumnEdits = pendingColumnWritesRef.current > 0
       if (hasPendingColumnEdits) heldColumnsRef.current = resolvedConfig.columns
       // Showing a hidden panel re-reads its storage, which nearly always holds
       // what is already on screen; keeping the same references lets React skip
@@ -188,32 +188,36 @@ export const TabPanel = memo(function TabPanel({
     return reply.isColumnEditSuperseded === true
   }
 
-  // Once the last pending edit is answered, the columns the watcher held are
-  // checked against the panel's. Only a mismatch, or an edit that was refused
+  // Once the last pending write is answered, the columns the watcher held are
+  // checked against the panel's. Only a mismatch, or a write that was refused
   // or failed (which can leave storage unchanged, so no watcher fires), costs a
   // read, and the read replaces only the columns: a snapshot taken now can be
   // older than a main selector the panel has already sent.
-  const storeColumnEdit = async (id: number, edit: ColumnEdit) => {
-    pendingColumnEditsRef.current += 1
-    const hasMissed = await sendColumnEdit(id, edit)
-    pendingColumnEditsRef.current -= 1
-    if (hasMissed) hasColumnEditMissedRef.current = true
-    if (pendingColumnEditsRef.current > 0) return
+  const runColumnWrite = async (id: number, send: () => Promise<boolean>) => {
+    pendingColumnWritesRef.current += 1
+    let hasMissed = true
+    try {
+      hasMissed = await send()
+    } finally {
+      pendingColumnWritesRef.current -= 1
+      // Also reached when `send` rejects, so the next write to settle reads back.
+      if (hasMissed) needsColumnReadBackRef.current = true
+    }
+    if (pendingColumnWritesRef.current > 0) return
 
     const held = heldColumnsRef.current
     heldColumnsRef.current = null
-    const hasDiverged =
-      hasColumnEditMissedRef.current ||
-      (held !== null && !hasSameData(held, shownColumnsRef.current))
-    hasColumnEditMissedRef.current = false
-    if (!hasDiverged) return
+    if (held !== null && !hasSameData(held, shownColumnsRef.current)) {
+      needsColumnReadBackRef.current = true
+    }
+    if (!needsColumnReadBackRef.current) return
 
     const stored = await sidePanelConfigItem(id).getValue()
-    // A new edit started during the read; its own settling decides what to show.
-    if (pendingColumnEditsRef.current > 0) return
-    // Null only once the tab has closed, and its panel goes with it.
-    if (!stored) return
-    const { columns } = resolveStoredConfig(stored)
+    // A write started during the read; its own settling reads again.
+    if (pendingColumnWritesRef.current > 0) return
+    needsColumnReadBackRef.current = false
+    // Nothing stored is shown as the watcher would show it: the default columns.
+    const { columns } = resolveStoredConfig(stored ?? {})
     setConfig((previous) => reuseIfEqual(previous, { ...previous, columns }))
   }
 
@@ -221,7 +225,8 @@ export const TabPanel = memo(function TabPanel({
     // The form builds the edit from the config this render passed it, so it always applies.
     showConfig({ ...config, columns: applyColumnEdit(config.columns, edit)! }, () => null)
     if (tabId !== null) {
-      reportRejection(storeColumnEdit(tabId, edit))
+      const id = tabId
+      reportRejection(runColumnWrite(id, () => sendColumnEdit(id, edit)))
     }
   }
 
@@ -339,7 +344,19 @@ export const TabPanel = memo(function TabPanel({
   }
 
   const handleLoadPreset = (preset: Preset) => {
-    const loaded = showConfig(preset.config, buildConfigReplaceUpdates)
+    const loaded = showConfig(preset.config, () => null)
+    if (tabId !== null) {
+      const id = tabId
+      reportRejection(
+        runColumnWrite(id, async () => {
+          await browser.runtime.sendMessage({
+            type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
+            payload: { tabId: id, updates: buildConfigReplaceUpdates(loaded) },
+          })
+          return false
+        }),
+      )
+    }
 
     if (loaded.mainSelector) {
       handleHighlight(loaded.mainSelector)
