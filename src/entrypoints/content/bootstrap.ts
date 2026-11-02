@@ -1,3 +1,4 @@
+import { closestHtmlElement } from '@/entrypoints/content/closest-html-element'
 import { createMessageHandler } from '@/entrypoints/content/handlers'
 import { disablePickerMode, enablePickerMode } from '@/entrypoints/content/picker'
 import { createState, type ContentScriptState } from '@/entrypoints/content/state'
@@ -73,7 +74,7 @@ export const requestTabId = (state: ContentScriptState): void => {
 export const trackContextMenuTarget = (state: ContentScriptState, event: MouseEvent): void => {
   log.debug('Context menu event captured', event.target)
 
-  state.lastRightClickedElement = event.target as HTMLElement | null
+  state.lastRightClickedElement = closestHtmlElement(event.target)
   if (state.lastRightClickedElement) {
     const selector = minimizeXPath(state.lastRightClickedElement)
     state.lastRightClickedElementDetails = {

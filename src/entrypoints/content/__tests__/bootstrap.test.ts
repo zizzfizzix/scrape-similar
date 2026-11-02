@@ -245,6 +245,17 @@ describe('trackContextMenuTarget', () => {
     })
   })
 
+  it('records the link around a right-clicked SVG icon', () => {
+    document.body.innerHTML =
+      '<a href="/x"><svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0"/></svg></a>'
+    const state = createState()
+
+    trackContextMenuTarget(state, contextMenuOn(document.querySelector('path'), 1, 2))
+
+    expect(state.lastRightClickedElement).toBe(document.querySelector('a'))
+    expect(state.lastRightClickedElementDetails?.xpath).toBe('/html/body/a')
+  })
+
   it('keeps no details when the event names no element', () => {
     const state = createState()
 
