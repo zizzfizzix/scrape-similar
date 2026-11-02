@@ -38,7 +38,7 @@ const handleQuickScrape = async (
 
   // Track context menu quick scrape usage
   trackEvent(ANALYTICS_EVENTS.CONTEXT_MENU_QUICK_SCRAPE, {
-    has_selection: !!info.selectionText,
+    [ANALYTICS_PROPERTIES.HAS_SELECTION]: !!info.selectionText,
   })
 
   // Always open the side panel (safe even if already open)
@@ -91,7 +91,7 @@ const handleQuickScrape = async (
 
       // Track successful scrape initiation from context menu
       trackEvent(ANALYTICS_EVENTS.SCRAPE_INITIATION_FROM_CONTEXT_MENU, {
-        has_config: !!config,
+        [ANALYTICS_PROPERTIES.HAS_CONFIG]: !!config,
       })
     } else {
       log.warn('No currentScrapeConfig found in session storage, cannot auto-scrape.')

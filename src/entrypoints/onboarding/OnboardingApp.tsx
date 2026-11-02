@@ -536,7 +536,7 @@ export const OnboardingApp: React.FC = () => {
     // Reaching the last slide is what counts as finishing onboarding.
     if (direction === 1 && targetSlide === slides.length - 1) {
       trackEvent(ANALYTICS_EVENTS.ONBOARDING_COMPLETE, {
-        total_slides_viewed: slides.length,
+        [ANALYTICS_PROPERTIES.TOTAL_SLIDES_VIEWED]: slides.length,
       })
     }
   }
@@ -558,7 +558,7 @@ export const OnboardingApp: React.FC = () => {
 
       // Track sidepanel opening from onboarding
       trackEvent(ANALYTICS_EVENTS.SIDE_PANEL_OPEN, {
-        trigger: 'onboarding_completion_button_press',
+        [ANALYTICS_PROPERTIES.TRIGGER]: SIDE_PANEL_TRIGGERS.ONBOARDING_COMPLETION_BUTTON_PRESS,
       })
 
       // Set up the demo config in background

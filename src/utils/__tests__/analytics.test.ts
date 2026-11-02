@@ -17,7 +17,7 @@ describe('analytics utilities', () => {
 
   describe('queueEvent', () => {
     it('adds an event to the queue in storage', async () => {
-      const event = { name: 'test_event', props: { foo: 'bar' }, timestamp: Date.now() }
+      const event = { name: 'test_event', props: { trigger: 'bar' }, timestamp: Date.now() }
       await queueEvent(event)
 
       const queue = await storage.getItem<(typeof event)[]>(QUEUE_KEY)
@@ -67,14 +67,14 @@ describe('analytics utilities', () => {
     it('queues the event when consent is undefined', async () => {
       vi.spyOn(consent, 'getConsentState').mockResolvedValue(undefined)
 
-      await captureEvent('pending_consent_event', { extra: 'data' })
+      await captureEvent('pending_consent_event', { reason: 'data' })
 
       const queue = await storage.getItem<any[]>(QUEUE_KEY)
       expect(queue).toHaveLength(1)
       const queued = queue![0]
       expect(queued.name).toBe('pending_consent_event')
       // Original properties should be preserved
-      expect(queued.props.extra).toBe('data')
+      expect(queued.props.reason).toBe('data')
     })
   })
 })

@@ -162,8 +162,8 @@ const handleStartScrape = (
 
   // Track scraping completion
   trackEvent(ANALYTICS_EVENTS.SCRAPE_COMPLETION, {
-    items_scraped: scrapedData.length,
-    columns_count: config.columns.length,
+    [ANALYTICS_PROPERTIES.ITEMS_SCRAPED]: scrapedData.length,
+    [ANALYTICS_PROPERTIES.COLUMNS_COUNT]: config.columns.length,
   })
 
   if (state.tabId === null) {
@@ -217,8 +217,8 @@ const handleHighlightElements = (message: Message, sendResponse: (response: any)
 
   // Track element highlighting
   trackEvent(ANALYTICS_EVENTS.ELEMENTS_HIGHLIGHT, {
-    elements_count: elements.length,
-    is_row_highlight: false,
+    [ANALYTICS_PROPERTIES.ELEMENTS_COUNT]: elements.length,
+    [ANALYTICS_PROPERTIES.IS_ROW_HIGHLIGHT]: false,
   })
 
   // Respond directly to the UI that sent this message, include match count
@@ -245,8 +245,8 @@ const handleHighlightRowElement = (
 
   // Track row element highlighting
   trackEvent(ANALYTICS_EVENTS.ELEMENTS_HIGHLIGHT, {
-    elements_count: elements.length,
-    is_row_highlight: true,
+    [ANALYTICS_PROPERTIES.ELEMENTS_COUNT]: elements.length,
+    [ANALYTICS_PROPERTIES.IS_ROW_HIGHLIGHT]: true,
   })
 
   // Respond directly to the UI that sent this message

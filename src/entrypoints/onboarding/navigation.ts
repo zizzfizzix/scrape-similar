@@ -42,15 +42,16 @@ export const buildSlideViewProperties = (
   slideIndex: number,
   slide: SlideSummary,
   totalSlides: number,
-) => ({
-  slide_number: slideIndex + 1,
-  slide_id: slide.id,
-  slide_title: slide.title,
-  slide_description: slide.description,
-  is_first_slide: slideIndex === 0,
-  is_last_slide: slideIndex === totalSlides - 1,
-  total_slides: totalSlides,
-})
+) =>
+  ({
+    [ANALYTICS_PROPERTIES.SLIDE_NUMBER]: slideIndex + 1,
+    [ANALYTICS_PROPERTIES.SLIDE_ID]: slide.id,
+    [ANALYTICS_PROPERTIES.SLIDE_TITLE]: slide.title,
+    [ANALYTICS_PROPERTIES.SLIDE_DESCRIPTION]: slide.description,
+    [ANALYTICS_PROPERTIES.IS_FIRST_SLIDE]: slideIndex === 0,
+    [ANALYTICS_PROPERTIES.IS_LAST_SLIDE]: slideIndex === totalSlides - 1,
+    [ANALYTICS_PROPERTIES.TOTAL_SLIDES]: totalSlides,
+  }) satisfies AnalyticsProperties
 
 /** Properties describing a move between two slides. */
 export const buildSlideNavigationProperties = (
@@ -58,10 +59,11 @@ export const buildSlideNavigationProperties = (
   fromSlide: SlideSummary,
   toIndex: number,
   toSlide: SlideSummary,
-) => ({
-  from_slide: { index: fromIndex + 1, title: fromSlide.title },
-  to_slide: { index: toIndex + 1, title: toSlide.title },
-})
+) =>
+  ({
+    [ANALYTICS_PROPERTIES.FROM_SLIDE]: { index: fromIndex + 1, title: fromSlide.title },
+    [ANALYTICS_PROPERTIES.TO_SLIDE]: { index: toIndex + 1, title: toSlide.title },
+  }) satisfies AnalyticsProperties
 
 /**
  * The page the demo scrape runs on.

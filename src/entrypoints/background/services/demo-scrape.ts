@@ -86,7 +86,9 @@ export const executeDemoScrape = async (tabId: number, config: ScrapeConfig): Pr
 
       if (scrapeResp?.success) {
         log.debug('🎬 Demo scrape completed successfully')
-        trackEvent(ANALYTICS_EVENTS.ONBOARDING_DEMO_SCRAPE, { success: true })
+        trackEvent(ANALYTICS_EVENTS.ONBOARDING_DEMO_SCRAPE, {
+          [ANALYTICS_PROPERTIES.SUCCESS]: true,
+        })
 
         // Enable visual picker mode so user can try it immediately
         try {
@@ -102,16 +104,16 @@ export const executeDemoScrape = async (tabId: number, config: ScrapeConfig): Pr
       } else {
         log.warn('🎬 Demo scrape failed:', scrapeResp?.error)
         trackEvent(ANALYTICS_EVENTS.ONBOARDING_DEMO_SCRAPE, {
-          success: false,
-          error: scrapeResp?.error,
+          [ANALYTICS_PROPERTIES.SUCCESS]: false,
+          [ANALYTICS_PROPERTIES.ERROR]: scrapeResp?.error,
         })
       }
     }
   } catch (error) {
     log.error('🎬 Error in auto demo scrape:', error)
     trackEvent(ANALYTICS_EVENTS.ONBOARDING_DEMO_SCRAPE, {
-      success: false,
-      error: (error as Error).message,
+      [ANALYTICS_PROPERTIES.SUCCESS]: false,
+      [ANALYTICS_PROPERTIES.ERROR]: (error as Error).message,
     })
   }
 }

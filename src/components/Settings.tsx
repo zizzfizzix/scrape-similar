@@ -101,7 +101,7 @@ export const Settings = React.memo(
 
       // Track debug mode toggle
       trackEvent(ANALYTICS_EVENTS.DEBUG_MODE_TOGGLE, {
-        enabled: checked,
+        [ANALYTICS_PROPERTIES.ENABLED]: checked,
       })
     }
 
@@ -120,7 +120,9 @@ export const Settings = React.memo(
         toast.error("Error, system presets couldn't be reset")
         return
       }
-      trackEvent(ANALYTICS_EVENTS.SYSTEM_PRESETS_RESET, { type: 'system' })
+      trackEvent(ANALYTICS_EVENTS.SYSTEM_PRESETS_RESET, {
+        [ANALYTICS_PROPERTIES.TYPE]: PRESET_TYPES.SYSTEM,
+      })
       if (onResetSystemPresets) onResetSystemPresets()
     }, [onResetSystemPresets])
 
@@ -132,7 +134,9 @@ export const Settings = React.memo(
           PRESET_EXPORT_FILENAME,
           PRESET_EXPORT_MIME_TYPE,
         )
-        trackEvent(ANALYTICS_EVENTS.PRESET_EXPORT, { presetCount: presets.length })
+        trackEvent(ANALYTICS_EVENTS.PRESET_EXPORT, {
+          [ANALYTICS_PROPERTIES.PRESET_COUNT]: presets.length,
+        })
       } catch (error) {
         log.error('Error exporting presets:', error)
       }
@@ -151,8 +155,8 @@ export const Settings = React.memo(
       if (!outcome.ok) {
         toast.error(outcome.error)
         trackEvent(ANALYTICS_EVENTS.PRESET_IMPORT, {
-          success: false,
-          reason: outcome.error,
+          [ANALYTICS_PROPERTIES.SUCCESS]: false,
+          [ANALYTICS_PROPERTIES.REASON]: outcome.error,
         })
         return
       }
@@ -171,14 +175,14 @@ export const Settings = React.memo(
       if (!isImported) {
         toast.error('Failed to import presets')
         trackEvent(ANALYTICS_EVENTS.PRESET_IMPORT, {
-          success: false,
-          reason: 'setPresets failed',
+          [ANALYTICS_PROPERTIES.SUCCESS]: false,
+          [ANALYTICS_PROPERTIES.REASON]: 'setPresets failed',
         })
         return
       }
       trackEvent(ANALYTICS_EVENTS.PRESET_IMPORT, {
-        success: true,
-        presetCount: presets.length,
+        [ANALYTICS_PROPERTIES.SUCCESS]: true,
+        [ANALYTICS_PROPERTIES.PRESET_COUNT]: presets.length,
       })
       setImportConfirm(CLOSED_IMPORT_CONFIRM)
       toast.success(describeImportSuccess(presets.length, skippedSystemCount))

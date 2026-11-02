@@ -12,7 +12,7 @@ interface RowActionsCellProps {
   mainSelector: string
   columnKeys: string[]
   /** `export_type` reported with the copy event; tells the two tables apart in analytics. */
-  exportType: 'data_table_row' | 'full_data_view_row'
+  exportType: RowExportType
   onHighlight: (rowSelector: string) => void
 }
 
@@ -45,9 +45,9 @@ export const RowActionsCell: React.FC<RowActionsCellProps> = ({
       await navigator.clipboard.writeText(tsvContent)
       notify.success('Copied row to clipboard')
       trackEvent(ANALYTICS_EVENTS.COPY_TO_CLIPBOARD_TRIGGER, {
-        rows_copied: 1,
-        columns_count: columnKeys.length,
-        export_type: exportType,
+        [ANALYTICS_PROPERTIES.ROWS_COPIED]: 1,
+        [ANALYTICS_PROPERTIES.COLUMNS_COUNT]: columnKeys.length,
+        [ANALYTICS_PROPERTIES.EXPORT_TYPE]: exportType,
       })
     } catch {
       notify.error('Failed to copy')

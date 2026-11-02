@@ -118,7 +118,7 @@ export const MESSAGE_TYPES = {
 // Analytics message payload interface
 export interface TrackEventPayload {
   eventName: string
-  properties: Record<string, any>
+  properties: AnalyticsProperties
 }
 
 /** Payload of ENABLE_PICKER_MODE, DISABLE_PICKER_MODE and TOGGLE_PICKER_MODE. */

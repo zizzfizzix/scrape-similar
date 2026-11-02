@@ -27,8 +27,8 @@ export function ModeToggle({ id, ariaLabelledby }: ModeToggleProps) {
     // Track theme change (only if it's actually different)
     if (previousTheme !== newTheme) {
       trackEvent(ANALYTICS_EVENTS.THEME_CHANGE, {
-        from_theme: previousTheme,
-        to_theme: newTheme,
+        [ANALYTICS_PROPERTIES.FROM_THEME]: previousTheme,
+        [ANALYTICS_PROPERTIES.TO_THEME]: newTheme,
       })
     }
   }
