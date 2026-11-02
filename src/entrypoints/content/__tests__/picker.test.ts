@@ -78,6 +78,8 @@ afterEach(() => {
   removeCrosshairCursor()
 })
 
+const svgElement = () => document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+
 describe('applyCrosshairCursor', () => {
   it('injects the cursor style and marks the document active', () => {
     applyCrosshairCursor()
@@ -402,7 +404,7 @@ describe('handlePickerMouseMove', () => {
     })
 
     it('does nothing when the pointer is over a non-HTML node with no HTML ancestor', () => {
-      hover(document.createElementNS('http://www.w3.org/2000/svg', 'svg'))
+      hover(svgElement())
 
       move(10, 20)
 
@@ -519,8 +521,6 @@ describe('handlePickerKeyDown', () => {
     expect(disable).not.toHaveBeenCalled()
   })
 })
-
-const svgElement = () => document.createElementNS('http://www.w3.org/2000/svg', 'svg')
 
 describe('handlePickerClick', () => {
   let disable: ReturnType<typeof vi.fn<(source?: string) => void>>
