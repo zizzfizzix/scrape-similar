@@ -75,6 +75,7 @@ export const TabPanel = memo(function TabPanel({
   // recording the awaited write carries whatever was skipped.
   const lastConfigSeqRef = useRef(0)
   const awaitedConfigSeqRef = useRef(0)
+  const inFlightConfigSeqsRef = useRef(new Set<number>())
   const shownConfigRef = useRef(config)
   useEffect(() => {
     shownConfigRef.current = config
@@ -89,7 +90,7 @@ export const TabPanel = memo(function TabPanel({
         )
         return
       }
-      // A panel opened after earlier ones numbers its writes after theirs.
+      // Once it has read storage, a panel opened after earlier ones numbers its writes after theirs.
       lastConfigSeqRef.current = Math.max(lastConfigSeqRef.current, storedSeq)
       log.debug(`Applying stored state for tab ${String(tabId)}:`, stored)
       const storedConfig = resolveStoredConfig(stored)
@@ -169,6 +170,7 @@ export const TabPanel = memo(function TabPanel({
     lastConfigSeqRef.current += 1
     const seq = lastConfigSeqRef.current
     awaitedConfigSeqRef.current = seq
+    inFlightConfigSeqsRef.current.add(seq)
     let reply: StatusReply | undefined
     try {
       reply = await browser.runtime.sendMessage({
@@ -178,13 +180,20 @@ export const TabPanel = memo(function TabPanel({
     } catch (error) {
       reply = { success: false, error: String(error) }
     }
+    inFlightConfigSeqsRef.current.delete(seq)
     if (reply?.success === true) return true
 
     log.error(`Could not store config write ${String(seq)} for tab ${String(id)}:`, reply?.error)
     notify.error(failure, { id: failure })
-    // A later write is awaited instead, and its stored state will be shown.
-    if (seq !== lastConfigSeqRef.current) return false
-    // No stored state will record this write, so stop waiting for one.
+    const inFlight = [...inFlightConfigSeqsRef.current]
+    // A later write is still awaited, or was stored and is already shown.
+    if (inFlight.some((other) => other > seq) || awaitedConfigSeqRef.current > seq) return false
+    // No stored state will record this write, so wait for the newest write still
+    // on its way instead, or, with none, show what is stored now.
+    if (inFlight.length > 0) {
+      awaitedConfigSeqRef.current = Math.max(...inFlight)
+      return false
+    }
     awaitedConfigSeqRef.current = 0
     const stored = await sidePanelConfigItem(id).getValue()
     // Nothing stored is shown as the watcher would show it: the default config.
@@ -326,9 +335,12 @@ export const TabPanel = memo(function TabPanel({
 
   // Highlighting waits for the preset to be stored, so a load that fails
   // leaves neither its highlight on the page nor its match count in storage.
+  // A selector committed or another preset loaded while this one was on its way
+  // has its own highlight, which this one must not paint over.
   const storePreset = async (id: number, loaded: ScrapeConfig) => {
     const isStored = await writeConfig(id, buildConfigReplaceUpdates(loaded), PRESET_NOT_SAVED)
-    if (isStored && loaded.mainSelector) {
+    const isStillShown = shownConfigRef.current.mainSelector === loaded.mainSelector
+    if (isStored && isStillShown && loaded.mainSelector) {
       handleHighlight(loaded.mainSelector)
     }
   }

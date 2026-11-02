@@ -319,7 +319,7 @@ describe('applySidePanelDataUpdates with a column edit', () => {
     })
   })
 
-  it('drops a malformed column edit and reports it', async () => {
+  it('drops a malformed column edit', async () => {
     await applySidePanelDataUpdates(1, {
       columnEdit: { type: 'rename', index: 0, expected: text } as unknown as ColumnEdit,
     })
@@ -360,6 +360,17 @@ describe('applySidePanelDataUpdates with a column edit', () => {
     await storeGuess()
 
     expect((await read(1)).panelConfigSeq).toBe(4)
+  })
+
+  it('never lowers the recorded write number', async () => {
+    await applySidePanelDataUpdates(1, { panelConfigSeq: 7 })
+
+    await applySidePanelDataUpdates(1, { columnEdit: renameText, panelConfigSeq: 1 })
+
+    expect(await read(1)).toMatchObject({
+      panelConfigSeq: 7,
+      currentScrapeConfig: { columns: [renameText.column, link] },
+    })
   })
 
   it('ignores a write number that is not an integer', async () => {

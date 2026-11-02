@@ -54,7 +54,10 @@ export const applySidePanelDataUpdates = async (
         log.debug(`Dropped a superseded or malformed column edit for tab ${String(tabId)}`)
       }
     }
-    if (Number.isInteger(panelConfigSeq)) next.panelConfigSeq = panelConfigSeq
+    // Never lowered: a panel that writes before its first read numbers from 0.
+    if (typeof panelConfigSeq === 'number' && Number.isInteger(panelConfigSeq)) {
+      next.panelConfigSeq = Math.max(current.panelConfigSeq ?? 0, panelConfigSeq)
+    }
     return next
   })
 }

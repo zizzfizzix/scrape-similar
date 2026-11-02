@@ -246,6 +246,26 @@ describe('TabPanel numbered config writes', () => {
     return { sendMessage, release }
   }
 
+  /** A background whose writes the test answers one by one, in any order. */
+  const scriptedBackground = () => {
+    const calls: { message: unknown; outcome: PromiseWithResolvers<'store' | 'fail'> }[] = []
+    spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockImplementation(
+      async (message: unknown) => {
+        const outcome = Promise.withResolvers<'store' | 'fail'>()
+        calls.push({ message, outcome })
+        if ((await outcome.promise) === 'fail') return { success: false, error: 'Lock timed out' }
+        const { tabId, updates } = (message as Message<UpdatePayload>).payload!
+        await applySidePanelDataUpdates(tabId, updates)
+        return { success: true }
+      },
+    )
+    const answer = async (index: number, outcome: 'store' | 'fail') => {
+      calls[index]!.outcome.resolve(outcome)
+      await settleEffects()
+    }
+    return { answer }
+  }
+
   const edit = (columnEdit: ColumnEdit) => {
     act(() => {
       form.props!.onColumnEdit(columnEdit)
@@ -455,6 +475,74 @@ describe('TabPanel numbered config writes', () => {
 
     // The first edit never reached storage, so the second one no longer matches it.
     expect(form.props!.config.columns).toEqual(config.columns)
+  })
+
+  it('waits for an earlier write still on its way when the latest one fails', async () => {
+    await render()
+    const { answer } = scriptedBackground()
+    const readBack = vi.spyOn(sidePanelConfigItem(TAB_ID), 'getValue')
+    vi.spyOn(log, 'error').mockImplementation(() => {})
+
+    act(() => {
+      form.props!.onMainSelectorChange('//li')
+    })
+    edit(rename)
+    readBack.mockClear()
+    await answer(1, 'fail')
+
+    expect(readBack).not.toHaveBeenCalled()
+    expect(form.props!.config.mainSelector).toBe('//li')
+
+    await answer(0, 'store')
+
+    expect(form.props!.config).toEqual({ mainSelector: '//li', columns: config.columns })
+  })
+
+  it('restores the stored config once the earlier write it waited for fails too', async () => {
+    await render()
+    const { answer } = scriptedBackground()
+    vi.spyOn(log, 'error').mockImplementation(() => {})
+
+    act(() => {
+      form.props!.onMainSelectorChange('//li')
+    })
+    edit(rename)
+    await answer(1, 'fail')
+    await answer(0, 'fail')
+
+    expect(form.props!.config).toEqual(config)
+  })
+
+  it('keeps the state of a later write that was stored when an earlier one fails', async () => {
+    await render()
+    const { answer } = scriptedBackground()
+    const readBack = vi.spyOn(sidePanelConfigItem(TAB_ID), 'getValue')
+    vi.spyOn(log, 'error').mockImplementation(() => {})
+
+    edit(rename)
+    edit({ type: 'add' })
+    await answer(1, 'store')
+    readBack.mockClear()
+    await answer(0, 'fail')
+
+    expect(readBack).not.toHaveBeenCalled()
+    expect(form.props!.config.columns).toEqual([rank, added])
+  })
+
+  it('does not highlight a preset the user moved on from before it was stored', async () => {
+    await render()
+    const { release } = heldBackground()
+    const tabsSendMessage = spyOnBrowser(fakeBrowser.tabs, 'sendMessage').mockResolvedValue(
+      undefined,
+    )
+
+    loadPreset(preset('//li', guessedColumns))
+    act(() => {
+      form.props!.onMainSelectorChange('//ul')
+    })
+    await release()
+
+    expect(highlightRequests(tabsSendMessage)).toEqual([])
   })
 
   it('shows the default config when a write fails and nothing is stored', async () => {
