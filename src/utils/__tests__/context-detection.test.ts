@@ -103,7 +103,7 @@ describe('context detection utilities', () => {
 
   it('does not take a content script for the background', () => {
     vi.stubGlobal('window', undefined)
-    delete (globalThis as any).browser.tabs
+    delete testGlobal.browser!.tabs
 
     expect(isBackgroundContext()).toBe(false)
   })

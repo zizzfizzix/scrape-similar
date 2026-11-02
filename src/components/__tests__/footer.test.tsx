@@ -66,12 +66,12 @@ describe('Footer', () => {
       vi.unstubAllGlobals()
     })
 
-    it('names the running browser, not the build', () => {
+    it('names the running browser, not the build', async () => {
       vi.stubGlobal('navigator', {
         ...navigator,
         userAgent: 'Mozilla/5.0 Chrome/130.0.0.0 Edg/130.0.0.0',
       })
-      view = render()
+      view = await render()
 
       expect(authorLink().href).toMatch(/utm_campaign=edge-/)
     })
