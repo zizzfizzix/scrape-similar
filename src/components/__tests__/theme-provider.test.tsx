@@ -3,6 +3,7 @@ import { ThemeProvider, useTheme } from '@/components/theme-provider'
 import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 import { act, render as renderComponent, waitFor, type RenderResult } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { memo } from 'react'
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
@@ -297,6 +298,28 @@ describe('ThemeProvider', () => {
     })
 
     await expectTheme('system')
+  })
+
+  it('keeps the context value when it re-renders with nothing changed', async () => {
+    const seen: ReturnType<typeof useTheme>[] = []
+    // `memo` limits the consumer's renders to context changes.
+    const Consumer = memo(function Consumer() {
+      seen.push(useTheme())
+      return null
+    })
+    const Parent = ({ tick }: { tick: number }) => (
+      <ThemeProvider>
+        <span data-tick={tick} />
+        <Consumer />
+      </ThemeProvider>
+    )
+    view = renderComponent(<Parent tick={0} />)
+    await act(flushMicrotasks)
+    const rendersBefore = seen.length
+
+    view.rerender(<Parent tick={1} />)
+
+    expect(seen).toHaveLength(rendersBefore)
   })
 
   it('stops listening once unmounted', async () => {
