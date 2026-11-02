@@ -43,6 +43,11 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      # Vite and Vitest strip types without checking them, so this is the only
+      # step that fails on a type error, `expectTypeOf` assertions included.
+      - name: Type check
+        run: pnpm compile
+
       # Enforces the `coverage.thresholds` block in `vitest.config.ts`: the run
       # exits non-zero if coverage drops below it, so a PR cannot lower it. It
       # then runs `scripts/check-coverage-fidelity.mjs`, which catches what a
