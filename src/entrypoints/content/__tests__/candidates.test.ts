@@ -130,6 +130,14 @@ describe('generateSelectorCandidates', () => {
       expect(rowLevelTexts('cell')).toEqual(['A', 'B', 'C'])
     })
 
+    it('builds the candidates for the only row on the page', () => {
+      document.body.innerHTML = `
+        <div></div>
+        <div><table><tr><td id="cell">only</td><td>other</td></tr></table></div>`
+
+      expect(() => generateSelectorCandidates(document.getElementById('cell')!)).not.toThrow()
+    })
+
     it('leaves out the rows of a table nested in a row', () => {
       document.body.innerHTML = `
         <table>

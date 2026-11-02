@@ -2,10 +2,11 @@ import { evaluateXPath, minimizeXPath } from '@/utils/scraper'
 
 // A row's own path can also match `th`-only header rows, which then scrape as
 // data. The `[td]` filter keeps only data rows, and a row whose filtered path
-// matches nothing (a `thead` row) keeps its own path.
+// matches nothing (a `thead` row) keeps its own path. A row that is unique on
+// the page can minimize to "/", where an appended predicate is invalid XPath.
 const candidateFor = (node: HTMLElement): string => {
   const path = minimizeXPath(node)
-  if (node.tagName.toLowerCase() !== 'tr') return path
+  if (!/\/tr$/i.test(path)) return path
   const dataRows = `${path}[td]`
   return evaluateXPath(dataRows).length > 0 ? dataRows : path
 }

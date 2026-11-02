@@ -221,6 +221,7 @@ describe('buildPickerSelection', () => {
         { col1: '2', col2: 'India' },
       ])
     })
+
     it('builds the table columns for a header cell clicked at the row level', () => {
       const header = document.querySelector<HTMLElement>('th')!
       state.selectorCandidates = generateSelectorCandidates(header)
