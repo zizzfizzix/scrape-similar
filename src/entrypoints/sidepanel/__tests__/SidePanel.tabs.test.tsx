@@ -1042,7 +1042,6 @@ describe('talking to the content script', () => {
         .querySelector<HTMLButtonElement>('button[aria-label="Highlight this element"]')!
         .click(),
     )
-    await settleEffects()
 
     expect(toastMocks.toast.error).not.toHaveBeenCalled()
   })
@@ -1056,7 +1055,6 @@ describe('talking to the content script', () => {
         .querySelector<HTMLButtonElement>('button[aria-label="Open visual picker"]')!
         .click(),
     )
-    await settleEffects()
 
     expect(toastMocks.toast.error).not.toHaveBeenCalled()
   })

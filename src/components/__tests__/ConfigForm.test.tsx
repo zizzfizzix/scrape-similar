@@ -758,7 +758,7 @@ describe('ConfigForm', () => {
       expect(guessButton().querySelector('.lucide-loader-circle')).not.toBeNull()
       expect(guessButton().disabled).toBe(true)
 
-      act(() => release!())
+      await act(async () => release!())
     })
 
     it('settles a failed guess back to idle', async () => {

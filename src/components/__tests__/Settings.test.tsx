@@ -289,6 +289,7 @@ describe('Settings', () => {
         )
         cancel!.click()
       })
+      await settleEffects()
 
       expect((await getPresets())[0]?.id).toBe('existing')
     })
@@ -444,7 +445,9 @@ describe('Settings', () => {
       for (let i = 0; i < 4; i++) {
         act(() => ref.current!.unlockDebugMode())
       }
+      await settleEffects()
 
+      expect(trackEvent).not.toHaveBeenCalledWith(ANALYTICS_EVENTS.HIDDEN_SETTINGS_UNLOCK)
       expect(view.container.textContent).not.toContain('Debug mode')
     })
 
@@ -460,7 +463,9 @@ describe('Settings', () => {
         vi.advanceTimersByTime(HIDDEN_UNLOCK_WINDOW_MS + 1)
       })
       act(() => ref.current!.unlockDebugMode())
+      await settleEffects()
 
+      expect(trackEvent).not.toHaveBeenCalledWith(ANALYTICS_EVENTS.HIDDEN_SETTINGS_UNLOCK)
       expect(view.container.textContent).not.toContain('Debug mode')
       vi.useRealTimers()
     })
