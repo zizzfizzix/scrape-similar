@@ -11,7 +11,7 @@ export const MAX_QUEUED_EVENTS = 1000 // Prevent unbounded growth
 
 export interface QueuedEvent {
   name: AnalyticsEvent
-  props: AnalyticsProperties
+  props: CapturedProperties
   timestamp: number
 }
 
@@ -132,10 +132,6 @@ export type AnalyticsSource = (typeof ANALYTICS_SOURCES)[keyof typeof ANALYTICS_
  * way and reports filter on it.
  */
 export const ANALYTICS_PROPERTIES = {
-  // Added to every event by `captureEvent`
-  ENVIRONMENT: 'environment',
-  EXTENSION_CONTEXT: 'extension_context',
-  EXTENSION_VERSION: 'extension_version',
   // Added by the background when it flushes events queued before consent
   BUFFERED: 'buffered',
 
@@ -218,6 +214,22 @@ export type AnalyticsProperty = (typeof ANALYTICS_PROPERTIES)[keyof typeof ANALY
  */
 export type AnalyticsProperties = Partial<Record<AnalyticsProperty, unknown>>
 
+/**
+ * Properties `captureEvent` sets on every event, overwriting any value of the
+ * same name. Kept out of `ANALYTICS_PROPERTIES` so `AnalyticsProperties` does
+ * not offer them to callers.
+ */
+export const ENVELOPE_PROPERTIES = {
+  ENVIRONMENT: 'environment',
+  EXTENSION_CONTEXT: 'extension_context',
+  EXTENSION_VERSION: 'extension_version',
+} as const
+
+export type EnvelopeProperty = (typeof ENVELOPE_PROPERTIES)[keyof typeof ENVELOPE_PROPERTIES]
+
+/** An event's properties as captured or queued: the caller's plus the envelope. */
+export type CapturedProperties = AnalyticsProperties & Partial<Record<EnvelopeProperty, unknown>>
+
 /** Values of the `trigger` property on `SIDE_PANEL_OPEN`. */
 export const SIDE_PANEL_TRIGGERS = {
   ACTION_CLICK: 'action_click',
@@ -275,17 +287,18 @@ export const PRESET_TYPES = {
 export type ScrapeSource = typeof ANALYTICS_SOURCES.BUTTON | typeof ANALYTICS_SOURCES.ENTER_KEY
 
 /**
- * The awaitable half of `trackEvent`, exported for the tests that assert on
- * where an event ended up. Production code calls `trackEvent`.
- *
  * Routes by execution context:
  * - Background service worker: `getPostHogBackground()`
  * - React UI context: PostHog from React context (`window.__scrape_similar_posthog`)
  * - Content script: hands the event to the background script over a message
+ *
+ * `sourceContext` is the context the event is reported from, when that is not
+ * the one capturing it.
  */
-export const captureEvent = async (
+const capture = async (
   eventName: AnalyticsEvent,
-  properties: AnalyticsProperties = {},
+  properties: AnalyticsProperties,
+  sourceContext?: ExtensionContext,
 ): Promise<void> => {
   try {
     const consentState = await getConsentState()
@@ -296,16 +309,12 @@ export const captureEvent = async (
     }
 
     const context = getCurrentContext()
-    const environment = import.meta.env.MODE
 
-    // Add environment and context properties to all events
-    const eventProperties = {
+    const eventProperties: CapturedProperties = {
       ...properties,
-      ...(environment && { [ANALYTICS_PROPERTIES.ENVIRONMENT]: environment }),
-      // Don't override extension_context if it's already set e.g. from content script
-      [ANALYTICS_PROPERTIES.EXTENSION_CONTEXT]:
-        properties[ANALYTICS_PROPERTIES.EXTENSION_CONTEXT] || context,
-      [ANALYTICS_PROPERTIES.EXTENSION_VERSION]: version,
+      [ENVELOPE_PROPERTIES.ENVIRONMENT]: import.meta.env.MODE,
+      [ENVELOPE_PROPERTIES.EXTENSION_CONTEXT]: sourceContext ?? context,
+      [ENVELOPE_PROPERTIES.EXTENSION_VERSION]: version,
     }
 
     // A content script cannot take the event queue's lock (it gets the page's
@@ -345,12 +354,10 @@ export const captureEvent = async (
 
       case EXTENSION_CONTEXTS.CONTENT_SCRIPT: {
         try {
+          // The background sets the envelope itself, through `trackContentScriptEvent`.
           await browser.runtime.sendMessage({
             type: MESSAGE_TYPES.TRACK_EVENT,
-            payload: {
-              eventName,
-              properties: eventProperties,
-            },
+            payload: { eventName, properties } satisfies TrackEventPayload,
           })
           log.debug(`Tracked event (content script context): ${eventName}`, eventProperties)
         } catch (error) {
@@ -374,6 +381,26 @@ export const captureEvent = async (
   } catch (error) {
     log.error('Error tracking event:', error)
   }
+}
+
+/**
+ * The awaitable half of `trackEvent`, exported for the tests that assert on
+ * where an event ended up. Production code calls `trackEvent`.
+ */
+export const captureEvent = (
+  eventName: AnalyticsEvent,
+  properties: AnalyticsProperties = {},
+): Promise<void> => capture(eventName, properties)
+
+/**
+ * Tracks, from the background, an event a content script sent over
+ * `TRACK_EVENT`. The event keeps the content script as its `extension_context`.
+ */
+export const trackContentScriptEvent = (
+  eventName: AnalyticsEvent,
+  properties: AnalyticsProperties,
+): void => {
+  reportRejection(capture(eventName, properties, EXTENSION_CONTEXTS.CONTENT_SCRIPT))
 }
 
 /**

@@ -9,10 +9,10 @@ import { storage } from 'wxt/utils/storage'
 const sheetsMocks = vi.hoisted(() => ({ handleExportToSheets: vi.fn() }))
 vi.mock('@/entrypoints/background/handlers/sheets-export', () => sheetsMocks)
 
-const trackEvent = vi.hoisted(() => vi.fn())
+const trackContentScriptEvent = vi.hoisted(() => vi.fn())
 vi.mock('@/utils/analytics', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/utils/analytics')>()),
-  trackEvent,
+  trackContentScriptEvent,
 }))
 
 const tabSender = (id: number, windowId?: number) =>
@@ -54,7 +54,9 @@ describe('handleContentScriptMessage', () => {
       payload: { eventName: 'picker_mode_enable', properties: { source: 'shortcut' } },
     })
 
-    expect(trackEvent).toHaveBeenCalledWith('picker_mode_enable', { source: 'shortcut' })
+    expect(trackContentScriptEvent).toHaveBeenCalledWith('picker_mode_enable', {
+      source: 'shortcut',
+    })
     expect(sendResponse).toHaveBeenCalledWith({ success: true })
   })
 
@@ -63,7 +65,7 @@ describe('handleContentScriptMessage', () => {
 
     await dispatch({ type: MESSAGE_TYPES.TRACK_EVENT, payload: { properties: {} } })
 
-    expect(trackEvent).not.toHaveBeenCalled()
+    expect(trackContentScriptEvent).not.toHaveBeenCalled()
     expect(sendResponse).toHaveBeenCalledWith({ success: false, error: 'Invalid event name' })
   })
 
