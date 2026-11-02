@@ -1,8 +1,14 @@
-import type { ScrapeConfig, SidePanelConfig } from '@/utils/types'
+import type { ScrapeConfig, SidePanelConfigUpdate } from '@/utils/types'
 import slugify from 'slugify'
 
 /**
- * Build the session-storage updates to persist when the scrape config changes.
+ * Build the session-storage updates to persist when the user edits one field
+ * of the scrape config, or `null` when nothing changed.
+ *
+ * Only the fields that changed are sent. Another context (Guess, the picker,
+ * a context-menu selection) can write this tab's config before the panel has
+ * applied it, and a field the panel did not change must not overwrite that
+ * write with the panel's older copy.
  *
  * A stored highlight result only describes the main selector it was produced
  * for, so changing (or clearing) that selector invalidates it. It has to be
@@ -12,18 +18,35 @@ import slugify from 'slugify'
 export const buildConfigChangeUpdates = (
   previousConfig: ScrapeConfig,
   nextConfig: ScrapeConfig,
-): Partial<SidePanelConfig> => {
-  const updates: Partial<SidePanelConfig> = {
-    currentScrapeConfig: nextConfig,
-  }
+): SidePanelConfigUpdate | null => {
+  const hasMainSelectorChanged = nextConfig.mainSelector !== previousConfig.mainSelector
+  const hasColumnListChanged = !hasSameData(nextConfig.columns, previousConfig.columns)
+  if (!hasMainSelectorChanged && !hasColumnListChanged) return null
 
-  if (nextConfig.mainSelector !== previousConfig.mainSelector) {
+  const changedConfig: Partial<ScrapeConfig> = {}
+  const updates: SidePanelConfigUpdate = { currentScrapeConfig: changedConfig }
+  if (hasMainSelectorChanged) {
+    changedConfig.mainSelector = nextConfig.mainSelector
     updates.highlightMatchCount = null
     updates.highlightError = null
   }
-
+  if (hasColumnListChanged) {
+    changedConfig.columns = nextConfig.columns
+  }
   return updates
 }
+
+/**
+ * Build the session-storage updates that replace the whole scrape config, as
+ * loading a preset does. Both fields are sent even where they equal the
+ * panel's copy, since the stored config may hold another context's newer
+ * values, and the stored highlight result is reset for the same reason.
+ */
+export const buildConfigReplaceUpdates = (config: ScrapeConfig): SidePanelConfigUpdate => ({
+  currentScrapeConfig: { mainSelector: config.mainSelector, columns: config.columns },
+  highlightMatchCount: null,
+  highlightError: null,
+})
 
 interface MainSelectorValidationState {
   mainSelector: string

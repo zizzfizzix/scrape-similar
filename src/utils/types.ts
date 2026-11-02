@@ -47,6 +47,17 @@ export interface SidePanelConfig {
   pickerModeActive?: boolean
 }
 
+/**
+ * A write to a tab's `SidePanelConfig`. The fields of `currentScrapeConfig` it
+ * omits keep their stored values, so a writer sends only what it changed.
+ */
+export interface SidePanelConfigUpdate extends Omit<
+  Partial<SidePanelConfig>,
+  'currentScrapeConfig'
+> {
+  currentScrapeConfig?: Partial<ScrapeConfig>
+}
+
 export type ElementDetailsPayload = {
   xpath: string
   text?: string

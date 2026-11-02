@@ -1205,7 +1205,7 @@ describe('one panel per tab', () => {
       expect(sidePanelWrites(sendMessage)[0]).toEqual({
         tabId: TAB_ID,
         updates: expect.objectContaining({
-          currentScrapeConfig: { mainSelector: '//li', columns: guessedColumns },
+          currentScrapeConfig: { mainSelector: '//li' },
         }),
       }),
     )

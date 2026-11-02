@@ -1,5 +1,6 @@
 import {
   buildConfigChangeUpdates,
+  buildConfigReplaceUpdates,
   buildExportFilename,
   DEFAULT_SCRAPE_CONFIG,
   hasConfigDrifted,
@@ -17,30 +18,64 @@ const makeConfig = (mainSelector: string): ScrapeConfig => ({
 })
 
 describe('buildConfigChangeUpdates', () => {
-  it('persists the new config without touching highlight state when the main selector is unchanged', () => {
+  it('sends only the columns, without touching highlight state, when the main selector is unchanged', () => {
     const previous = makeConfig('//span')
-    const next: ScrapeConfig = { ...previous, columns: [{ name: 'Href', selector: '@href' }] }
+    const columns = [{ name: 'Href', selector: '@href' }]
 
-    const updates = buildConfigChangeUpdates(previous, next)
+    const updates = buildConfigChangeUpdates(previous, { ...previous, columns })
 
-    expect(updates.currentScrapeConfig).toEqual(next)
-    expect(updates).not.toHaveProperty('highlightMatchCount')
-    expect(updates).not.toHaveProperty('highlightError')
+    expect(updates).toEqual({ currentScrapeConfig: { columns } })
   })
 
-  it('resets stored highlight state when the main selector is cleared', () => {
+  it('sends only the main selector, resetting stored highlight state, when it is cleared', () => {
     const updates = buildConfigChangeUpdates(makeConfig('//span'), makeConfig(''))
 
-    expect(updates.currentScrapeConfig).toEqual(makeConfig(''))
-    expect(updates.highlightMatchCount).toBeNull()
-    expect(updates.highlightError).toBeNull()
+    expect(updates).toEqual({
+      currentScrapeConfig: { mainSelector: '' },
+      highlightMatchCount: null,
+      highlightError: null,
+    })
   })
 
   it('resets stored highlight state when the main selector is replaced', () => {
     const updates = buildConfigChangeUpdates(makeConfig('//span'), makeConfig('//a'))
 
-    expect(updates.highlightMatchCount).toBeNull()
-    expect(updates.highlightError).toBeNull()
+    expect(updates).toMatchObject({ highlightMatchCount: null, highlightError: null })
+  })
+
+  it('returns null when nothing changed', () => {
+    const previous = makeConfig('//span')
+
+    expect(buildConfigChangeUpdates(previous, makeConfig('//span'))).toBeNull()
+  })
+
+  it('treats equal columns in a new array as unchanged', () => {
+    const previous = makeConfig('//span')
+    const next = { mainSelector: '//a', columns: previous.columns.map((column) => ({ ...column })) }
+
+    expect(buildConfigChangeUpdates(previous, next)).toMatchObject({
+      currentScrapeConfig: { mainSelector: '//a' },
+    })
+  })
+
+  it('sends both fields when both changed', () => {
+    const columns = [{ name: 'Href', selector: '@href' }]
+
+    const updates = buildConfigChangeUpdates(makeConfig('//span'), { mainSelector: '//a', columns })
+
+    expect(updates).toMatchObject({ currentScrapeConfig: { mainSelector: '//a', columns } })
+  })
+})
+
+describe('buildConfigReplaceUpdates', () => {
+  it('sends every field and resets stored highlight state', () => {
+    const config = makeConfig('//span')
+
+    expect(buildConfigReplaceUpdates(config)).toEqual({
+      currentScrapeConfig: config,
+      highlightMatchCount: null,
+      highlightError: null,
+    })
   })
 })
 

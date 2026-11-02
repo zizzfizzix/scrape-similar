@@ -1,3 +1,4 @@
+import { DEFAULT_SCRAPE_CONFIG } from '@/utils/sidepanel-state'
 import { updateStorageItem, withStorageLock } from '@/utils/storage-lock'
 import log from 'loglevel'
 
@@ -15,34 +16,25 @@ const isTabClosed = (tabId: number, operation: string): boolean => {
 }
 
 /**
- * Atomically merge updates into a tab's session storage blob
- * Handles special logic for merging nested currentScrapeConfig
+ * Atomically merge updates into a tab's session storage blob. A partial
+ * `currentScrapeConfig` is merged field by field into the stored one; with
+ * nothing stored, a missing field takes the default the side panel shows.
  */
 export const applySidePanelDataUpdates = async (
   tabId: number,
-  updates: Partial<SidePanelConfig>,
+  updates: SidePanelConfigUpdate,
 ): Promise<void> => {
   if (isTabClosed(tabId, 'side panel update')) return
   await updateStorageItem(sidePanelConfigItem(tabId), (stored) => {
     const current = stored || {}
-    // Shallow-merge top-level, but carefully merge nested config to avoid losing fields
-    const next: SidePanelConfig = { ...current, ...updates }
-    if (updates.currentScrapeConfig) {
-      const prevConfig = current.currentScrapeConfig || ({} as ScrapeConfig)
-      const incoming = updates.currentScrapeConfig
-      // A write that omits `columns` keeps the ones already stored, whether or
-      // not it also changes `mainSelector`.
-      const shouldUseIncomingColumns = Array.isArray(incoming.columns)
-      const mergedColumns = shouldUseIncomingColumns
-        ? (incoming.columns as ColumnDefinition[])
-        : prevConfig.columns || []
-
-      const merged: ScrapeConfig = {
-        ...prevConfig,
-        ...incoming,
-        columns: mergedColumns,
+    const { currentScrapeConfig: incoming, ...topLevel } = updates
+    const next: SidePanelConfig = { ...current, ...topLevel }
+    if (incoming) {
+      const prevConfig = current.currentScrapeConfig
+      next.currentScrapeConfig = {
+        mainSelector: incoming.mainSelector ?? prevConfig?.mainSelector ?? '',
+        columns: incoming.columns ?? prevConfig?.columns ?? DEFAULT_SCRAPE_CONFIG.columns,
       }
-      next.currentScrapeConfig = merged
     }
     return next
   })
