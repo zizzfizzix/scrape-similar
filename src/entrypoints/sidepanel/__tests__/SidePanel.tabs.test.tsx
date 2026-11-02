@@ -1193,9 +1193,11 @@ describe('one panel per tab', () => {
     await waitFor(() =>
       expect(sidePanelWrites(sendMessage)[0]).toEqual({
         tabId: TAB_ID,
-        updates: expect.objectContaining({
+        updates: {
           currentScrapeConfig: { mainSelector: '//li' },
-        }),
+          highlightMatchCount: null,
+          highlightError: null,
+        },
       }),
     )
   })
@@ -1217,9 +1219,11 @@ describe('one panel per tab', () => {
     await waitFor(() =>
       expect(sidePanelWrites(sendMessage)[0]).toEqual({
         tabId: OTHER_TAB_ID,
-        updates: expect.objectContaining({
-          currentScrapeConfig: expect.objectContaining({ mainSelector: '//li' }),
-        }),
+        updates: {
+          currentScrapeConfig: { mainSelector: '//li' },
+          highlightMatchCount: null,
+          highlightError: null,
+        },
       }),
     )
   })
@@ -1270,9 +1274,11 @@ describe('one panel per tab', () => {
     await waitFor(() =>
       expect(sidePanelWrites(sendMessage)[0]).toEqual({
         tabId: TAB_ID,
-        updates: expect.objectContaining({
-          currentScrapeConfig: expect.objectContaining({ mainSelector: '//li' }),
-        }),
+        updates: {
+          currentScrapeConfig: { mainSelector: '//li' },
+          highlightMatchCount: null,
+          highlightError: null,
+        },
       }),
     )
   })
@@ -1310,9 +1316,11 @@ describe('one panel per tab', () => {
     await waitFor(() =>
       expect(sidePanelWrites(sendMessage)[0]).toEqual({
         tabId: TAB_ID,
-        updates: expect.objectContaining({
-          currentScrapeConfig: expect.objectContaining({ mainSelector: '//li' }),
-        }),
+        updates: {
+          currentScrapeConfig: { mainSelector: '//li' },
+          highlightMatchCount: null,
+          highlightError: null,
+        },
       }),
     )
     // The highlight that follows the commit is stored for the same tab.

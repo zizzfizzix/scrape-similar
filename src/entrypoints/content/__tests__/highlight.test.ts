@@ -169,8 +169,8 @@ describe('highlightMatchingElements', () => {
     }))
 
     // Mock animate method
-    const animateSpy1 = vi.fn()
-    const animateSpy2 = vi.fn()
+    const animateSpy1 = vi.fn<Element['animate']>()
+    const animateSpy2 = vi.fn<Element['animate']>()
     elem1.animate = animateSpy1
     elem2.animate = animateSpy2
 
@@ -180,7 +180,7 @@ describe('highlightMatchingElements', () => {
     expect(animateSpy2).toHaveBeenCalledOnce()
     // Check animation keyframes are provided
     expect(animateSpy1.mock.calls[0]?.[0]).toBeInstanceOf(Array)
-    expect(animateSpy1.mock.calls[0]?.[0].length).toBeGreaterThan(0)
+    expect(animateSpy1.mock.calls[0]?.[0]).not.toHaveLength(0)
   })
 
   it('scrolls first element into view by default', () => {

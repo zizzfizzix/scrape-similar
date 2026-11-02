@@ -2,6 +2,7 @@ import { getSessionState } from '@/entrypoints/background/services/session-stora
 import { ANALYTICS_EVENTS } from '@/utils/analytics'
 import type { MessageResponse, ScrapeConfig } from '@/utils/types'
 import { spyOnBrowser } from '@@/tests/support/fake-browser'
+import log from 'loglevel'
 import { beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
@@ -153,6 +154,26 @@ describe('executeDemoScrape', () => {
       3,
       expect.objectContaining({ type: MESSAGE_TYPES.START_SCRAPE }),
     )
+    expect(trackEvent).not.toHaveBeenCalled()
+  })
+
+  it('tracks a failure when the highlight gets no reply', async () => {
+    vi.spyOn(log, 'error').mockImplementation(() => {})
+    replyWith({ [MESSAGE_TYPES.HIGHLIGHT_ELEMENTS]: undefined })
+
+    await executeDemoScrape(3, config)
+
+    expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.ONBOARDING_DEMO_SCRAPE, {
+      success: false,
+      error: 'No reply to HIGHLIGHT_ELEMENTS',
+    })
+  })
+
+  it('stops when the highlight succeeds without a match count', async () => {
+    replyWith({ [MESSAGE_TYPES.HIGHLIGHT_ELEMENTS]: { success: true } })
+
+    await executeDemoScrape(3, config)
+
     expect(trackEvent).not.toHaveBeenCalled()
   })
 

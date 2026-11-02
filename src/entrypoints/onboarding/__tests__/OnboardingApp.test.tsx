@@ -160,10 +160,10 @@ describe('OnboardingApp', () => {
     await press('Next')
 
     expect(hasButton('Previous')).toBe(true)
-    expect(trackEvent).toHaveBeenCalledWith(
-      ANALYTICS_EVENTS.ONBOARDING_NEXT_BUTTON_PRESS,
-      expect.objectContaining({ from_slide: expect.objectContaining({ index: 1 }) }),
-    )
+    expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.ONBOARDING_NEXT_BUTTON_PRESS, {
+      from_slide: { index: 1, title: 'Get Started' },
+      to_slide: { index: 2, title: 'Pin the Extension' },
+    })
   })
 
   it('steps back and records the move', async () => {
@@ -173,10 +173,10 @@ describe('OnboardingApp', () => {
     await press('Previous')
 
     expect(hasButton('Previous')).toBe(false)
-    expect(trackEvent).toHaveBeenCalledWith(
-      ANALYTICS_EVENTS.ONBOARDING_PREVIOUS_BUTTON_PRESS,
-      expect.objectContaining({ to_slide: expect.objectContaining({ index: 1 }) }),
-    )
+    expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.ONBOARDING_PREVIOUS_BUTTON_PRESS, {
+      from_slide: { index: 2, title: 'Pin the Extension' },
+      to_slide: { index: 1, title: 'Get Started' },
+    })
   })
 
   it('offers to start the demo on the last slide', async () => {
@@ -194,7 +194,7 @@ describe('OnboardingApp', () => {
     await goToLastSlide()
 
     expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.ONBOARDING_COMPLETE, {
-      total_slides_viewed: expect.any(Number),
+      total_slides_viewed: 8,
     })
   })
 

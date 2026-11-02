@@ -155,6 +155,15 @@ describe('createMessageHandler', () => {
 
   const dispatch = (message: Message) => handle(message, {}, sendResponse)
 
+  /** A failure reply. Its reason is worded by jsdom or V8, not by the handler. */
+  const expectFailureReply = () => {
+    expect(sendResponse).toHaveBeenCalledOnce()
+    const [reply] = sendResponse.mock.lastCall!
+    expect(Object.keys(reply as object).sort()).toEqual(['error', 'success'])
+    expect(reply).toMatchObject({ success: false })
+    expect(reply).toHaveProperty('error', expect.any(String))
+  }
+
   describe('START_SCRAPE', () => {
     const scrape = () =>
       dispatch({
@@ -279,13 +288,13 @@ describe('createMessageHandler', () => {
       dispatch({ type: MESSAGE_TYPES.HIGHLIGHT_ELEMENTS, payload: { selector: '//[[' } })
 
       expect(highlightMocks.highlightMatchingElements).not.toHaveBeenCalled()
-      expect(sendResponse).toHaveBeenCalledWith({ success: false, error: expect.any(String) })
+      expectFailureReply()
     })
 
     it('treats a missing payload as an empty one', () => {
       dispatch({ type: MESSAGE_TYPES.HIGHLIGHT_ELEMENTS })
 
-      expect(sendResponse).toHaveBeenCalledWith({ success: false, error: expect.any(String) })
+      expectFailureReply()
     })
   })
 
@@ -315,7 +324,7 @@ describe('createMessageHandler', () => {
       dispatch({ type: MESSAGE_TYPES.HIGHLIGHT_ROW_ELEMENT, payload: { selector: '//[[' } })
 
       expect(highlightMocks.highlightMatchingElements).not.toHaveBeenCalled()
-      expect(sendResponse).toHaveBeenCalledWith({ success: false, error: expect.any(String) })
+      expectFailureReply()
     })
   })
 
@@ -412,7 +421,10 @@ describe('createMessageHandler', () => {
           payload: {
             tabId: 3,
             updates: {
-              currentScrapeConfig: expect.objectContaining({ columns: expect.any(Array) }),
+              currentScrapeConfig: {
+                mainSelector: '/html/body/ul/li',
+                columns: [{ name: 'List Item', selector: '.' }],
+              },
               elementDetails: state.lastRightClickedElementDetails,
             },
           },
@@ -488,7 +500,7 @@ describe('createMessageHandler', () => {
 
       dispatch({ type: MESSAGE_TYPES.SAVE_ELEMENT_DETAILS_TO_STORAGE })
 
-      expect(sendResponse).toHaveBeenCalledWith({ success: false, error: expect.any(String) })
+      expectFailureReply()
     })
   })
 
@@ -505,7 +517,10 @@ describe('createMessageHandler', () => {
           payload: {
             tabId: 3,
             updates: {
-              currentScrapeConfig: expect.objectContaining({ mainSelector: '//li' }),
+              currentScrapeConfig: {
+                mainSelector: '//li',
+                columns: [{ name: 'List Item', selector: '.' }],
+              },
             },
           },
         },

@@ -527,13 +527,12 @@ describe('FullDataViewApp', () => {
     fireEvent.click(trigger)
     fireEvent.click(await screen.findByRole('menuitem', { name: /Google Sheets/ }))
 
-    expect(sendMessage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: MESSAGE_TYPES.EXPORT_TO_SHEETS,
-        payload: expect.objectContaining({ filename: 'Populations - 2026-03-04' }),
-      }),
-      expect.any(Function),
-    )
+    expect(sendMessage).toHaveBeenCalledOnce()
+    expect(sendMessage.mock.lastCall?.[0]).toMatchObject({
+      type: MESSAGE_TYPES.EXPORT_TO_SHEETS,
+      payload: { filename: 'Populations - 2026-03-04' },
+    })
+    expect(sendMessage.mock.lastCall?.[1]).toBeInstanceOf(Function)
     vi.useRealTimers()
   })
 

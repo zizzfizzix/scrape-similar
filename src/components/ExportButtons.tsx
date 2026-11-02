@@ -22,7 +22,7 @@ import {
 import { getColumnKeys } from '@/utils/getColumnKeys'
 import { reportRejection } from '@/utils/report-rejection'
 import { rowsToTsv } from '@/utils/tsv'
-import type { ScrapeConfig, ScrapedRow, ScrapeResult } from '@/utils/types'
+import type { ExportResult, ScrapeConfig, ScrapedRow, ScrapeResult } from '@/utils/types'
 import { MESSAGE_TYPES } from '@/utils/types'
 import log from 'loglevel'
 import { ChevronsUpDown, Clipboard, FileDown, FileSpreadsheet, Sheet } from 'lucide-react'
@@ -110,7 +110,7 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
 
     log.debug('🔥 ExportButtons: Sending message:', messagePayload)
 
-    browser.runtime.sendMessage(messagePayload, (response) => {
+    browser.runtime.sendMessage(messagePayload, (response: ExportResult | undefined) => {
       log.debug('🔥 ExportButtons: Received response:', response)
 
       // Always reset the exporting state

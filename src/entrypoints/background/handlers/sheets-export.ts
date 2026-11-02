@@ -137,7 +137,7 @@ const requestSheetsApi = async (token: string, url: string, body: unknown): Prom
   }
 
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}))
+    const errorData: unknown = await response.json().catch(() => ({}))
     throw new Error(`API request failed: ${response.statusText} ${JSON.stringify(errorData)}`)
   }
 

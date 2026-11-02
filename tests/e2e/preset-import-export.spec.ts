@@ -1,3 +1,4 @@
+import { text } from 'node:stream/consumers'
 import path from 'path'
 import { expect, test, TestHelpers } from './fixtures'
 
@@ -35,12 +36,7 @@ test.describe('Preset import/export', () => {
       const filename = download.suggestedFilename()
       expect(filename).toBe('scrape-similar-presets.json')
 
-      const stream = await download.createReadStream()
-      const chunks: Buffer[] = []
-      for await (const chunk of stream) {
-        chunks.push(Buffer.from(chunk))
-      }
-      const body = Buffer.concat(chunks).toString('utf-8')
+      const body = await text(await download.createReadStream())
       const data = JSON.parse(body) as { version: number; presets: unknown[] }
       expect(data.version).toBe(1)
       expect(Array.isArray(data.presets)).toBe(true)

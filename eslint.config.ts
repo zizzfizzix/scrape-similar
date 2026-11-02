@@ -29,12 +29,12 @@ import { noContentScriptLock } from './tools/eslint-rules/no-content-script-lock
  *
  * Type-aware linting is switched on (`projectService`). What is on from it is
  * the rules this codebase already passes (ALREADY_CLEAN), the correctness,
- * stylistic, assertion and promise rules (CORRECTNESS_RULES, TIDY_RULES,
- * ASSERTION_RULES, PROMISE_RULES) and the boolean naming rule; the rest is a
- * backlog tracked in #282, and any rule held off with violations to fix goes in
- * DEFERRED below with the count it has. A rule that is wrong for this codebase
- * rather than merely unfixed goes in OFF_ON_MERITS instead, which is not a
- * worklist.
+ * stylistic, assertion, unsafe-`any` and promise rules (CORRECTNESS_RULES,
+ * TIDY_RULES, ASSERTION_RULES, UNSAFE_ANY_RULES, PROMISE_RULES) and the boolean
+ * naming rule; the rest is a backlog tracked in #282, and any rule held off
+ * with violations to fix goes in DEFERRED below with the count it has. A rule
+ * that is wrong for this codebase rather than merely unfixed goes in
+ * OFF_ON_MERITS instead, which is not a worklist.
  */
 
 const TEST_FILES = [
@@ -245,6 +245,20 @@ const ASSERTION_RULES: Linter.RulesRecord = {
 }
 
 /**
+ * An `any` reaching a typed position (#378). Explicit `any` is banned, so what
+ * these catch comes from untyped sources: `JSON.parse`, a `vi.fn()` with no
+ * signature, a `sendMessage` reply with no annotation on the receiver, and
+ * Vitest's asymmetric matchers when one is an object-literal property.
+ */
+const UNSAFE_ANY_RULES: Linter.RulesRecord = {
+  '@typescript-eslint/no-unsafe-argument': 'error',
+  '@typescript-eslint/no-unsafe-assignment': 'error',
+  '@typescript-eslint/no-unsafe-call': 'error',
+  '@typescript-eslint/no-unsafe-member-access': 'error',
+  '@typescript-eslint/no-unsafe-return': 'error',
+}
+
+/**
  * None ships in `tseslint.configs.recommended`, so all are enabled here.
  */
 const PROMISE_RULES: Linter.RulesRecord = {
@@ -336,6 +350,7 @@ export default defineConfig([
       ...CORRECTNESS_RULES,
       ...TIDY_RULES,
       ...ASSERTION_RULES,
+      ...UNSAFE_ANY_RULES,
       ...PROMISE_RULES,
       ...BOOLEAN_PREFIX,
       '@typescript-eslint/no-unused-vars': [

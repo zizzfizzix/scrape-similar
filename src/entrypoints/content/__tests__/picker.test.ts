@@ -542,13 +542,23 @@ describe('handlePickerClick', () => {
     expect(event.preventDefault).toHaveBeenCalled()
     expect(disable).toHaveBeenCalledWith('element_selected')
     expect(sendMessage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        payload: expect.objectContaining({
-          updates: expect.objectContaining({
-            currentScrapeConfig: expect.objectContaining({ mainSelector: '//li' }),
-          }),
-        }),
-      }),
+      {
+        type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
+        payload: {
+          tabId: 3,
+          updates: {
+            currentScrapeConfig: {
+              mainSelector: '//li',
+              columns: [{ name: 'List Item', selector: '.' }],
+            },
+            elementDetails: {
+              xpath: '/html/body/ul/li',
+              text: 'a',
+              html: '<li id="first">a</li>',
+            },
+          },
+        },
+      },
       expect.any(Function),
     )
     expect(highlightMocks.highlightMatchingElements).toHaveBeenCalledWith(
@@ -657,7 +667,7 @@ describe('handlePickerClick', () => {
     await click().result
 
     expect(storedSelection()?.elementDetails).toEqual({
-      xpath: expect.any(String),
+      xpath: '/html/body/ul/li',
       text: 'a',
       html: '<li id="first">a</li>',
     })

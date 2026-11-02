@@ -3,7 +3,13 @@ import type { ContentScriptState } from '@/entrypoints/content/state'
 import { ANALYTICS_EVENTS, trackEvent } from '@/utils/analytics'
 import { reportRejection } from '@/utils/report-rejection'
 import { evaluateXPath, guessScrapeConfigForElement, scrapePage } from '@/utils/scraper'
-import { MESSAGE_TYPES, type Message, type ScrapeConfig, type ScrapeResult } from '@/utils/types'
+import {
+  MESSAGE_TYPES,
+  type Message,
+  type ScrapeConfig,
+  type ScrapeResult,
+  type StatusReply,
+} from '@/utils/types'
 import log from 'loglevel'
 
 // Each message type answers with its own shape; the sender narrows the reply.
@@ -47,7 +53,7 @@ export const describeXPathError = (error: unknown): string => {
  */
 export const interpretStoreReply = (
   lastError: { message?: string } | undefined,
-  response: { success?: boolean; error?: string } | undefined,
+  response: StatusReply | undefined,
   {
     fallbackError,
     transportErrorPrefix = '',
@@ -181,7 +187,7 @@ const handleStartScrape = (
       type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
       payload: { tabId: state.tabId, updates: { scrapeResult } },
     },
-    (response) => {
+    (response: StatusReply | undefined) => {
       if (browser.runtime.lastError) {
         log.error('Error sending scrape result to background:', browser.runtime.lastError)
       }
@@ -285,7 +291,7 @@ const handleSaveElementDetails = (
           updates: { currentScrapeConfig: guessedConfig, elementDetails: details },
         },
       },
-      (response) => {
+      (response: StatusReply | undefined) => {
         if (browser.runtime.lastError) {
           log.error('Error sending element config to background:', browser.runtime.lastError)
         }
@@ -337,7 +343,7 @@ const handleGuessConfigFromSelector = (
       type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
       payload: { tabId: state.tabId, updates: { currentScrapeConfig: updatedConfig } },
     },
-    (response) => {
+    (response: StatusReply | undefined) => {
       if (browser.runtime.lastError) {
         log.error('Error sending guessed config to background:', browser.runtime.lastError)
       }

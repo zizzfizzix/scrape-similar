@@ -20,11 +20,17 @@ const row = (data: Record<string, string>, originalIndex = 0): ScrapedData[numbe
 
 const scrapedData: ScrapedData = [row({ Title: 'A', URL: 'https://a' })]
 
+/** The JSON a request sent. */
+const parseBody = (init: { body: string }): unknown => JSON.parse(init.body)
+
 /** Queue one JSON response per fetch call, in order. */
 const stubFetch = (
   responses: { ok?: boolean; status?: number; statusText?: string; body?: unknown }[],
 ) => {
-  const fetchMock = vi.fn()
+  const fetchMock =
+    vi.fn<
+      (url: string, init: { headers: Record<string, string>; body: string }) => Promise<unknown>
+    >()
   for (const { ok: isOk = true, status = 200, statusText = 'OK', body = {} } of responses) {
     fetchMock.mockResolvedValueOnce({
       ok: isOk,
@@ -151,18 +157,25 @@ describe('exportToGoogleSheets', () => {
     const [createUrl, createInit] = fetchMock.mock.calls[0]!
     expect(createUrl).toBe('https://sheets.googleapis.com/v4/spreadsheets')
     expect(createInit.headers.Authorization).toBe('Bearer tok')
-    expect(JSON.parse(createInit.body)).toEqual({ properties: { title: 'Export' } })
+    expect(parseBody(createInit)).toEqual({ properties: { title: 'Export' } })
 
     const [appendUrl, appendInit] = fetchMock.mock.calls[1]!
     expect(appendUrl).toContain('/sheet-1/values/A1:append')
-    expect(JSON.parse(appendInit.body).values).toEqual([
-      ['Title', 'URL'],
-      ['A', 'https://a'],
-    ])
+    expect(parseBody(appendInit)).toMatchObject({
+      values: [
+        ['Title', 'URL'],
+        ['A', 'https://a'],
+      ],
+    })
 
     const [formatUrl, formatInit] = fetchMock.mock.calls[2]!
     expect(formatUrl).toBe('https://sheets.googleapis.com/v4/spreadsheets/sheet-1:batchUpdate')
-    expect(JSON.parse(formatInit.body).requests[0].repeatCell.range.sheetId).toBe(42)
+    expect(parseBody(formatInit)).toMatchObject({
+      requests: [
+        { repeatCell: { range: { sheetId: 42 } } },
+        { autoResizeDimensions: { dimensions: { sheetId: 42 } } },
+      ],
+    })
   })
 
   it('refuses an empty data set without calling the API', async () => {

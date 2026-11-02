@@ -9,7 +9,7 @@ import { createState } from '@/entrypoints/content/state'
 import { MESSAGE_TYPES, type Message, type MessageResponse } from '@/utils/types'
 import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
 import log from 'loglevel'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import type { ContentScriptContext } from 'wxt/utils/content-script-context'
 
@@ -59,7 +59,7 @@ const backgroundReplies = (replies: Record<string, MessageResponse | undefined>)
     },
   )
 
-let setLevel: ReturnType<typeof vi.spyOn>
+let setLevel: MockInstance<typeof log.setLevel>
 
 beforeEach(() => {
   fakeBrowser.reset()
@@ -239,7 +239,7 @@ describe('trackContextMenuTarget', () => {
 
     expect(state.lastRightClickedElement).toBe(target)
     expect(state.lastRightClickedElementDetails).toEqual({
-      xpath: expect.stringContaining('td'),
+      xpath: '/html/body/td',
       text: 'Poland',
       html: '<td>Poland</td>',
     })
@@ -295,14 +295,14 @@ describe('startContentScript', () => {
       sendResponse,
     )
 
-    expect(sendResponse).toHaveBeenCalledWith(
-      expect.objectContaining({
-        success: true,
-        data: expect.objectContaining({
-          data: [expect.objectContaining({ data: { Name: 'Poland' } })],
-        }),
-      }),
-    )
+    expect(sendResponse).toHaveBeenCalledWith({
+      success: true,
+      data: {
+        data: [{ data: { Name: 'Poland' }, metadata: { originalIndex: 0, isEmpty: false } }],
+        columnOrder: ['Name'],
+      },
+      message: 'Scraped 1 items successfully and stored in session.',
+    })
   })
 
   it('opens and closes the picker on request', async () => {

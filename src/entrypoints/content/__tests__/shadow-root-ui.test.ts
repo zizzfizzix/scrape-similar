@@ -33,13 +33,18 @@ vi.mock('wxt/utils/content-script-ui/shadow-root', () => ({
   createShadowRootUi: shadowRoot.createShadowRootUi,
 }))
 
+// Typed by what the code under test passes in; the tests return stand-ins
+// that are deliberately incomplete.
+type MountBanner = typeof import('@/entrypoints/content/ui/PickerBanner').mountPickerBannerReact
+type MountContextMenu =
+  typeof import('@/entrypoints/content/ui/PickerContextMenu').mountPickerContextMenuReact
 const bannerReact = vi.hoisted(() => ({
-  mountPickerBannerReact: vi.fn(),
+  mountPickerBannerReact: vi.fn<(...args: Parameters<MountBanner>) => unknown>(),
 }))
 vi.mock('@/entrypoints/content/ui/PickerBanner', () => bannerReact)
 
 const contextMenuReact = vi.hoisted(() => ({
-  mountPickerContextMenuReact: vi.fn(),
+  mountPickerContextMenuReact: vi.fn<(...args: Parameters<MountContextMenu>) => unknown>(),
 }))
 vi.mock('@/entrypoints/content/ui/PickerContextMenu', () => contextMenuReact)
 
