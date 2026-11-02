@@ -83,37 +83,64 @@ describe('generateSelectorCandidates', () => {
   })
 
   describe('at a table row', () => {
-    beforeEach(() => {
+    const rowLevelTexts = (id: string) => {
+      const candidates = generateSelectorCandidates(document.getElementById(id)!)
+      const rowLevel = candidates.find((c) => evaluateXPath(c)[0]?.tagName.toLowerCase() === 'tr')!
+      return evaluateXPath(rowLevel).map((row) => row.textContent.trim())
+    }
+
+    it('selects only the data rows, not the header row', () => {
       document.body.innerHTML = `
-        <table><tr><td>other</td></tr></table>
         <table>
-          <tr><th id="header">Rank</th></tr>
+          <tr><th>Rank</th></tr>
           <tr><td id="cell">1</td></tr>
           <tr><td>2</td></tr>
         </table>`
-    })
 
-    it('selects only the data rows of the row’s table', () => {
-      const candidates = generateSelectorCandidates(document.getElementById('cell')!)
-
-      expect(candidates[1]).toBe('(//table)[2]//tr[td]')
-      expect(evaluateXPath(candidates[1]!).map((row) => row.textContent)).toEqual(['1', '2'])
+      expect(rowLevelTexts('cell')).toEqual(['1', '2'])
     })
 
     it('selects the data rows from a header cell too', () => {
-      const candidates = generateSelectorCandidates(document.getElementById('header')!)
+      document.body.innerHTML = `
+        <table>
+          <tr><th id="header">Rank</th></tr>
+          <tr><td>1</td></tr>
+          <tr><td>2</td></tr>
+        </table>`
 
-      expect(candidates[1]).toBe('(//table)[2]//tr[td]')
+      expect(rowLevelTexts('header')).toEqual(['1', '2'])
     })
 
-    it('keeps the row’s own path for a row outside a table', () => {
-      const row = document.createElement('tr')
-      const cell = row.appendChild(document.createElement('td'))
-      document.body.replaceChildren(row)
+    it('keeps the row’s own path when it has no data rows', () => {
+      document.body.innerHTML = `
+        <table>
+          <thead><tr><th id="header">Rank</th></tr></thead>
+          <tbody><tr><td>1</td></tr></tbody>
+        </table>`
 
-      const candidates = generateSelectorCandidates(cell)
+      expect(rowLevelTexts('header')).toEqual(['Rank'])
+    })
 
-      expect(evaluateXPath(candidates[1]!)).toEqual([row])
+    it('matches a row per table when each table holds one record', () => {
+      document.body.innerHTML = `
+        <table><tr><td id="cell">A</td></tr></table>
+        <table><tr><td>B</td></tr></table>
+        <table><tr><td>C</td></tr></table>`
+
+      expect(rowLevelTexts('cell')).toEqual(['A', 'B', 'C'])
+    })
+
+    it('leaves out the rows of a table nested in a row', () => {
+      document.body.innerHTML = `
+        <table>
+          <tr><td id="cell">outer 1<table><tr><td>inner 1</td></tr><tr><td>inner 2</td></tr></table></td></tr>
+          <tr><td>outer 2</td></tr>
+        </table>`
+
+      const rows = rowLevelTexts('cell')
+
+      expect(rows).toHaveLength(2)
+      expect(rows[1]).toBe('outer 2')
     })
   })
 

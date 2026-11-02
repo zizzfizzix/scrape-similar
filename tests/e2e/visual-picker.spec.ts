@@ -217,11 +217,11 @@ test.describe('Visual Element Picker', () => {
       const bannerSelector = testPage.getByPlaceholder('Hover over the page to select elements')
       await expect(bannerSelector).toHaveValue(/\/td(\[\d+\])?$/)
       await testPage.keyboard.press('-')
-      await expect(bannerSelector).toHaveValue(/\/\/tr\[td\]$/)
+      await expect(bannerSelector).toHaveValue(/\/tr\[td\]$/)
       await testPage.getByRole('cell', { name: '1', exact: true }).click()
 
       await expect(sidePanel.getByRole('heading', { name: /extracted data/i })).toBeVisible()
-      await expect(sidePanel.locator('#mainSelector')).toHaveValue(/\/\/tr\[td\]$/)
+      await expect(sidePanel.locator('#mainSelector')).toHaveValue(/\/tr\[td\]$/)
       await expect(
         sidePanel.getByText(`${DEMO_TARGET_PAGE_FACTS.tableRows} rows with data`),
       ).toBeVisible()

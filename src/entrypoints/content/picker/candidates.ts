@@ -1,10 +1,14 @@
-import { buildTableRowSelector } from '@/utils/scrape-guess'
 import { evaluateXPath, minimizeXPath } from '@/utils/scraper'
 
-// A row's own path also matches the header row, which then scrapes as data;
-// the table-row selector keeps the same rows the context-menu guess picks.
-const candidateFor = (node: HTMLElement): string =>
-  (node.tagName.toLowerCase() === 'tr' ? buildTableRowSelector(node) : null) ?? minimizeXPath(node)
+// A row's own path can also match `th`-only header rows, which then scrape as
+// data. The `[td]` filter keeps only data rows, and a row whose filtered path
+// matches nothing (a `thead` row) keeps its own path.
+const candidateFor = (node: HTMLElement): string => {
+  const path = minimizeXPath(node)
+  if (node.tagName.toLowerCase() !== 'tr') return path
+  const dataRows = `${path}[td]`
+  return evaluateXPath(dataRows).length > 0 ? dataRows : path
+}
 
 /**
  * Generate selector candidates by walking up the DOM tree from a starting element

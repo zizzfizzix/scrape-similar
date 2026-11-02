@@ -10,9 +10,10 @@ import {
   removeCrosshairCursor,
   type PickerSelection,
 } from '@/entrypoints/content/picker'
+import { generateSelectorCandidates } from '@/entrypoints/content/picker/candidates'
 import { createState, type ContentScriptState } from '@/entrypoints/content/state'
 import { ANALYTICS_EVENTS } from '@/utils/analytics'
-import { scrapePage } from '@/utils/scraper'
+import { evaluateXPath, scrapePage } from '@/utils/scraper'
 import { MESSAGE_TYPES, type ScrapeConfig } from '@/utils/types'
 import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
 import log from 'loglevel'
@@ -213,6 +214,21 @@ describe('buildPickerSelection', () => {
       state.selectedCandidateIndex = 1
 
       const { config } = buildPickerSelection(link(), state)
+
+      expect(config.columns.map((column) => column.name)).toEqual(['Rank', 'Country'])
+      expect(scrapedData(config)).toEqual([
+        { col1: '1', col2: 'China' },
+        { col1: '2', col2: 'India' },
+      ])
+    })
+    it('builds the table columns for a header cell clicked at the row level', () => {
+      const header = document.querySelector<HTMLElement>('th')!
+      state.selectorCandidates = generateSelectorCandidates(header)
+      state.selectedCandidateIndex = state.selectorCandidates.findIndex(
+        (candidate) => evaluateXPath(candidate)[0]?.tagName.toLowerCase() === 'tr',
+      )
+
+      const { config } = buildPickerSelection(header, state)
 
       expect(config.columns.map((column) => column.name)).toEqual(['Rank', 'Country'])
       expect(scrapedData(config)).toEqual([
