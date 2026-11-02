@@ -38,9 +38,7 @@ export const applyDebugMode = (): void => {
 
   browser.runtime.onMessage.addListener((msg: Message) => {
     if (msg.type === MESSAGE_TYPES.DEBUG_MODE_CHANGED) {
-      const { debugMode: isDebugModeEnabled } = (msg.payload as { debugMode: boolean }) || {
-        debugMode: false,
-      }
+      const { debugMode: isDebugModeEnabled } = msg.payload as { debugMode: boolean }
       log.setLevel(isDebugModeEnabled ? 'trace' : 'error')
     }
   })
@@ -75,7 +73,7 @@ export const requestTabId = (state: ContentScriptState): void => {
 export const trackContextMenuTarget = (state: ContentScriptState, event: MouseEvent): void => {
   log.debug('Context menu event captured', event.target)
 
-  state.lastRightClickedElement = event.target as HTMLElement
+  state.lastRightClickedElement = event.target as HTMLElement | null
   if (state.lastRightClickedElement) {
     const selector = minimizeXPath(state.lastRightClickedElement)
     state.lastRightClickedElementDetails = {

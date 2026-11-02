@@ -112,7 +112,7 @@ describe('the autosuggest dropdown', () => {
 
       press('ArrowDown')
 
-      await waitFor(() => expect(selectedSuggestion()?.textContent).toContain('Table rows'))
+      await waitFor(() => expect(selectedSuggestion().textContent).toContain('Table rows'))
     })
 
     it('opens on ArrowUp and highlights the last entry', async () => {
@@ -122,7 +122,7 @@ describe('the autosuggest dropdown', () => {
 
       press('ArrowUp')
 
-      await waitFor(() => expect(selectedSuggestion()?.textContent).toContain('All links'))
+      await waitFor(() => expect(selectedSuggestion().textContent).toContain('All links'))
     })
   })
 
@@ -132,13 +132,13 @@ describe('the autosuggest dropdown', () => {
       focusField()
 
       press('ArrowDown')
-      await waitFor(() => expect(selectedSuggestion()?.textContent).toContain('Table rows'))
+      await waitFor(() => expect(selectedSuggestion().textContent).toContain('Table rows'))
 
       press('ArrowDown')
-      await waitFor(() => expect(selectedSuggestion()?.textContent).toContain('All links'))
+      await waitFor(() => expect(selectedSuggestion().textContent).toContain('All links'))
 
       press('ArrowDown')
-      await waitFor(() => expect(selectedSuggestion()?.textContent).toContain('Table rows'))
+      await waitFor(() => expect(selectedSuggestion().textContent).toContain('Table rows'))
     })
 
     it('walks up the list and wraps at the start', async () => {
@@ -147,7 +147,7 @@ describe('the autosuggest dropdown', () => {
 
       press('ArrowUp')
 
-      await waitFor(() => expect(selectedSuggestion()?.textContent).toContain('All links'))
+      await waitFor(() => expect(selectedSuggestion().textContent).toContain('All links'))
     })
 
     /**
@@ -165,7 +165,7 @@ describe('the autosuggest dropdown', () => {
 
       await waitFor(() => {
         expect(suggestionItems()).toHaveLength(1)
-        expect(selectedSuggestion()?.textContent).toContain('//span')
+        expect(selectedSuggestion().textContent).toContain('//span')
       })
     })
 
@@ -178,7 +178,7 @@ describe('the autosuggest dropdown', () => {
 
       await waitFor(() => {
         expect(suggestionItems()).toHaveLength(3)
-        expect(selectedSuggestion()?.textContent).toContain('//span')
+        expect(selectedSuggestion().textContent).toContain('//span')
       })
     })
 
@@ -252,7 +252,7 @@ describe('the autosuggest dropdown', () => {
       focusField()
       type('//tr')
       press('ArrowDown')
-      await waitFor(() => expect(selectedSuggestion()?.textContent).toContain('Table rows'))
+      await waitFor(() => expect(selectedSuggestion().textContent).toContain('Table rows'))
 
       type('')
       press('Enter')
@@ -299,7 +299,7 @@ describe('the autosuggest dropdown', () => {
       view = await render({ presets, onLoadPreset })
       focusField()
       press('ArrowDown')
-      await waitFor(() => expect(selectedSuggestion()?.textContent).toContain('Table rows'))
+      await waitFor(() => expect(selectedSuggestion().textContent).toContain('Table rows'))
 
       press('Enter')
 
@@ -316,7 +316,7 @@ describe('the autosuggest dropdown', () => {
       view = await render({ presets, onLoadPreset, onScrape, onHighlight })
       focusField()
       press('ArrowDown')
-      await waitFor(() => expect(selectedSuggestion()?.textContent).toContain('Table rows'))
+      await waitFor(() => expect(selectedSuggestion().textContent).toContain('Table rows'))
 
       press('Enter')
       press('Enter', { repeat: true })
@@ -334,7 +334,7 @@ describe('the autosuggest dropdown', () => {
       view = await render({ presets: [], onChange, onHighlight })
       focusField()
       press('ArrowDown')
-      await waitFor(() => expect(selectedSuggestion()?.textContent).toContain('//span'))
+      await waitFor(() => expect(selectedSuggestion().textContent).toContain('//span'))
 
       press('Enter')
 
@@ -376,7 +376,7 @@ describe('the autosuggest dropdown', () => {
       view = await render({ presets, onLoadPreset })
       focusField()
 
-      const row = suggestionItems().find((item) => item.textContent?.includes('Table rows'))!
+      const row = suggestionItems().find((item) => item.textContent.includes('Table rows'))!
       act(() => {
         row.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
         row.click()
@@ -586,7 +586,7 @@ describe('the autosuggest dropdown', () => {
       view = await render({ presets, onDeletePreset })
       focusField()
 
-      const row = suggestionItems().find((item) => item.textContent?.includes('All links'))!
+      const row = suggestionItems().find((item) => item.textContent.includes('All links'))!
       act(() => row.querySelector<HTMLButtonElement>('button')!.click())
 
       expect(suggestionItems()).toHaveLength(0)

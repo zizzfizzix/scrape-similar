@@ -79,16 +79,6 @@ describe('resolveExportRows', () => {
     expect(resolved.hasSelection).toBe(false)
     expect(resolved.rows).toEqual([filled])
   })
-
-  it('copes with a result that has no rows at all', () => {
-    const resolved = resolveExportRows({
-      scrapeResult: { columnOrder: [] } as unknown as ScrapeResult,
-      showEmptyRows: true,
-    })
-
-    expect(resolved.rows).toEqual([])
-    expect(resolved.isExportingAll).toBe(true)
-  })
 })
 
 describe('describeExportScope', () => {

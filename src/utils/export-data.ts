@@ -37,7 +37,7 @@ export const resolveExportRows = ({
   selectedRows,
   showEmptyRows,
 }: ExportSelection): ResolvedExport => {
-  const allRows = scrapeResult.data || []
+  const allRows = scrapeResult.data
   const hasSelection = !!selectedRows && selectedRows.length > 0
   const isExportingAll = !hasSelection || selectedRows.length === allRows.length
 

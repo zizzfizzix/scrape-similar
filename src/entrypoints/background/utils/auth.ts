@@ -23,7 +23,7 @@ export const requestAuthToken = (): Promise<{
         }
       }
 
-      if (!result?.token) {
+      if (!result.token) {
         return { success: false, error: 'Failed to get authentication token' }
       }
 

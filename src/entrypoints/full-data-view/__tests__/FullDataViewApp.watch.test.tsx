@@ -107,7 +107,7 @@ const renderLoaded = async () => {
   return view
 }
 
-const text = () => view.container.textContent ?? ''
+const text = () => view.container.textContent
 
 const urlTabId = () => new URL(window.location.href).searchParams.get('tabId')
 

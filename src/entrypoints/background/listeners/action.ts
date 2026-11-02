@@ -9,7 +9,7 @@ import { initializeSessionState } from '../services/session-storage'
 export const setupActionListener = (): void => {
   browser.action.onClicked.addListener(
     reportingListener(async (tab: Browser.tabs.Tab) => {
-      if (!tab?.id) return
+      if (!tab.id) return
       const tabId = tab.id
 
       log.debug(`Action clicked for tab: ${tabId}`)

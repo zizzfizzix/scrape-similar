@@ -86,7 +86,7 @@ export const extractData = (element: HTMLElement, column: ColumnDefinition): str
 
     // Special case: if selector is '.', extract text content of the element itself
     if (selector === '.') {
-      return element.textContent?.trim() || ''
+      return element.textContent.trim()
     }
 
     // Special case: if selector starts with '@', extract attribute
@@ -160,7 +160,7 @@ const getElementIndex = (node: Element, parent: ParentNode): number | null => {
  * Only considers ELEMENT_NODEs.
  */
 export const generateXPath = (node: Node): string => {
-  const parent = node?.parentNode
+  const parent = node.parentNode
   if (!parent || node.nodeType !== Node.ELEMENT_NODE) {
     return ''
   }

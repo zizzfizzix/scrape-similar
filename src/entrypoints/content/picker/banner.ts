@@ -8,7 +8,7 @@ import type { ContentScriptContext } from 'wxt/utils/content-script-context'
 export const getPickerBannerElement = (state: ContentScriptState): HTMLElement | null => {
   if (!state.bannerRootEl) return null
   const shadowRoot = state.bannerRootEl.shadowRoot ?? state.bannerRootEl.getRootNode()
-  return (shadowRoot as ShadowRoot)?.querySelector?.<HTMLElement>('.fixed')
+  return (shadowRoot as ParentNode).querySelector<HTMLElement>('.fixed')
 }
 
 /**
@@ -174,7 +174,7 @@ export const mountPickerBanner = async (
 export const unmountPickerBanner = (state: ContentScriptState): void => {
   try {
     if (state.pickerBannerUi) {
-      state.pickerBannerUi.remove?.()
+      state.pickerBannerUi.remove()
       state.pickerBannerUi = null
     }
   } catch {

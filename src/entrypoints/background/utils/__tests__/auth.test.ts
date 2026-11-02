@@ -74,15 +74,6 @@ describe('requestAuthToken', () => {
       error: 'Failed to get authentication token',
     })
   })
-
-  it('fails when the identity API resolves with no result at all', async () => {
-    spyOnBrowser(fakeBrowser.identity, 'getAuthToken').mockResolvedValue(undefined)
-
-    await expect(requestAuthToken()).resolves.toEqual({
-      success: false,
-      error: 'Failed to get authentication token',
-    })
-  })
 })
 
 describe('removeCachedAuthToken', () => {

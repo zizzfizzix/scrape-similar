@@ -486,7 +486,7 @@ test.describe('Full Data View', () => {
         const ths = Array.from(document.querySelectorAll('table thead th'))
         // Exclude selection checkbox (empty), row index '#', and 'Actions'
         return ths
-          .map((th) => th.textContent?.trim() || '')
+          .map((th) => th.textContent.trim())
           .filter((txt) => txt && txt !== '#' && txt.toLowerCase() !== 'actions')
       })
       expect(headers).toEqual(uiHeaders)
@@ -536,7 +536,7 @@ test.describe('Full Data View', () => {
       const uiHeaders = await fullDataViewPage.evaluate(() => {
         const ths = Array.from(document.querySelectorAll('table thead th'))
         return ths
-          .map((th) => th.textContent?.trim() || '')
+          .map((th) => th.textContent.trim())
           .filter((txt) => txt && txt !== '#' && txt.toLowerCase() !== 'actions')
       })
       expect(aoa[0]).toEqual(uiHeaders)
@@ -718,7 +718,7 @@ test.describe('Full Data View', () => {
 
       // Get current stored data
       const currentData = await chrome.storage.session.get(sessionKey)
-      const storedConfig = currentData[sessionKey] as SidePanelConfig
+      const storedConfig = currentData[sessionKey] as SidePanelConfig | undefined
 
       if (storedConfig?.scrapeResult?.data) {
         // Add a new row to simulate updated scrape results
@@ -759,7 +759,7 @@ test.describe('Full Data View', () => {
 
       // Get current stored data and remove the last row
       const currentData = await chrome.storage.session.get(sessionKey)
-      const storedConfig = currentData[sessionKey] as SidePanelConfig
+      const storedConfig = currentData[sessionKey] as SidePanelConfig | undefined
 
       if (storedConfig?.scrapeResult?.data && storedConfig.scrapeResult.data.length > 1) {
         // Remove the row we just added

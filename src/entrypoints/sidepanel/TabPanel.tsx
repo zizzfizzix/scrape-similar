@@ -154,7 +154,7 @@ export const TabPanel = memo(function TabPanel({
           log.error('Error during scrape:', response.error)
           return
         }
-        const rowCount = response?.data?.data?.length ?? 0
+        const rowCount = response?.data?.data.length ?? 0
         if (response?.success === true) {
           setResultProducingConfig(configAtScrapeTime)
           saveSidePanelState(id, { resultProducingConfig: configAtScrapeTime })
@@ -283,7 +283,7 @@ export const TabPanel = memo(function TabPanel({
           highlightError={highlightError}
           pickerModeActive={isPickerModeActive}
           rescrapeAdvised={
-            !!scrapeResult?.data?.length &&
+            !!scrapeResult?.data.length &&
             !!resultProducingConfig &&
             hasConfigDrifted(config, resultProducingConfig)
           }

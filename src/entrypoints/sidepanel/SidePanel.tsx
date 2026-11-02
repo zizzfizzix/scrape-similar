@@ -177,7 +177,8 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
     // are not considered *tabs*, causing our fallback error path to trigger.
     // Limiting the query to the *current* window reliably returns the active
     // webpage tab that the side-panel is attached to.
-    browser.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    // The callback gets no array when `lastError` is set.
+    browser.tabs.query({ active: true, currentWindow: true }, (tabs?: Browser.tabs.Tab[]) => {
       const tab = tabs?.[0]
       if (browser.runtime.lastError) {
         log.error('Error querying tabs:', browser.runtime.lastError.message)

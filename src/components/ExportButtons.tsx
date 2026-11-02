@@ -79,7 +79,7 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
   const dataToExport = resolved.rows
   const exportText = describeExportScope(resolved)
 
-  const columns = scrapeResult.columnOrder || []
+  const columns = scrapeResult.columnOrder
   const columnKeys = getColumnKeys(columns, config.columns)
 
   const handleGoogleSheetsExport = () => {

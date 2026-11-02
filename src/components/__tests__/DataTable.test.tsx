@@ -163,7 +163,7 @@ describe('DataTable', () => {
     view = render({ data: [row({ Rank: '1', Country: long })] })
 
     const cell = [...view.container.querySelectorAll('tbody td')].find((td) =>
-      td.textContent?.startsWith('xxx'),
+      td.textContent.startsWith('xxx'),
     )!
     expect(cell.textContent).toBe(`${'x'.repeat(100)}...`)
     // The full value stays available as the cell's tooltip.

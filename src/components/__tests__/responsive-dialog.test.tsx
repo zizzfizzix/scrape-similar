@@ -34,7 +34,7 @@ const fullDialog = (open = true) => (
 )
 
 /** Content is portalled to the body, outside the render container. */
-const portalled = () => document.body.textContent ?? ''
+const portalled = () => document.body.textContent
 
 describe('ResponsiveDialog on desktop', () => {
   beforeEach(() => setDesktop(true))

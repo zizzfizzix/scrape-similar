@@ -100,7 +100,7 @@ const allButtons = (label: string) => [
 ]
 const byText = (text: string): HTMLButtonElement => {
   const found = [...view.container.querySelectorAll('button')].find(
-    (candidate) => candidate.textContent?.trim() === text,
+    (candidate) => candidate.textContent.trim() === text,
   )
   if (!found) throw new Error(`No button labelled "${text}"`)
   return found
@@ -837,7 +837,7 @@ describe('ConfigForm', () => {
 
       const drawerButton = (label: string) =>
         [...document.querySelectorAll<HTMLButtonElement>('[data-slot="drawer-content"] button')]
-          .filter((candidate) => candidate.textContent?.trim() === label)
+          .filter((candidate) => candidate.textContent.trim() === label)
           .at(-1)!
 
       it('will not save without a name', async () => {
@@ -950,7 +950,7 @@ describe('ConfigForm', () => {
 
         act(() =>
           rows()
-            .find((row) => row.textContent?.includes('All links'))!
+            .find((row) => row.textContent.includes('All links'))!
             .click(),
         )
 
@@ -990,7 +990,7 @@ describe('ConfigForm', () => {
       const deleteButtonFor = async (name: string) => {
         await userEvent.click(byText('Load'))
         const row = [...document.querySelectorAll<HTMLElement>('[cmdk-item]')].find((candidate) =>
-          candidate.textContent?.includes(name),
+          candidate.textContent.includes(name),
         )!
         return row.querySelector<HTMLButtonElement>('button')!
       }
@@ -1030,7 +1030,7 @@ describe('ConfigForm', () => {
 
         act(() =>
           [...document.querySelectorAll<HTMLButtonElement>('button')]
-            .find((candidate) => candidate.textContent?.trim() === 'Delete')!
+            .find((candidate) => candidate.textContent.trim() === 'Delete')!
             .click(),
         )
 
@@ -1044,7 +1044,7 @@ describe('ConfigForm', () => {
         const remove = await deleteButtonFor('All links')
         await userEvent.click(remove)
         const confirm = [...document.querySelectorAll<HTMLButtonElement>('button')].find(
-          (candidate) => candidate.textContent?.trim() === 'Delete',
+          (candidate) => candidate.textContent.trim() === 'Delete',
         )!
 
         await userEvent.click(confirm)
@@ -1062,7 +1062,7 @@ describe('ConfigForm', () => {
 
         act(() =>
           [...document.querySelectorAll<HTMLButtonElement>('button')]
-            .find((candidate) => candidate.textContent?.trim() === 'Cancel')!
+            .find((candidate) => candidate.textContent.trim() === 'Cancel')!
             .click(),
         )
 

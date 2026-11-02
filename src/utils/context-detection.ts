@@ -42,7 +42,7 @@ export const isBackgroundContext = (): boolean => {
   }
   if (typeof window === 'undefined') return typeof self !== 'undefined'
   return (
-    typeof browser.extension?.getBackgroundPage === 'function' &&
+    typeof browser.extension.getBackgroundPage === 'function' &&
     browser.extension.getBackgroundPage() === window
   )
 }

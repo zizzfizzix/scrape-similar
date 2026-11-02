@@ -380,7 +380,7 @@ const capture = async (
           context,
           hasWindow: typeof window !== 'undefined',
           hasBrowser: typeof browser !== 'undefined',
-          url: typeof window !== 'undefined' ? window.location?.href : 'N/A',
+          url: typeof window !== 'undefined' ? window.location.href : 'N/A',
         })
         break
       }

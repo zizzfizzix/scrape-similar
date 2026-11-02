@@ -158,7 +158,7 @@ export const exportToGoogleSheets = async (
   try {
     const { headers, values } = buildSheetValues(scrapedData, columnOrder, columnKeys)
 
-    if (!scrapedData?.length) {
+    if (!scrapedData.length) {
       return { success: false, error: 'No data to export' }
     }
     if (headers.length === 0) {

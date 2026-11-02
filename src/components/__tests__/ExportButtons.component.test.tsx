@@ -475,14 +475,6 @@ describe('ExportButtons', () => {
     })
   })
 
-  it('exports no columns when the scrape reported no column order', async () => {
-    view = render({ scrapeResult: { data: [filled] } as ScrapeResult })
-
-    await choose('Copy all to clipboard')
-
-    expect(navigator.clipboard.writeText).toHaveBeenCalledWith('')
-  })
-
   it('passes size, variant and class through to the trigger', async () => {
     view = render({ size: 'lg', variant: 'secondary', className: 'export-trigger' })
 
