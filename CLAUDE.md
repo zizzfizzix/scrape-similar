@@ -21,7 +21,7 @@ pnpm build:firefox      # Firefox build (also produces sources.zip required by A
 pnpm zip                # zip the build for store submission
 pnpm zip:firefox        # Firefox-specific zip + sources
 
-pnpm compile            # TypeScript type-check only (tsc --noEmit)
+pnpm compile            # TypeScript type-check only, tsc --noEmit (CI gate + pre-commit)
 pnpm lint               # ESLint, warnings included (CI gate + pre-commit)
 pnpm lint:fix           # ESLint with the fixes it can make itself
 pnpm fmt                # Prettier write
@@ -35,7 +35,7 @@ pnpm store-assets       # test build + `store-assets` Playwright project -> docs
 pnpm update:shadcn      # rerun bash scripts/update-shadcn.sh to refresh shadcn-ui components
 ```
 
-Lefthook hooks (`lefthook.yml`) split the checks by what they are a property of: `pre-commit` runs `pnpm fmt-check` and `pnpm lint` in parallel (both are properties of the diff, and both only read), and `pre-push` runs `pnpm test:coverage` (a ~40s run, and coverage describes the branch rather than each work-in-progress commit). Hooks are installed by the `prepare` script (`scripts/install-git-hooks.mjs`) on `pnpm install` — pnpm's warning that lefthook's own build script was ignored is harmless, since that script only does the same `lefthook install`. A `post-checkout` hook (`.lefthook/post-checkout/worktree-setup.sh`) bootstraps newly created worktrees (copies `.env` / `.env.test` from the origin checkout, runs `pnpm install`).
+Lefthook hooks (`lefthook.yml`) split the checks by what they are a property of: `pre-commit` runs `pnpm fmt-check`, `pnpm lint` and `pnpm compile` in parallel (all three are properties of the diff, and all three only read; `tsc` takes ~1s, so it hides inside ESLint's run), and `pre-push` runs `pnpm test:coverage` (a ~40s run, and coverage describes the branch rather than each work-in-progress commit). Hooks are installed by the `prepare` script (`scripts/install-git-hooks.mjs`) on `pnpm install` — pnpm's warning that lefthook's own build script was ignored is harmless, since that script only does the same `lefthook install`. A `post-checkout` hook (`.lefthook/post-checkout/worktree-setup.sh`) bootstraps newly created worktrees (copies `.env` / `.env.test` from the origin checkout, runs `pnpm install`).
 
 **`typescript` in `node_modules` is not TypeScript 7.** TS 7 ships no JS compiler API, so `typescript` is aliased to `@typescript/typescript6` for typescript-eslint and `prettier-plugin-organize-imports`, and TS 7 is installed as `typescript7` — it still owns the `tsc` binary, so `pnpm compile` is unchanged. See the README for the table and for when the alias comes out. Two consequences worth knowing: `import ts from 'typescript'` gets the 6.0 API, and `prettier-plugin-organize-imports` only works because of the alias (against TS 7 it silently does nothing).
 
@@ -176,7 +176,7 @@ shadcn-ui components in `src/components/ui/` are generated/managed; custom compo
 ## Git
 
 - Do not stage changes (`git add`) unless explicitly asked.
-- Do not commit unless explicitly asked. The lefthook `pre-commit` hook runs `pnpm fmt-check` and the `pre-push` hook runs `pnpm test:coverage`; if asked to commit or push, they must pass — fix failures rather than bypassing the hook.
+- Do not commit unless explicitly asked. The lefthook `pre-commit` hook runs `pnpm fmt-check`, `pnpm lint` and `pnpm compile`, and the `pre-push` hook runs `pnpm test:coverage`; if asked to commit or push, they must pass — fix failures rather than bypassing the hook.
 
 ## Release flow
 

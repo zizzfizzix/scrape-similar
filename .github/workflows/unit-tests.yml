@@ -40,6 +40,11 @@ jobs:
       - name: Format check
         run: pnpm fmt-check
 
+      # Vite and Vitest strip types without checking them, so this is the only
+      # step that fails on a type error, `expectTypeOf` assertions included.
+      - name: Type check
+        run: pnpm compile
+
       - name: Lint
         run: pnpm lint
 

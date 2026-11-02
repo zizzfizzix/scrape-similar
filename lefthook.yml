@@ -3,13 +3,15 @@
 # (`scripts/install-git-hooks.mjs`).
 # Set LEFTHOOK=0 to skip all hooks for a single command.
 
-# Formatting and the lint rules are properties of the diff itself, so they are
-# checked per commit.
+# Formatting, the lint rules and the types are properties of the diff itself, so
+# they are checked per commit. Nothing else type-checks locally: Vite and Vitest
+# strip types without checking them.
 #
-# Both commands only read, so they run concurrently: ~34s sequential against
-# ~28s in parallel, since Prettier's ~10s now hides inside ESLint's. That holds
-# only while every command here is read-only — a `pnpm fmt` that writes would
-# race the linter reading the same files, and would have to go back to serial.
+# All three commands only read, so they run concurrently: ~35s sequential
+# against ~28s in parallel, since Prettier's ~10s and tsc's ~1s hide inside
+# ESLint's. That holds only while every command here is read-only — a `pnpm fmt`
+# that writes would race the linter reading the same files, and would have to go
+# back to serial.
 pre-commit:
   parallel: true
   commands:
@@ -19,6 +21,9 @@ pre-commit:
     lint:
       run: pnpm lint
       fail_text: "Commit blocked: run 'pnpm lint:fix', then fix what is left by hand."
+    compile:
+      run: pnpm compile
+      fail_text: "Commit blocked: fix the type errors 'pnpm compile' reports."
 
 # The test suite takes ~40s and coverage is a property of the branch as a whole,
 # not of each work-in-progress commit, so it gates the push instead.
