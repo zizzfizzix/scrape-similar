@@ -233,12 +233,10 @@ const updateRecentMainSelectors = async (
   }
 }
 
-export const pushRecentMainSelector = async (selector: string): Promise<void> => {
-  if (!selector) return
-  await updateRecentMainSelectors((current) =>
+export const pushRecentMainSelector = async (selector: string): Promise<void> =>
+  updateRecentMainSelectors((current) =>
     [selector, ...current.filter((s) => s !== selector)].slice(0, 5),
   )
-}
 
 export const removeRecentMainSelector = async (selector: string): Promise<void> =>
   updateRecentMainSelectors((current) => current.filter((s) => s !== selector))

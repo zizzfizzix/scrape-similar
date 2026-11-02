@@ -309,6 +309,19 @@ describe('the autosuggest dropdown', () => {
       expect(scrapeEvents()).toBe(0)
     })
 
+    it('shows a padded preset selector trimmed when it matches the committed one', async () => {
+      const padded = preset('p3', 'Padded rows', '  //tr ')
+      view = await render({ presets: [padded], config: { ...config, mainSelector: '//tr' } })
+      focusField()
+      type('')
+      press('ArrowDown')
+      await waitFor(() => expect(selectedSuggestion().textContent).toContain('Padded rows'))
+
+      press('Enter')
+
+      expect(mainSelectorInput().value).toBe('//tr')
+    })
+
     it('applies a highlighted preset once while Enter is held', async () => {
       const onLoadPreset = vi.fn()
       const onScrape = vi.fn()
