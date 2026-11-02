@@ -597,7 +597,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
 
     const ensureVisible = (index: number) => {
       const items = autosuggestRef.current?.querySelectorAll('[cmdk-item]')
-      const el = items && items[index] ? (items[index] as HTMLElement) : null
+      const el = items?.[index] ? (items[index] as HTMLElement) : null
       if (el) el.scrollIntoView({ block: 'nearest' })
     }
 

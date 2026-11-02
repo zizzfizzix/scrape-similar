@@ -81,7 +81,7 @@ export const createMessageHandler = (state: ContentScriptState, deps: HandlerDep
     message: Message,
     sender: Browser.runtime.MessageSender,
     sendResponse: SendResponse,
-  ): boolean | void => {
+  ): boolean | undefined => {
     log.debug('Content script received message:', message)
 
     try {
@@ -91,11 +91,13 @@ export const createMessageHandler = (state: ContentScriptState, deps: HandlerDep
         }
 
         case MESSAGE_TYPES.HIGHLIGHT_ELEMENTS: {
-          return handleHighlightElements(message, sendResponse)
+          handleHighlightElements(message, sendResponse)
+          break
         }
 
         case MESSAGE_TYPES.HIGHLIGHT_ROW_ELEMENT: {
-          return handleHighlightRowElement(message, sendResponse)
+          handleHighlightRowElement(message, sendResponse)
+          break
         }
 
         case MESSAGE_TYPES.ENABLE_PICKER_MODE: {

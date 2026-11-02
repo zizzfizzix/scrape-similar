@@ -61,7 +61,7 @@ const handleQuickScrape = async (
     // Fetch the latest config from session storage
     const currentData = (await getSessionState(targetTabId)) || {}
     const config = currentData.currentScrapeConfig
-    if (config && config.mainSelector) {
+    if (config?.mainSelector) {
       // Highlight elements before scraping
       const highlightResp = await browser.tabs.sendMessage(targetTabId, {
         type: MESSAGE_TYPES.HIGHLIGHT_ELEMENTS,

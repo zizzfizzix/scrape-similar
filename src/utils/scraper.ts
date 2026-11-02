@@ -65,9 +65,9 @@ export const evaluateXPathValues = (
       const node = xpathResult.snapshotItem(i)
       if (node instanceof HTMLElement) {
         results.push(node)
-      } else if (node && node.nodeType === Node.ATTRIBUTE_NODE) {
+      } else if (node?.nodeType === Node.ATTRIBUTE_NODE) {
         results.push((node as Attr).value)
-      } else if (node && node.nodeType === Node.TEXT_NODE) {
+      } else if (node?.nodeType === Node.TEXT_NODE) {
         results.push(node.textContent || '')
       }
     }

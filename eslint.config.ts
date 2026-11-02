@@ -28,8 +28,9 @@ import { noContentScriptLock } from './tools/eslint-rules/no-content-script-lock
  * other's binary. See the README for when that indirection can come out.
  *
  * Type-aware linting is switched on (`projectService`). What is on from it is
- * the rules this codebase already passes (ALREADY_CLEAN), the correctness and
- * promise rules (CORRECTNESS_RULES, PROMISE_RULES) and the boolean naming rule;
+ * the rules this codebase already passes (ALREADY_CLEAN), the correctness,
+ * stylistic and promise rules (CORRECTNESS_RULES, TIDY_RULES, PROMISE_RULES)
+ * and the boolean naming rule;
  * the rest is a backlog tracked in #282, and any rule held off with violations
  * to fix goes in DEFERRED below with the count it has. A rule that is wrong for this codebase rather than merely
  * unfixed goes in OFF_ON_MERITS instead, which is not a worklist.
@@ -202,6 +203,29 @@ const CORRECTNESS_RULES: Linter.RulesRecord = {
 }
 
 /**
+ * Typed stylistic and redundancy rules (#376): one spelling for each construct,
+ * and no conversion, default, type parameter or constructor that does nothing.
+ */
+const TIDY_RULES: Linter.RulesRecord = {
+  // `T[]` is what the codebase already writes; `Array<T>` was the exception.
+  '@typescript-eslint/array-type': ['error', { default: 'array' }],
+  // An index signature becomes a `Record` alias rather than an interface; a
+  // map type has no members to extend or merge.
+  '@typescript-eslint/consistent-indexed-object-style': 'error',
+  '@typescript-eslint/no-extraneous-class': 'error',
+  '@typescript-eslint/no-inferrable-types': 'error',
+  '@typescript-eslint/no-invalid-void-type': 'error',
+  '@typescript-eslint/no-unnecessary-boolean-literal-compare': 'error',
+  '@typescript-eslint/no-unnecessary-template-expression': 'error',
+  '@typescript-eslint/no-unnecessary-type-conversion': 'error',
+  '@typescript-eslint/no-unnecessary-type-parameters': 'error',
+  '@typescript-eslint/no-useless-constructor': 'error',
+  '@typescript-eslint/no-useless-default-assignment': 'error',
+  '@typescript-eslint/prefer-optional-chain': 'error',
+  '@typescript-eslint/prefer-regexp-exec': 'error',
+}
+
+/**
  * None ships in `tseslint.configs.recommended`, so all are enabled here.
  */
 const PROMISE_RULES: Linter.RulesRecord = {
@@ -291,6 +315,7 @@ export default defineConfig([
       eqeqeq: ['error', 'always', { null: 'ignore' }],
       ...ALREADY_CLEAN,
       ...CORRECTNESS_RULES,
+      ...TIDY_RULES,
       ...PROMISE_RULES,
       ...BOOLEAN_PREFIX,
       '@typescript-eslint/no-unused-vars': [

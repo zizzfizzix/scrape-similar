@@ -8,7 +8,7 @@ const UUID_V7 = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f
 
 describe('generateDistinctId', () => {
   it('returns a UUIDv7, matching PostHog’s distinct_id format', () => {
-    expect(String(generateDistinctId())).toMatch(UUID_V7)
+    expect(generateDistinctId()).toMatch(UUID_V7)
   })
 
   it('returns a different id on every call', () => {
@@ -24,7 +24,7 @@ describe('getOrCreateDistinctId', () => {
   it('creates and persists an id when none is stored', async () => {
     const created = await getOrCreateDistinctId()
 
-    expect(String(created)).toMatch(UUID_V7)
+    expect(created).toMatch(UUID_V7)
     expect(await storage.getItem<DistinctId>(distinctIdItem.key)).toEqual(created)
   })
 
@@ -45,7 +45,7 @@ describe('getOrCreateDistinctId', () => {
 
     const created = await getOrCreateDistinctId()
 
-    expect(String(created)).toMatch(UUID_V7)
+    expect(created).toMatch(UUID_V7)
     expect(await storage.getItem<DistinctId>(distinctIdItem.key)).toEqual(created)
   })
 
@@ -78,7 +78,7 @@ describe('getOrCreateDistinctId', () => {
 
     const created = await getOrCreateDistinctId()
 
-    expect(String(created)).toMatch(UUID_V7)
+    expect(created).toMatch(UUID_V7)
     expect(warnSpy).toHaveBeenCalledWith(
       'Failed to access storage for distinct_id, generating a new one',
       failure,
@@ -89,6 +89,6 @@ describe('getOrCreateDistinctId', () => {
     vi.spyOn(log, 'warn').mockImplementation(() => {})
     vi.spyOn(distinctIdItem, 'setValue').mockRejectedValueOnce(new Error('quota exceeded'))
 
-    expect(String(await getOrCreateDistinctId())).toMatch(UUID_V7)
+    expect(await getOrCreateDistinctId()).toMatch(UUID_V7)
   })
 })

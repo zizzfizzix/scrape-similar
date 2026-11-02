@@ -4,7 +4,7 @@ import { getInjectableUrlPattern, isInjectableUrl } from '@/utils/isInjectableUr
 import { stubUserAgent } from '@@/tests/support/navigator'
 
 // Test data covering both injectable and non-injectable scenarios
-const NON_INJECTABLE_CASES: Array<{ url: string; pattern: string }> = [
+const NON_INJECTABLE_CASES: { url: string; pattern: string }[] = [
   { url: 'chrome://settings', pattern: 'chrome://' },
   { url: 'chrome://extensions', pattern: 'chrome://' },
   { url: 'edge://settings', pattern: 'edge://' },
@@ -38,7 +38,7 @@ const NON_INJECTABLE_CASES: Array<{ url: string; pattern: string }> = [
   },
 ]
 
-const FIREFOX_NON_INJECTABLE_CASES: Array<{ url: string; pattern: string }> = [
+const FIREFOX_NON_INJECTABLE_CASES: { url: string; pattern: string }[] = [
   {
     url: 'https://addons.mozilla.org/en-US/firefox/addon/ublock-origin/',
     pattern: 'https://addons.mozilla.org/',

@@ -11,7 +11,7 @@ import type { PostHog } from 'posthog-js/dist/module.no-external'
 /**
  * Configure PostHog rate limiting
  */
-export const configurePostHogRateLimit = (ph: PostHog, eventsPerSecond: number = 10): void => {
+export const configurePostHogRateLimit = (ph: PostHog, eventsPerSecond = 10): void => {
   ph.set_config({
     rate_limiting: {
       events_per_second: eventsPerSecond,

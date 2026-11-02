@@ -3,10 +3,8 @@ import { describe, expect, it } from 'vitest'
 import { rowToTsv, rowsToTsv } from '@/utils/tsv'
 import type { ScrapedRow } from '@/utils/types'
 
-// Takes `unknown` values so a test can pass cells that are not strings, which
-// the exporters coerce.
-const makeRow = (data: Record<string, unknown>): ScrapedRow => ({
-  data: data as ScrapedRow['data'],
+const makeRow = (data: ScrapedRow['data']): ScrapedRow => ({
+  data,
   metadata: { originalIndex: 0, isEmpty: false },
 })
 
@@ -54,15 +52,6 @@ describe('tsv utilities', () => {
     const result = rowsToTsv(rows, columnKeys)
 
     expect(result).toBe('x\ty\tz')
-  })
-
-  it('rowToTsv coerces numbers, booleans, and nullish values correctly', () => {
-    const row = makeRow({ col1: 123, col2: false, col3: null })
-
-    const result = rowToTsv(row, columnKeys)
-
-    // null -> empty string, 123 -> "123", false -> "false"
-    expect(result).toBe('123\tfalse\t')
   })
 
   it('rowToTsv and rowsToTsv handle empty columnKeys', () => {

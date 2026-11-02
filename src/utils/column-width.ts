@@ -61,7 +61,7 @@ export const calculateOptimalColumnWidth = (
 
   const dataKey = config.columns[columnIndex]?.key || columnId
   const longest = rows.slice(0, metrics.sampleSize).reduce(
-    (max, row) => Math.max(max, String(row.data[dataKey] || '').length),
+    (max, row) => Math.max(max, (row.data[dataKey] ?? '').length),
     columnId.length, // The header has to fit too.
   )
 

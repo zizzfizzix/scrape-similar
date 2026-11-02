@@ -22,7 +22,7 @@ const scrapedData: ScrapedData = [row({ Title: 'A', URL: 'https://a' })]
 
 /** Queue one JSON response per fetch call, in order. */
 const stubFetch = (
-  responses: Array<{ ok?: boolean; status?: number; statusText?: string; body?: unknown }>,
+  responses: { ok?: boolean; status?: number; statusText?: string; body?: unknown }[],
 ) => {
   const fetchMock = vi.fn()
   for (const { ok: isOk = true, status = 200, statusText = 'OK', body = {} } of responses) {

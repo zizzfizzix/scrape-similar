@@ -30,11 +30,7 @@ export const applyDebugMode = (): void => {
   browser.runtime.sendMessage(
     { type: MESSAGE_TYPES.GET_DEBUG_MODE },
     (response: MessageResponse) => {
-      if (
-        response.success === true &&
-        'debugMode' in response &&
-        typeof response.debugMode === 'boolean'
-      ) {
+      if (response.success && 'debugMode' in response && typeof response.debugMode === 'boolean') {
         log.setLevel(response.debugMode ? 'trace' : 'error')
       }
     },
@@ -58,11 +54,7 @@ export const applyDebugMode = (): void => {
  */
 export const requestTabId = (state: ContentScriptState): void => {
   browser.runtime.sendMessage({ type: 'GET_MY_TAB_ID' }, (response: MessageResponse) => {
-    if (
-      response.success === false ||
-      !('tabId' in response) ||
-      typeof response.tabId !== 'number'
-    ) {
+    if (!response.success || !('tabId' in response) || typeof response.tabId !== 'number') {
       log.error(
         'Failed to get tabId on content script initialization:',
         browser.runtime.lastError?.message || response,

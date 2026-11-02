@@ -193,7 +193,7 @@ export const TabPanel = memo(function TabPanel({
           return
         }
 
-        if (response && response.success === false && response.error) {
+        if (response?.success === false && response.error) {
           setHighlightMatchCount(undefined)
           setHighlightError(response.error)
           saveSidePanelState(tabId, { highlightMatchCount: null, highlightError: response.error })
@@ -236,7 +236,7 @@ export const TabPanel = memo(function TabPanel({
       (response) => {
         if (!response && browser.runtime.lastError) {
           notify.error(CONTENT_SCRIPT_UNREACHABLE)
-        } else if (response && response.success) {
+        } else if (response?.success) {
           log.debug('Picker mode toggled successfully')
         }
       },

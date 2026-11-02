@@ -9,9 +9,7 @@ export interface ScrapeConfig {
   columns: ColumnDefinition[]
 }
 
-export interface ScrapedRowData {
-  [columnName: string]: string
-}
+export type ScrapedRowData = Record<string, string>
 
 export interface ScrapedRowMetadata {
   originalIndex: number
@@ -140,8 +138,6 @@ export interface PickerModePayload {
   source?: AnalyticsSource
 }
 
-export interface SystemPresetStatusMap {
-  [presetId: string]: boolean
-}
+export type SystemPresetStatusMap = Record<string, boolean>
 
 export type Theme = 'dark' | 'light' | 'system'

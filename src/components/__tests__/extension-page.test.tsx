@@ -8,7 +8,7 @@ import { storage } from 'wxt/utils/storage'
 
 // The PostHog bundles need a real browsing context to load; only the provider
 // nesting is under test here.
-vi.mock('posthog-js/dist/module.no-external', () => ({ PostHog: class PostHog {} }))
+vi.mock('posthog-js/dist/module.no-external', () => ({ PostHog: vi.fn() }))
 vi.mock('posthog-js/dist/dead-clicks-autocapture.js', () => ({}))
 vi.mock('posthog-js/dist/exception-autocapture.js', () => ({}))
 vi.mock('posthog-js/dist/posthog-recorder.js', () => ({}))

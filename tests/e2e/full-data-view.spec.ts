@@ -707,7 +707,7 @@ test.describe('Full Data View', () => {
 
     // Get the current tab ID from the full data view URL
     const currentUrl = fullDataViewPage.url()
-    const tabIdMatch = currentUrl.match(/tabId=(\d+)/)
+    const tabIdMatch = /tabId=(\d+)/.exec(currentUrl)
     expect(tabIdMatch).toBeTruthy()
     const tabId = tabIdMatch![1]
 
