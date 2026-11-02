@@ -1,6 +1,6 @@
 import { reportingListener, reportRejection } from '@/utils/report-rejection'
 import log from 'loglevel'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
 
 describe('reportRejection', () => {
   beforeEach(() => {
@@ -11,7 +11,8 @@ describe('reportRejection', () => {
     const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
     const failure = new Error('task blew up')
 
-    expect(reportRejection(Promise.reject(failure))).toBeUndefined()
+    expectTypeOf(reportRejection).returns.toBeVoid()
+    reportRejection(Promise.reject(failure))
 
     await vi.waitFor(() => expect(errorSpy).toHaveBeenCalledWith('Unawaited task failed:', failure))
   })
@@ -34,7 +35,9 @@ describe('reportingListener', () => {
   it('passes every argument through and returns nothing', () => {
     const handler = vi.fn(async (_a: number, _b: string) => 'ignored')
 
-    expect(reportingListener(handler)(7, 'seven')).toBeUndefined()
+    const listener = reportingListener(handler)
+    expectTypeOf(listener).returns.toBeVoid()
+    listener(7, 'seven')
     expect(handler).toHaveBeenCalledWith(7, 'seven')
   })
 

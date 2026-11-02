@@ -1,6 +1,6 @@
 import { version } from '@@/package.json' with { type: 'json' }
 import log from 'loglevel'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
 import { browser } from 'wxt/browser'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 
@@ -122,7 +122,8 @@ describe('captureEvent – context specific behaviour', () => {
     const captureSpy = vi.fn<CaptureFn>()
     vi.spyOn(posthogBg, 'getPostHogBackground').mockResolvedValue(stubBackgroundPostHog(captureSpy))
 
-    expect(trackContentScriptEvent(EVENT_NAME, { trigger: 'bar' })).toBeUndefined()
+    expectTypeOf(trackContentScriptEvent).returns.toBeVoid()
+    trackContentScriptEvent(EVENT_NAME, { trigger: 'bar' })
 
     await vi.waitFor(() =>
       expect(captureSpy).toHaveBeenCalledWith(
@@ -235,7 +236,8 @@ describe('captureEvent – context specific behaviour', () => {
     const captureSpy = vi.fn<CaptureFn>()
     vi.spyOn(posthogBg, 'getPostHogBackground').mockResolvedValue(stubBackgroundPostHog(captureSpy))
 
-    expect(trackEvent(EVENT_NAME, { trigger: 'bar' })).toBeUndefined()
+    expectTypeOf(trackEvent).returns.toBeVoid()
+    trackEvent(EVENT_NAME, { trigger: 'bar' })
 
     await vi.waitFor(() =>
       expect(captureSpy).toHaveBeenCalledWith(
