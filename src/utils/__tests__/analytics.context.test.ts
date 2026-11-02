@@ -122,7 +122,11 @@ describe('captureEvent – context specific behaviour', () => {
     const captureSpy = vi.fn<CaptureFn>()
     vi.spyOn(posthogBg, 'getPostHogBackground').mockResolvedValue(stubBackgroundPostHog(captureSpy))
 
-    expect(trackContentScriptEvent(EVENT_NAME, { trigger: 'bar' })).toBeUndefined()
+    // Typed as returning `unknown` so the run-time value can be asserted: a
+    // promise-returning function is assignable to a void-returning type.
+    const track: (...args: Parameters<typeof trackContentScriptEvent>) => unknown =
+      trackContentScriptEvent
+    expect(track(EVENT_NAME, { trigger: 'bar' })).toBeUndefined()
 
     await vi.waitFor(() =>
       expect(captureSpy).toHaveBeenCalledWith(
@@ -235,7 +239,8 @@ describe('captureEvent – context specific behaviour', () => {
     const captureSpy = vi.fn<CaptureFn>()
     vi.spyOn(posthogBg, 'getPostHogBackground').mockResolvedValue(stubBackgroundPostHog(captureSpy))
 
-    expect(trackEvent(EVENT_NAME, { trigger: 'bar' })).toBeUndefined()
+    const track: (...args: Parameters<typeof trackEvent>) => unknown = trackEvent
+    expect(track(EVENT_NAME, { trigger: 'bar' })).toBeUndefined()
 
     await vi.waitFor(() =>
       expect(captureSpy).toHaveBeenCalledWith(

@@ -11,7 +11,10 @@ describe('reportRejection', () => {
     const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
     const failure = new Error('task blew up')
 
-    expect(reportRejection(Promise.reject(failure))).toBeUndefined()
+    // Typed as returning `unknown` so the run-time value can be asserted: a
+    // promise-returning function is assignable to a void-returning type.
+    const report: (task: Promise<unknown>) => unknown = reportRejection
+    expect(report(Promise.reject(failure))).toBeUndefined()
 
     await vi.waitFor(() => expect(errorSpy).toHaveBeenCalledWith('Unawaited task failed:', failure))
   })
@@ -34,7 +37,8 @@ describe('reportingListener', () => {
   it('passes every argument through and returns nothing', () => {
     const handler = vi.fn(async (_a: number, _b: string) => 'ignored')
 
-    expect(reportingListener(handler)(7, 'seven')).toBeUndefined()
+    const listener: (...args: [number, string]) => unknown = reportingListener(handler)
+    expect(listener(7, 'seven')).toBeUndefined()
     expect(handler).toHaveBeenCalledWith(7, 'seven')
   })
 
