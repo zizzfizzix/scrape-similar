@@ -98,7 +98,7 @@ describe('captureEvent – context specific behaviour', () => {
   it('overwrites envelope properties a caller passes despite the type', async () => {
     currentContext = contextDetection.EXTENSION_CONTEXTS.BACKGROUND
     const captureSpy = vi.fn()
-    vi.spyOn(posthogBg, 'getPostHogBackground').mockResolvedValue({ capture: captureSpy } as any)
+    vi.spyOn(posthogBg, 'getPostHogBackground').mockResolvedValue(stubBackgroundPostHog(captureSpy))
     const smuggled = {
       trigger: 'bar',
       environment: 'fake_env',
@@ -171,7 +171,6 @@ describe('captureEvent – context specific behaviour', () => {
     expect(await getQueuedEvent()).toBeUndefined()
   })
 
-  // Firefox's background and extension pages detect as unknown.
   it('queues an undecided-consent event from an unknown context', async () => {
     currentContext = contextDetection.EXTENSION_CONTEXTS.UNKNOWN
     vi.spyOn(consent, 'getConsentState').mockResolvedValue(undefined)

@@ -24,7 +24,7 @@ describe('initializeContextMenus', () => {
       documentUrlPatterns: [
         'http://*/*',
         'https://*/*',
-        `chrome-extension://${fakeBrowser.runtime.id}/onboarding.html`,
+        fakeBrowser.runtime.getURL('/onboarding.html' as never),
       ],
     })
     expect(create.mock.calls[1]?.[0]).toMatchObject({

@@ -13,7 +13,7 @@ import { act, type RenderResult } from '@testing-library/react'
 import userEventBase from '@testing-library/user-event'
 import log from 'loglevel'
 import { createRef } from 'react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
 
@@ -115,6 +115,11 @@ describe('Settings', () => {
   })
 
   describe('keyboard shortcut', () => {
+    afterEach(() => {
+      vi.unstubAllEnvs()
+      vi.unstubAllGlobals()
+    })
+
     it('copies the shortcuts page address and opens a blank tab', async () => {
       const writeText = vi.fn().mockResolvedValue(undefined)
       vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } })
@@ -128,7 +133,33 @@ describe('Settings', () => {
       )
       expect(open).toHaveBeenCalledWith('about:blank', '_blank')
       expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.KEYBOARD_SHORTCUT_COPY)
-      vi.unstubAllGlobals()
+    })
+
+    it("copies Edge's own shortcuts address in Edge", async () => {
+      const writeText = vi.fn().mockResolvedValue(undefined)
+      vi.stubGlobal('navigator', {
+        ...navigator,
+        userAgent: 'Mozilla/5.0 Chrome/130.0.0.0 Edg/130.0.0.0',
+        clipboard: { writeText },
+      })
+      vi.spyOn(window, 'open').mockReturnValue(null)
+      view = await render()
+
+      await userEvent.click(rowByLabel('Keyboard shortcut').querySelector('button')!)
+
+      expect(writeText).toHaveBeenCalledWith('edge://extensions/shortcuts#:~:text=Scrape%20Similar')
+    })
+
+    it('copies the add-ons manager address on Firefox', async () => {
+      vi.stubEnv('FIREFOX', true as never)
+      const writeText = vi.fn().mockResolvedValue(undefined)
+      vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } })
+      vi.spyOn(window, 'open').mockReturnValue(null)
+      view = await render()
+
+      await userEvent.click(rowByLabel('Keyboard shortcut').querySelector('button')!)
+
+      expect(writeText).toHaveBeenCalledWith('about:addons')
     })
   })
 

@@ -69,6 +69,31 @@ const NO_VOID = {
     '`void` hides a promise from `no-floating-promises`. Use `reportRejection(task())` for a promise; otherwise drop the `void`.',
 }
 
+// The extension origin differs per browser and per install: `moz-extension://<uuid>`
+// on Firefox, a store-assigned id for the Edge Add-ons install. The id in
+// package.json only names the Chromium builds that carry the store key.
+const OWN_ORIGIN_MESSAGE =
+  "Extension origins differ per browser and install. Build or match the extension's own URLs with `browser.runtime.getURL(path)`."
+const NO_HARD_CODED_EXTENSION_ORIGIN = [
+  ...[
+    'Literal[value=/(chrome|moz)-extension\\b/]',
+    // The optional `)` also covers the alternation `(chrome|moz)-extension`.
+    'Literal[regex.pattern=/(chrome|moz)\\)?-extension\\b/]',
+    'TemplateElement[value.raw=/(chrome|moz)-extension\\b/]',
+  ].map((selector) => ({ selector, message: OWN_ORIGIN_MESSAGE })),
+  // Any position: a named import, a member read, a destructured binding.
+  { selector: "Identifier[name='chromeExtensionId']", message: OWN_ORIGIN_MESSAGE },
+  ...[
+    "MemberExpression[object.property.name='env'][property.name=/^(BROWSER|CHROME|EDGE|FIREFOX)$/]",
+    // `const { FIREFOX } = import.meta.env`, which Vite also replaces.
+    "VariableDeclarator[init.object.type='MetaProperty'][init.property.name='env'] > ObjectPattern > Property[key.name=/^(BROWSER|CHROME|EDGE|FIREFOX)$/]",
+  ].map((selector) => ({
+    selector,
+    message:
+      'Chrome and Edge run the same build, so a build flag cannot tell them apart. Branch on `getBrowserFamily()`.',
+  })),
+]
+
 interface RestrictedSelector {
   selector: string
   message: string
@@ -262,7 +287,13 @@ export default defineConfig([
     // what the rule is about.
     files: ['src/**/*.{ts,tsx}'],
     ignores: TEST_FILES,
-    rules: restrictedSyntax(NO_ENUM, NO_DEFAULT_EXPORT, NO_INNER_HTML, NO_VOID),
+    rules: restrictedSyntax(
+      NO_ENUM,
+      NO_DEFAULT_EXPORT,
+      NO_INNER_HTML,
+      NO_VOID,
+      ...NO_HARD_CODED_EXTENSION_ORIGIN,
+    ),
   },
 
   {
@@ -356,7 +387,7 @@ export default defineConfig([
 
   {
     files: ['src/entrypoints/*/index.ts'],
-    rules: restrictedSyntax(NO_ENUM, NO_INNER_HTML, NO_VOID),
+    rules: restrictedSyntax(NO_ENUM, NO_INNER_HTML, NO_VOID, ...NO_HARD_CODED_EXTENSION_ORIGIN),
   },
 
   {

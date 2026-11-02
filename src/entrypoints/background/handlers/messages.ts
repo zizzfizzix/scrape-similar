@@ -48,7 +48,7 @@ export const setupMessageListener = (): void => {
       }
 
       // Determine if this is from an extension page or a content script
-      // Extension pages (onboarding, options, etc.) have sender.url starting with chrome-extension://
+      // Extension pages (onboarding, options, etc.) are served from the extension's own origin
       const isExtensionPage = sender.url?.startsWith(browser.runtime.getURL(''))
 
       // Handle messages from content script (on web pages) vs UI (extension pages, sidepanel, popup)

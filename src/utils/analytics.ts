@@ -293,7 +293,7 @@ export type ScrapeSource = typeof ANALYTICS_SOURCES.BUTTON | typeof ANALYTICS_SO
 
 /**
  * Routes by execution context:
- * - Background service worker: `getPostHogBackground()`
+ * - Background (Chromium service worker, Firefox background page): `getPostHogBackground()`
  * - React UI context: PostHog from React context (`window.__scrape_similar_posthog`)
  * - Content script: hands the event to the background script over a message
  *
@@ -324,8 +324,7 @@ const capture = async (
 
     // A content script cannot take the event queue's lock (it gets the page's
     // lock manager), so the background it messages below queues for it. An
-    // unknown context still queues: Firefox's background and extension pages
-    // detect as unknown.
+    // unknown context still queues rather than drop the event.
     // `content-script/no-lock` does not walk `captureEvent`, which is a
     // `boundary` in eslint.config.ts.
     if (consentState === undefined && context !== EXTENSION_CONTEXTS.CONTENT_SCRIPT) {

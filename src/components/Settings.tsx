@@ -4,6 +4,7 @@ import { ButtonGroup } from '@/components/ui/button-group'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useStorageItem } from '@/hooks/use-storage-item'
+import { BROWSER_FAMILIES, getBrowserFamily, type BrowserFamily } from '@/utils/browser-family'
 import { downloadFile } from '@/utils/export-data'
 import {
   buildPresetExportJson,
@@ -39,6 +40,13 @@ interface ImportConfirmState {
   open: boolean
   presets: Preset[]
   skippedSystemCount: number
+}
+
+const SHORTCUTS_PAGE_URLS: Record<BrowserFamily, string> = {
+  [BROWSER_FAMILIES.CHROME]: 'chrome://extensions/shortcuts#:~:text=Scrape%20Similar',
+  [BROWSER_FAMILIES.EDGE]: 'edge://extensions/shortcuts#:~:text=Scrape%20Similar',
+  // Firefox has no address for its shortcuts page; it sits behind about:addons' gear menu.
+  [BROWSER_FAMILIES.FIREFOX]: 'about:addons',
 }
 
 const CLOSED_IMPORT_CONFIRM: ImportConfirmState = {
@@ -106,8 +114,7 @@ export const Settings = React.memo(
     }
 
     const handleKeyboardShortcutClick = useCallback(() => {
-      const url = 'chrome://extensions/shortcuts#:~:text=Scrape%20Similar'
-      reportRejection(navigator.clipboard.writeText(url))
+      reportRejection(navigator.clipboard.writeText(SHORTCUTS_PAGE_URLS[getBrowserFamily()]))
       window.open('about:blank', '_blank')
 
       // Track keyboard shortcut copied
@@ -236,7 +243,11 @@ export const Settings = React.memo(
                 Copy address
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Paste in a new tab to open settings</TooltipContent>
+            <TooltipContent>
+              {getBrowserFamily() === BROWSER_FAMILIES.FIREFOX
+                ? 'Paste in a new tab, then pick Manage Extension Shortcuts from the gear menu'
+                : 'Paste in a new tab to open settings'}
+            </TooltipContent>
           </Tooltip>
         </div>
         <div className="flex items-center justify-between gap-4">
