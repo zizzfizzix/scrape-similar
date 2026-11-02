@@ -1,3 +1,4 @@
+import { THEME_MIRROR_KEY } from '@/utils/theme-mirror'
 import { expect, test, TestHelpers } from './fixtures'
 
 /**
@@ -112,6 +113,42 @@ test.describe('Options page', () => {
     })
 
     expect(lightBg).toContain('oklch(99% 0 0)') // light background
+  })
+
+  test('a chosen theme is on the root before the page first renders', async ({
+    context,
+    extensionId,
+    serviceWorker,
+  }) => {
+    await TestHelpers.dismissAnalyticsConsent(serviceWorker)
+    await serviceWorker.evaluate(() => chrome.storage.local.set({ theme: 'dark' }))
+    const optionsUrl = `chrome-extension://${extensionId}/options.html`
+
+    // The first visit reads the stored theme and leaves the copy the next
+    // page load starts from.
+    const firstVisit = await context.newPage()
+    await firstVisit.emulateMedia({ colorScheme: 'light' })
+    await firstVisit.goto(optionsUrl)
+    await expect
+      .poll(() => firstVisit.evaluate((key) => localStorage.getItem(key), THEME_MIRROR_KEY))
+      .toBe('dark')
+    await firstVisit.close()
+
+    const page = await context.newPage()
+    await page.emulateMedia({ colorScheme: 'light' })
+    // Records the root's class at the first mutation that finds <body>, which
+    // is before any module script runs and so before React could set it.
+    await page.addInitScript(() => {
+      const observer = new MutationObserver(() => {
+        if (!document.body) return
+        ;(window as { classAtBody?: string }).classAtBody = document.documentElement.className
+        observer.disconnect()
+      })
+      observer.observe(document, { childList: true, subtree: true })
+    })
+    await page.goto(optionsUrl)
+
+    expect(await page.evaluate(() => (window as { classAtBody?: string }).classAtBody)).toBe('dark')
   })
 
   test('forcing light and dark overrides system preference', async ({

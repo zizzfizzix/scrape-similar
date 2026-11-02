@@ -62,15 +62,20 @@ export function mountPickerBannerReact(
     resolveReady = resolve
   })
 
-  function BannerWrapper({ count, xpath }: { count: number; xpath: string }) {
-    // Signal that the component is ready after the first render
+  // Rendered inside ThemeProvider, which holds its children until the stored
+  // theme has loaded, so `ready` waits until the banner is in the DOM.
+  function SignalReady() {
     React.useEffect(() => {
       resolveReady()
     }, [])
+    return null
+  }
 
+  function BannerWrapper({ count, xpath }: { count: number; xpath: string }) {
     return (
       <ThemeProvider rootElement={themeRoot || container}>
         <PickerBanner count={count} xpath={xpath} onClose={handlers.onClose} />
+        <SignalReady />
       </ThemeProvider>
     )
   }

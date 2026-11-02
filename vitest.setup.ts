@@ -88,6 +88,17 @@ if (typeof window !== 'undefined') {
   }
 }
 
+// Node 25+ defines a `localStorage` global of its own, unusable without
+// `--localstorage-file`, and Vitest's jsdom environment leaves it in place of
+// jsdom's. Vitest exposes the jsdom instance as the `jsdom` global.
+declare const jsdom: { window: Window } | undefined
+if (typeof jsdom !== 'undefined') {
+  Object.defineProperty(globalThis, 'localStorage', {
+    value: jsdom.window.localStorage,
+    configurable: true,
+  })
+}
+
 // A fresh manager per test, so a task one test leaves unsettled cannot hold a
 // key that a later test locks.
 beforeEach(() => {

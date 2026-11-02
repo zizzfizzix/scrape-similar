@@ -79,10 +79,17 @@ describe('mountPickerBannerReact', () => {
     expect(container.textContent).toContain('4')
   })
 
-  it('resolves ready once the banner has rendered', async () => {
-    const api = await mount({ getState: () => ({ count: 0, xpath: '' }), onClose: () => {} })
+  it('resolves ready only once the banner is in the DOM', async () => {
+    let inputWhenReady: Promise<HTMLInputElement | null> | undefined
+    await act(async () => {
+      mounted = mountPickerBannerReact(container, {
+        getState: () => ({ count: 0, xpath: '' }),
+        onClose: () => {},
+      })
+      inputWhenReady = mounted.ready.then(() => container.querySelector('input'))
+    })
 
-    await expect(api.ready).resolves.toBeUndefined()
+    expect(await inputWhenReady).not.toBeNull()
   })
 
   it('updates the count and selector through setData', async () => {

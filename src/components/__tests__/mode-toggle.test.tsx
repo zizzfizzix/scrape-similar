@@ -2,7 +2,8 @@
 import { ModeToggle } from '@/components/mode-toggle'
 import { ThemeProvider } from '@/components/theme-provider'
 import { ANALYTICS_EVENTS } from '@/utils/analytics'
-import { render as renderComponent, screen, type RenderResult } from '@testing-library/react'
+import { renderSettled } from '@@/tests/support/settle'
+import { screen, type RenderResult } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
@@ -17,7 +18,7 @@ vi.mock('@/utils/analytics', async (importOriginal) => ({
 let view: RenderResult
 
 const render = (props: Parameters<typeof ModeToggle>[0] = {}) =>
-  renderComponent(
+  renderSettled(
     <ThemeProvider>
       <ModeToggle {...props} />
     </ThemeProvider>,
@@ -41,7 +42,7 @@ beforeEach(() => {
 
 describe('ModeToggle', () => {
   it('shows the system theme by default', async () => {
-    view = render()
+    view = await render()
 
     expect(trigger().textContent).toContain('System')
   })
@@ -49,7 +50,7 @@ describe('ModeToggle', () => {
   it('shows the light theme when it is selected', async () => {
     await storage.setItem('local:theme', 'light')
 
-    view = render()
+    view = await render()
 
     expect(await screen.findByText('Light')).toBeInTheDocument()
   })
@@ -57,20 +58,20 @@ describe('ModeToggle', () => {
   it('shows the dark theme when it is selected', async () => {
     await storage.setItem('local:theme', 'dark')
 
-    view = render()
+    view = await render()
 
     expect(await screen.findByText('Dark')).toBeInTheDocument()
   })
 
   it('forwards the id and label reference to the button', async () => {
-    view = render({ id: 'theme-toggle', ariaLabelledby: 'theme-label' })
+    view = await render({ id: 'theme-toggle', ariaLabelledby: 'theme-label' })
 
     expect(trigger().id).toBe('theme-toggle')
     expect(trigger()).toHaveAttribute('aria-labelledby', 'theme-label')
   })
 
   it('offers all three themes', async () => {
-    view = render()
+    view = await render()
 
     await openMenu()
 
@@ -80,7 +81,7 @@ describe('ModeToggle', () => {
   })
 
   it('switches to light and records the change', async () => {
-    view = render()
+    view = await render()
 
     await choose('Light')
 
@@ -92,7 +93,7 @@ describe('ModeToggle', () => {
   })
 
   it('switches to dark and records the change', async () => {
-    view = render()
+    view = await render()
 
     await choose('Dark')
 
@@ -105,7 +106,7 @@ describe('ModeToggle', () => {
 
   it('switches back to following the system and records the change', async () => {
     await storage.setItem('local:theme', 'dark')
-    view = render()
+    view = await render()
 
     await choose('System')
 
@@ -118,7 +119,7 @@ describe('ModeToggle', () => {
 
   it('does not record picking the theme that is already active', async () => {
     await storage.setItem('local:theme', 'dark')
-    view = render()
+    view = await render()
 
     await choose('Dark')
 
