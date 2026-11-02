@@ -1,3 +1,4 @@
+import { BROWSER_FAMILIES, getBrowserFamily } from '@/utils/browser-family'
 import log from 'loglevel'
 
 /**
@@ -9,7 +10,9 @@ import log from 'loglevel'
 const getContextMenuUrlPatterns = (): string[] => [
   'http://*/*',
   'https://*/*',
-  ...(import.meta.env.FIREFOX ? [] : [browser.runtime.getURL('/onboarding.html')]),
+  ...(getBrowserFamily() === BROWSER_FAMILIES.FIREFOX
+    ? []
+    : [browser.runtime.getURL('/onboarding.html')]),
 ]
 
 interface ContextMenuItem {

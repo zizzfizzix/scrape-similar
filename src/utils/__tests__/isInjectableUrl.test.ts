@@ -21,10 +21,12 @@ const NON_INJECTABLE_CASES: Array<{ url: string; pattern: string }> = [
     pattern: 'https://chromewebstore.google.com/',
   },
   { url: 'view-source:https://example.com/', pattern: 'view-source:' },
-  {
-    url: 'https://microsoftedge.microsoft.com/addons/detail/odfafepnkmbhccpbejgmiehpchacaeak',
-    pattern: 'https://microsoftedge.microsoft.com/addons/',
-  },
+  { url: 'data:text/html,<p>hi</p>', pattern: 'data:' },
+  { url: 'blob:https://example.com/0b7c1f2e', pattern: 'blob:' },
+  { url: 'devtools://devtools/bundled/inspector.html', pattern: 'devtools://' },
+  { url: 'resource://gre/modules/', pattern: 'resource://' },
+  { url: 'file:///Users/me/page.html', pattern: 'file://' },
+  { url: 'not a url', pattern: 'not a url' },
   {
     url: 'https://chrome.google.com/webstore/detail/ibamcdbhdohmndghmidginmpggcjmeob',
     pattern: '^https://chrome\\.google\\.com/(.+/)?webstore/',
@@ -107,9 +109,35 @@ describe('on Firefox', () => {
   })
 })
 
-describe('on Chromium', () => {
-  it("injects into Firefox's restricted domains, which Chromium does not restrict", () => {
+describe('in Chrome', () => {
+  it("injects into Firefox's restricted domains and Edge's store, which Chrome does not restrict", () => {
     expect(isInjectableUrl('https://support.mozilla.org/')).toBe(true)
     expect(isInjectableUrl('https://addons.mozilla.org/')).toBe(true)
+    expect(isInjectableUrl('https://microsoftedge.microsoft.com/addons/detail/x')).toBe(true)
+  })
+})
+
+describe('in Edge', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it.each([
+    {
+      url: 'https://microsoftedge.microsoft.com/addons/detail/odfafepnkmbhccpbejgmiehpchacaeak',
+      pattern: 'https://microsoftedge.microsoft.com/addons/',
+    },
+    {
+      url: 'https://chromewebstore.google.com/detail/x',
+      pattern: 'https://chromewebstore.google.com/',
+    },
+  ])('refuses $url', ({ url, pattern }) => {
+    vi.stubGlobal('navigator', {
+      ...navigator,
+      userAgent: 'Mozilla/5.0 Chrome/130.0.0.0 Edg/130.0.0.0',
+    })
+
+    expect(isInjectableUrl(url)).toBe(false)
+    expect(getInjectableUrlPattern(url)).toBe(pattern)
   })
 })

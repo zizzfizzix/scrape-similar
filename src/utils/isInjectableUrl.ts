@@ -1,40 +1,24 @@
+import { BROWSER_FAMILIES, getBrowserFamily, type BrowserFamily } from '@/utils/browser-family'
+
 interface NonInjectableUrls {
   startsWith: string[]
   match: string[]
 }
 
-const SHARED_PREFIXES = [
-  'chrome://',
-  'edge://',
-  'about:',
-  // eslint-disable-next-line no-restricted-syntax -- every extension's pages are refused
-  'chrome-extension://',
-  // eslint-disable-next-line no-restricted-syntax -- every extension's pages are refused
-  'moz-extension://',
-  'view-source:',
-  'file://',
-  'ftp://',
-  'ftps://',
-  'ws://',
-  'wss://',
-  'blob://',
-  'data://',
-]
-
-// The Chromium build also ships to the Edge store, so it refuses both stores.
-const CHROMIUM: NonInjectableUrls = {
-  startsWith: [
-    ...SHARED_PREFIXES,
-    'https://chromewebstore.google.com/',
-    'https://microsoftedge.microsoft.com/addons/',
-  ],
+const CHROME_WEB_STORE: NonInjectableUrls = {
+  startsWith: ['https://chromewebstore.google.com/'],
   match: ['^https://chrome\\.google\\.com/(.+/)?webstore/'],
+}
+
+// Edge installs from the Chrome Web Store too, so it is refused alongside Edge's own.
+const EDGE: NonInjectableUrls = {
+  startsWith: [...CHROME_WEB_STORE.startsWith, 'https://microsoftedge.microsoft.com/addons/'],
+  match: CHROME_WEB_STORE.match,
 }
 
 // Firefox's default extensions.webextensions.restrictedDomains
 const FIREFOX: NonInjectableUrls = {
   startsWith: [
-    ...SHARED_PREFIXES,
     'https://accounts-static.cdn.mozilla.net/',
     'https://accounts.firefox.com/',
     'https://addons.cdn.mozilla.net/',
@@ -51,23 +35,31 @@ const FIREFOX: NonInjectableUrls = {
   match: [],
 }
 
-const getNonInjectableUrls = (): NonInjectableUrls => (import.meta.env.FIREFOX ? FIREFOX : CHROMIUM)
-
-export const isInjectableUrl = (url?: string): boolean => {
-  if (!url) return false
-  const nonInjectableUrls = getNonInjectableUrls()
-  return (
-    !nonInjectableUrls.startsWith.some((prefix) => url.startsWith(prefix)) &&
-    !nonInjectableUrls.match.some((regex) => url.match(regex))
-  )
+const NON_INJECTABLE_URLS: Record<BrowserFamily, NonInjectableUrls> = {
+  [BROWSER_FAMILIES.CHROME]: CHROME_WEB_STORE,
+  [BROWSER_FAMILIES.EDGE]: EDGE,
+  [BROWSER_FAMILIES.FIREFOX]: FIREFOX,
 }
 
+/** `chrome://`, `about:`, `data:`; the whole string when it has no scheme. */
+const getSchemePrefix = (url: string): string => /^[a-z][a-z\d+.-]*:(\/\/)?/i.exec(url)?.[0] ?? url
+
+/**
+ * The prefix or pattern that keeps the content script off `url`, or null when it can run
+ * there. The content script and host permissions cover http(s) only, so every other
+ * scheme is refused, whichever browser it belongs to.
+ */
 export const getInjectableUrlPattern = (url?: string): string | null => {
   if (!url) return null
-  const nonInjectableUrls = getNonInjectableUrls()
+  const scheme = getSchemePrefix(url)
+  if (!/^https?:\/\/$/i.test(scheme)) return scheme
+  const nonInjectableUrls = NON_INJECTABLE_URLS[getBrowserFamily()]
   return (
     nonInjectableUrls.startsWith.find((prefix) => url.startsWith(prefix)) ??
     nonInjectableUrls.match.find((regex) => url.match(regex)) ??
     null
   )
 }
+
+export const isInjectableUrl = (url?: string): boolean =>
+  !!url && getInjectableUrlPattern(url) === null

@@ -82,6 +82,12 @@ const NO_HARD_CODED_EXTENSION_ORIGIN = [
   },
   { selector: "ImportSpecifier[imported.name='chromeExtensionId']", message: OWN_ORIGIN_MESSAGE },
   { selector: "MemberExpression[property.name='chromeExtensionId']", message: OWN_ORIGIN_MESSAGE },
+  {
+    selector:
+      "MemberExpression[object.property.name='env'][property.name=/^(CHROME|EDGE|FIREFOX)$/]",
+    message:
+      'Chrome and Edge run the same build, so a build flag cannot tell them apart. Branch on `getBrowserFamily()`.',
+  },
 ]
 
 interface RestrictedSelector {
