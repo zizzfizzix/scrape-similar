@@ -309,8 +309,8 @@ const handleGuessConfigFromSelector = (
   state: ContentScriptState,
   sendResponse: SendResponse,
 ): boolean => {
-  const { mainSelector } = (message.payload || {}) as { mainSelector?: string }
-  if (!mainSelector?.trim()) {
+  const { mainSelector } = (message.payload || {}) as { mainSelector?: unknown }
+  if (typeof mainSelector !== 'string' || !mainSelector.trim()) {
     sendResponse({ success: false, error: 'Missing mainSelector' })
     return true
   }

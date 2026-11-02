@@ -81,7 +81,8 @@ const getEntrypointPaths = () => {
 describe('context detection utilities', () => {
   it('detects content script context', () => {
     vi.stubGlobal('window', {})
-    // Remove tabs to mimic content script environment
+    // Remove tabs to mimic content script environment. `fakeBrowser` always
+    // installs `browser`.
     delete testGlobal.browser!.tabs
 
     expect(isContentScript()).toBe(true)

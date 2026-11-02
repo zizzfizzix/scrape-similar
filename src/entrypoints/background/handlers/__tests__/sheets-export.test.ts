@@ -92,6 +92,32 @@ describe('validateExportPayload', () => {
       error: 'No data to export',
     })
   })
+
+  it('rejects a null payload', () => {
+    expect(validateExportPayload(null)).toEqual({
+      isValid: false,
+      error: 'Filename is required for export',
+    })
+  })
+
+  it('rejects a filename that is not a string', () => {
+    expect(validateExportPayload({ filename: 42, scrapedData })).toEqual({
+      isValid: false,
+      error: 'Filename is required for export',
+    })
+  })
+
+  it('rejects a column order holding something other than strings', () => {
+    expect(
+      validateExportPayload({ filename: 'Export', scrapedData, columnOrder: ['Title', 1] }),
+    ).toEqual({ isValid: false, error: 'Invalid column mapping' })
+  })
+
+  it('rejects column keys that are not a list', () => {
+    expect(validateExportPayload({ filename: 'Export', scrapedData, columnKeys: 'col_0' })).toEqual(
+      { isValid: false, error: 'Invalid column mapping' },
+    )
+  })
 })
 
 describe('exportToGoogleSheets', () => {

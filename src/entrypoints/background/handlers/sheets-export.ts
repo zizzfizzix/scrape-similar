@@ -27,15 +27,22 @@ export type ExportPayloadValidation =
 /**
  * Validate EXPORT_TO_SHEETS payload structure
  */
-export const validateExportPayload = (payload: unknown): ExportPayloadValidation => {
-  const { filename, scrapedData, columnOrder, columnKeys } = (payload ||
-    {}) as Partial<ExportPayload>
+const isOptionalStringList = (value: unknown): value is string[] | undefined =>
+  value === undefined || (Array.isArray(value) && value.every((item) => typeof item === 'string'))
 
-  if (!filename || !filename.trim()) {
+export const validateExportPayload = (payload: unknown): ExportPayloadValidation => {
+  const fields: Record<string, unknown> =
+    typeof payload === 'object' && payload !== null ? { ...payload } : {}
+  const { filename, scrapedData, columnOrder, columnKeys } = fields
+
+  if (typeof filename !== 'string' || !filename.trim()) {
     return { isValid: false, error: 'Filename is required for export' }
   }
-  if (!scrapedData || !Array.isArray(scrapedData) || scrapedData.length === 0) {
+  if (!Array.isArray(scrapedData) || scrapedData.length === 0) {
     return { isValid: false, error: 'No data to export' }
+  }
+  if (!isOptionalStringList(columnOrder) || !isOptionalStringList(columnKeys)) {
+    return { isValid: false, error: 'Invalid column mapping' }
   }
 
   return { isValid: true, data: { filename, scrapedData, columnOrder, columnKeys } }
@@ -106,11 +113,7 @@ interface CreatedSpreadsheet {
  * Issue an authenticated Sheets API request, surfacing an expired token as a
  * distinct error so the caller can ask the user to retry.
  */
-const requestSheetsApi = async <T = unknown>(
-  token: string,
-  url: string,
-  body: unknown,
-): Promise<T> => {
+const requestSheetsApi = async (token: string, url: string, body: unknown): Promise<unknown> => {
   const response = await fetch(url, {
     method: 'POST',
     body: JSON.stringify(body),
@@ -130,7 +133,7 @@ const requestSheetsApi = async <T = unknown>(
     throw new Error(`API request failed: ${response.statusText} ${JSON.stringify(errorData)}`)
   }
 
-  return response.json() as Promise<T>
+  return response.json()
 }
 
 /**
@@ -154,11 +157,11 @@ export const exportToGoogleSheets = async (
       return { success: false, error: 'No columns found in data' }
     }
 
-    const spreadsheet = await requestSheetsApi<CreatedSpreadsheet>(
+    const spreadsheet = (await requestSheetsApi(
       token,
       SHEETS_API.create(),
       buildCreateSpreadsheetBody(filename),
-    )
+    )) as CreatedSpreadsheet
 
     const spreadsheetId = spreadsheet.spreadsheetId
     const spreadsheetUrl = spreadsheet.spreadsheetUrl
