@@ -396,7 +396,9 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
 
   // Handle autosuggest preset selection
   const handleAutosuggestSelect = (preset: Preset) => {
-    // Update the draft immediately to prevent blur handler from committing stale value
+    // Update the draft immediately to prevent blur handler from committing stale value.
+    // Trimmed here because a preset whose trimmed selector equals the committed
+    // one leaves the config unchanged, so the draft is never resynced from it.
     setMainSelectorDraft(preset.config.mainSelector.trim())
     // Load the full preset (including columns) just like the Load button does
     onLoadPreset(preset)

@@ -233,6 +233,7 @@ const updateRecentMainSelectors = async (
   }
 }
 
+/** `selector` is a committed main selector: trimmed (`withTrimmedMainSelector`) and non-blank. */
 export const pushRecentMainSelector = async (selector: string): Promise<void> =>
   updateRecentMainSelectors((current) =>
     [selector, ...current.filter((s) => s !== selector)].slice(0, 5),

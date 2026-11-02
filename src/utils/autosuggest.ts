@@ -82,6 +82,9 @@ export const resolveSuggestion = (
   return preset ? { kind: 'preset', preset } : null
 }
 
-/** True when `selector` is already stored as a preset, so it needs no recents entry. */
+/**
+ * True when `selector` is already stored as a preset, so it needs no recents
+ * entry. `selector` is trimmed; stored presets may not be.
+ */
 export const isSelectorAPreset = (selector: string, presets: Preset[]): boolean =>
   presets.some((preset) => (preset.config.mainSelector || '').trim() === selector)
