@@ -132,7 +132,8 @@ beforeEach(async () => {
   setLastError(undefined)
   await userPresetsItem.setValue([])
   await storage.setItem(analyticsConsentItem.key, true)
-  spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(undefined)
+  // A background that accepts every write: the panel reverts one it reports as failed.
+  spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue({ success: true })
   contentScriptReplies({ success: true, matchCount: 3 })
   await attachToTab()
 })

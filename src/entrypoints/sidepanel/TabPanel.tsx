@@ -20,6 +20,7 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react'
 
 export const COLUMN_EDIT_NOT_SAVED =
   'Could not save the column change. The saved columns are shown.'
+export const PRESET_NOT_SAVED = 'Could not load the preset. The saved configuration is shown.'
 
 export const CONTENT_SCRIPT_UNREACHABLE =
   'Could not connect to the content script. Please reload the page or ensure the extension is enabled for this site.'
@@ -73,6 +74,8 @@ export const TabPanel = memo(function TabPanel({
   const heldColumnsRef = useRef<ColumnDefinition[] | null>(null)
   // Set when storage may differ from the panel's columns, until a read-back lands.
   const needsColumnReadBackRef = useRef(false)
+  // Set when a whole-config write failed, so the read-back restores the selector too.
+  const needsConfigRestoreRef = useRef(false)
   const shownColumnsRef = useRef(config.columns)
   useEffect(() => {
     shownColumnsRef.current = config.columns
@@ -82,15 +85,17 @@ export const TabPanel = memo(function TabPanel({
     (stored: SidePanelConfig) => {
       log.debug(`Applying stored state for tab ${String(tabId)}:`, stored)
       const resolvedConfig = resolveStoredConfig(stored)
-      const hasPendingColumnEdits = pendingColumnWritesRef.current > 0
-      if (hasPendingColumnEdits) heldColumnsRef.current = resolvedConfig.columns
+      const hasPendingColumnWrites = pendingColumnWritesRef.current > 0
+      if (hasPendingColumnWrites) heldColumnsRef.current = resolvedConfig.columns
       // Showing a hidden panel re-reads its storage, which nearly always holds
       // what is already on screen; keeping the same references lets React skip
       // re-rendering the form and the table.
       setConfig((previous) =>
         reuseIfEqual(
           previous,
-          hasPendingColumnEdits ? { ...resolvedConfig, columns: previous.columns } : resolvedConfig,
+          hasPendingColumnWrites
+            ? { ...resolvedConfig, columns: previous.columns }
+            : resolvedConfig,
         ),
       )
 
@@ -167,42 +172,45 @@ export const TabPanel = memo(function TabPanel({
     )
   }
 
-  /** Send one column edit; resolves to whether storage may now differ from the panel. */
-  const sendColumnEdit = async (id: number, edit: ColumnEdit): Promise<boolean> => {
+  /** Send a write that sets the columns, toasting `failure` if it is not stored. */
+  const sendColumnWrite = async (
+    id: number,
+    updates: SidePanelConfigUpdate,
+    failure: string,
+  ): Promise<'stored' | 'dropped' | 'failed'> => {
     let reply: SidePanelUpdateReply | undefined
     try {
       reply = await browser.runtime.sendMessage({
         type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
-        payload: { tabId: id, updates: { columnEdit: edit } },
+        payload: { tabId: id, updates },
       })
     } catch (error) {
-      log.error(`Could not send a column edit for tab ${String(id)}:`, error)
-      notify.error(COLUMN_EDIT_NOT_SAVED, { id: COLUMN_EDIT_NOT_SAVED })
-      return true
+      log.error(`Could not send a side panel update for tab ${String(id)}:`, error)
+      notify.error(failure, { id: failure })
+      return 'failed'
     }
     if (reply?.success !== true) {
-      log.error(`Could not store a column edit for tab ${String(id)}:`, reply?.error)
-      notify.error(COLUMN_EDIT_NOT_SAVED, { id: COLUMN_EDIT_NOT_SAVED })
-      return true
+      log.error(`Could not store a side panel update for tab ${String(id)}:`, reply?.error)
+      notify.error(failure, { id: failure })
+      return 'failed'
     }
-    return reply.isColumnEditSuperseded === true
+    return reply.isColumnEditSuperseded ? 'dropped' : 'stored'
   }
 
   // Once the last pending write is answered, the columns the watcher held are
-  // checked against the panel's. Only a mismatch, or a write that was refused
+  // checked against the panel's. Only a mismatch, or a write that was dropped
   // or failed (which can leave storage unchanged, so no watcher fires), costs a
-  // read, and the read replaces only the columns: a snapshot taken now can be
-  // older than a main selector the panel has already sent.
-  const runColumnWrite = async (id: number, send: () => Promise<boolean>) => {
+  // read. Watcher events and replies arrive on separate channels, so a held
+  // value can trail the panel by one write and cost a read that changes nothing.
+  // The read replaces only the columns, since a snapshot taken now can be older
+  // than a main selector the panel has already sent; only a failed whole-config
+  // write, whose selector never reached storage, restores the rest as well.
+  const runColumnWrite = async (id: number, updates: SidePanelConfigUpdate, failure: string) => {
     pendingColumnWritesRef.current += 1
-    let hasMissed = true
-    try {
-      hasMissed = await send()
-    } finally {
-      pendingColumnWritesRef.current -= 1
-      // Also reached when `send` rejects, so the next write to settle reads back.
-      if (hasMissed) needsColumnReadBackRef.current = true
-    }
+    const outcome = await sendColumnWrite(id, updates, failure)
+    pendingColumnWritesRef.current -= 1
+    if (outcome !== 'stored') needsColumnReadBackRef.current = true
+    if (outcome === 'failed' && updates.currentScrapeConfig) needsConfigRestoreRef.current = true
     if (pendingColumnWritesRef.current > 0) return
 
     const held = heldColumnsRef.current
@@ -216,8 +224,14 @@ export const TabPanel = memo(function TabPanel({
     // A write started during the read; its own settling reads again.
     if (pendingColumnWritesRef.current > 0) return
     needsColumnReadBackRef.current = false
-    // Nothing stored is shown as the watcher would show it: the default columns.
-    const { columns } = resolveStoredConfig(stored ?? {})
+    // Nothing stored is shown as the watcher would show it: the default config.
+    const resolved = stored ?? {}
+    if (needsConfigRestoreRef.current) {
+      needsConfigRestoreRef.current = false
+      applyStoredState(resolved)
+      return
+    }
+    const { columns } = resolveStoredConfig(resolved)
     setConfig((previous) => reuseIfEqual(previous, { ...previous, columns }))
   }
 
@@ -225,8 +239,7 @@ export const TabPanel = memo(function TabPanel({
     // The form builds the edit from the config this render passed it, so it always applies.
     showConfig({ ...config, columns: applyColumnEdit(config.columns, edit)! }, () => null)
     if (tabId !== null) {
-      const id = tabId
-      reportRejection(runColumnWrite(id, () => sendColumnEdit(id, edit)))
+      reportRejection(runColumnWrite(tabId, { columnEdit: edit }, COLUMN_EDIT_NOT_SAVED))
     }
   }
 
@@ -346,16 +359,7 @@ export const TabPanel = memo(function TabPanel({
   const handleLoadPreset = (preset: Preset) => {
     const loaded = showConfig(preset.config, () => null)
     if (tabId !== null) {
-      const id = tabId
-      reportRejection(
-        runColumnWrite(id, async () => {
-          await browser.runtime.sendMessage({
-            type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
-            payload: { tabId: id, updates: buildConfigReplaceUpdates(loaded) },
-          })
-          return false
-        }),
-      )
+      reportRejection(runColumnWrite(tabId, buildConfigReplaceUpdates(loaded), PRESET_NOT_SAVED))
     }
 
     if (loaded.mainSelector) {

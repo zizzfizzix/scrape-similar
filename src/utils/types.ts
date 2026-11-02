@@ -87,7 +87,7 @@ export type MessageResponse =
       success: true
       tabId?: number
       debugMode?: boolean
-      /** Whether an UPDATE_SIDEPANEL_DATA's `columnEdit` was dropped (see `ColumnEdit`). */
+      /** Whether an UPDATE_SIDEPANEL_DATA's `columnEdit` was dropped as superseded (see `ColumnEdit`) or malformed. */
       isColumnEditSuperseded?: boolean
     }
   | {

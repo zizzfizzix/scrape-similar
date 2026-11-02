@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import type { ConfigForm } from '@/components/ConfigForm'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import { COLUMN_EDIT_NOT_SAVED, TabPanel } from '@/entrypoints/sidepanel/TabPanel'
+import { COLUMN_EDIT_NOT_SAVED, PRESET_NOT_SAVED, TabPanel } from '@/entrypoints/sidepanel/TabPanel'
 import { DEFAULT_SCRAPE_CONFIG } from '@/utils/scrape-config'
 import {
   MESSAGE_TYPES,
@@ -433,26 +433,32 @@ describe('TabPanel column edits', () => {
     expect(form.props!.config.columns).toEqual(presetColumns)
   })
 
-  it('reads back on the next settle when a preset write fails to send', async () => {
-    await render()
-    spyOnBrowser(fakeBrowser.runtime, 'sendMessage')
-      .mockRejectedValueOnce(new Error('Receiving end does not exist'))
-      .mockImplementationOnce(applyAndReply(guessedColumns))
-    vi.spyOn(log, 'error').mockImplementation(() => {})
+  it.each([
+    ['refuses the write', () => Promise.resolve({ success: false, error: 'Lock timed out' })],
+    ['cannot be reached', () => Promise.reject(new Error('Receiving end does not exist'))],
+  ])(
+    'reports a lost preset load and restores the saved configuration when the background %s',
+    async (_, reply) => {
+      await render()
+      spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockImplementation(reply)
+      vi.spyOn(log, 'error').mockImplementation(() => {})
 
-    act(() => {
-      form.props!.onLoadPreset({
-        id: 'p',
-        name: 'Prices',
-        config: { mainSelector: '', columns: [rank] },
-        createdAt: 0,
+      act(() => {
+        form.props!.onLoadPreset({
+          id: 'p',
+          name: 'Titles',
+          // A blank selector, so the load starts no highlight.
+          config: { mainSelector: '', columns: guessedColumns },
+          createdAt: 0,
+        })
       })
-    })
-    await settleEffects()
-    edit({ type: 'add' })
 
-    await waitFor(() => expect(form.props!.config.columns).toEqual(guessedColumns))
-  })
+      await waitFor(() => expect(form.props!.config).toEqual(config))
+      expect(toastMocks.toast.error).toHaveBeenCalledWith(PRESET_NOT_SAVED, {
+        id: PRESET_NOT_SAVED,
+      })
+    },
+  )
 
   it('sends nothing without a tab', async () => {
     await render(null)
