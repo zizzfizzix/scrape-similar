@@ -2,7 +2,8 @@ name: E2E Tests
 on:
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review]
-    branches: [main]
+    # No `branches` filter: a stacked PR targets the branch below it, and the
+    # main ruleset still requires this check before it can merge.
 jobs:
   e2e-tests:
     permissions:
