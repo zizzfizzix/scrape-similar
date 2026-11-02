@@ -98,7 +98,7 @@ describe('captureEvent – context specific behaviour', () => {
   it('overwrites envelope properties a caller passes despite the type', async () => {
     currentContext = contextDetection.EXTENSION_CONTEXTS.BACKGROUND
     const captureSpy = vi.fn()
-    vi.spyOn(posthogBg, 'getPostHogBackground').mockResolvedValue({ capture: captureSpy } as any)
+    vi.spyOn(posthogBg, 'getPostHogBackground').mockResolvedValue(stubBackgroundPostHog(captureSpy))
     const smuggled = {
       trigger: 'bar',
       environment: 'fake_env',
