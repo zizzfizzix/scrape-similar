@@ -204,7 +204,8 @@ const CORRECTNESS_RULES: Linter.RulesRecord = {
 
 /**
  * Typed stylistic and redundancy rules (#376): one spelling for each construct,
- * and no conversion, default, type parameter or constructor that does nothing.
+ * and no conversion, annotation, default, type parameter, constructor, class,
+ * template or boolean comparison that has no effect.
  */
 const TIDY_RULES: Linter.RulesRecord = {
   // `T[]` is what the codebase already writes; `Array<T>` was the exception.
