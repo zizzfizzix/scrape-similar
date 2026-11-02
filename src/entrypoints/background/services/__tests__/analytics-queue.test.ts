@@ -236,8 +236,12 @@ describe('initializeAnalyticsQueue', () => {
     usePostHog(null)
     await initializeAnalyticsQueue()
 
+    // The remembered null holds until a reset, so only a reset before the
+    // flush lets the flush send.
     const ph = createFakePostHog()
-    usePostHog(ph)
+    const afterReset = () => (posthogMocks.resetPostHogInstance.mock.calls.length > 0 ? ph : null)
+    posthogMocks.getPostHogBackground.mockImplementation(async () => afterReset())
+    posthogMocks.currentPostHogBackground.mockImplementation(afterReset)
     await storage.setItem(queueKey, [event(ANALYTICS_EVENTS.PRESET_LOAD)])
     await flushMicrotasks()
     await storage.setItem(analyticsConsentItem.key, true)

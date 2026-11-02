@@ -12,7 +12,10 @@ interface Scenario {
   apiHost?: string
   isDevOrTest?: boolean
   distinctId?: () => Promise<unknown>
+  isDebugModeWatchBroken?: boolean
 }
+
+const stopCalls: unknown[] = []
 
 const setConfigCalls: Record<string, unknown>[] = []
 
@@ -21,6 +24,7 @@ const loadModule = async ({
   apiHost = 'https://posthog.test',
   isDevOrTest = true,
   distinctId = async () => 'distinct-id',
+  isDebugModeWatchBroken = false,
 }: Scenario = {}) => {
   vi.resetModules()
   vi.stubEnv('VITE_PUBLIC_POSTHOG_KEY', apiKey)
@@ -31,7 +35,7 @@ const loadModule = async ({
     isTest: isDevOrTest,
     isDevOrTest,
   }))
-  vi.doMock('@/utils/consent', () => ({ getConsentState: () => Promise.resolve(true) }))
+  vi.doMock('@/utils/consent', () => ({ readConsentState: () => Promise.resolve(true) }))
   vi.doMock('@/utils/distinct-id', () => ({ getOrCreateDistinctId: distinctId }))
   vi.doMock('posthog-js/dist/exception-autocapture.js', () => ({}))
   vi.doMock('posthog-js/dist/tracing-headers.js', () => ({}))
@@ -41,10 +45,18 @@ const loadModule = async ({
       set_config(config: Record<string, unknown>) {
         setConfigCalls.push(config)
       }
-      stopExceptionAutocapture() {}
+      stopExceptionAutocapture() {
+        stopCalls.push(this)
+      }
     }
     return { PostHog }
   })
+  if (isDebugModeWatchBroken) {
+    const { debugModeItem: item } = await import('@/utils/storage')
+    vi.spyOn(item, 'watch').mockImplementation(() => {
+      throw new Error('watch failed')
+    })
+  }
 
   return import('@/utils/posthog-background')
 }
@@ -52,6 +64,7 @@ const loadModule = async ({
 beforeEach(() => {
   fakeBrowser.reset()
   setConfigCalls.length = 0
+  stopCalls.length = 0
 })
 
 afterEach(() => {
@@ -59,6 +72,7 @@ afterEach(() => {
   vi.doUnmock('@/utils/modeTest')
   vi.doUnmock('@/utils/consent')
   vi.doUnmock('@/utils/distinct-id')
+  vi.restoreAllMocks()
 })
 
 describe('getPostHogBackground initialization', () => {
@@ -91,6 +105,43 @@ describe('getPostHogBackground initialization', () => {
 
     expect(await getPostHogBackground()).toBeNull()
     expect(errorSpy).toHaveBeenCalledWith('Failed to initialize PostHog in background:', failure)
+  })
+
+  it('warns about a missing API key once until the next reset', async () => {
+    const warnSpy = vi.spyOn(log, 'warn').mockImplementation(() => {})
+    const { getPostHogBackground, resetPostHogInstance } = await loadModule({ apiKey: '' })
+
+    await getPostHogBackground()
+    await getPostHogBackground()
+    expect(warnSpy).toHaveBeenCalledTimes(1)
+
+    resetPostHogInstance()
+    await getPostHogBackground()
+    expect(warnSpy).toHaveBeenCalledTimes(2)
+  })
+
+  it('retries an initialisation that threw', async () => {
+    vi.spyOn(log, 'error').mockImplementation(() => {})
+    const distinctId = vi
+      .fn<() => Promise<unknown>>()
+      .mockRejectedValueOnce(new Error('storage unavailable'))
+      .mockResolvedValue('distinct-id')
+    const { getPostHogBackground } = await loadModule({ distinctId })
+
+    expect(await getPostHogBackground()).toBeNull()
+    expect(await getPostHogBackground()).not.toBeNull()
+  })
+
+  it('retires an instance whose initialisation threw after init', async () => {
+    vi.spyOn(log, 'error').mockImplementation(() => {})
+    const { getPostHogBackground, currentPostHogBackground } = await loadModule({
+      isDevOrTest: false,
+      isDebugModeWatchBroken: true,
+    })
+
+    expect(await getPostHogBackground()).toBeNull()
+    expect(currentPostHogBackground()).toBeNull()
+    expect(stopCalls).toHaveLength(1)
   })
 
   it('keeps the debug config in sync with storage in production builds', async () => {

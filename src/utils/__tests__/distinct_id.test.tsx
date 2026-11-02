@@ -56,6 +56,7 @@ describe('PostHog distinct id consistency', () => {
     fakeBrowser.reset()
     // Default consent behaviour for these tests is granted
     vi.spyOn(consent, 'getConsentState').mockResolvedValue(true)
+    vi.spyOn(consent, 'readConsentState').mockResolvedValue(true)
     vi.spyOn(distinctId, 'getOrCreateDistinctId').mockResolvedValue('test-uuid-21415341242342')
   })
 

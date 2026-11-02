@@ -41,6 +41,14 @@ describe('analytics utilities', () => {
       expect(errorSpy).toHaveBeenCalledWith('Failed to queue event:', failure)
     })
 
+    it('does not queue once consent is declined', async () => {
+      vi.spyOn(consent, 'getConsentState').mockResolvedValue(false)
+
+      await queueEvent({ name: ANALYTICS_EVENTS.PRESET_SAVE, props: {}, timestamp: Date.now() })
+
+      expect(await storage.getItem(QUEUE_KEY)).toBeNull()
+    })
+
     it('drops the oldest events when exceeding MAX_QUEUED_EVENTS', async () => {
       // Fill the queue up to the max limit
       for (let i = 0; i < MAX_QUEUED_EVENTS; i++) {

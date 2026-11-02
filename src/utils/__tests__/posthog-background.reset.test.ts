@@ -1,4 +1,5 @@
 import * as consent from '@/utils/consent'
+import log from 'loglevel'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 
@@ -28,19 +29,19 @@ describe('getPostHogBackground', () => {
   })
 
   it('returns null while consent is undecided', async () => {
-    vi.spyOn(consent, 'getConsentState').mockResolvedValue(undefined)
+    vi.spyOn(consent, 'readConsentState').mockResolvedValue(undefined)
 
     expect(await getPostHogBackground()).toBeNull()
   })
 
   it('returns null once consent is declined', async () => {
-    vi.spyOn(consent, 'getConsentState').mockResolvedValue(false)
+    vi.spyOn(consent, 'readConsentState').mockResolvedValue(false)
 
     expect(await getPostHogBackground()).toBeNull()
   })
 
   it('reuses the same instance across calls', async () => {
-    vi.spyOn(consent, 'getConsentState').mockResolvedValue(true)
+    vi.spyOn(consent, 'readConsentState').mockResolvedValue(true)
 
     const first = await getPostHogBackground()
     const second = await getPostHogBackground()
@@ -49,8 +50,31 @@ describe('getPostHogBackground', () => {
     expect(second).toBe(first)
   })
 
+  it('remembers an undecided consent until the next reset', async () => {
+    const consentSpy = vi.spyOn(consent, 'readConsentState').mockResolvedValue(undefined)
+    await getPostHogBackground()
+
+    expect(await getPostHogBackground()).toBeNull()
+    expect(consentSpy).toHaveBeenCalledTimes(1)
+
+    consentSpy.mockResolvedValue(true)
+    resetPostHogInstance()
+
+    expect(await getPostHogBackground()).not.toBeNull()
+  })
+
+  it('retries after the consent read fails', async () => {
+    vi.spyOn(log, 'error').mockImplementation(() => {})
+    vi.spyOn(consent, 'readConsentState')
+      .mockRejectedValueOnce(new Error('storage unavailable'))
+      .mockResolvedValue(true)
+
+    expect(await getPostHogBackground()).toBeNull()
+    expect(await getPostHogBackground()).not.toBeNull()
+  })
+
   it('shares one instance between concurrent callers', async () => {
-    vi.spyOn(consent, 'getConsentState').mockResolvedValue(true)
+    vi.spyOn(consent, 'readConsentState').mockResolvedValue(true)
 
     const [first, second] = await Promise.all([getPostHogBackground(), getPostHogBackground()])
 
@@ -65,7 +89,7 @@ describe('resetPostHogInstance', () => {
   })
 
   it('forces a fresh instance on the next call', async () => {
-    vi.spyOn(consent, 'getConsentState').mockResolvedValue(true)
+    vi.spyOn(consent, 'readConsentState').mockResolvedValue(true)
     const first = await getPostHogBackground()
 
     resetPostHogInstance()
@@ -75,7 +99,7 @@ describe('resetPostHogInstance', () => {
   })
 
   it('lets a revoked consent take effect immediately', async () => {
-    const consentSpy = vi.spyOn(consent, 'getConsentState').mockResolvedValue(true)
+    const consentSpy = vi.spyOn(consent, 'readConsentState').mockResolvedValue(true)
     expect(await getPostHogBackground()).not.toBeNull()
 
     resetPostHogInstance()
@@ -85,7 +109,7 @@ describe('resetPostHogInstance', () => {
   })
 
   it('reports the held instance without initialising one', async () => {
-    const consentSpy = vi.spyOn(consent, 'getConsentState').mockResolvedValue(true)
+    const consentSpy = vi.spyOn(consent, 'readConsentState').mockResolvedValue(true)
     expect(currentPostHogBackground()).toBeNull()
     expect(consentSpy).not.toHaveBeenCalled()
 
@@ -95,7 +119,7 @@ describe('resetPostHogInstance', () => {
   })
 
   it('stops the exception capture of the instance it drops', async () => {
-    vi.spyOn(consent, 'getConsentState').mockResolvedValue(true)
+    vi.spyOn(consent, 'readConsentState').mockResolvedValue(true)
     const instance = (await getPostHogBackground()) as unknown as {
       stopExceptionAutocapture: () => void
     }
@@ -106,7 +130,7 @@ describe('resetPostHogInstance', () => {
   })
 
   it('never initialises an instance whose initialisation a reset overtook', async () => {
-    vi.spyOn(consent, 'getConsentState').mockResolvedValue(true)
+    vi.spyOn(consent, 'readConsentState').mockResolvedValue(true)
     const initSpy = vi.spyOn(PostHog.prototype, 'init')
 
     const initialising = getPostHogBackground()
@@ -117,7 +141,7 @@ describe('resetPostHogInstance', () => {
   })
 
   it('retires an instance a reset overtook once it was built', async () => {
-    vi.spyOn(consent, 'getConsentState').mockResolvedValue(true)
+    vi.spyOn(consent, 'readConsentState').mockResolvedValue(true)
     const initSpy = vi.spyOn(PostHog.prototype, 'init').mockImplementation(function (
       this: InstanceType<typeof PostHog>,
     ) {
@@ -131,12 +155,14 @@ describe('resetPostHogInstance', () => {
     expect(retired.stopExceptionAutocapture).toHaveBeenCalled()
   })
 
-  it('resolves null when a reset overtakes an initialisation that found no consent', async () => {
-    vi.spyOn(consent, 'getConsentState').mockResolvedValue(undefined)
+  it('does not remember a missing consent that a reset overtook', async () => {
+    const consentSpy = vi.spyOn(consent, 'readConsentState').mockResolvedValue(undefined)
 
     const initialising = getPostHogBackground()
     resetPostHogInstance()
+    consentSpy.mockResolvedValue(true)
 
     expect(await initialising).toBeNull()
+    expect(await getPostHogBackground()).not.toBeNull()
   })
 })

@@ -12,6 +12,9 @@ import { PostHog } from 'posthog-js/dist/module.no-external'
 import 'posthog-js/dist/tracing-headers.js'
 
 let posthogInstance: PostHog | null = null
+// Set when an initialisation found no consent or no API key or host. Kept until
+// the next reset, which every consent decision triggers.
+let isUnavailable = false
 let initializationPromise: Promise<PostHog | null> | null = null
 // Bumped by every reset, so an initialisation the reset overtook can tell its
 // instance is no longer wanted.
@@ -26,39 +29,45 @@ const retire = (instance: PostHog) => {
   stopWatchingDebugMode.get(instance)?.()
 }
 
-/**
- * Reset PostHog instance - used when consent is revoked
- */
+/** Drops the instance, or the remembered lack of one; called on every consent decision. */
 export const resetPostHogInstance = () => {
   generation += 1
   if (posthogInstance) retire(posthogInstance)
   posthogInstance = null
+  isUnavailable = false
   initializationPromise = null
-  log.debug('PostHog background instance reset due to consent revocation')
+  log.debug('PostHog background instance reset')
 }
 
 /** The initialised instance, if any, without starting an initialisation. */
 export const currentPostHogBackground = (): PostHog | null => posthogInstance
 
-const initializePostHog = async (startedIn: number): Promise<PostHog | null> => {
-  const consentState = await getConsentState()
-  if (consentState !== true) {
-    log.debug('User has not given consent – PostHog will not be initialized (background).')
-    return null
-  }
+// `unavailable` is remembered until the next reset; `failed` is retried on the
+// next call.
+type Initialisation = PostHog | 'unavailable' | 'failed'
 
+const initializePostHog = async (startedIn: number): Promise<Initialisation> => {
+  let built: PostHog | null = null
   try {
+    // Read so that a storage error rejects: remembering it as "not asked"
+    // would keep PostHog off until the next consent change.
+    const consentState = await readConsentState()
+    if (consentState !== true) {
+      log.debug('User has not given consent – PostHog will not be initialized (background).')
+      return 'unavailable'
+    }
+
     const apiKey = import.meta.env.VITE_PUBLIC_POSTHOG_KEY
     const apiHost = import.meta.env.VITE_PUBLIC_POSTHOG_HOST
 
     if (!apiKey) {
       log.warn('PostHog API key not found in environment variables for background script')
-      return null
+      return 'unavailable'
     }
 
     if (!apiHost) {
       log.warn('PostHog API host not found in environment variables for background script')
-      return null
+      return 'unavailable'
     }
 
     log.debug('Initializing PostHog in background context...')
@@ -71,9 +80,11 @@ const initializePostHog = async (startedIn: number): Promise<PostHog | null> => 
     // `init` wraps the global error handlers, and retiring an instance unwraps
     // them, so an instance a reset has already overtaken is never initialised:
     // unwrapping it later could remove the handlers of a newer one.
-    if (generation !== startedIn) return null
+    // The caller's generation check discards this result, whatever its label.
+    if (generation !== startedIn) return 'failed'
 
     const instance = new PostHog()
+    built = instance
     instance.init(apiKey, {
       debug: isDevOrTest || isDebugModeEnabled,
       // Supply our own distinct_id to ensure consistent distinct_id across extension contexts
@@ -118,20 +129,23 @@ const initializePostHog = async (startedIn: number): Promise<PostHog | null> => 
     return instance
   } catch (error) {
     log.error('Failed to initialize PostHog in background:', error)
-    return null
+    // `init` may already have wrapped the global error handlers.
+    if (built) retire(built)
+    return 'failed'
   }
 }
 
 /**
  * Get PostHog instance for background service worker context with proper error handling and race condition protection
  * Returns existing instance if already initialized, otherwise creates and returns new instance
- * Returns null if initialization fails or environment variables are missing
+ * Returns null without consent or without the API key or host, and keeps returning it until
+ * `resetPostHogInstance`; a null from an initialisation that threw is retried on the next call
  */
 export const getPostHogBackground = async (): Promise<PostHog | null> => {
-  // Return existing instance if already initialized
   if (posthogInstance) {
     return posthogInstance
   }
+  if (isUnavailable) return null
 
   // If already initializing, return the same promise to prevent concurrent initialization
   if (initializationPromise) {
@@ -140,14 +154,16 @@ export const getPostHogBackground = async (): Promise<PostHog | null> => {
 
   const startedIn = generation
   const pending = (async (): Promise<PostHog | null> => {
-    const instance = await initializePostHog(startedIn)
-    // Consent was withdrawn after the instance was built: keeping it would let
-    // it capture (exceptions included) after the user said no.
+    const outcome = await initializePostHog(startedIn)
+    const instance = outcome instanceof PostHog ? outcome : null
+    // A reset overtook this initialisation: after a decline the instance must
+    // not capture (exceptions included), and after a grant a newer one replaces it.
     if (generation !== startedIn) {
       if (instance) retire(instance)
       return null
     }
     posthogInstance = instance
+    isUnavailable = outcome === 'unavailable'
     return instance
   })()
   initializationPromise = pending

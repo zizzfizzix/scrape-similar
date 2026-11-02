@@ -139,16 +139,13 @@ describe('captureEvent – context specific behaviour', () => {
     )
   })
 
-  it('warns instead of capturing when the background PostHog is unavailable', async () => {
+  it('queues the event when the background PostHog is unavailable', async () => {
     currentContext = contextDetection.EXTENSION_CONTEXTS.BACKGROUND
-    const warnSpy = vi.spyOn(log, 'warn').mockImplementation(() => {})
     vi.spyOn(posthogBg, 'getPostHogBackground').mockResolvedValue(null)
 
     await captureEvent(EVENT_NAME)
 
-    expect(warnSpy).toHaveBeenCalledWith('PostHog not available in background context')
-    // Consent is granted, so the event is dropped rather than queued for later.
-    expect(await getQueuedEvent()).toBeUndefined()
+    expect((await getQueuedEvent())?.name).toBe(EVENT_NAME)
   })
 
   it('sends only the caller properties from content-script context', async () => {

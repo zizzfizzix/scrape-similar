@@ -3,7 +3,7 @@
 
 import { reportRejection } from '@/utils/report-rejection'
 import { eventQueueItem } from '@/utils/storage'
-import { updateStorageItem } from '@/utils/storage-lock'
+import { withStorageLock } from '@/utils/storage-lock'
 import { version } from '@@/package.json' with { type: 'json' }
 import log from 'loglevel'
 
@@ -17,12 +17,28 @@ export interface QueuedEvent {
 
 export const queueEvent = async (event: QueuedEvent): Promise<void> => {
   try {
-    const queue = await updateStorageItem(eventQueueItem, (current) => {
-      if (current.length < MAX_QUEUED_EVENTS) return [...current, event]
-      log.warn(`Event queue full (${current.length}/${MAX_QUEUED_EVENTS}), dropping oldest events`)
-      // FIFO: drop the oldest events to make room
-      return [...current.slice(current.length - MAX_QUEUED_EVENTS + 1), event]
+    const queue = await withStorageLock(eventQueueItem, async () => {
+      // A decline writes consent before it empties the queue under this lock, so
+      // an event appended after reading consent as not declined is still emptied.
+      if ((await getConsentState()) === false) return null
+      const current = await eventQueueItem.getValue()
+      let next: QueuedEvent[]
+      if (current.length < MAX_QUEUED_EVENTS) {
+        next = [...current, event]
+      } else {
+        log.warn(
+          `Event queue full (${current.length}/${MAX_QUEUED_EVENTS}), dropping oldest events`,
+        )
+        // FIFO: drop the oldest events to make room
+        next = [...current.slice(current.length - MAX_QUEUED_EVENTS + 1), event]
+      }
+      await eventQueueItem.setValue(next)
+      return next
     })
+    if (!queue) {
+      log.debug(`User declined consent - not queueing event: ${event.name}`)
+      return
+    }
     log.debug(`Queued event: ${event.name}`, { queueLength: queue.length })
   } catch (error) {
     // Callers track and move on; a failed queue write must not break them.
@@ -339,7 +355,9 @@ const capture = async (
           backgroundPostHog.capture(eventName, eventProperties)
           log.debug(`Tracked event (background context): ${eventName}`, eventProperties)
         } else {
-          log.warn('PostHog not available in background context')
+          // Queued as in the UI contexts, to be sent once an initialisation
+          // succeeds; that includes a grant whose reset has not arrived yet.
+          await queueEvent({ name: eventName, props: eventProperties, timestamp: Date.now() })
         }
         break
       }
