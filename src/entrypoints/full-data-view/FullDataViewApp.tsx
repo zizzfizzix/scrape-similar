@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/table'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { reportingListener, reportRejection } from '@/utils/report-rejection'
+import { DEFAULT_SCRAPE_CONFIG } from '@/utils/scrape-config'
 
 import {
   collectTabsWithData,
@@ -210,10 +211,7 @@ export const FullDataViewApp: React.FC = () => {
               tabUrl: tabInfo.url || 'Unknown URL',
               tabTitle: tabInfo.title || 'Unknown Title',
               scrapeResult: newValue.scrapeResult,
-              config: newValue.currentScrapeConfig || {
-                mainSelector: '',
-                columns: [{ name: 'Text', selector: '.' }],
-              },
+              config: newValue.currentScrapeConfig || DEFAULT_SCRAPE_CONFIG,
             }
 
             setAllTabsData((prev) => {

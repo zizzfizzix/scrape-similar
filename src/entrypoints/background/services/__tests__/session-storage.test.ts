@@ -163,6 +163,16 @@ describe('applySidePanelDataUpdates', () => {
     expect(await read(1)).toEqual({ elementDetails: { xpath: '//a' } })
   })
 
+  it('keeps the stored config when an update sets it to undefined', async () => {
+    await applySidePanelDataUpdates(1, {
+      currentScrapeConfig: { mainSelector: '//div', columns: [] },
+    })
+
+    await applySidePanelDataUpdates(1, { currentScrapeConfig: undefined })
+
+    expect((await read(1)).currentScrapeConfig).toEqual({ mainSelector: '//div', columns: [] })
+  })
+
   it('keeps guessed columns stored after the panel read its config when the panel edits the selector', async () => {
     const shownInPanel: ScrapeConfig = {
       mainSelector: '//div',

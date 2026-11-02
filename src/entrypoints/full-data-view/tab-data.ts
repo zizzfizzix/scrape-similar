@@ -1,3 +1,4 @@
+import { DEFAULT_SCRAPE_CONFIG } from '@/utils/scrape-config'
 import log from 'loglevel'
 
 /**
@@ -16,12 +17,6 @@ export interface TabData {
   config: ScrapeConfig
 }
 
-/** Config assumed when a tab has data but no record of what produced it. */
-const FALLBACK_CONFIG: ScrapeConfig = {
-  mainSelector: '',
-  columns: [{ name: 'Text', selector: '.' }],
-}
-
 /**
  * The config the stored data is actually laid out by.
  *
@@ -29,7 +24,7 @@ const FALLBACK_CONFIG: ScrapeConfig = {
  * the main selector only describe the rows that were scraped with them.
  */
 export const resolveTabConfig = (state: SidePanelConfig): ScrapeConfig =>
-  state.resultProducingConfig || state.currentScrapeConfig || FALLBACK_CONFIG
+  state.resultProducingConfig || state.currentScrapeConfig || DEFAULT_SCRAPE_CONFIG
 
 export const hasScrapedRows = (state: SidePanelConfig | null): boolean =>
   !!state?.scrapeResult?.data && state.scrapeResult.data.length > 0
