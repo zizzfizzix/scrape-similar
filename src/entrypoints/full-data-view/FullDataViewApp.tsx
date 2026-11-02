@@ -330,16 +330,17 @@ export const FullDataViewApp: React.FC = () => {
   // renders once at least one tab has data, and a tab is only ever deselected
   // by the same change that empties that list.
   const handleBackToTab = async () => {
+    const tabId = currentTabId!
     try {
       // Track the back to tab action
       trackEvent(ANALYTICS_EVENTS.FULL_DATA_VIEW_BACK_TO_TAB)
 
-      await browser.tabs.update(currentTabId!, { active: true })
+      await browser.tabs.update(tabId, { active: true })
 
       // Reopen the sidepanel for the original tab
       try {
-        await browser.sidePanel.open({ tabId: currentTabId! })
-        log.debug(`Sidepanel reopened for tab ${currentTabId}`)
+        await browser.sidePanel.open({ tabId })
+        log.debug(`Sidepanel reopened for tab ${tabId}`)
       } catch (sidePanelError) {
         log.warn('Failed to reopen sidepanel:', sidePanelError)
         // Don't show error to user as this is not critical
@@ -752,7 +753,7 @@ export const FullDataViewApp: React.FC = () => {
                       .getFilteredSelectedRowModel()
                       .rows.map((row) => row.original)}
                     buildFilename={(now) =>
-                      `${shownTab.tabTitle} - ${now.toISOString().split('T')[0]}`
+                      `${shownTab.tabTitle} - ${now.toISOString().slice(0, 10)}`
                     }
                     size="sm"
                     variant="outline"

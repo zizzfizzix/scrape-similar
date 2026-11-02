@@ -289,8 +289,9 @@ test.describe('Onboarding Demo Scrape', () => {
     await waitForDemoData(sidepanelPage)
 
     const demoConfigAfter = await serviceWorker.evaluate(async (tid) => {
-      const result = await chrome.storage.local.get(`demo_scrape_pending_${tid}`)
-      return result[`demo_scrape_pending_${tid}`]
+      const key = `demo_scrape_pending_${String(tid)}`
+      const result = await chrome.storage.local.get(key)
+      return result[key]
     }, tabId)
 
     expect(demoConfigAfter).toBeUndefined()

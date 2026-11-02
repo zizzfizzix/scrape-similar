@@ -18,7 +18,7 @@ const handleGetTabId: MessageHandler = (message, sender, sendResponse) => {
  * Handle TRACK_EVENT message - track analytics event from content script
  */
 const handleTrackEvent: MessageHandler = (message, sender, sendResponse) => {
-  const tabId = sender.tab?.id
+  const tabId = sender.tab!.id!
   const { eventName, properties } = message.payload as Partial<TrackEventPayload>
   if (eventName) {
     trackContentScriptEvent(eventName, { ...properties })
@@ -34,7 +34,7 @@ const handleTrackEvent: MessageHandler = (message, sender, sendResponse) => {
  * Handle GET_DEBUG_MODE message - return current debug mode status
  */
 const handleGetDebugMode: MessageHandler = async (message, sender, sendResponse) => {
-  const tabId = sender.tab?.id
+  const tabId = sender.tab!.id!
   log.debug(`Content script in tab ${tabId} requested debug mode status`)
   const isDebugModeEnabled = await debugModeItem.getValue()
   sendResponse({ success: true, debugMode: isDebugModeEnabled })

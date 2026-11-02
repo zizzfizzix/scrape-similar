@@ -31,7 +31,7 @@ export const injectContentScriptToAllTabs = async (): Promise<void> => {
       } catch (error) {
         // Ignore errors for restricted pages
         log.warn(
-          `Failed to inject content script into tab ${tab.id} with url ${tab.url}:`,
+          `Failed to inject content script into tab ${String(tab.id)} with url ${String(tab.url)}:`,
           (error as typeof browser.runtime.lastError)?.message,
         )
       }

@@ -119,7 +119,7 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
 
       if (browser.runtime.lastError) {
         log.error('🔥 ExportButtons: Runtime error:', browser.runtime.lastError)
-        notify.error(`Connection error: ${browser.runtime.lastError.message}`)
+        notify.error(`Connection error: ${browser.runtime.lastError.message ?? 'unknown error'}`)
         trackEvent(ANALYTICS_EVENTS.EXPORT_TO_SHEETS_FAILURE, {
           [ANALYTICS_PROPERTIES.ERROR]: browser.runtime.lastError.message,
         })

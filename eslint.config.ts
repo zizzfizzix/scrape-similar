@@ -27,17 +27,11 @@ import { noContentScriptLock } from './tools/eslint-rules/no-content-script-lock
  * thing `pnpm compile` runs — keeps the `tsc` name. Neither package shadows the
  * other's binary. See the README for when that indirection can come out.
  *
- * Type-aware linting is switched on (`projectService`). What is on from it is
- * the rules this codebase already passes (ALREADY_CLEAN), the correctness,
- * stylistic, assertion, unsafe-`any`, promise, unbound-method,
- * nullish-coalescing, unnecessary-condition, confusing-void and inert-function
- * rules (CORRECTNESS_RULES, TIDY_RULES, ASSERTION_RULES, UNSAFE_ANY_RULES,
- * PROMISE_RULES, UNBOUND_METHOD, NULLISH_COALESCING, UNNECESSARY_CONDITION,
- * CONFUSING_VOID, INERT_FUNCTION_RULES) and the boolean naming rule; the
- * rest is a backlog tracked in #282, and any rule held off with violations to
- * fix goes in DEFERRED below with the count it has. A rule that is wrong for
- * this codebase rather than merely unfixed goes in OFF_ON_MERITS instead, which
- * is not a worklist, or in OFF_ON_MERITS_IN_TESTS when it is wrong only there.
+ * TypeScript files get typescript-eslint's `strictTypeChecked` and
+ * `stylisticTypeChecked` (#282). What departs from them is listed here:
+ * PRESET_OPTIONS where a preset rule takes other options, BEYOND_PRESETS for
+ * typed rules neither preset ships, and OFF_ON_MERITS / OFF_ON_MERITS_IN_TESTS
+ * for rules that are wrong for this codebase.
  */
 
 const TEST_FILES = [
@@ -111,50 +105,47 @@ const restrictedSyntax = (
   'no-restricted-syntax': ['error', ...selectors],
 })
 
-/**
- * Typed rules from `strictTypeChecked` and `stylisticTypeChecked` that this
- * codebase already satisfies, so they cost nothing to switch on and only ever
- * fail on something new. Kept as an explicit list rather than by extending
- * those two configs, because the rest of them is a backlog rather than a
- * decision — see #282 for the ladder and what each remaining rule would cost.
- *
- * Rules that cannot fire here are left out rather than listed: the enum and
- * class ones (both banned by convention) and `ban-tslint-comment`.
- */
-const ALREADY_CLEAN: Linter.RulesRecord = {
-  '@typescript-eslint/adjacent-overload-signatures': 'error',
-  '@typescript-eslint/consistent-generic-constructors': 'error',
-  '@typescript-eslint/consistent-type-assertions': 'error',
-  '@typescript-eslint/dot-notation': 'error',
-  '@typescript-eslint/no-array-delete': 'error',
-  // `${obj}` where `obj` has no useful `toString` — "[object Object]" in a log
-  // line or, worse, in an exported cell.
-  '@typescript-eslint/no-base-to-string': 'error',
-  '@typescript-eslint/no-confusing-non-null-assertion': 'error',
-  // Fires when a dependency marks something `@deprecated`, which is the only
-  // warning WXT or Radix gives before removing it.
-  '@typescript-eslint/no-deprecated': 'error',
-  '@typescript-eslint/no-duplicate-type-constituents': 'error',
-  '@typescript-eslint/no-dynamic-delete': 'error',
-  '@typescript-eslint/no-for-in-array': 'error',
-  // The `eval` ban in CLAUDE.md, for the spellings `no-eval` does not see.
-  '@typescript-eslint/no-implied-eval': 'error',
-  '@typescript-eslint/no-meaningless-void-operator': 'error',
-  '@typescript-eslint/no-non-null-asserted-nullish-coalescing': 'error',
-  '@typescript-eslint/no-redundant-type-constituents': 'error',
-  '@typescript-eslint/no-unnecessary-type-arguments': 'error',
-  '@typescript-eslint/no-unsafe-unary-minus': 'error',
-  '@typescript-eslint/prefer-find': 'error',
-  '@typescript-eslint/prefer-for-of': 'error',
-  '@typescript-eslint/prefer-function-type': 'error',
-  '@typescript-eslint/prefer-includes': 'error',
-  '@typescript-eslint/prefer-reduce-type-parameter': 'error',
-  '@typescript-eslint/prefer-string-starts-ends-with': 'error',
-  '@typescript-eslint/restrict-plus-operands': 'error',
-  // The option `strictTypeChecked` uses: flag only the `return await` that
-  // changes error handling, not the one that is merely redundant.
-  '@typescript-eslint/return-await': ['error', 'error-handling-correctness-only'],
-  '@typescript-eslint/unified-signatures': 'error',
+const PRESET_OPTIONS: Linter.RulesRecord = {
+  // `a || b` also falls back on `0` and `false`. An empty string means "none"
+  // wherever this codebase falls back from one, so strings keep `||`. Setting
+  // any `ignorePrimitives` flag also exempts unions with a string member and
+  // `any` / `unknown` operands, so an `||` on those passes unread.
+  '@typescript-eslint/prefer-nullish-coalescing': ['error', { ignorePrimitives: { string: true } }],
+  // A number prints as itself. Options merge with the rule's own defaults,
+  // which allow every type, not with the preset's, so the rest are restated.
+  '@typescript-eslint/restrict-template-expressions': [
+    'error',
+    {
+      allowNumber: true,
+      allowAny: false,
+      allowBoolean: false,
+      allowNever: false,
+      allowNullish: false,
+      allowRegExp: false,
+    },
+  ],
+  // Without the exemption the rule reports 318 sites, nearly all
+  // `onClick={() => doThing()}`, whose return value nothing reads.
+  '@typescript-eslint/no-confusing-void-expression': ['error', { ignoreArrowShorthand: true }],
+  '@typescript-eslint/no-unused-vars': [
+    'error',
+    { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' },
+  ],
+}
+
+const BEYOND_PRESETS: Linter.RulesRecord = {
+  // A `switch` over an `as const` union (the enum replacement) names every
+  // member, so adding one fails here rather than falling into a `default`.
+  '@typescript-eslint/switch-exhaustiveness-check': 'error',
+  // Property signatures get parameter types checked contravariantly; method
+  // signatures are bivariant.
+  '@typescript-eslint/method-signature-style': 'error',
+  // `[10, 9, 1].sort()` sorts as strings: `[1, 10, 9]`.
+  '@typescript-eslint/require-array-sort-compare': 'error',
+  // `consistent-type-imports` and `consistent-type-exports` are left out:
+  // `verbatimModuleSyntax` already makes `tsc` require `import type` and
+  // `export type`, and the only other thing the import rule reports is
+  // `importOriginal<typeof import('…')>()`, Vitest's documented mock idiom.
 }
 
 /**
@@ -187,167 +178,6 @@ const BOOLEAN_PREFIX: Linter.RulesRecord = {
     },
   ],
 }
-
-/**
- * Typed rules that catch a value of the wrong kind reaching a throw, a
- * rejection, a spread, a comparison or a template string (#375).
- */
-const CORRECTNESS_RULES: Linter.RulesRecord = {
-  // Throwing or rejecting with something that is not an `Error` loses the
-  // stack trace. Code that has to pass a non-`Error` on (a test of that branch,
-  // a stand-in for an API that does) disables these on the line with the reason.
-  '@typescript-eslint/only-throw-error': 'error',
-  '@typescript-eslint/prefer-promise-reject-errors': 'error',
-  // Spreading a class instance copies only its own enumerable properties:
-  // `{ ...navigator }` copies none, because they are prototype getters.
-  '@typescript-eslint/no-misused-spread': 'error',
-  '@typescript-eslint/no-unsafe-enum-comparison': 'error',
-  '@typescript-eslint/restrict-template-expressions': 'error',
-  '@typescript-eslint/use-unknown-in-catch-callback-variable': 'error',
-}
-
-/**
- * Typed stylistic and redundancy rules (#376): one spelling for each construct,
- * and no conversion, annotation, default, type parameter, constructor, class,
- * template or boolean comparison that has no effect.
- */
-const TIDY_RULES: Linter.RulesRecord = {
-  // `T[]` is what the codebase already writes; `Array<T>` was the exception.
-  '@typescript-eslint/array-type': ['error', { default: 'array' }],
-  // An index signature becomes a `Record` alias rather than an interface; a
-  // map type has no members to extend or merge.
-  '@typescript-eslint/consistent-indexed-object-style': 'error',
-  '@typescript-eslint/no-extraneous-class': 'error',
-  '@typescript-eslint/no-inferrable-types': 'error',
-  '@typescript-eslint/no-invalid-void-type': 'error',
-  '@typescript-eslint/no-unnecessary-boolean-literal-compare': 'error',
-  '@typescript-eslint/no-unnecessary-template-expression': 'error',
-  '@typescript-eslint/no-unnecessary-type-conversion': 'error',
-  '@typescript-eslint/no-unnecessary-type-parameters': 'error',
-  '@typescript-eslint/no-useless-constructor': 'error',
-  '@typescript-eslint/no-useless-default-assignment': 'error',
-  '@typescript-eslint/prefer-optional-chain': 'error',
-  '@typescript-eslint/prefer-regexp-exec': 'error',
-}
-
-/**
- * Type assertions that say nothing the checker does not already know (#377).
- *
- * Their fixers write code that does not compile in four places, each of which
- * states its type another way. `no-unnecessary-type-assertion` misreads a `let`
- * initialised to `null` with no annotation (it sees the narrowed type, not the
- * evolving one: annotate it), a cast from `unknown` wrapped in `?? undefined`
- * (cast the value itself), and a cast in a mock that widens a property later
- * writes rely on (`vi.hoisted<T>`). `non-nullable-type-assertion-style` turns
- * `querySelector(s) as HTMLElement` into `!`, which drops the type the call
- * inferred from the cast (`querySelector<HTMLElement>(s)!`).
- */
-const ASSERTION_RULES: Linter.RulesRecord = {
-  '@typescript-eslint/no-unnecessary-type-assertion': 'error',
-  '@typescript-eslint/non-nullable-type-assertion-style': 'error',
-}
-
-/**
- * An `any` reaching a typed position (#378). Explicit `any` is banned, so what
- * these catch comes from untyped sources: `JSON.parse`, a `vi.fn()` with no
- * signature, a `sendMessage` reply with no annotation on the receiver, and
- * Vitest's asymmetric matchers when one is an object-literal property.
- */
-const UNSAFE_ANY_RULES: Linter.RulesRecord = {
-  '@typescript-eslint/no-unsafe-argument': 'error',
-  '@typescript-eslint/no-unsafe-assignment': 'error',
-  '@typescript-eslint/no-unsafe-call': 'error',
-  '@typescript-eslint/no-unsafe-member-access': 'error',
-  '@typescript-eslint/no-unsafe-return': 'error',
-}
-
-/**
- * None ships in `tseslint.configs.recommended`, so all are enabled here.
- */
-const PROMISE_RULES: Linter.RulesRecord = {
-  // An `await` on a value that is not a promise is how a caller ends up not
-  // waiting for work it means to wait for, e.g. a prop typed `=> void` that the
-  // child awaits. `act` with a synchronous callback is typed `void` but returns
-  // a thenable that waits a macrotask, so a test that needs that wait says so
-  // with `settleEffects`.
-  '@typescript-eslint/await-thenable': 'error',
-  // `void task` passes this rule; NO_VOID is what rejects it.
-  '@typescript-eslint/no-floating-promises': 'error',
-  // Every option on, `checksVoidReturn.attributes` included. An async
-  // `onClick` looks idiomatic, and would be if the alternative were
-  // `onClick={() => void handle()}` — the same dropped rejection, more syntax.
-  // The alternative is `reportRejection`, which reports what the handler threw.
-  '@typescript-eslint/no-misused-promises': 'error',
-}
-
-/**
- * A method passed by reference loses `this` (#379). WXT's storage items are
- * built from closures and would survive it, but their type declares methods,
- * so callers wrap them in arrows rather than lean on how they are built. Test
- * files take `vitest/unbound-method` instead, which reads `expect(obj.method)`
- * and `vi.mocked(obj.method)` as the assertions they are.
- */
-const UNBOUND_METHOD: Linter.RulesRecord = {
-  '@typescript-eslint/unbound-method': 'error',
-}
-
-/**
- * `a || b` falls back on `''`, `0` and `false` as well as on null and
- * undefined (#380). Strings are exempt: an empty error message, URL, title,
- * column key or attribute value means "none" everywhere in this codebase, so
- * `||` is the intended fallback for every one of them. Other types use `??`,
- * or keep `||` with a disable that says why the falsy value falls back. Setting
- * any `ignorePrimitives` flag also exempts a union with a string member and an
- * operand typed `any` or `unknown` (a message payload), so an `||` on those
- * passes unread.
- */
-const NULLISH_COALESCING: Linter.RulesRecord = {
-  '@typescript-eslint/prefer-nullish-coalescing': ['error', { ignorePrimitives: { string: true } }],
-}
-
-/**
- * A condition the types say cannot go the other way (#381). Where the runtime
- * value can be wider than its type — a message payload, a callback argument
- * left unset alongside `lastError`, a DOM property read before the page has
- * built it — widen the type at the cast or annotation so the guard has
- * something to check, rather than disabling the rule. Where it cannot, the
- * branch is dead: delete it along with any test that faked its input.
- */
-const UNNECESSARY_CONDITION: Linter.RulesRecord = {
-  '@typescript-eslint/no-unnecessary-condition': 'error',
-}
-
-/**
- * A void call used as a value (#382). Arrow shorthands are exempt: without
- * the exemption the rule reports 318 sites, nearly all
- * `onClick={() => doThing()}`, where the arrow's return value is never read,
- * and rewriting each into a block body buys no safety. A test that a void function returns nothing at run time
- * calls it through a type returning `unknown`: a function returning a promise
- * is assignable to a void-returning type, so its signature does not rule out
- * the promise.
- */
-const CONFUSING_VOID: Linter.RulesRecord = {
-  '@typescript-eslint/no-confusing-void-expression': ['error', { ignoreArrowShorthand: true }],
-}
-
-/**
- * An `async` function that never awaits, and a function with an empty body
- * (#383). Everything but tests, which are exempt in OFF_ON_MERITS_IN_TESTS.
- * An empty function that is a deliberate no-op says why in a comment inside
- * its body, which the rule accepts.
- */
-const INERT_FUNCTION_RULES: Linter.RulesRecord = {
-  '@typescript-eslint/require-await': 'error',
-  '@typescript-eslint/no-empty-function': 'error',
-}
-
-/**
- * Rules worth having that no longer fit in the diff that turned the linter on.
- * Each is off with the number of violations it reports today, so re-enabling one
- * is a line here plus the fixes it names — and so the count is a claim a reviewer
- * can check rather than an impression. Each names the issue that tracks it.
- */
-const DEFERRED: Linter.RulesRecord = {}
 
 /**
  * Rules that are off because they are wrong for this codebase, rather than off
@@ -384,8 +214,6 @@ const OFF_ON_MERITS = {
   // vitest does, and fails with a clearer message, at the assertion rather than
   // at a later use of the value, but the rule would demand that extra line
   // at 342 sites only to improve the message of a test that is already failing.
-  // Only the `strict`, `strictTypeChecked` and `all` presets ship the rule; it
-  // is listed so the decision survives a move to one of them.
   '@typescript-eslint/no-non-null-assertion': 'off',
 } as const
 
@@ -426,7 +254,7 @@ export default defineConfig([
 
   {
     files: ['**/*.{ts,tsx}'],
-    extends: [tseslint.configs.recommended],
+    extends: [tseslint.configs.strictTypeChecked, tseslint.configs.stylisticTypeChecked],
     languageOptions: {
       parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
     },
@@ -445,23 +273,9 @@ export default defineConfig([
       // `== null` is the deliberate "null or undefined" check; everything else
       // compares by identity.
       eqeqeq: ['error', 'always', { null: 'ignore' }],
-      ...ALREADY_CLEAN,
-      ...CORRECTNESS_RULES,
-      ...TIDY_RULES,
-      ...ASSERTION_RULES,
-      ...UNSAFE_ANY_RULES,
-      ...PROMISE_RULES,
-      ...UNBOUND_METHOD,
-      ...NULLISH_COALESCING,
-      ...UNNECESSARY_CONDITION,
-      ...CONFUSING_VOID,
-      ...INERT_FUNCTION_RULES,
+      ...PRESET_OPTIONS,
+      ...BEYOND_PRESETS,
       ...BOOLEAN_PREFIX,
-      '@typescript-eslint/no-unused-vars': [
-        'error',
-        { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' },
-      ],
-      '@typescript-eslint/consistent-type-definitions': ['error', 'interface'],
     },
   },
 
@@ -603,6 +417,8 @@ export default defineConfig([
       'vitest/valid-expect': ['error', { maxArgs: 2 }],
       // A test whose assertion sits in a helper still asserts.
       'vitest/expect-expect': ['error', { assertFunctionNames: ['expect', 'expect*', 'waitFor*'] }],
+      // Reads `expect(obj.method)` and `vi.mocked(obj.method)` as the
+      // assertions they are.
       '@typescript-eslint/unbound-method': 'off',
       'vitest/unbound-method': 'error',
     },
@@ -630,6 +446,6 @@ export default defineConfig([
 
   // These two last, so they win over any shared config above that switches
   // one of these rules on.
-  { files: ['**/*.{ts,tsx}'], rules: { ...DEFERRED, ...OFF_ON_MERITS } },
+  { files: ['**/*.{ts,tsx}'], rules: OFF_ON_MERITS },
   { files: [...TEST_FILES, 'tests/e2e/**/*.ts'], rules: OFF_ON_MERITS_IN_TESTS },
 ])

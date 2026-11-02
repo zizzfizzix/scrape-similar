@@ -63,7 +63,7 @@ export const describeExportScope = ({
 
 /** Default download name, dated so repeated exports do not collide. */
 export const defaultExportFilename = (now: Date): string =>
-  `Data Export - ${now.toISOString().split('T')[0]}`
+  `Data Export - ${now.toISOString().slice(0, 10)}`
 
 /** Quote a CSV field, doubling any embedded quotes. */
 const toCsvField = (value: string): string => `"${value.replace(/"/g, '""')}"`

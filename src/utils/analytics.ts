@@ -373,7 +373,7 @@ const capture = async (
         break
       }
 
-      default: {
+      case EXTENSION_CONTEXTS.UNKNOWN: {
         log.warn(`Unknown context for tracking event: ${context}. Not tracking event.`, {
           eventName,
           properties: eventProperties,

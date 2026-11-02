@@ -89,8 +89,9 @@ const FullDataViewControls: React.FC<{
 
       // Close the current full-data-view tab. This view only renders for a tab
       // the panel resolved, so its id is always known here.
-      await browser.tabs.remove(currentTabId!)
-      log.debug(`Closed full-data-view tab ${currentTabId}`)
+      const fullDataViewTabId = currentTabId!
+      await browser.tabs.remove(fullDataViewTabId)
+      log.debug(`Closed full-data-view tab ${fullDataViewTabId}`)
     } catch (tabError) {
       toast.error('Target tab does not exist')
       log.error(`Tab ${tabId} does not exist:`, tabError)

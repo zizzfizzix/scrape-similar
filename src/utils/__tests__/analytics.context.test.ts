@@ -202,18 +202,18 @@ describe('captureEvent – context specific behaviour', () => {
   })
 
   it('reports "N/A" for the URL when an unknown context has no window', async () => {
-    currentContext = 'martian_context'
+    currentContext = contextDetection.EXTENSION_CONTEXTS.UNKNOWN
     const warnSpy = vi.spyOn(log, 'warn').mockImplementation(() => {})
     testGlobal.window = undefined
 
     await captureEvent(EVENT_NAME)
 
     const [, details] = warnSpy.mock.calls[0] as unknown[]
-    expect(details).toMatchObject({ context: 'martian_context', hasWindow: false, url: 'N/A' })
+    expect(details).toMatchObject({ context: 'unknown', hasWindow: false, url: 'N/A' })
   })
 
   it('reports the page URL for an unknown context that has a window', async () => {
-    currentContext = 'martian_context'
+    currentContext = contextDetection.EXTENSION_CONTEXTS.UNKNOWN
     const warnSpy = vi.spyOn(log, 'warn').mockImplementation(() => {})
     testGlobal.window = { location: { href: 'https://example.com/page' } }
 

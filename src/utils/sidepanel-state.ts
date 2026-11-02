@@ -77,7 +77,7 @@ export const isMainSelectorValidated = ({
  * repeated exports from one page do not overwrite each other.
  */
 export const buildExportFilename = (tabUrl: string | null, now: Date): string => {
-  const dateTime = now.toISOString().replace(/[:.]/g, '-').replace('T', '_').split('Z')[0]
+  const dateTime = now.toISOString().replace(/[:.]/g, '-').replace('T', '_').replace('Z', '')
   const slug = slugify(tabUrl || 'unknown-url', { lower: true, strict: true })
   return `Data export for ${slug} at ${dateTime}`
 }

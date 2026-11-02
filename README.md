@@ -165,10 +165,10 @@ src/
 
 #### Linting, and the two TypeScript packages
 
-ESLint enforces the conventions above, plus the hooks rules and the test-harness
-rules, from `eslint.config.ts`. Rules that report violations today are listed in
-the `DEFERRED` block there with the count each one has, so re-enabling one is a
-line of config and the fixes it names.
+ESLint enforces the conventions above, plus the hooks rules, the test-harness
+rules and typescript-eslint's `strictTypeChecked` and `stylisticTypeChecked`,
+from `eslint.config.ts`. Rules that are off say why there, with the number of
+violations they would report.
 
 Installing it takes one indirection, because TypeScript 7 is a Go rewrite that
 ships no JavaScript compiler API: the `typescript` package exports `version` and
