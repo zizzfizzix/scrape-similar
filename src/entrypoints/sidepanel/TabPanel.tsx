@@ -278,9 +278,10 @@ export const TabPanel = memo(function TabPanel({
 
   // A highlight waits for the write that set its selector, so a write that
   // fails leaves neither the highlight on the page nor its match count stored,
-  // and one superseded on its way does not paint over the newer selector.
+  // and one superseded on its way is not sent.
   const highlightOnceStored = async (selector: string, isStored: Promise<boolean>) => {
-    const wasStored = await isStored
+    // The caller reports a rejected write; here it only means "not stored".
+    const wasStored = await isStored.catch(() => false)
     if (wasStored && selector && shownConfigRef.current.mainSelector === selector) {
       sendHighlight(selector)
     }
@@ -306,6 +307,8 @@ export const TabPanel = memo(function TabPanel({
           notify.error(CONTENT_SCRIPT_UNREACHABLE)
           return
         }
+        // A reply for a selector replaced meanwhile would validate the newer one with its count.
+        if (shownConfigRef.current.mainSelector !== selector) return
 
         if (response?.success === false && response.error) {
           setHighlightMatchCount(undefined)
@@ -361,6 +364,7 @@ export const TabPanel = memo(function TabPanel({
     const loaded = showConfig(preset.config)
     if (tabId !== null) {
       const isStored = writeConfig(tabId, buildConfigReplaceUpdates(loaded), PRESET_NOT_SAVED)
+      reportRejection(isStored)
       reportRejection(highlightOnceStored(loaded.mainSelector, isStored))
     }
 

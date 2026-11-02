@@ -13,6 +13,7 @@ import {
   MESSAGE_TYPES,
   type ColumnDefinition,
   type ColumnEdit,
+  type HighlightReply,
   type Message,
   type Preset,
   type ScrapeConfig,
@@ -692,6 +693,53 @@ describe('TabPanel numbered config writes', () => {
     })
 
     expect(form.props!.highlightMatchCount).toBe(5)
+  })
+
+  it('drops the match count of a highlight whose selector was replaced before it answered', async () => {
+    await render()
+    const { sendMessage, release } = heldBackground()
+    const tabsSendMessage = spyOnBrowser(fakeBrowser.tabs, 'sendMessage').mockImplementation(
+      () => {},
+    )
+
+    commitSelector('//a')
+    await release()
+    const [[, , answerHighlight]] = highlightRequests(tabsSendMessage) as [
+      [number, unknown, (reply: HighlightReply) => void],
+    ]
+    act(() => {
+      form.props!.onMainSelectorChange('//b')
+    })
+    act(() => {
+      answerHighlight({ success: true, matchCount: 3 })
+    })
+
+    expect(form.props!.highlightMatchCount).toBeUndefined()
+    expect(
+      sidePanelWrites(sendMessage).filter(([message]) =>
+        JSON.stringify(message).includes('"highlightMatchCount":3'),
+      ),
+    ).toEqual([])
+  })
+
+  it('reports a write that rejects once, though its highlight waits for it', async () => {
+    await render()
+    spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue({
+      success: false,
+      error: 'Lock timed out',
+    })
+    vi.spyOn(sidePanelConfigItem(TAB_ID), 'getValue').mockRejectedValue(
+      new Error('Storage unavailable'),
+    )
+    const logError = vi.spyOn(log, 'error').mockImplementation(() => {})
+
+    commitSelector('//li')
+    await settleEffects()
+
+    const reported = logError.mock.calls.filter((args) =>
+      args.some((arg) => arg instanceof Error && arg.message === 'Storage unavailable'),
+    )
+    expect(reported).toHaveLength(1)
   })
 
   it('sends nothing without a tab', async () => {
