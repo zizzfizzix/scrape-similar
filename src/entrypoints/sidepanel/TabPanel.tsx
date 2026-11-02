@@ -91,7 +91,7 @@ export const TabPanel = memo(function TabPanel({
     if (tabId === null) return
     const item = sidePanelConfigItem(tabId)
     return subscribeWithBackfill<SidePanelConfig>(
-      { watch: item.watch, read: item.getValue },
+      { watch: (callback) => item.watch(callback), read: () => item.getValue() },
       applyStoredState,
       () => setStoredConfigVersion((version) => version + 1),
     )

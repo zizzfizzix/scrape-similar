@@ -68,13 +68,16 @@ if (typeof window !== 'undefined') {
     window.PointerEvent = JsdomPointerEvent as unknown as typeof window.PointerEvent
   }
 
-  Element.prototype.hasPointerCapture ??= () => false
-  Element.prototype.setPointerCapture ??= () => {}
-  Element.prototype.releasePointerCapture ??= () => {}
-  Element.prototype.scrollIntoView ??= () => {}
+  const stubElementMethod = <K extends keyof Element>(name: K, stub: Element[K]) => {
+    if (typeof Element.prototype[name] !== 'function') Element.prototype[name] = stub
+  }
+  stubElementMethod('hasPointerCapture', () => false)
+  stubElementMethod('setPointerCapture', () => {})
+  stubElementMethod('releasePointerCapture', () => {})
+  stubElementMethod('scrollIntoView', () => {})
   // The autosuggest and the columns strip both scroll their selection into
   // view; jsdom has no layout engine, so these throw rather than no-op.
-  Element.prototype.scrollTo ??= () => {}
+  stubElementMethod('scrollTo', () => {})
 
   if (typeof window.ResizeObserver !== 'function') {
     window.ResizeObserver = class {
