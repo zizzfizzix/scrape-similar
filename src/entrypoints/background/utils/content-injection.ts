@@ -24,6 +24,7 @@ export const injectContentScriptToAllTabs = async (): Promise<void> => {
     for (const file of scriptFiles) {
       try {
         await browser.scripting.executeScript({
+          // `injectableTabs` keeps only tabs with an id.
           target: { tabId: tab.id! },
           files: [file as ScriptPublicPath],
         })
