@@ -1464,18 +1464,27 @@ describe('one panel per tab', () => {
     expect(allMainSelectorInputs()).toHaveLength(1)
   })
 
-  it('evicts the least recently shown panel past the cap and restores it from storage', async () => {
-    view = await render()
-    for (let tabId = 100; tabId < 100 + LIVE_TAB_PANEL_CAP; tabId++) {
-      await switchTo(tabId, OTHER_URL)
-    }
-    expect(allMainSelectorInputs()).toHaveLength(LIVE_TAB_PANEL_CAP)
+  // Mounts a full panel for every tab up to the cap, which on a loaded CI runner
+  // takes longer than the default 5 s; a test that times out keeps switching
+  // tabs underneath the next one.
+  it(
+    'evicts the least recently shown panel past the cap and restores it from storage',
+    {
+      timeout: 30_000,
+    },
+    async () => {
+      view = await render()
+      for (let tabId = 100; tabId < 100 + LIVE_TAB_PANEL_CAP; tabId++) {
+        await switchTo(tabId, OTHER_URL)
+      }
+      expect(allMainSelectorInputs()).toHaveLength(LIVE_TAB_PANEL_CAP)
 
-    await switchTo(TAB_ID)
+      await switchTo(TAB_ID)
 
-    await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
-    expect(allMainSelectorInputs()).toHaveLength(LIVE_TAB_PANEL_CAP)
-  })
+      await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
+      expect(allMainSelectorInputs()).toHaveLength(LIVE_TAB_PANEL_CAP)
+    },
+  )
 
   it('shows the splash for an unsupported tab without dropping the others', async () => {
     view = await render()
