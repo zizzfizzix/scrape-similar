@@ -80,6 +80,7 @@ describe('writeThemeMirror', () => {
 
     expect(warn).toHaveBeenCalledWith('Could not mirror the theme', expect.any(Error))
   })
+
   it('warns instead of throwing when the extension context is gone', () => {
     spyOnBrowser(fakeBrowser.runtime, 'getURL').mockImplementation(() => {
       throw new Error('Extension context invalidated.')

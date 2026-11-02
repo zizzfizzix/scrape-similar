@@ -106,7 +106,7 @@ describe('ThemeProvider', () => {
   })
 
   it('applies the light class to the document root', async () => {
-    // A dark system preference keeps the mount-time system phase from adding `light`.
+    // With a dark system preference, `light` can only come from the stored theme.
     stubPrefersDark(true)
     await storage.setItem('local:theme', 'light')
     view = await renderSettled(
@@ -307,6 +307,7 @@ describe('ThemeProvider', () => {
   })
 
   it('renders nothing and sets no class until the stored theme has loaded', async () => {
+    spyOnBrowser(fakeBrowser.runtime, 'getURL').mockReturnValue(`${location.origin}/`)
     stubPrefersDark(false)
     await storage.setItem('local:theme', 'dark')
     const classesSeen: string[] = []
@@ -323,6 +324,7 @@ describe('ThemeProvider', () => {
     )
 
     expect(view.container).toBeEmptyDOMElement()
+    expect(localStorage.getItem(THEME_MIRROR_KEY)).toBeNull()
     expect(document.documentElement.className).toBe('')
     await expectTheme('dark')
     await flushMicrotasks()
