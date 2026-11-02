@@ -366,7 +366,7 @@ test.describe('Full Data View', () => {
     // This should activate the original tab (testPage should become active)
     // Note: The actual highlighting on the page is harder to test in Playwright
     // but we can verify the tab activation behavior
-    await expect(testPage).toBeTruthy()
+    expect(testPage).toBeTruthy()
   })
 
   test('supports row copying functionality', async ({

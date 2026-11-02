@@ -390,7 +390,7 @@ describe('ExportButtons', () => {
       view = render()
 
       await choose('Export all to Google Sheets')
-      await act(() => {
+      act(() => {
         vi.advanceTimersByTime(SHEETS_EXPORT_TIMEOUT_MS)
       })
 
@@ -423,12 +423,12 @@ describe('ExportButtons', () => {
       view = render()
 
       await choose('Export all to Google Sheets')
-      await act(() => {
+      act(() => {
         vi.advanceTimersByTime(SHEETS_EXPORT_TIMEOUT_MS)
       })
       toastMocks.toast.error.mockClear()
 
-      await act(() => reply!({ success: true, url: 'https://docs.google.com/late' }))
+      act(() => reply!({ success: true, url: 'https://docs.google.com/late' }))
 
       expect(toastMocks.toast.success).toHaveBeenCalledWith(
         'Exported to Google Sheets',
@@ -451,13 +451,13 @@ describe('ExportButtons', () => {
       await choose('Export all to Google Sheets')
 
       view.rerender(inPanel('hidden'))
-      await act(() => {
+      act(() => {
         vi.advanceTimersByTime(SHEETS_EXPORT_TIMEOUT_MS - 1000)
       })
       view.rerender(inPanel('visible'))
       expect(toastMocks.toast.error).not.toHaveBeenCalled()
       // Only the time left runs once shown, not a fresh timeout.
-      await act(() => {
+      act(() => {
         vi.advanceTimersByTime(1000)
       })
 

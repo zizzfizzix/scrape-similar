@@ -28,11 +28,11 @@ import { noContentScriptLock } from './tools/eslint-rules/no-content-script-lock
  * other's binary. See the README for when that indirection can come out.
  *
  * Type-aware linting is switched on (`projectService`). What is on from it is
- * the rules this codebase already passes (ALREADY_CLEAN), the promise pair
- * (PROMISE_RULES) and the boolean naming rule; the rest is staged in DEFERRED
- * below with the violation count each one has today. A rule that is wrong for
- * this codebase rather than merely unfixed goes in OFF_ON_MERITS instead, which
- * is not a worklist.
+ * the rules this codebase already passes (ALREADY_CLEAN), the promise rules
+ * (PROMISE_RULES) and the boolean naming rule; the rest is a backlog tracked in
+ * #282, and any rule held off with violations to fix goes in DEFERRED below with
+ * the count it has. A rule that is wrong for this codebase rather than merely
+ * unfixed goes in OFF_ON_MERITS instead, which is not a worklist.
  */
 
 const TEST_FILES = [
@@ -182,9 +182,15 @@ const BOOLEAN_PREFIX: Linter.RulesRecord = {
 }
 
 /**
- * Neither ships in `tseslint.configs.recommended`, so both are enabled here.
+ * None ships in `tseslint.configs.recommended`, so all are enabled here.
  */
 const PROMISE_RULES: Linter.RulesRecord = {
+  // An `await` on a value that is not a promise is how a caller ends up not
+  // waiting for work it means to wait for, e.g. a prop typed `=> void` that the
+  // child awaits. `act` with a synchronous callback is typed `void` but returns
+  // a thenable that waits a macrotask, so a test that needs that wait says so
+  // with `settleEffects`.
+  '@typescript-eslint/await-thenable': 'error',
   // `void task` passes this rule; NO_VOID is what rejects it.
   '@typescript-eslint/no-floating-promises': 'error',
   // Every option on, `checksVoidReturn.attributes` included. An async
@@ -200,13 +206,7 @@ const PROMISE_RULES: Linter.RulesRecord = {
  * is a line here plus the fixes it names — and so the count is a claim a reviewer
  * can check rather than an impression. Each names the issue that tracks it.
  */
-const DEFERRED = {
-  // 152, none in extension code: 147 in unit tests, all but one an `await` on a
-  // synchronous `act` (66 directly, 80 through a `focusField` / `press` helper),
-  // and 5 in e2e. On for extension code, which is clean, by the block after this
-  // one. #282.
-  '@typescript-eslint/await-thenable': 'off',
-} as const
+const DEFERRED: Linter.RulesRecord = {}
 
 /**
  * Rules that are off because they are wrong for this codebase, rather than off
@@ -443,13 +443,4 @@ export default defineConfig([
 
   // Last, so it wins over the shared configs above that switch these on.
   { files: ['**/*.{ts,tsx}'], rules: { ...DEFERRED, ...OFF_ON_MERITS } },
-
-  {
-    // After DEFERRED, which holds it off for the tests. An `await` on a value
-    // that is not a promise is how a caller ends up not waiting for work it
-    // means to wait for, e.g. a prop typed `=> void` that the child awaits.
-    files: ['src/**/*.{ts,tsx}'],
-    ignores: TEST_FILES,
-    rules: { '@typescript-eslint/await-thenable': 'error' },
-  },
 ])

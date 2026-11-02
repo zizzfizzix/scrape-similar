@@ -17,7 +17,7 @@ import {
 import { outlastBlurCommit } from '@@/tests/support/blur-commit'
 import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
 import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
-import { renderSettled } from '@@/tests/support/settle'
+import { renderSettled, settleEffects } from '@@/tests/support/settle'
 import { act, fireEvent, screen, waitFor, type RenderResult } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import log from 'loglevel'
@@ -383,9 +383,10 @@ describe('without a tab to talk to', () => {
       undefined as never,
     )
 
-    await act(() =>
+    act(() =>
       view.container.querySelector<HTMLButtonElement>('button[aria-label="Add column"]')!.click(),
     )
+    await settleEffects()
 
     expect(sendMessage).not.toHaveBeenCalled()
   })
@@ -394,7 +395,7 @@ describe('without a tab to talk to', () => {
     const sendMessage = contentScriptReplies({ success: true })
     view = await render()
 
-    await act(() =>
+    act(() =>
       view.container
         .querySelector<HTMLButtonElement>('button[aria-label="Open visual picker"]')!
         .click(),
@@ -418,9 +419,10 @@ describe('without a tab to talk to', () => {
     const sendMessage = contentScriptReplies({ success: true })
     view = await render()
 
-    await act(() =>
+    act(() =>
       view.container.querySelector<HTMLButtonElement>('button[aria-label="Add column"]')!.click(),
     )
+    await settleEffects()
 
     expect(sendMessage).not.toHaveBeenCalled()
   })
@@ -965,7 +967,7 @@ describe('talking to the content script', () => {
     view = await render()
     contentScriptReplies(undefined, { message: 'port closed' })
 
-    await act(() =>
+    act(() =>
       view.container
         .querySelector<HTMLButtonElement>('button[aria-label="Open visual picker"]')!
         .click(),
@@ -978,7 +980,7 @@ describe('talking to the content script', () => {
     view = await render()
     const sendMessage = contentScriptReplies({ success: true })
 
-    await act(() =>
+    act(() =>
       view.container
         .querySelector<HTMLButtonElement>('button[aria-label="Open visual picker"]')!
         .click(),
@@ -1035,7 +1037,7 @@ describe('talking to the content script', () => {
     )
     contentScriptReplies({ success: true })
 
-    await act(() =>
+    act(() =>
       view.container
         .querySelector<HTMLButtonElement>('button[aria-label="Highlight this element"]')!
         .click(),
@@ -1048,7 +1050,7 @@ describe('talking to the content script', () => {
     view = await render()
     contentScriptReplies({ success: false })
 
-    await act(() =>
+    act(() =>
       view.container
         .querySelector<HTMLButtonElement>('button[aria-label="Open visual picker"]')!
         .click(),
@@ -1074,7 +1076,7 @@ describe('talking to the content script', () => {
     )
     contentScriptReplies(undefined, { message: 'port closed' })
 
-    await act(() =>
+    act(() =>
       view.container
         .querySelector<HTMLButtonElement>('button[aria-label="Highlight this element"]')!
         .click(),

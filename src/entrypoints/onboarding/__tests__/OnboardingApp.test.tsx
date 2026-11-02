@@ -3,7 +3,7 @@ import { ANALYTICS_EVENTS } from '@/utils/analytics'
 import { getConsentState } from '@/utils/consent'
 import { MESSAGE_TYPES } from '@/utils/types'
 import { spyOnBrowser } from '@@/tests/support/fake-browser'
-import { renderSettled } from '@@/tests/support/settle'
+import { renderSettled, settleEffects } from '@@/tests/support/settle'
 import { type RenderResult, act } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
@@ -69,7 +69,11 @@ const hasButton = (text: string) =>
     candidate.textContent?.trim().startsWith(text),
   )
 
-const press = (text: string) => act(() => byText(text).click())
+/** Click a button and settle any async work its handler starts. */
+const press = async (text: string) => {
+  act(() => byText(text).click())
+  await settleEffects()
+}
 
 /** Step forward until the last slide's Start button appears. */
 const goToLastSlide = async () => {

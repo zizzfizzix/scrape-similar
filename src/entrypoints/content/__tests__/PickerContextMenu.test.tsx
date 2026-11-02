@@ -124,7 +124,7 @@ describe('PickerContextMenu', () => {
     view = render()
     const event = new MouseEvent('contextmenu', { bubbles: true, cancelable: true })
 
-    await act(() => {
+    act(() => {
       menu(view.container).dispatchEvent(event)
     })
 

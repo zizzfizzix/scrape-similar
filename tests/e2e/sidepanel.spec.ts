@@ -45,7 +45,7 @@ test.describe('Sidepanel Core Functionality', () => {
   }) => {
     const sidePanel = await openSidePanel()
 
-    await expect(sidePanel).toBeTruthy()
+    expect(sidePanel).toBeTruthy()
 
     const testPage = await context.newPage()
     await testPage.goto(fixturePageUrl(SCRAPE_TARGET_PAGE))

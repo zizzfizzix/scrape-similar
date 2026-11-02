@@ -7,7 +7,7 @@ import { ConsentWrapper } from '@/components/ConsentWrapper'
 import { getConsentState } from '@/utils/consent'
 import { reportRejection } from '@/utils/report-rejection'
 import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
-import { renderSettled as render } from '@@/tests/support/settle'
+import { renderSettled as render, settleEffects } from '@@/tests/support/settle'
 import { type RenderResult, act, render as renderComponent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
@@ -101,9 +101,10 @@ describe('ConsentProvider', () => {
   it('persists a decision made through the context', async () => {
     view = await render(withProvider(<Probe />))
 
-    await act(() => {
+    act(() => {
       view.container.querySelector<HTMLButtonElement>('[data-testid="probe"]')!.click()
     })
+    await settleEffects()
 
     expect(await getConsentState()).toBe(true)
     expect(probeText()).toBe(JSON.stringify({ loading: false, state: true }))
@@ -255,7 +256,7 @@ describe('ConsentCard', () => {
     const cross = stubMatchMedia(false)
     view = await render(withProvider(<ConsentCard />))
 
-    await act(() => {
+    act(() => {
       cross(true)
     })
 
@@ -314,9 +315,10 @@ describe('ConsentModal', () => {
     const onConsentChange = vi.fn()
     view = await render(withProvider(<ConsentModal onConsentChange={onConsentChange} />))
 
-    await act(() => {
+    act(() => {
       view.container.querySelector<HTMLButtonElement>('button:last-of-type')!.click()
     })
+    await settleEffects()
 
     expect(onConsentChange).toHaveBeenCalledWith(true)
   })
@@ -374,9 +376,10 @@ describe('ConsentWrapper', () => {
   it('swaps the modal for the app when the user decides', async () => {
     view = await render(withProvider(<ConsentWrapper>{child}</ConsentWrapper>))
 
-    await act(() => {
+    act(() => {
       view.container.querySelector<HTMLButtonElement>('button:last-of-type')!.click()
     })
+    await settleEffects()
 
     expect(view.container.textContent).toBe('The app')
   })

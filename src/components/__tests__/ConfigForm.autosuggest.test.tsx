@@ -106,21 +106,21 @@ describe('the autosuggest dropdown', () => {
     it('opens on ArrowDown and highlights the first entry', async () => {
       view = await render({ presets })
       // Focus opens it, so close it again to start from a shut dropdown.
-      await focusField()
-      await press('Escape')
+      focusField()
+      press('Escape')
       expect(suggestionItems()).toHaveLength(0)
 
-      await press('ArrowDown')
+      press('ArrowDown')
 
       await waitFor(() => expect(selectedSuggestion()?.textContent).toContain('Table rows'))
     })
 
     it('opens on ArrowUp and highlights the last entry', async () => {
       view = await render({ presets })
-      await focusField()
-      await press('Escape')
+      focusField()
+      press('Escape')
 
-      await press('ArrowUp')
+      press('ArrowUp')
 
       await waitFor(() => expect(selectedSuggestion()?.textContent).toContain('All links'))
     })
@@ -129,23 +129,23 @@ describe('the autosuggest dropdown', () => {
   describe('moving through an open dropdown', () => {
     it('walks down the list and wraps at the end', async () => {
       view = await render({ presets })
-      await focusField()
+      focusField()
 
-      await press('ArrowDown')
+      press('ArrowDown')
       await waitFor(() => expect(selectedSuggestion()?.textContent).toContain('Table rows'))
 
-      await press('ArrowDown')
+      press('ArrowDown')
       await waitFor(() => expect(selectedSuggestion()?.textContent).toContain('All links'))
 
-      await press('ArrowDown')
+      press('ArrowDown')
       await waitFor(() => expect(selectedSuggestion()?.textContent).toContain('Table rows'))
     })
 
     it('walks up the list and wraps at the start', async () => {
       view = await render({ presets })
-      await focusField()
+      focusField()
 
-      await press('ArrowUp')
+      press('ArrowUp')
 
       await waitFor(() => expect(selectedSuggestion()?.textContent).toContain('All links'))
     })
@@ -158,10 +158,10 @@ describe('the autosuggest dropdown', () => {
     it('navigates recents when no preset matches the query', async () => {
       await recentMainSelectorsItem.setValue(['//span'])
       view = await render({ presets })
-      await focusField()
+      focusField()
       type('//span')
 
-      await press('ArrowDown')
+      press('ArrowDown')
 
       await waitFor(() => {
         expect(suggestionItems()).toHaveLength(1)
@@ -172,9 +172,9 @@ describe('the autosuggest dropdown', () => {
     it('navigates recents when a preset matches too', async () => {
       await recentMainSelectorsItem.setValue(['//span'])
       view = await render({ presets })
-      await focusField()
+      focusField()
 
-      await press('ArrowDown')
+      press('ArrowDown')
 
       await waitFor(() => {
         expect(suggestionItems()).toHaveLength(3)
@@ -184,40 +184,40 @@ describe('the autosuggest dropdown', () => {
 
     it('does nothing when there is nothing to suggest', async () => {
       view = await render({ presets: [] })
-      await focusField()
+      focusField()
 
-      await press('ArrowDown')
-      await press('ArrowUp')
+      press('ArrowDown')
+      press('ArrowUp')
 
       expect(selectedSuggestion()).toBeNull()
     })
 
     it('closes on Escape', async () => {
       view = await render({ presets })
-      await focusField()
+      focusField()
       expect(suggestionItems()).not.toHaveLength(0)
 
-      await press('Escape')
+      press('Escape')
 
       expect(suggestionItems()).toHaveLength(0)
     })
 
     it('ignores Escape when it is already closed', async () => {
       view = await render({ presets })
-      await focusField()
-      await press('Escape')
+      focusField()
+      press('Escape')
 
-      await press('Escape')
+      press('Escape')
 
       expect(suggestionItems()).toHaveLength(0)
     })
 
     it('closes on a click outside it', async () => {
       view = await render({ presets })
-      await focusField()
+      focusField()
       expect(suggestionItems()).not.toHaveLength(0)
 
-      await act(() => {
+      act(() => {
         document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
       })
 
@@ -226,9 +226,9 @@ describe('the autosuggest dropdown', () => {
 
     it('stays open for a click inside it', async () => {
       view = await render({ presets })
-      await focusField()
+      focusField()
 
-      await act(() => {
+      act(() => {
         suggestionItems()[0]!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
       })
 
@@ -237,8 +237,8 @@ describe('the autosuggest dropdown', () => {
 
     it('reopens itself while the user keeps typing', async () => {
       view = await render({ presets })
-      await focusField()
-      await press('Escape')
+      focusField()
+      press('Escape')
       expect(suggestionItems()).toHaveLength(0)
 
       type('//t')
@@ -249,13 +249,13 @@ describe('the autosuggest dropdown', () => {
     it('drops the highlight when the field is cleared', async () => {
       const onLoadPreset = vi.fn()
       view = await render({ presets, onLoadPreset })
-      await focusField()
+      focusField()
       type('//tr')
-      await press('ArrowDown')
+      press('ArrowDown')
       await waitFor(() => expect(selectedSuggestion()?.textContent).toContain('Table rows'))
 
       type('')
-      await press('Enter')
+      press('Enter')
 
       // With nothing highlighted, Enter falls through to the commit path.
       expect(onLoadPreset).not.toHaveBeenCalled()
@@ -264,7 +264,7 @@ describe('the autosuggest dropdown', () => {
     it('treats a non-list value in storage as no recents at all', async () => {
       await recentMainSelectorsItem.setValue(['//span'])
       view = await render({ presets: [] })
-      await focusField()
+      focusField()
       expect(suggestionItems()).toHaveLength(1)
 
       await act(async () => {
@@ -286,7 +286,7 @@ describe('the autosuggest dropdown', () => {
         await flushMicrotasks()
       })
       await act(async () => resolveRead([]))
-      await focusField()
+      focusField()
 
       await waitFor(() => expect(suggestionItems()).toHaveLength(1))
       expect(suggestionItems()[0]!.textContent).toContain('//fresh')
@@ -297,11 +297,11 @@ describe('the autosuggest dropdown', () => {
     it('loads a highlighted preset', async () => {
       const onLoadPreset = vi.fn()
       view = await render({ presets, onLoadPreset })
-      await focusField()
-      await press('ArrowDown')
+      focusField()
+      press('ArrowDown')
       await waitFor(() => expect(selectedSuggestion()?.textContent).toContain('Table rows'))
 
-      await press('Enter')
+      press('Enter')
 
       expect(onLoadPreset).toHaveBeenCalledWith(presets[0])
       expect(mainSelectorInput().value).toBe('//tr')
@@ -314,12 +314,12 @@ describe('the autosuggest dropdown', () => {
       const onScrape = vi.fn()
       const onHighlight = vi.fn()
       view = await render({ presets, onLoadPreset, onScrape, onHighlight })
-      await focusField()
-      await press('ArrowDown')
+      focusField()
+      press('ArrowDown')
       await waitFor(() => expect(selectedSuggestion()?.textContent).toContain('Table rows'))
 
-      await press('Enter')
-      await press('Enter', { repeat: true })
+      press('Enter')
+      press('Enter', { repeat: true })
 
       expect(onLoadPreset).toHaveBeenCalledTimes(1)
       expect(onScrape).not.toHaveBeenCalled()
@@ -332,11 +332,11 @@ describe('the autosuggest dropdown', () => {
       const onHighlight = vi.fn()
       await recentMainSelectorsItem.setValue(['//span'])
       view = await render({ presets: [], onChange, onHighlight })
-      await focusField()
-      await press('ArrowDown')
+      focusField()
+      press('ArrowDown')
       await waitFor(() => expect(selectedSuggestion()?.textContent).toContain('//span'))
 
-      await press('Enter')
+      press('Enter')
 
       expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ mainSelector: '//span' }))
       expect(onHighlight).toHaveBeenCalledWith('//span')
@@ -347,9 +347,9 @@ describe('the autosuggest dropdown', () => {
       const onScrape = vi.fn()
       const onHighlight = vi.fn()
       view = await render({ presets, onScrape, onHighlight })
-      await focusField()
+      focusField()
 
-      await press('Enter')
+      press('Enter')
 
       expect(onScrape).not.toHaveBeenCalled()
       expect(onHighlight).not.toHaveBeenCalled()
@@ -362,9 +362,9 @@ describe('the autosuggest dropdown', () => {
         onScrape,
         config: { ...config, mainSelector: '//tr' },
       })
-      await focusField()
+      focusField()
 
-      await press('Enter')
+      press('Enter')
 
       await waitFor(() => expect(onScrape).toHaveBeenCalled())
     })
@@ -374,10 +374,10 @@ describe('the autosuggest dropdown', () => {
     it('loads the preset behind the row', async () => {
       const onLoadPreset = vi.fn()
       view = await render({ presets, onLoadPreset })
-      await focusField()
+      focusField()
 
       const row = suggestionItems().find((item) => item.textContent?.includes('Table rows'))!
-      await act(() => {
+      act(() => {
         row.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
         row.click()
       })
@@ -389,11 +389,11 @@ describe('the autosuggest dropdown', () => {
       const onChange = vi.fn()
       await recentMainSelectorsItem.setValue(['//span'])
       view = await render({ presets: [], onChange })
-      await focusField()
+      focusField()
       type('//sp')
 
       const row = suggestionItems()[0]!
-      await act(() => {
+      act(() => {
         // The pointer goes down on the row before the field loses focus, which
         // is what cancels the blur handler's deferred commit.
         row.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
@@ -422,11 +422,11 @@ describe('the autosuggest dropdown', () => {
 
     it('scrolls to the first entry when ArrowDown opens the dropdown', async () => {
       view = await render({ presets })
-      await focusField()
-      await press('Escape')
+      focusField()
+      press('Escape')
       const scroll = spyOnScroll()
 
-      await press('ArrowDown')
+      press('ArrowDown')
       await nextFrame()
 
       expect(scroll).toHaveBeenCalledExactlyOnceWith({ block: 'nearest' })
@@ -435,11 +435,11 @@ describe('the autosuggest dropdown', () => {
 
     it('scrolls to the last entry when ArrowUp opens the dropdown', async () => {
       view = await render({ presets })
-      await focusField()
-      await press('Escape')
+      focusField()
+      press('Escape')
       const scroll = spyOnScroll()
 
-      await press('ArrowUp')
+      press('ArrowUp')
       await nextFrame()
 
       expect(scroll).toHaveBeenCalledExactlyOnceWith({ block: 'nearest' })
@@ -448,14 +448,14 @@ describe('the autosuggest dropdown', () => {
 
     it('follows the highlight as it moves through an open dropdown', async () => {
       view = await render({ presets })
-      await focusField()
+      focusField()
       const scroll = spyOnScroll()
 
-      await press('ArrowDown')
+      press('ArrowDown')
       await nextFrame()
-      await press('ArrowDown')
+      press('ArrowDown')
       await nextFrame()
-      await press('ArrowUp')
+      press('ArrowUp')
       await nextFrame()
 
       expect(scrolledEntries(scroll)).toEqual([
@@ -468,11 +468,11 @@ describe('the autosuggest dropdown', () => {
 
     it('scrolls nothing when the dropdown opens with nothing to suggest', async () => {
       view = await render({ presets: [] })
-      await focusField()
-      await press('Escape')
+      focusField()
+      press('Escape')
       const scroll = spyOnScroll()
 
-      await press('ArrowDown')
+      press('ArrowDown')
       await nextFrame()
 
       expect(view.container.textContent).toContain('No suggestions found')
@@ -481,21 +481,21 @@ describe('the autosuggest dropdown', () => {
 
     it('scrolls nothing when the dropdown closes before the frame runs', async () => {
       view = await render({ presets })
-      await focusField()
-      await press('Escape')
+      focusField()
+      press('Escape')
       const scroll = spyOnScroll()
-      // Holding the frames back is what guarantees Escape lands first; awaiting
-      // `act` between the presses can let a real frame through.
+      // Holding the frames back lets the test run the queued frame after Escape
+      // instead of waiting for jsdom to run it.
       const heldFrames: FrameRequestCallback[] = []
       vi.spyOn(globalThis, 'requestAnimationFrame').mockImplementation((callback) => {
         heldFrames.push(callback)
         return heldFrames.length
       })
 
-      await press('ArrowDown')
-      await press('Escape')
+      press('ArrowDown')
+      press('Escape')
       expect(heldFrames).not.toHaveLength(0)
-      await act(() => heldFrames.forEach((callback) => callback(performance.now())))
+      act(() => heldFrames.forEach((callback) => callback(performance.now())))
 
       expect(suggestionItems()).toHaveLength(0)
       expect(scroll).not.toHaveBeenCalled()
@@ -506,10 +506,10 @@ describe('the autosuggest dropdown', () => {
     it('commits the draft once the deferred blur runs', async () => {
       const onChange = vi.fn()
       view = await render({ presets: [], onChange })
-      await focusField()
+      focusField()
       type('//h2')
 
-      await act(() => mainSelectorInput().blur())
+      act(() => mainSelectorInput().blur())
       await waitFor(() =>
         expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ mainSelector: '//h2' })),
       )
@@ -518,10 +518,10 @@ describe('the autosuggest dropdown', () => {
     it('commits the draft without its surrounding whitespace', async () => {
       const onChange = vi.fn()
       view = await render({ presets: [], onChange })
-      await focusField()
-      await type('  //h2 ')
+      focusField()
+      type('  //h2 ')
 
-      await act(() => mainSelectorInput().blur())
+      act(() => mainSelectorInput().blur())
       await waitFor(() =>
         expect(onChange).toHaveBeenCalledWith({ ...config, mainSelector: '//h2' }),
       )
@@ -531,10 +531,10 @@ describe('the autosuggest dropdown', () => {
     it('keeps the dropdown open when focus moves into it', async () => {
       const onChange = vi.fn()
       view = await render({ presets, onChange })
-      await focusField()
+      focusField()
       type('//t')
 
-      await act(() => {
+      act(() => {
         // cmdk's root carries tabIndex={-1} so it can take focus this way.
         view.container.querySelector<HTMLElement>('[cmdk-root]')!.focus()
         mainSelectorInput().blur()
@@ -550,10 +550,10 @@ describe('the autosuggest dropdown', () => {
       const onChange = vi.fn()
       await recentMainSelectorsItem.setValue(['//span'])
       view = await render({ presets: [], onChange })
-      await focusField()
+      focusField()
       type('//sp')
 
-      await act(() => {
+      act(() => {
         // Pointer down on the row, then the field loses focus — but the click
         // never lands (the pointer moved away before it was released).
         suggestionItems()[0]!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
@@ -568,11 +568,11 @@ describe('the autosuggest dropdown', () => {
     it('cancels a pending blur when focus comes straight back', async () => {
       const onChange = vi.fn()
       view = await render({ presets: [], onChange })
-      await focusField()
+      focusField()
       type('//h2')
 
-      await act(() => mainSelectorInput().blur())
-      await focusField()
+      act(() => mainSelectorInput().blur())
+      focusField()
       await outlastBlurCommit()
       await settleEffects()
 
@@ -584,10 +584,10 @@ describe('the autosuggest dropdown', () => {
     it('offers to delete a suggested preset and closes the dropdown', async () => {
       const onDeletePreset = vi.fn()
       view = await render({ presets, onDeletePreset })
-      await focusField()
+      focusField()
 
       const row = suggestionItems().find((item) => item.textContent?.includes('All links'))!
-      await act(() => row.querySelector<HTMLButtonElement>('button')!.click())
+      act(() => row.querySelector<HTMLButtonElement>('button')!.click())
 
       expect(suggestionItems()).toHaveLength(0)
       expect(document.body.textContent).toContain('Delete Preset')
@@ -596,7 +596,7 @@ describe('the autosuggest dropdown', () => {
     it('drops it from storage and keeps the dropdown open', async () => {
       await recentMainSelectorsItem.setValue(['//span', '//em'])
       view = await render({ presets: [] })
-      await focusField()
+      focusField()
       expect(suggestionItems()).toHaveLength(2)
 
       const remove = view.container.querySelector<HTMLButtonElement>(
@@ -614,12 +614,12 @@ describe('the autosuggest dropdown', () => {
   describe('typing a selector and pressing Enter', () => {
     it('writes no recents itself on Enter', async () => {
       view = await render({ presets: [], config: { ...config, mainSelector: '//tr' } })
-      await focusField()
+      focusField()
       type('//h1')
-      await press('Enter')
-      await focusField()
+      press('Enter')
+      focusField()
       type('//tr')
-      await press('Enter')
+      press('Enter')
       await flushMicrotasks()
 
       expect(await getRecentMainSelectors()).toEqual([])
@@ -635,9 +635,9 @@ describe('the autosuggest dropdown', () => {
         config: { ...config, mainSelector: '//h1' },
         highlightMatchCount: undefined,
       })
-      await focusField()
+      focusField()
 
-      await press('Enter')
+      press('Enter')
 
       await waitFor(() => expect(onHighlight).toHaveBeenCalledWith('//h1'))
       expect(onScrape).not.toHaveBeenCalled()
@@ -653,7 +653,7 @@ describe('the autosuggest dropdown', () => {
         const onScrape = vi.fn()
         const onHighlight = vi.fn()
         view = await render({ presets: [], onChange, onScrape, onHighlight })
-        await focusField()
+        focusField()
         type('//h1')
 
         const wasNotCancelled = fireEvent.keyDown(mainSelectorInput(), {
@@ -672,8 +672,8 @@ describe('the autosuggest dropdown', () => {
 
       it('leaves the arrow keys to the IME', async () => {
         view = await render({ presets })
-        await focusField()
-        await press('Escape')
+        focusField()
+        press('Escape')
 
         const wasNotCancelled = fireEvent.keyDown(mainSelectorInput(), {
           key: 'ArrowDown',
@@ -690,10 +690,10 @@ describe('the autosuggest dropdown', () => {
       const onChange = vi.fn()
       const onHighlight = vi.fn()
       view = await render({ presets: [], onChange, onHighlight })
-      await focusField()
-      await type('//h1')
+      focusField()
+      type('//h1')
 
-      await press('Enter')
+      press('Enter')
 
       expect(onChange).toHaveBeenCalledWith({ ...config, mainSelector: '//h1' })
       expect(onHighlight).toHaveBeenCalledWith('//h1')
@@ -705,10 +705,10 @@ describe('the autosuggest dropdown', () => {
       const onChange = vi.fn()
       const onHighlight = vi.fn()
       view = await render({ presets: [], onChange, onHighlight })
-      await focusField()
-      await type('//h1')
+      focusField()
+      type('//h1')
 
-      await press('Enter')
+      press('Enter')
       await outlastBlurCommit()
 
       expect(onChange).toHaveBeenCalledTimes(1)
@@ -718,10 +718,10 @@ describe('the autosuggest dropdown', () => {
     it('commits the selector without its surrounding whitespace', async () => {
       const onChange = vi.fn()
       view = await render({ presets: [], onChange })
-      await focusField()
-      await type('  //h1  ')
+      focusField()
+      type('  //h1  ')
 
-      await press('Enter')
+      press('Enter')
 
       expect(onChange).toHaveBeenCalledWith({ ...config, mainSelector: '//h1' })
     })
@@ -735,9 +735,9 @@ describe('the autosuggest dropdown', () => {
         onHighlight,
         config: { ...config, mainSelector: '//tr' },
       })
-      await focusField()
+      focusField()
 
-      await press('Enter')
+      press('Enter')
 
       expect(onScrape).toHaveBeenCalledTimes(1)
       expect(onHighlight).not.toHaveBeenCalled()
@@ -750,11 +750,11 @@ describe('the autosuggest dropdown', () => {
     it('ignores the repeats of a held Enter key', async () => {
       const onScrape = vi.fn()
       view = await render({ presets: [], onScrape, config: { ...config, mainSelector: '//tr' } })
-      await focusField()
+      focusField()
 
-      await press('Enter')
-      await press('Enter', { repeat: true })
-      await press('Enter', { repeat: true })
+      press('Enter')
+      press('Enter', { repeat: true })
+      press('Enter', { repeat: true })
 
       expect(onScrape).toHaveBeenCalledTimes(1)
       expect(scrapeEvents()).toBe(1)
@@ -770,9 +770,9 @@ describe('the autosuggest dropdown', () => {
         isLoading: true,
         config: { ...config, mainSelector: '//tr' },
       })
-      await focusField()
+      focusField()
 
-      await press('Enter')
+      press('Enter')
 
       expect(onScrape).not.toHaveBeenCalled()
       expect(scrapeEvents()).toBe(0)
@@ -789,9 +789,9 @@ describe('the autosuggest dropdown', () => {
         onHighlight,
         config: { mainSelector: '//tr', columns: [] },
       })
-      await focusField()
+      focusField()
 
-      await press('Enter')
+      press('Enter')
 
       expect(onScrape).not.toHaveBeenCalled()
       expect(scrapeEvents()).toBe(0)
@@ -802,12 +802,12 @@ describe('the autosuggest dropdown', () => {
     it('keeps focus on a field the user went back to after Enter', async () => {
       const onChange = vi.fn()
       view = await render({ presets: [], onChange })
-      await focusField()
-      await type('//h1')
+      focusField()
+      type('//h1')
 
-      await press('Enter')
-      await focusField()
-      await type('//h2')
+      press('Enter')
+      focusField()
+      type('//h2')
 
       expect(mainSelectorInput()).toHaveFocus()
       expect(mainSelectorInput().value).toBe('//h2')
@@ -824,11 +824,11 @@ describe('the autosuggest dropdown', () => {
         onChange,
         config: { ...config, mainSelector: '//tr' },
       })
-      await focusField()
-      await type('//tr ')
+      focusField()
+      type('//tr ')
 
-      await press('Enter')
-      await act(() => mainSelectorInput().blur())
+      press('Enter')
+      act(() => mainSelectorInput().blur())
       await outlastBlurCommit()
 
       expect(onScrape).toHaveBeenCalledTimes(1)
@@ -839,10 +839,10 @@ describe('the autosuggest dropdown', () => {
     it('closes the dropdown when Enter scrapes', async () => {
       const onScrape = vi.fn()
       view = await render({ presets, onScrape, config: { ...config, mainSelector: '//tr' } })
-      await focusField()
+      focusField()
       expect(suggestionItems()).not.toHaveLength(0)
 
-      await press('Enter')
+      press('Enter')
 
       expect(onScrape).toHaveBeenCalledTimes(1)
       expect(suggestionItems()).toHaveLength(0)
@@ -857,10 +857,10 @@ describe('the autosuggest dropdown', () => {
         onChange,
         config: { ...config, mainSelector: ' //tr' },
       })
-      await focusField()
+      focusField()
 
-      await press('Enter')
-      await act(() => mainSelectorInput().blur())
+      press('Enter')
+      act(() => mainSelectorInput().blur())
       await outlastBlurCommit()
 
       expect(onScrape).toHaveBeenCalledTimes(1)
@@ -871,20 +871,20 @@ describe('the autosuggest dropdown', () => {
       const onChange = vi.fn()
       await recentMainSelectorsItem.setValue(['//span'])
       view = await render({ presets: [], onChange })
-      await focusField()
-      await type('//sp')
+      focusField()
+      type('//sp')
       const row = suggestionItems()[0]!
-      await act(() => {
+      act(() => {
         row.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
         mainSelectorInput().blur()
         row.click()
       })
-      await type('//h1')
-      await press('Enter')
+      type('//h1')
+      press('Enter')
 
-      await focusField()
-      await type('//h2')
-      await act(() => mainSelectorInput().blur())
+      focusField()
+      type('//h2')
+      act(() => mainSelectorInput().blur())
       await outlastBlurCommit()
 
       expect(onChange).toHaveBeenLastCalledWith({ ...config, mainSelector: '//h2' })

@@ -68,7 +68,7 @@ test.describe('Sidepanel Full Data View Integration', () => {
 
     // Verify original test page becomes active (this is harder to test directly in Playwright,
     // but we can verify that the page still exists and wasn't closed)
-    await expect(testPage).toBeTruthy()
+    expect(testPage).toBeTruthy()
     expect(testPage.isClosed()).toBe(false)
   })
 
@@ -98,10 +98,10 @@ test.describe('Sidepanel Full Data View Integration', () => {
 
     // Click hide sidepanel button and wait for it to close
     await Promise.all([sidePanel.waitForEvent('close'), hideSidepanelButton.click()])
-    await expect(sidePanel.isClosed()).toBe(true)
+    expect(sidePanel.isClosed()).toBe(true)
 
     // Verify full data view page remains open
-    await expect(fullDataViewPage.isClosed()).toBe(false)
+    expect(fullDataViewPage.isClosed()).toBe(false)
     await expect(fullDataViewPage.locator('table')).toBeVisible()
   })
 

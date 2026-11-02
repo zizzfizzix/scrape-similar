@@ -40,12 +40,14 @@ vi.mock('@/entrypoints/content/picker', async (importOriginal) => ({
 const ctx = {} as ContentScriptContext
 
 /**
- * Deliver a message to every registered `runtime.onMessage` listener. An
- * `onMessage` listener may return a promise, so `trigger` resolves to whatever
- * each returned and `Promise.all` settles any that are promises.
+ * Deliver a message to every registered `runtime.onMessage` listener. `trigger`
+ * settles the promise any listener returns before it resolves, which its type
+ * does not say: it types the results as the listeners' unsettled return values.
  */
-const broadcast = async (message: Message, sendResponse: (response: unknown) => void = () => {}) =>
-  Promise.all(await fakeBrowser.runtime.onMessage.trigger(message, {}, sendResponse))
+const broadcast = (
+  message: Message,
+  sendResponse: (response: unknown) => void = () => {},
+): Promise<unknown[]> => fakeBrowser.runtime.onMessage.trigger(message, {}, sendResponse)
 
 /** Answer `browser.runtime.sendMessage` per message type. */
 const backgroundReplies = (replies: Record<string, MessageResponse | undefined>) =>
