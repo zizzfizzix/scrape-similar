@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { getInjectableUrlPattern, isInjectableUrl } from '@/utils/isInjectableUrl'
 
@@ -22,15 +22,6 @@ const NON_INJECTABLE_CASES: Array<{ url: string; pattern: string }> = [
   },
   { url: 'view-source:https://example.com/', pattern: 'view-source:' },
   {
-    url: 'https://addons.mozilla.org/en-US/firefox/addon/ublock-origin/',
-    pattern: 'https://addons.mozilla.org/',
-  },
-  {
-    url: 'https://support.mozilla.org/en-US/kb/keyboard-shortcuts',
-    pattern: 'https://support.mozilla.org/',
-  },
-  { url: 'https://accounts.firefox.com/signin', pattern: 'https://accounts.firefox.com/' },
-  {
     url: 'https://microsoftedge.microsoft.com/addons/detail/odfafepnkmbhccpbejgmiehpchacaeak',
     pattern: 'https://microsoftedge.microsoft.com/addons/',
   },
@@ -42,6 +33,19 @@ const NON_INJECTABLE_CASES: Array<{ url: string; pattern: string }> = [
     url: 'https://chrome.google.com/webstore/detail/toolbar-spacer/golladjmjodbefcoombodcdhimkmgemd?hl=Ar',
     pattern: '^https://chrome\\.google\\.com/(.+/)?webstore/',
   },
+]
+
+const FIREFOX_NON_INJECTABLE_CASES: Array<{ url: string; pattern: string }> = [
+  {
+    url: 'https://addons.mozilla.org/en-US/firefox/addon/ublock-origin/',
+    pattern: 'https://addons.mozilla.org/',
+  },
+  {
+    url: 'https://support.mozilla.org/en-US/kb/keyboard-shortcuts',
+    pattern: 'https://support.mozilla.org/',
+  },
+  { url: 'https://accounts.firefox.com/signin', pattern: 'https://accounts.firefox.com/' },
+  { url: 'about:addons', pattern: 'about:' },
 ]
 
 const INJECTABLE_CASES = [
@@ -81,5 +85,31 @@ describe('getInjectableUrlPattern', () => {
 
   it.each(INJECTABLE_CASES)('returns null for injectable URL: %s', (url) => {
     expect(getInjectableUrlPattern(url)).toBeNull()
+  })
+})
+
+describe('on Firefox', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it.each(FIREFOX_NON_INJECTABLE_CASES)('refuses %s', ({ url, pattern }) => {
+    vi.stubEnv('FIREFOX', true as never)
+
+    expect(isInjectableUrl(url)).toBe(false)
+    expect(getInjectableUrlPattern(url)).toBe(pattern)
+  })
+
+  it('injects into the Chrome Web Store, which Firefox does not restrict', () => {
+    vi.stubEnv('FIREFOX', true as never)
+
+    expect(isInjectableUrl('https://chromewebstore.google.com/detail/x')).toBe(true)
+  })
+})
+
+describe('on Chromium', () => {
+  it("injects into Firefox's restricted domains, which Chromium does not restrict", () => {
+    expect(isInjectableUrl('https://support.mozilla.org/')).toBe(true)
+    expect(isInjectableUrl('https://addons.mozilla.org/')).toBe(true)
   })
 })
