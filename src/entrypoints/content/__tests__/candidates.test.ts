@@ -111,14 +111,27 @@ describe('generateSelectorCandidates', () => {
       expect(rowLevelTexts('header')).toEqual(['1', '2'])
     })
 
-    it('keeps the row’s own path when it has no data rows', () => {
+    it('keeps every header row of a thead', () => {
       document.body.innerHTML = `
         <table>
-          <thead><tr><th id="header">Rank</th></tr></thead>
+          <thead>
+            <tr><th id="header">Rank</th></tr>
+            <tr><td><input></td></tr>
+          </thead>
           <tbody><tr><td>1</td></tr></tbody>
         </table>`
 
-      expect(rowLevelTexts('header')).toEqual(['Rank'])
+      expect(rowLevelTexts('header')).toEqual(['Rank', ''])
+    })
+
+    it('keeps the row’s own path when it has no data rows', () => {
+      document.body.innerHTML = `
+        <table>
+          <tr><th id="header">Rank</th></tr>
+          <tr><th>Country</th></tr>
+        </table>`
+
+      expect(rowLevelTexts('header')).toEqual(['Rank', 'Country'])
     })
 
     it('matches a row per table when each table holds one record', () => {
@@ -135,7 +148,10 @@ describe('generateSelectorCandidates', () => {
         <div></div>
         <div><table><tr><td id="cell">only</td><td>other</td></tr></table></div>`
 
-      expect(() => generateSelectorCandidates(document.getElementById('cell')!)).not.toThrow()
+      const candidates = generateSelectorCandidates(document.getElementById('cell')!)
+
+      expect(candidates).toContain('/')
+      expect(candidates).not.toContain('/[td]')
     })
 
     it('leaves out the rows of a table nested in a row', () => {
