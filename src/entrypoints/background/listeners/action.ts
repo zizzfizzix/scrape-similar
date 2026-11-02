@@ -23,7 +23,7 @@ export const setupActionListener = (): void => {
         log.debug(`Side panel options set for tab ${tabId} via action click`)
 
         trackEvent(ANALYTICS_EVENTS.SIDE_PANEL_OPEN, {
-          trigger: 'action_click',
+          [ANALYTICS_PROPERTIES.TRIGGER]: SIDE_PANEL_TRIGGERS.ACTION_CLICK,
         })
 
         // Ensure a session state exists for this tab

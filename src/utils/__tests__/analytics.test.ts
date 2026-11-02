@@ -17,7 +17,11 @@ describe('analytics utilities', () => {
 
   describe('queueEvent', () => {
     it('adds an event to the queue in storage', async () => {
-      const event = { name: 'test_event', props: { foo: 'bar' }, timestamp: Date.now() }
+      const event = {
+        name: ANALYTICS_EVENTS.PRESET_SAVE,
+        props: { trigger: 'bar' },
+        timestamp: Date.now(),
+      }
       await queueEvent(event)
 
       const queue = await storage.getItem<(typeof event)[]>(QUEUE_KEY)
@@ -31,7 +35,7 @@ describe('analytics utilities', () => {
       vi.spyOn(eventQueueItem, 'setValue').mockRejectedValueOnce(failure)
 
       await expect(
-        queueEvent({ name: 'test_event', props: {}, timestamp: Date.now() }),
+        queueEvent({ name: ANALYTICS_EVENTS.PRESET_SAVE, props: {}, timestamp: Date.now() }),
       ).resolves.toBeUndefined()
 
       expect(errorSpy).toHaveBeenCalledWith('Failed to queue event:', failure)
@@ -40,17 +44,17 @@ describe('analytics utilities', () => {
     it('drops the oldest events when exceeding MAX_QUEUED_EVENTS', async () => {
       // Fill the queue up to the max limit
       for (let i = 0; i < MAX_QUEUED_EVENTS; i++) {
-        await queueEvent({ name: `event_${i}`, props: {}, timestamp: i })
+        await queueEvent({ name: ANALYTICS_EVENTS.PRESET_LOAD, props: {}, timestamp: i })
       }
 
       // Add one more to trigger overflow logic
-      await queueEvent({ name: 'overflow_event', props: {}, timestamp: Date.now() })
+      await queueEvent({ name: ANALYTICS_EVENTS.PRESET_SAVE, props: {}, timestamp: Date.now() })
 
       const queue = await storage.getItem<any[]>(QUEUE_KEY)
       expect(queue).toHaveLength(MAX_QUEUED_EVENTS)
       // The first event should have been dropped (FIFO)
-      expect(queue?.[0].name).toBe('event_1')
-      expect(queue?.[queue.length - 1].name).toBe('overflow_event')
+      expect(queue?.[0].timestamp).toBe(1)
+      expect(queue?.[queue.length - 1].name).toBe(ANALYTICS_EVENTS.PRESET_SAVE)
     })
   })
 
@@ -58,7 +62,7 @@ describe('analytics utilities', () => {
     it('does not queue or track when consent is declined', async () => {
       vi.spyOn(consent, 'getConsentState').mockResolvedValue(false)
 
-      await captureEvent('declined_event')
+      await captureEvent(ANALYTICS_EVENTS.PRESET_HIDE)
 
       const queue = await storage.getItem<any[]>(QUEUE_KEY)
       expect(queue).toBeNull()
@@ -67,14 +71,14 @@ describe('analytics utilities', () => {
     it('queues the event when consent is undefined', async () => {
       vi.spyOn(consent, 'getConsentState').mockResolvedValue(undefined)
 
-      await captureEvent('pending_consent_event', { extra: 'data' })
+      await captureEvent(ANALYTICS_EVENTS.PRESET_IMPORT, { reason: 'data' })
 
       const queue = await storage.getItem<any[]>(QUEUE_KEY)
       expect(queue).toHaveLength(1)
       const queued = queue![0]
-      expect(queued.name).toBe('pending_consent_event')
+      expect(queued.name).toBe(ANALYTICS_EVENTS.PRESET_IMPORT)
       // Original properties should be preserved
-      expect(queued.props.extra).toBe('data')
+      expect(queued.props.reason).toBe('data')
     })
   })
 })

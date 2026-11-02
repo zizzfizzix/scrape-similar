@@ -69,7 +69,7 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
       setIsDropdownOpen(false)
       notify.error('Export timed out - please try again')
       trackEvent(ANALYTICS_EVENTS.EXPORT_TO_SHEETS_FAILURE, {
-        error: 'Export timeout',
+        [ANALYTICS_PROPERTIES.ERROR]: 'Export timeout',
       })
     }, SHEETS_EXPORT_TIMEOUT_MS - elapsed)
     return () => clearTimeout(timer)
@@ -94,8 +94,8 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
 
     // Track the export trigger immediately when user clicks, not dependent on success
     trackEvent(ANALYTICS_EVENTS.EXPORT_TO_SHEETS_TRIGGER, {
-      rows_exported: dataToExport.length,
-      columns_count: columns.length,
+      [ANALYTICS_PROPERTIES.ROWS_EXPORTED]: dataToExport.length,
+      [ANALYTICS_PROPERTIES.COLUMNS_COUNT]: columns.length,
     })
 
     const messagePayload = {
@@ -121,7 +121,7 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
         log.error('🔥 ExportButtons: Runtime error:', browser.runtime.lastError)
         notify.error(`Connection error: ${browser.runtime.lastError.message}`)
         trackEvent(ANALYTICS_EVENTS.EXPORT_TO_SHEETS_FAILURE, {
-          error: browser.runtime.lastError.message,
+          [ANALYTICS_PROPERTIES.ERROR]: browser.runtime.lastError.message,
         })
         return
       }
@@ -148,7 +148,9 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
       log.error('🔥 ExportButtons: Export failed - Full response:', response)
       const failure = describeSheetsExportFailure(response)
       notify.error(failure.toast)
-      trackEvent(ANALYTICS_EVENTS.EXPORT_TO_SHEETS_FAILURE, { error: failure.error })
+      trackEvent(ANALYTICS_EVENTS.EXPORT_TO_SHEETS_FAILURE, {
+        [ANALYTICS_PROPERTIES.ERROR]: failure.error,
+      })
     })
   }
 
@@ -160,9 +162,9 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
 
     // Track trigger before attempting work so it's recorded even on failure
     trackEvent(ANALYTICS_EVENTS.COPY_TO_CLIPBOARD_TRIGGER, {
-      rows_copied: dataToExport.length,
-      columns_count: columns.length,
-      export_type: 'data_table_full',
+      [ANALYTICS_PROPERTIES.ROWS_COPIED]: dataToExport.length,
+      [ANALYTICS_PROPERTIES.COLUMNS_COUNT]: columns.length,
+      [ANALYTICS_PROPERTIES.EXPORT_TYPE]: EXPORT_TYPES.DATA_TABLE_FULL,
     })
 
     try {
@@ -184,8 +186,8 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
 
     // Track trigger before attempting work so it's recorded even on failure
     trackEvent(ANALYTICS_EVENTS.EXPORT_TO_CSV_TRIGGER, {
-      rows_exported: dataToExport.length,
-      columns_count: columns.length,
+      [ANALYTICS_PROPERTIES.ROWS_EXPORTED]: dataToExport.length,
+      [ANALYTICS_PROPERTIES.COLUMNS_COUNT]: columns.length,
     })
 
     try {
@@ -197,7 +199,7 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
       notify.error('Failed to save CSV')
       setIsDropdownOpen(false)
       trackEvent(ANALYTICS_EVENTS.EXPORT_TO_CSV_FAILURE, {
-        error: (e as Error).message,
+        [ANALYTICS_PROPERTIES.ERROR]: (e as Error).message,
       })
     }
   }
@@ -210,8 +212,8 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
 
     // Track trigger before attempting work so it's recorded even on failure
     trackEvent(ANALYTICS_EVENTS.EXPORT_TO_XLSX_TRIGGER, {
-      rows_exported: dataToExport.length,
-      columns_count: columns.length,
+      [ANALYTICS_PROPERTIES.ROWS_EXPORTED]: dataToExport.length,
+      [ANALYTICS_PROPERTIES.COLUMNS_COUNT]: columns.length,
     })
 
     try {
@@ -223,7 +225,7 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
       notify.error('Failed to save to Excel')
       setIsDropdownOpen(false)
       trackEvent(ANALYTICS_EVENTS.EXPORT_TO_XLSX_FAILURE, {
-        error: (e as Error).message,
+        [ANALYTICS_PROPERTIES.ERROR]: (e as Error).message,
       })
     }
   }

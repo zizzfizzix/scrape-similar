@@ -324,7 +324,7 @@ export const FullDataViewApp: React.FC = () => {
 
     // Track tab switch
     trackEvent(ANALYTICS_EVENTS.FULL_DATA_VIEW_TAB_SWITCH, {
-      total_tabs_available: allTabsData.length,
+      [ANALYTICS_PROPERTIES.TOTAL_TABS_AVAILABLE]: allTabsData.length,
     })
   }
 
@@ -413,9 +413,11 @@ export const FullDataViewApp: React.FC = () => {
 
               // Track select all action
               trackEvent(ANALYTICS_EVENTS.FULL_DATA_VIEW_ROW_SELECTION, {
-                selection_type: value ? 'select_all' : 'deselect_all',
-                rows_affected: table.getRowModel().rows.length,
-                total_rows: filteredData.length,
+                [ANALYTICS_PROPERTIES.SELECTION_TYPE]: value
+                  ? SELECTION_TYPES.SELECT_ALL
+                  : SELECTION_TYPES.DESELECT_ALL,
+                [ANALYTICS_PROPERTIES.ROWS_AFFECTED]: table.getRowModel().rows.length,
+                [ANALYTICS_PROPERTIES.TOTAL_ROWS]: filteredData.length,
               })
             }}
             aria-label="Select all"
@@ -429,9 +431,12 @@ export const FullDataViewApp: React.FC = () => {
 
               // Track individual row selection
               trackEvent(ANALYTICS_EVENTS.FULL_DATA_VIEW_ROW_SELECTION, {
-                selection_type: value ? 'select_individual' : 'deselect_individual',
-                is_empty_row: row.original.metadata.isEmpty,
-                total_selected: table.getSelectedRowModel().rows.length + (value ? 1 : -1),
+                [ANALYTICS_PROPERTIES.SELECTION_TYPE]: value
+                  ? SELECTION_TYPES.SELECT_INDIVIDUAL
+                  : SELECTION_TYPES.DESELECT_INDIVIDUAL,
+                [ANALYTICS_PROPERTIES.IS_EMPTY_ROW]: row.original.metadata.isEmpty,
+                [ANALYTICS_PROPERTIES.TOTAL_SELECTED]:
+                  table.getSelectedRowModel().rows.length + (value ? 1 : -1),
               })
             }}
             aria-label="Select row"
@@ -468,7 +473,7 @@ export const FullDataViewApp: React.FC = () => {
             row={row.original}
             mainSelector={currentTabData.config.mainSelector}
             columnKeys={columnKeys}
-            exportType="full_data_view_row"
+            exportType={EXPORT_TYPES.FULL_DATA_VIEW_ROW}
             onHighlight={(rowSelector) =>
               reportRejection(handleRowHighlight(rowSelector, currentTabData.tabId))
             }
@@ -559,10 +564,10 @@ export const FullDataViewApp: React.FC = () => {
 
     const timeoutId = setTimeout(() => {
       trackEvent(ANALYTICS_EVENTS.FULL_DATA_VIEW_SEARCH, {
-        search_term_length: globalFilter.length,
-        filtered_rows: filteredRowCount,
+        [ANALYTICS_PROPERTIES.SEARCH_TERM_LENGTH]: globalFilter.length,
+        [ANALYTICS_PROPERTIES.FILTERED_ROWS]: filteredRowCount,
         // A search can only be typed from the main view, which has a tab.
-        total_rows: currentTabData!.scrapeResult.data.length,
+        [ANALYTICS_PROPERTIES.TOTAL_ROWS]: currentTabData!.scrapeResult.data.length,
       })
     }, 1000) // Debounce for 1 second
 
@@ -935,9 +940,10 @@ export const FullDataViewApp: React.FC = () => {
 
                         // Track page size change
                         trackEvent(ANALYTICS_EVENTS.FULL_DATA_VIEW_PAGE_SIZE_CHANGE, {
-                          previous_page_size: previousPageSize,
-                          new_page_size: newPageSize,
-                          total_rows: table.getFilteredRowModel().rows.length,
+                          [ANALYTICS_PROPERTIES.PREVIOUS_PAGE_SIZE]: previousPageSize,
+                          [ANALYTICS_PROPERTIES.NEW_PAGE_SIZE]: newPageSize,
+                          [ANALYTICS_PROPERTIES.TOTAL_ROWS]:
+                            table.getFilteredRowModel().rows.length,
                         })
                       }}
                     >

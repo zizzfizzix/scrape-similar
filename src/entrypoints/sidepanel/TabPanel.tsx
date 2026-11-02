@@ -248,10 +248,12 @@ export const TabPanel = memo(function TabPanel({
       handleHighlight(preset.config.mainSelector)
     }
 
+    // User presets are named by the user, so only a system preset's name and id are sent.
+    const isSystem = isSystemPreset(preset)
     trackEvent(ANALYTICS_EVENTS.PRESET_LOAD, {
-      type: isSystemPreset(preset) ? 'system' : 'user',
-      preset_name: isSystemPreset(preset) ? preset.name : null,
-      preset_id: isSystemPreset(preset) ? preset.id : null,
+      [ANALYTICS_PROPERTIES.TYPE]: isSystem ? PRESET_TYPES.SYSTEM : PRESET_TYPES.USER,
+      [ANALYTICS_PROPERTIES.PRESET_NAME]: isSystem ? preset.name : null,
+      [ANALYTICS_PROPERTIES.PRESET_ID]: isSystem ? preset.id : null,
     })
   }
 

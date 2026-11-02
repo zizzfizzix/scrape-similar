@@ -10,8 +10,8 @@ import log from 'loglevel'
 export const MAX_QUEUED_EVENTS = 1000 // Prevent unbounded growth
 
 export interface QueuedEvent {
-  name: string
-  props: Record<string, any>
+  name: AnalyticsEvent
+  props: AnalyticsProperties
   timestamp: number
 }
 
@@ -106,6 +106,8 @@ export const ANALYTICS_EVENTS = {
   PICKER_LEVEL_CHANGE: 'picker_level_change',
 } as const
 
+export type AnalyticsEvent = (typeof ANALYTICS_EVENTS)[keyof typeof ANALYTICS_EVENTS]
+
 /**
  * Values of the `source` property, which records how the user started an
  * action. One set across events, so a breakdown by `source` reads the same
@@ -126,6 +128,147 @@ export const ANALYTICS_SOURCES = {
 export type AnalyticsSource = (typeof ANALYTICS_SOURCES)[keyof typeof ANALYTICS_SOURCES]
 
 /**
+ * Event property names. `PRESET_COUNT` is camelCase because it shipped that
+ * way and reports filter on it.
+ */
+export const ANALYTICS_PROPERTIES = {
+  // Added to every event by `captureEvent`
+  ENVIRONMENT: 'environment',
+  EXTENSION_CONTEXT: 'extension_context',
+  EXTENSION_VERSION: 'extension_version',
+  // Added by the background when it flushes events queued before consent
+  BUFFERED: 'buffered',
+
+  // Shared across events
+  TYPE: 'type',
+  SOURCE: 'source',
+  TRIGGER: 'trigger',
+  SUCCESS: 'success',
+  ERROR: 'error',
+  REASON: 'reason',
+  URL: 'url',
+  ENABLED: 'enabled',
+
+  // Presets
+  PRESET_NAME: 'preset_name',
+  PRESET_ID: 'preset_id',
+  PRESET_COUNT: 'presetCount',
+
+  // Theme
+  FROM_THEME: 'from_theme',
+  TO_THEME: 'to_theme',
+
+  // Scraping, highlighting and export
+  COLUMNS_COUNT: 'columns_count',
+  ITEMS_SCRAPED: 'items_scraped',
+  ELEMENTS_COUNT: 'elements_count',
+  IS_ROW_HIGHLIGHT: 'is_row_highlight',
+  ROWS_EXPORTED: 'rows_exported',
+  ROWS_COPIED: 'rows_copied',
+  EXPORT_TYPE: 'export_type',
+  HAS_SELECTION: 'has_selection',
+  HAS_CONFIG: 'has_config',
+
+  // Tables and pagination
+  TOTAL_ROWS: 'total_rows',
+  DIRECTION: 'direction',
+  FROM_PAGE: 'from_page',
+  TO_PAGE: 'to_page',
+  TOTAL_PAGES: 'total_pages',
+  PREVIOUS_PAGE_SIZE: 'previous_page_size',
+  NEW_PAGE_SIZE: 'new_page_size',
+
+  // Full data view
+  TOTAL_TABS_AVAILABLE: 'total_tabs_available',
+  SELECTION_TYPE: 'selection_type',
+  ROWS_AFFECTED: 'rows_affected',
+  IS_EMPTY_ROW: 'is_empty_row',
+  TOTAL_SELECTED: 'total_selected',
+  SEARCH_TERM_LENGTH: 'search_term_length',
+  FILTERED_ROWS: 'filtered_rows',
+
+  // Visual picker
+  FROM_LEVEL: 'from_level',
+  TO_LEVEL: 'to_level',
+  METHOD: 'method',
+  LEVELS_AVAILABLE: 'levels_available',
+  ELEMENTS_MATCHED: 'elements_matched',
+  SELECTOR_LEVEL: 'selector_level',
+  TOTAL_LEVELS: 'total_levels',
+
+  // Onboarding
+  SLIDE_NUMBER: 'slide_number',
+  SLIDE_ID: 'slide_id',
+  SLIDE_TITLE: 'slide_title',
+  SLIDE_DESCRIPTION: 'slide_description',
+  IS_FIRST_SLIDE: 'is_first_slide',
+  IS_LAST_SLIDE: 'is_last_slide',
+  TOTAL_SLIDES: 'total_slides',
+  FROM_SLIDE: 'from_slide',
+  TO_SLIDE: 'to_slide',
+  TOTAL_SLIDES_VIEWED: 'total_slides_viewed',
+} as const
+
+export type AnalyticsProperty = (typeof ANALYTICS_PROPERTIES)[keyof typeof ANALYTICS_PROPERTIES]
+
+/**
+ * Rejects a key outside `ANALYTICS_PROPERTIES` only in an object literal checked
+ * against it directly: a value built elsewhere with one known key passes with
+ * any others, so a builder declares `satisfies AnalyticsProperties`.
+ */
+export type AnalyticsProperties = Partial<Record<AnalyticsProperty, unknown>>
+
+/** Values of the `trigger` property on `SIDE_PANEL_OPEN`. */
+export const SIDE_PANEL_TRIGGERS = {
+  ACTION_CLICK: 'action_click',
+  ONBOARDING_COMPLETION_BUTTON_PRESS: 'onboarding_completion_button_press',
+} as const
+
+/** Values of the `direction` property on `PAGINATION_BUTTON_PRESS`. */
+export const PAGINATION_DIRECTIONS = {
+  PREV: 'prev',
+  NEXT: 'next',
+} as const
+
+/** Values of the `selection_type` property on `FULL_DATA_VIEW_ROW_SELECTION`. */
+export const SELECTION_TYPES = {
+  SELECT_ALL: 'select_all',
+  DESELECT_ALL: 'deselect_all',
+  SELECT_INDIVIDUAL: 'select_individual',
+  DESELECT_INDIVIDUAL: 'deselect_individual',
+} as const
+
+/** Values of the `method` property on `PICKER_LEVEL_CHANGE`. */
+export const PICKER_LEVEL_METHODS = {
+  SLIDER: 'slider',
+  KEYBOARD: 'keyboard',
+  SCROLL: 'scroll',
+  UNKNOWN: 'unknown',
+} as const
+
+/** How the user changed the picker level; `UNKNOWN` is only the fallback when none is given. */
+export type PickerLevelMethod = Exclude<
+  (typeof PICKER_LEVEL_METHODS)[keyof typeof PICKER_LEVEL_METHODS],
+  typeof PICKER_LEVEL_METHODS.UNKNOWN
+>
+
+/** Values of the `export_type` property on `COPY_TO_CLIPBOARD_TRIGGER`. */
+export const EXPORT_TYPES = {
+  DATA_TABLE_FULL: 'data_table_full',
+  DATA_TABLE_ROW: 'data_table_row',
+  FULL_DATA_VIEW_ROW: 'full_data_view_row',
+} as const
+
+export type RowExportType =
+  typeof EXPORT_TYPES.DATA_TABLE_ROW | typeof EXPORT_TYPES.FULL_DATA_VIEW_ROW
+
+/** Values of the `type` property: whether a preset event concerns a built-in or a user preset. */
+export const PRESET_TYPES = {
+  SYSTEM: 'system',
+  USER: 'user',
+} as const
+
+/**
  * Sources of `SCRAPE_BUTTON_PRESS`. The event keeps its name for Enter scrapes
  * so existing reports still count every scrape.
  */
@@ -141,8 +284,8 @@ export type ScrapeSource = typeof ANALYTICS_SOURCES.BUTTON | typeof ANALYTICS_SO
  * - Content script: hands the event to the background script over a message
  */
 export const captureEvent = async (
-  eventName: string,
-  properties: Record<string, any> = {},
+  eventName: AnalyticsEvent,
+  properties: AnalyticsProperties = {},
 ): Promise<void> => {
   try {
     const consentState = await getConsentState()
@@ -158,10 +301,11 @@ export const captureEvent = async (
     // Add environment and context properties to all events
     const eventProperties = {
       ...properties,
-      ...(environment && { environment }),
+      ...(environment && { [ANALYTICS_PROPERTIES.ENVIRONMENT]: environment }),
       // Don't override extension_context if it's already set e.g. from content script
-      extension_context: properties.extension_context || context,
-      extension_version: version,
+      [ANALYTICS_PROPERTIES.EXTENSION_CONTEXT]:
+        properties[ANALYTICS_PROPERTIES.EXTENSION_CONTEXT] || context,
+      [ANALYTICS_PROPERTIES.EXTENSION_VERSION]: version,
     }
 
     // A content script cannot take the event queue's lock (it gets the page's
@@ -236,6 +380,9 @@ export const captureEvent = async (
  * Fire-and-forget form of `captureEvent`, which logs its own failures, so
  * callers have nothing to await.
  */
-export const trackEvent = (eventName: string, properties: Record<string, any> = {}): void => {
+export const trackEvent = (
+  eventName: AnalyticsEvent,
+  properties: AnalyticsProperties = {},
+): void => {
   reportRejection(captureEvent(eventName, properties))
 }

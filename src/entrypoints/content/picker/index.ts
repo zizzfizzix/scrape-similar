@@ -287,9 +287,9 @@ export const handlePickerClick = async (
   const { config, matches, elementDetails } = buildPickerSelection(el, state)
 
   trackEvent(ANALYTICS_EVENTS.PICKER_ELEMENT_SELECT, {
-    elements_matched: matches.length,
-    selector_level: state.selectedCandidateIndex,
-    total_levels: state.selectorCandidates.length,
+    [ANALYTICS_PROPERTIES.ELEMENTS_MATCHED]: matches.length,
+    [ANALYTICS_PROPERTIES.SELECTOR_LEVEL]: state.selectedCandidateIndex,
+    [ANALYTICS_PROPERTIES.TOTAL_LEVELS]: state.selectorCandidates.length,
   })
 
   const { tabId } = state
@@ -325,8 +325,8 @@ export const handlePickerClick = async (
     )
 
     trackEvent(ANALYTICS_EVENTS.ELEMENTS_HIGHLIGHT, {
-      elements_count: elementsToHighlight.length,
-      is_row_highlight: false,
+      [ANALYTICS_PROPERTIES.ELEMENTS_COUNT]: elementsToHighlight.length,
+      [ANALYTICS_PROPERTIES.IS_ROW_HIGHLIGHT]: false,
     })
 
     const scrapedData = scrapePage(config)
@@ -338,8 +338,8 @@ export const handlePickerClick = async (
     log.debug('Picker mode scrape complete, data:', scrapeResult)
 
     trackEvent(ANALYTICS_EVENTS.SCRAPE_COMPLETION, {
-      items_scraped: scrapedData.length,
-      columns_count: config.columns.length,
+      [ANALYTICS_PROPERTIES.ITEMS_SCRAPED]: scrapedData.length,
+      [ANALYTICS_PROPERTIES.COLUMNS_COUNT]: config.columns.length,
     })
 
     browser.runtime.sendMessage(
@@ -378,7 +378,7 @@ const navigateSelectorCandidates = (delta: number, state: ContentScriptState): v
     newIndex,
     state,
     (matches, xpath) => updatePickerBannerContent(matches, xpath, state),
-    'keyboard',
+    PICKER_LEVEL_METHODS.KEYBOARD,
   )
 }
 
@@ -426,7 +426,7 @@ export const enablePickerMode = async (
 
   // Track picker mode enable with source
   trackEvent(ANALYTICS_EVENTS.PICKER_MODE_ENABLE, {
-    source: source || ANALYTICS_SOURCES.UNKNOWN,
+    [ANALYTICS_PROPERTIES.SOURCE]: source || ANALYTICS_SOURCES.UNKNOWN,
   })
 
   // Save picker mode state to storage
@@ -479,10 +479,7 @@ const createPickerEventHandlers = (
   disablePickerMode: (source?: AnalyticsSource) => void,
 ) => {
   // Level change handler with banner update
-  const handleLevelChangeWithUpdate = (
-    level: number,
-    method?: 'slider' | 'keyboard' | 'scroll',
-  ) => {
+  const handleLevelChangeWithUpdate = (level: number, method?: PickerLevelMethod) => {
     handleLevelChangeInternal(
       level,
       state,
@@ -533,7 +530,7 @@ export const disablePickerMode = (state: ContentScriptState, source?: AnalyticsS
 
   // Track picker mode disable with source
   trackEvent(ANALYTICS_EVENTS.PICKER_MODE_DISABLE, {
-    source: source || ANALYTICS_SOURCES.UNKNOWN,
+    [ANALYTICS_PROPERTIES.SOURCE]: source || ANALYTICS_SOURCES.UNKNOWN,
   })
 
   // Save picker mode state to storage

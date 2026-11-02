@@ -512,7 +512,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
   }
 
   const scrapeCommittedMainSelector = (source: ScrapeSource) => {
-    trackEvent(ANALYTICS_EVENTS.SCRAPE_BUTTON_PRESS, { source })
+    trackEvent(ANALYTICS_EVENTS.SCRAPE_BUTTON_PRESS, { [ANALYTICS_PROPERTIES.SOURCE]: source })
     setIsAutosuggestOpen(false)
     setMainSelectorDraft(trimmedDraft)
     onScrape()

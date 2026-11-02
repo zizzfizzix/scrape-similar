@@ -250,8 +250,8 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
     if (isSaved) {
       log.debug('Preset saved successfully')
       trackEvent(ANALYTICS_EVENTS.PRESET_SAVE, {
-        type: 'user',
-        columns_count: config.columns.length,
+        [ANALYTICS_PROPERTIES.TYPE]: PRESET_TYPES.USER,
+        [ANALYTICS_PROPERTIES.COLUMNS_COUNT]: config.columns.length,
       })
     } else {
       log.error('Failed to save preset')
@@ -270,9 +270,9 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
       toast.success(`System preset "${preset.name}" hidden.`)
 
       trackEvent(ANALYTICS_EVENTS.PRESET_HIDE, {
-        type: 'system',
-        preset_name: preset.name,
-        preset_id: preset.id,
+        [ANALYTICS_PROPERTIES.TYPE]: PRESET_TYPES.SYSTEM,
+        [ANALYTICS_PROPERTIES.PRESET_NAME]: preset.name,
+        [ANALYTICS_PROPERTIES.PRESET_ID]: preset.id,
       })
       return
     }
@@ -285,7 +285,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({ debugMode, onDebugModeChan
         </>,
       )
       trackEvent(ANALYTICS_EVENTS.PRESET_DELETION, {
-        type: 'user',
+        [ANALYTICS_PROPERTIES.TYPE]: PRESET_TYPES.USER,
       })
     } else {
       toast.error(

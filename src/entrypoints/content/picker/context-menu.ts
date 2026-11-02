@@ -15,7 +15,7 @@ export const handleLevelChange = (
   level: number,
   state: ContentScriptState,
   onUpdate: (matches: number, xpath: string) => void,
-  method?: 'slider' | 'keyboard' | 'scroll',
+  method?: PickerLevelMethod,
 ): void => {
   // An out-of-range level has no candidate, so the lookup doubles as the
   // bounds check.
@@ -31,9 +31,9 @@ export const handleLevelChange = (
 
   // Track level change
   trackEvent(ANALYTICS_EVENTS.PICKER_LEVEL_CHANGE, {
-    from_level: fromLevel,
-    to_level: level,
-    method: method || 'unknown',
+    [ANALYTICS_PROPERTIES.FROM_LEVEL]: fromLevel,
+    [ANALYTICS_PROPERTIES.TO_LEVEL]: level,
+    [ANALYTICS_PROPERTIES.METHOD]: method || PICKER_LEVEL_METHODS.UNKNOWN,
   })
 }
 
@@ -45,7 +45,7 @@ export const showPickerContextMenu = async (
   y: number,
   ctx: ContentScriptContext,
   state: ContentScriptState,
-  onLevelChange: (level: number, method?: 'slider' | 'keyboard' | 'scroll') => void,
+  onLevelChange: (level: number, method?: PickerLevelMethod) => void,
   onClose: () => void,
   removeCrosshairCursor: () => void,
 ): Promise<void> => {
@@ -76,7 +76,7 @@ export const showPickerContextMenu = async (
 
   // Track context menu open (only when newly opening, not updating position)
   trackEvent(ANALYTICS_EVENTS.PICKER_CONTEXT_MENU_OPEN, {
-    levels_available: state.selectorCandidates.length,
+    [ANALYTICS_PROPERTIES.LEVELS_AVAILABLE]: state.selectorCandidates.length,
   })
 
   // Create shadow root UI using WXT's helper (handles CSS injection)
@@ -101,7 +101,7 @@ export const showPickerContextMenu = async (
                 y: state.contextMenuY,
                 levels: state.selectorCandidates.length,
                 currentLevel: state.selectedCandidateIndex,
-                onChange: (level: number) => onLevelChange(level, 'slider'),
+                onChange: (level: number) => onLevelChange(level, PICKER_LEVEL_METHODS.SLIDER),
                 onClose,
               },
               container,
@@ -147,7 +147,7 @@ export const showPickerContextMenu = async (
 export const handlePickerContextMenuWheel = (
   event: WheelEvent,
   state: ContentScriptState,
-  onLevelChange: (level: number, method?: 'slider' | 'keyboard' | 'scroll') => void,
+  onLevelChange: (level: number, method?: PickerLevelMethod) => void,
 ): void => {
   // Prevent page scroll
   event.preventDefault()
@@ -173,7 +173,7 @@ export const handlePickerContextMenuWheel = (
   // This matches the visual direction: scroll gesture moves the indicator in the same direction
   const newIndex = Math.max(0, Math.min(maxIndex, state.selectedCandidateIndex - levels))
   if (newIndex !== state.selectedCandidateIndex) {
-    onLevelChange(newIndex, 'scroll')
+    onLevelChange(newIndex, PICKER_LEVEL_METHODS.SCROLL)
     state.pickerContextMenuApi.updateLevel(newIndex)
   }
 }

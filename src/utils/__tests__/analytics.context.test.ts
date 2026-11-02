@@ -24,7 +24,7 @@ import * as posthogBg from '@/utils/posthog-background'
 import { captureEvent, trackEvent } from '@/utils/analytics'
 
 const QUEUE_KEY = eventQueueItem.key
-const EVENT_NAME = 'contextual_event'
+const EVENT_NAME = ANALYTICS_EVENTS.SETTINGS_OPEN
 
 // Helper to get the last queued event
 const getQueuedEvent = async () => {
@@ -49,12 +49,12 @@ describe('captureEvent – context specific behaviour', () => {
     const captureSpy = vi.fn()
     vi.spyOn(posthogBg, 'getPostHogBackground').mockResolvedValue({ capture: captureSpy } as any)
 
-    await captureEvent(EVENT_NAME, { foo: 'bar' })
+    await captureEvent(EVENT_NAME, { trigger: 'bar' })
 
     expect(captureSpy).toHaveBeenCalledTimes(1)
     const [capturedName, capturedProps] = captureSpy.mock.calls[0] ?? []
     expect(capturedName).toBe(EVENT_NAME)
-    expect(capturedProps.foo).toBe('bar')
+    expect(capturedProps.trigger).toBe('bar')
     // extension_context should be BACKGROUND by default
     expect(capturedProps.extension_context).toBe(contextDetection.EXTENSION_CONTEXTS.BACKGROUND)
   })
@@ -77,12 +77,12 @@ describe('captureEvent – context specific behaviour', () => {
     const captureSpy = vi.fn()
     ;(globalThis as any).window.__scrape_similar_posthog = { capture: captureSpy }
 
-    await captureEvent(EVENT_NAME, { baz: 'qux' })
+    await captureEvent(EVENT_NAME, { url: 'qux' })
 
     expect(captureSpy).toHaveBeenCalledTimes(1)
     const [capturedName, capturedProps] = captureSpy.mock.calls[0] ?? []
     expect(capturedName).toBe(EVENT_NAME)
-    expect(capturedProps.baz).toBe('qux')
+    expect(capturedProps.url).toBe('qux')
   })
 
   it('retains existing extension_context in properties', async () => {
@@ -112,14 +112,14 @@ describe('captureEvent – context specific behaviour', () => {
     currentContext = contextDetection.EXTENSION_CONTEXTS.CONTENT_SCRIPT
     const sendMessage = vi.spyOn(browser.runtime, 'sendMessage').mockResolvedValue(undefined)
 
-    await captureEvent(EVENT_NAME, { foo: 'bar' })
+    await captureEvent(EVENT_NAME, { trigger: 'bar' })
 
     expect(sendMessage).toHaveBeenCalledWith({
       type: MESSAGE_TYPES.TRACK_EVENT,
       payload: {
         eventName: EVENT_NAME,
         properties: expect.objectContaining({
-          foo: 'bar',
+          trigger: 'bar',
           extension_context: contextDetection.EXTENSION_CONTEXTS.CONTENT_SCRIPT,
         }),
       },
@@ -203,10 +203,13 @@ describe('captureEvent – context specific behaviour', () => {
     const captureSpy = vi.fn()
     vi.spyOn(posthogBg, 'getPostHogBackground').mockResolvedValue({ capture: captureSpy } as any)
 
-    expect(trackEvent(EVENT_NAME, { foo: 'bar' })).toBeUndefined()
+    expect(trackEvent(EVENT_NAME, { trigger: 'bar' })).toBeUndefined()
 
     await vi.waitFor(() =>
-      expect(captureSpy).toHaveBeenCalledWith(EVENT_NAME, expect.objectContaining({ foo: 'bar' })),
+      expect(captureSpy).toHaveBeenCalledWith(
+        EVENT_NAME,
+        expect.objectContaining({ trigger: 'bar' }),
+      ),
     )
   })
 })

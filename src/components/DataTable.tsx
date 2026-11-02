@@ -113,7 +113,7 @@ export const DataTable: React.FC<DataTableProps> = ({
             row={row.original}
             mainSelector={config.mainSelector}
             columnKeys={columnKeys}
-            exportType="data_table_row"
+            exportType={EXPORT_TYPES.DATA_TABLE_ROW}
             onHighlight={onRowHighlight}
           />
         ),
@@ -182,8 +182,8 @@ export const DataTable: React.FC<DataTableProps> = ({
   const handleOpenFullView = (tabId: number) => {
     // Track full data view open
     trackEvent(ANALYTICS_EVENTS.FULL_DATA_VIEW_OPEN_BUTTON_PRESS, {
-      total_rows: filteredData.length,
-      columns_count: config.columns.length,
+      [ANALYTICS_PROPERTIES.TOTAL_ROWS]: filteredData.length,
+      [ANALYTICS_PROPERTIES.COLUMNS_COUNT]: config.columns.length,
     })
 
     // Use type assertion since WXT will generate this entrypoint
@@ -303,10 +303,10 @@ export const DataTable: React.FC<DataTableProps> = ({
               size="sm"
               onClick={() => {
                 trackEvent(ANALYTICS_EVENTS.PAGINATION_BUTTON_PRESS, {
-                  direction: 'prev',
-                  from_page: pagination.pageIndex + 1,
-                  to_page: pagination.pageIndex,
-                  total_pages: totalPages,
+                  [ANALYTICS_PROPERTIES.DIRECTION]: PAGINATION_DIRECTIONS.PREV,
+                  [ANALYTICS_PROPERTIES.FROM_PAGE]: pagination.pageIndex + 1,
+                  [ANALYTICS_PROPERTIES.TO_PAGE]: pagination.pageIndex,
+                  [ANALYTICS_PROPERTIES.TOTAL_PAGES]: totalPages,
                 })
                 setPagination((p) => ({ ...p, pageIndex: Math.max(0, p.pageIndex - 1) }))
               }}
@@ -323,10 +323,10 @@ export const DataTable: React.FC<DataTableProps> = ({
               size="sm"
               onClick={() => {
                 trackEvent(ANALYTICS_EVENTS.PAGINATION_BUTTON_PRESS, {
-                  direction: 'next',
-                  from_page: pagination.pageIndex + 1,
-                  to_page: pagination.pageIndex + 2,
-                  total_pages: totalPages,
+                  [ANALYTICS_PROPERTIES.DIRECTION]: PAGINATION_DIRECTIONS.NEXT,
+                  [ANALYTICS_PROPERTIES.FROM_PAGE]: pagination.pageIndex + 1,
+                  [ANALYTICS_PROPERTIES.TO_PAGE]: pagination.pageIndex + 2,
+                  [ANALYTICS_PROPERTIES.TOTAL_PAGES]: totalPages,
                 })
                 setPagination((p) => ({
                   ...p,
