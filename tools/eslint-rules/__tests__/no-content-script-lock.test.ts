@@ -1,7 +1,8 @@
 import { noContentScriptLock } from '@@/tools/eslint-rules/no-content-script-lock.ts'
-import { RuleTester } from 'eslint'
+import { Linter, RuleTester } from 'eslint'
 import path from 'node:path'
 import tseslint from 'typescript-eslint'
+import { beforeAll } from 'vitest'
 
 // A typed rule needs a program, so the code under test is linted as one of the
 // fixture files, against modules that exist on disk beside it.
@@ -19,18 +20,32 @@ const ROUTE_BOUNDARY = {
   ],
 }
 
-const ruleTester = new RuleTester({
-  languageOptions: {
-    parser: tseslint.parser,
-    parserOptions: {
-      project: './tsconfig.json',
-      tsconfigRootDir: FIXTURES,
-      // Under `CI`, typescript-eslint assumes a one-shot lint and builds the
-      // program from disk, where the fixture holds none of the code under test.
-      disallowAutomaticSingleRunInference: true,
-    },
+const LANGUAGE_OPTIONS = {
+  parser: tseslint.parser,
+  parserOptions: {
+    project: './tsconfig.json',
+    tsconfigRootDir: FIXTURES,
+    // Under `CI`, typescript-eslint assumes a one-shot lint and builds the
+    // program from disk, where the fixture holds none of the code under test.
+    disallowAutomaticSingleRunInference: true,
   },
-})
+}
+
+// Building the program has run past the 5 s `testTimeout` under coverage on a
+// loaded machine. typescript-estree caches it per tsconfig, so building it here
+// keeps that cost out of the first case.
+const PROGRAM_BUILD_TIMEOUT_MS = 60_000
+
+beforeAll(() => {
+  const config = { files: ['**/*.ts'], languageOptions: LANGUAGE_OPTIONS }
+  // A config that does not match the file skips the parse with a warning.
+  const messages = new Linter().verify('', config, CONTENT)
+  if (messages.length > 0) {
+    throw new Error(`program build failed: ${JSON.stringify(messages)}`)
+  }
+}, PROGRAM_BUILD_TIMEOUT_MS)
+
+const ruleTester = new RuleTester({ languageOptions: LANGUAGE_OPTIONS })
 
 const chain = (name: string, ...rest: string[]) => ({
   messageId: 'reachesLock',
