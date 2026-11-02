@@ -187,21 +187,22 @@ const BOOLEAN_PREFIX: Linter.RulesRecord = {
  */
 const OFF_ON_MERITS = {
   // 274 reports across 20 files, and the suite cannot be query-first. Of the
-  // 268 sorted in #280, 77 select on something Testing Library has no query for by design: the
-  // `className` a component computes, asserted directly (15), or a utility class
-  // used as the handle (12); the `lucide-*` icon a button is showing (13);
-  // `cmdk` / `vaul` / `data-slot` internals of the libraries the UI is built
-  // from (27); the component's own root via `:scope > div` (3, plus 4 counted
-  // under `className`); the inline `style` positioning the picker menu (4); and
-  // `input[type="file"]`, which has no ARIA role (3). The other 191 could move
-  // onto `getByRole`, but most of the files would still need a disable.
+  // 268 sorted in #280, 77 select on something Testing Library has no query for
+  // by design: the `className` a component computes, asserted directly (15), or
+  // a utility class used as the handle (12); the `lucide-*` icon a button is
+  // showing (13); `cmdk` / `vaul` / `data-slot` internals of the libraries the
+  // UI is built from (27); the component's own root via `:scope > div` (3, plus
+  // 4 counted under `className`); the inline `style` positioning the picker
+  // menu (4); and `input[type="file"]`, which has no ARIA role (3). The other
+  // 191 could move onto `getByRole`, but most of the files would still need a
+  // disable.
   'testing-library/no-node-access': 'off',
   // 128 and 24, both off because their fixes do not say the same thing as the
   // assertions they replace. `toHaveTextContent` matches a substring, so it
   // weakens every `expect(el.textContent).toBe(x)` it rewrites; `toHaveStyle`
   // cannot express "this declaration is not set", which 7 of the 21 sites
-  // measured in #288 assert. Both fixers also mangle `expect((el as HTMLElement).…)` into
-  // unparseable code.
+  // measured in #288 assert. Both fixers also mangle
+  // `expect((el as HTMLElement).…)` into unparseable code.
   'jest-dom/prefer-to-have-text-content': 'off',
   'jest-dom/prefer-to-have-style': 'off',
   // 385 reports across 58 files, 344 of them in tests. Outside tests, a `!` with
