@@ -30,14 +30,14 @@ import { noContentScriptLock } from './tools/eslint-rules/no-content-script-lock
  * Type-aware linting is switched on (`projectService`). What is on from it is
  * the rules this codebase already passes (ALREADY_CLEAN), the correctness,
  * stylistic, assertion, unsafe-`any`, promise, unbound-method,
- * nullish-coalescing, unnecessary-condition, confusing-void and empty-body
+ * nullish-coalescing, unnecessary-condition, confusing-void and inert-function
  * rules (CORRECTNESS_RULES, TIDY_RULES, ASSERTION_RULES, UNSAFE_ANY_RULES,
  * PROMISE_RULES, UNBOUND_METHOD, NULLISH_COALESCING, UNNECESSARY_CONDITION,
- * CONFUSING_VOID, EMPTY_BODY_RULES) and the boolean naming rule; the
+ * CONFUSING_VOID, INERT_FUNCTION_RULES) and the boolean naming rule; the
  * rest is a backlog tracked in #282, and any rule held off with violations to
  * fix goes in DEFERRED below with the count it has. A rule that is wrong for
  * this codebase rather than merely unfixed goes in OFF_ON_MERITS instead, which
- * is not a worklist.
+ * is not a worklist, or in OFF_ON_MERITS_IN_TESTS when it is wrong only there.
  */
 
 const TEST_FILES = [
@@ -332,11 +332,11 @@ const CONFUSING_VOID: Linter.RulesRecord = {
 
 /**
  * An `async` function that never awaits, and a function with an empty body
- * (#383). Everything but tests, which are exempt in OFF_ON_MERITS_IN_TESTS. An empty
- * function that is a deliberate no-op says why in a comment inside its body,
- * which the rule accepts.
+ * (#383). Everything but tests, which are exempt in OFF_ON_MERITS_IN_TESTS.
+ * An empty function that is a deliberate no-op says why in a comment inside
+ * its body, which the rule accepts.
  */
-const EMPTY_BODY_RULES: Linter.RulesRecord = {
+const INERT_FUNCTION_RULES: Linter.RulesRecord = {
   '@typescript-eslint/require-await': 'error',
   '@typescript-eslint/no-empty-function': 'error',
 }
@@ -389,9 +389,10 @@ const OFF_ON_MERITS_IN_TESTS = {
   // `mockImplementation`), where `async` is the plainest way to return one.
   '@typescript-eslint/require-await': 'off',
   // 244 reports, all in tests: `onChange: () => {}` props,
-  // `mockImplementation(() => {})` silencing a spy, and the E2E specs'
-  // best-effort `.catch(() => {})` on cleanup. A comment in each body would
-  // say "no-op" 244 times.
+  // `mockImplementation(() => {})` silencing a spy, `new Promise(() => {})`
+  // holding a read pending, the jsdom shims in `vitest.setup.ts`, placeholder
+  // resolvers (`let release = () => {}`), and the E2E specs' best-effort
+  // `.catch(() => {})`. A comment in each body would say "no-op" 244 times.
   '@typescript-eslint/no-empty-function': 'off',
 } as const
 
@@ -440,7 +441,7 @@ export default defineConfig([
       ...NULLISH_COALESCING,
       ...UNNECESSARY_CONDITION,
       ...CONFUSING_VOID,
-      ...EMPTY_BODY_RULES,
+      ...INERT_FUNCTION_RULES,
       ...BOOLEAN_PREFIX,
       '@typescript-eslint/no-unused-vars': [
         'error',
@@ -613,7 +614,8 @@ export default defineConfig([
     languageOptions: { globals: globals.node },
   },
 
-  // Last, so it wins over the shared configs above that switch these on.
+  // These two last, so they win over the shared configs above that switch
+  // these rules on.
   { files: ['**/*.{ts,tsx}'], rules: { ...DEFERRED, ...OFF_ON_MERITS } },
   { files: [...TEST_FILES, 'tests/e2e/**/*.ts'], rules: OFF_ON_MERITS_IN_TESTS },
 ])
