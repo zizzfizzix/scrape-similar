@@ -283,15 +283,19 @@ test.describe('Onboarding Demo Scrape', () => {
       const tabs = await chrome.tabs.query({ url: onboardingUrl })
       return tabs[0]?.id
     }, onboardingPage.url())
+    // Without a tab id the read below looks up the wrong key and finds nothing,
+    // which the final assertion would take for a cleared config.
+    expect(tabId).toBeDefined()
 
     const sidepanelPage = await startDemo(context, extensionId, onboardingPage, startButton)
 
     await waitForDemoData(sidepanelPage)
 
     const demoConfigAfter = await serviceWorker.evaluate(async (tid) => {
-      const result = await chrome.storage.local.get(`demo_scrape_pending_${tid}`)
-      return result[`demo_scrape_pending_${tid}`]
-    }, tabId)
+      const key = `demo_scrape_pending_${tid}`
+      const result = await chrome.storage.local.get(key)
+      return result[key]
+    }, tabId!)
 
     expect(demoConfigAfter).toBeUndefined()
   })

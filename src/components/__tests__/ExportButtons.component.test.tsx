@@ -348,6 +348,15 @@ describe('ExportButtons', () => {
       })
     })
 
+    it('reports a connection failure whose error carries no message', async () => {
+      backgroundReplies(undefined, {})
+      view = render()
+
+      await choose('Export all to Google Sheets')
+
+      expect(toastMocks.toast.error).toHaveBeenCalledWith('Connection error: unknown error')
+    })
+
     it('reports a refusal from the background', async () => {
       backgroundReplies({ success: false, error: 'Quota exceeded' })
       view = render()

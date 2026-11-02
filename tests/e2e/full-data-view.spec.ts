@@ -709,7 +709,7 @@ test.describe('Full Data View', () => {
     const currentUrl = fullDataViewPage.url()
     const tabIdMatch = /tabId=(\d+)/.exec(currentUrl)
     expect(tabIdMatch).toBeTruthy()
-    const tabId = tabIdMatch![1]
+    const tabId = tabIdMatch![1]!
 
     // Simulate new scrape data being added to storage (this would normally happen
     // when user scrapes again in the original tab)

@@ -58,7 +58,7 @@ export const TabPanel = memo(function TabPanel({
 
   const applyStoredState = useCallback(
     (stored: SidePanelConfig) => {
-      log.debug(`Applying stored state for tab ${tabId}:`, stored)
+      log.debug(`Applying stored state for tab ${String(tabId)}:`, stored)
       const storedConfig = resolveStoredConfig(stored)
       // Showing a hidden panel re-reads its storage, which nearly always holds
       // what is already on screen; keeping the same references lets React skip

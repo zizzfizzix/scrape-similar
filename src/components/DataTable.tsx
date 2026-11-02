@@ -75,7 +75,7 @@ export const DataTable: React.FC<DataTableProps> = ({
 
   // Create a stable key for anchor positioning that changes when data structure changes
   const anchorKey = useMemo(() => {
-    return `${filteredData.length}-${pagination.pageSize}-${showEmptyRows}`
+    return `${filteredData.length}-${pagination.pageSize}-${String(showEmptyRows)}`
   }, [filteredData.length, pagination.pageSize, showEmptyRows])
 
   // Send the reader back to page 1 whenever the rows underneath them change.

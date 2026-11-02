@@ -74,7 +74,7 @@ const getEntrypointPaths = () => {
   return Object.keys(entrypoints).map((path) => {
     const filename = path.split('/').pop()!
     if (filename === 'index.html') {
-      return `/${path.split('/').at(-2)}.html`
+      return `/${path.split('/').at(-2)!}.html`
     }
     return `/${filename}`
   })
