@@ -1,3 +1,4 @@
+import { closestHtmlElement } from '@/entrypoints/content/closest-html-element'
 import {
   highlightElementsForPicker,
   highlightMatchingElements,
@@ -104,17 +105,18 @@ const processMouseUpdate = (state: ContentScriptState): void => {
   }
 
   // Get element under cursor (ignore our overlay/banner)
-  let el: Element | null
+  let hit: Element | null
   const prevPointerEvents = state.bannerRootEl?.style.pointerEvents
   if (state.bannerRootEl) state.bannerRootEl.style.pointerEvents = 'none'
   try {
-    el = document.elementFromPoint(state.lastMouseX, state.lastMouseY)
+    hit = document.elementFromPoint(state.lastMouseX, state.lastMouseY)
   } finally {
     if (state.bannerRootEl && prevPointerEvents !== undefined) {
       state.bannerRootEl.style.pointerEvents = prevPointerEvents
     }
   }
-  if (!el || !(el instanceof HTMLElement)) return
+  const el = closestHtmlElement(hit)
+  if (!el) return
 
   // Skip if element is inside any extension UI element (context menu, etc.)
   if (el.closest('[data-wxt-shadow-root]')) {
@@ -266,21 +268,17 @@ export const handlePickerClick = async (
   event.stopPropagation()
 
   // Resolved before disabling picker mode, which forgets the hovered element.
-  const target = event.target
+  const target = closestHtmlElement(event.target)
   const hoveredElement = state.currentHoveredElement
   // A press and release on different elements targets their common ancestor,
   // so the last element hover processed is taken when the target contains it.
-  const el =
-    target instanceof HTMLElement && hoveredElement && target.contains(hoveredElement)
-      ? hoveredElement
-      : target
-  // Nothing selectable is under the release (empty page margin, or a drag
-  // ending over the banner, which targets <body>), so the picker stays on, as
-  // hovering offers no selector for either element.
-  if (el === document.body || el === document.documentElement) return
+  const el = target && hoveredElement && target.contains(hoveredElement) ? hoveredElement : target
+  // Nothing selectable is under the release (page margin, a drag ending over
+  // the banner, which targets <body>, or a node with no HTML ancestor), so the
+  // picker stays on.
+  if (!el || el === document.body || el === document.documentElement) return
 
   disablePickerMode(ANALYTICS_SOURCES.ELEMENT_SELECTED)
-  if (!(el instanceof HTMLElement)) return
 
   log.debug('Picker mode: element selected', el)
 

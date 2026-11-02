@@ -78,6 +78,8 @@ afterEach(() => {
   removeCrosshairCursor()
 })
 
+const svgElement = () => document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+
 describe('applyCrosshairCursor', () => {
   it('injects the cursor style and marks the document active', () => {
     applyCrosshairCursor()
@@ -378,8 +380,31 @@ describe('handlePickerMouseMove', () => {
       expect(bannerMocks.updatePickerBannerContent).not.toHaveBeenCalled()
     })
 
-    it('does nothing when the pointer is over a non-HTML node', () => {
-      hover(document.createElementNS('http://www.w3.org/2000/svg', 'svg'))
+    it('highlights the link around a hovered SVG icon', () => {
+      document.body.innerHTML =
+        '<a id="icon" href="/x"><svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0"/></svg></a>'
+      hover(document.querySelector('path'))
+
+      move(10, 20)
+
+      expect(state.currentHoveredElement).toBe(document.querySelector('#icon'))
+      expect(state.currentXPath).toBe('/html/body/a')
+      expect(highlightMocks.highlightElementsForPicker).toHaveBeenCalled()
+    })
+
+    it('clears the selection over an SVG placed directly in the body', () => {
+      document.body.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg"></svg>'
+      state.currentHoveredElement = document.createElement('li')
+      hover(document.querySelector('svg'))
+
+      move(10, 20)
+
+      expect(state.currentHoveredElement).toBeNull()
+      expect(bannerMocks.updatePickerBannerContent).toHaveBeenCalledWith(0, '', state)
+    })
+
+    it('does nothing when the pointer is over a non-HTML node with no HTML ancestor', () => {
+      hover(svgElement())
 
       move(10, 20)
 
@@ -640,12 +665,25 @@ describe('handlePickerClick', () => {
     expect(event.preventDefault).not.toHaveBeenCalled()
   })
 
-  it('stops when the click landed on a non-HTML node', async () => {
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
-    document.body.append(svg)
+  it('selects the link around a clicked SVG icon', async () => {
+    document.body.innerHTML =
+      '<a href="/x"><svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0"/></svg></a>'
 
-    await click([svg]).result
+    await click([document.querySelector('path')!]).result
 
+    expect(disable).toHaveBeenCalledWith('element_selected')
+    expect(storedSelection()?.elementDetails?.xpath).toBe('/html/body/a')
+  })
+
+  it.each([
+    ['placed directly in the body', () => document.body.appendChild(svgElement())],
+    ['without an HTML ancestor', svgElement],
+  ])('stays on when the clicked SVG is %s', async (_, makeSvg) => {
+    const { event, result } = click([makeSvg()])
+    await result
+
+    expect(event.preventDefault).toHaveBeenCalled()
+    expect(disable).not.toHaveBeenCalled()
     expect(sendMessage).not.toHaveBeenCalled()
   })
 
