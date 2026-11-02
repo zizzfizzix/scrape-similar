@@ -293,7 +293,7 @@ export type ScrapeSource = typeof ANALYTICS_SOURCES.BUTTON | typeof ANALYTICS_SO
 
 /**
  * Routes by execution context:
- * - Background service worker: `getPostHogBackground()`
+ * - Background (Chromium service worker, Firefox background page): `getPostHogBackground()`
  * - React UI context: PostHog from React context (`window.__scrape_similar_posthog`)
  * - Content script: hands the event to the background script over a message
  *

@@ -29,8 +29,8 @@ export const isContentScript = (): boolean => {
 /**
  * Detects if the current script is running in a background context: a service worker on
  * Chromium MV3, or the Firefox background page, which has a `window` of its own.
- * Chromium MV3 has no background page, so `extension.getBackgroundPage` is missing or
- * returns null there.
+ * Chromium MV3 has no background page: `extension.getBackgroundPage` returns undefined on
+ * its extension pages and is missing in the service worker.
  */
 export const isBackgroundContext = (): boolean => {
   if (

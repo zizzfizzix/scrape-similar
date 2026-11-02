@@ -1,18 +1,13 @@
-import { BROWSER_FAMILIES, getBrowserFamily } from '@/utils/browser-family'
 import log from 'loglevel'
 
 /**
- * The onboarding page is matched by the running extension's own URL, since the origin
- * differs per browser and per install. Firefox parses an unprivileged extension's
- * `documentUrlPatterns` with `restrictSchemes`, and an invalid pattern rejects the whole
- * item, so Firefox gets web pages only until a `moz-extension:` pattern is known to pass.
+ * The onboarding page is matched by the running extension's own URL: the origin differs
+ * per browser and per install, and on Firefox it is not derived from `runtime.id`.
  */
 const getContextMenuUrlPatterns = (): string[] => [
   'http://*/*',
   'https://*/*',
-  ...(getBrowserFamily() === BROWSER_FAMILIES.FIREFOX
-    ? []
-    : [browser.runtime.getURL('/onboarding.html')]),
+  browser.runtime.getURL('/onboarding.html'),
 ]
 
 interface ContextMenuItem {

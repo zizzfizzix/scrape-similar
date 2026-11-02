@@ -26,7 +26,6 @@ const FIREFOX: NonInjectableUrls = {
     'https://api.accounts.firefox.com/',
     'https://content.cdn.mozilla.net/',
     'https://discovery.addons.mozilla.org/',
-    'https://install.mozilla.org/',
     'https://oauth.accounts.firefox.com/',
     'https://profile.accounts.firefox.com/',
     'https://support.mozilla.org/',
