@@ -2,10 +2,9 @@ import log from 'loglevel'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { browser } from 'wxt/browser'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
-import { storage } from 'wxt/utils/storage'
 
 // Dynamically control the context value returned by getCurrentContext
-let currentContext: any
+let currentContext: string
 
 vi.mock('@/utils/context-detection', async () => {
   const actual = await vi.importActual<typeof import('@/utils/context-detection')>(
@@ -23,12 +22,23 @@ import * as posthogBg from '@/utils/posthog-background'
 
 import { captureEvent, trackEvent } from '@/utils/analytics'
 
-const QUEUE_KEY = eventQueueItem.key
+type BackgroundPostHog = NonNullable<Awaited<ReturnType<typeof posthogBg.getPostHogBackground>>>
+
+const stubBackgroundPostHog = (capture: (...args: unknown[]) => void) =>
+  ({ capture }) as unknown as BackgroundPostHog
+
+// Tests replace `window` wholesale, to stub the UI PostHog or to run without one.
+interface StubWindow {
+  __scrape_similar_posthog?: unknown
+  location?: { href: string }
+}
+const testGlobal = globalThis as unknown as { window: StubWindow | undefined }
+
 const EVENT_NAME = ANALYTICS_EVENTS.SETTINGS_OPEN
 
 // Helper to get the last queued event
 const getQueuedEvent = async () => {
-  const queue = (await storage.getItem<any[]>(QUEUE_KEY)) || []
+  const queue = await eventQueueItem.getValue()
   return queue[queue.length - 1]
 }
 
@@ -39,15 +49,15 @@ describe('captureEvent – context specific behaviour', () => {
     // Default consent behaviour for these tests is granted
     vi.spyOn(consent, 'getConsentState').mockResolvedValue(true)
     // Ensure PostHog is absent
-    ;(globalThis as any).window = (globalThis as any).window || {}
-    delete (globalThis as any).window.__scrape_similar_posthog
+    testGlobal.window = testGlobal.window || {}
+    delete testGlobal.window.__scrape_similar_posthog
   })
 
   it('uses PostHog from background context', async () => {
     // Mock context and PostHog instance
     currentContext = contextDetection.EXTENSION_CONTEXTS.BACKGROUND
     const captureSpy = vi.fn()
-    vi.spyOn(posthogBg, 'getPostHogBackground').mockResolvedValue({ capture: captureSpy } as any)
+    vi.spyOn(posthogBg, 'getPostHogBackground').mockResolvedValue(stubBackgroundPostHog(captureSpy))
 
     await captureEvent(EVENT_NAME, { trigger: 'bar' })
 
@@ -64,18 +74,17 @@ describe('captureEvent – context specific behaviour', () => {
 
     await captureEvent(EVENT_NAME)
 
-    const queued = await getQueuedEvent()
-    expect(queued).toBeTruthy()
-    expect(queued.name).toBe(EVENT_NAME)
-    expect(queued.props.extension_context).toBe(contextDetection.EXTENSION_CONTEXTS.SIDEPANEL)
+    expect(await getQueuedEvent()).toMatchObject({
+      name: EVENT_NAME,
+      props: { extension_context: contextDetection.EXTENSION_CONTEXTS.SIDEPANEL },
+    })
   })
 
   it('captures event via window PostHog in sidepanel when available', async () => {
     currentContext = contextDetection.EXTENSION_CONTEXTS.SIDEPANEL
     // Create a minimal window with PostHog stub
-    ;(globalThis as any).window = {}
     const captureSpy = vi.fn()
-    ;(globalThis as any).window.__scrape_similar_posthog = { capture: captureSpy }
+    testGlobal.window = { __scrape_similar_posthog: { capture: captureSpy } }
 
     await captureEvent(EVENT_NAME, { url: 'qux' })
 
@@ -88,7 +97,7 @@ describe('captureEvent – context specific behaviour', () => {
   it('retains existing extension_context in properties', async () => {
     currentContext = contextDetection.EXTENSION_CONTEXTS.BACKGROUND
     const captureSpy = vi.fn()
-    vi.spyOn(posthogBg, 'getPostHogBackground').mockResolvedValue({ capture: captureSpy } as any)
+    vi.spyOn(posthogBg, 'getPostHogBackground').mockResolvedValue(stubBackgroundPostHog(captureSpy))
 
     await captureEvent(EVENT_NAME, { extension_context: 'custom_context' })
 
@@ -168,22 +177,22 @@ describe('captureEvent – context specific behaviour', () => {
   it('reports "N/A" for the URL when an unknown context has no window', async () => {
     currentContext = 'martian_context'
     const warnSpy = vi.spyOn(log, 'warn').mockImplementation(() => {})
-    ;(globalThis as any).window = undefined
+    testGlobal.window = undefined
 
     await captureEvent(EVENT_NAME)
 
-    const [, details] = warnSpy.mock.calls[0] as any[]
+    const [, details] = warnSpy.mock.calls[0] as unknown[]
     expect(details).toMatchObject({ context: 'martian_context', hasWindow: false, url: 'N/A' })
   })
 
   it('reports the page URL for an unknown context that has a window', async () => {
     currentContext = 'martian_context'
     const warnSpy = vi.spyOn(log, 'warn').mockImplementation(() => {})
-    ;(globalThis as any).window = { location: { href: 'https://example.com/page' } }
+    testGlobal.window = { location: { href: 'https://example.com/page' } }
 
     await captureEvent(EVENT_NAME)
 
-    const [, details] = warnSpy.mock.calls[0] as any[]
+    const [, details] = warnSpy.mock.calls[0] as unknown[]
     expect(details).toMatchObject({ hasWindow: true, url: 'https://example.com/page' })
   })
 
@@ -201,7 +210,7 @@ describe('captureEvent – context specific behaviour', () => {
   it('hands trackEvent callers no promise, and captures anyway', async () => {
     currentContext = contextDetection.EXTENSION_CONTEXTS.BACKGROUND
     const captureSpy = vi.fn()
-    vi.spyOn(posthogBg, 'getPostHogBackground').mockResolvedValue({ capture: captureSpy } as any)
+    vi.spyOn(posthogBg, 'getPostHogBackground').mockResolvedValue(stubBackgroundPostHog(captureSpy))
 
     expect(trackEvent(EVENT_NAME, { trigger: 'bar' })).toBeUndefined()
 

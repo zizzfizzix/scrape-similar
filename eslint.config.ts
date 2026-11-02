@@ -174,10 +174,6 @@ const PROMISE_RULES: Linter.RulesRecord = {
  * can check rather than an impression. Each names the issue that tracks it.
  */
 const DEFERRED = {
-  // 72: 26 in extension code, mostly message payloads and responses (10) and
-  // the PostHog wrapper and analytics (11), and 46 in unit and e2e test
-  // scaffolding. #278.
-  '@typescript-eslint/no-explicit-any': 'off',
   // 152, none in extension code: 147 in unit tests, all but one an `await` on a
   // synchronous `act` (66 directly, 80 through a `focusField` / `press` helper),
   // and 5 in e2e. On for extension code, which is clean, by the block after this

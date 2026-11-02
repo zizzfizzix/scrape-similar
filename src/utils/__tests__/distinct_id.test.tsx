@@ -10,7 +10,10 @@ vi.mock('posthog-js/dist/module.no-external', () => {
   class MockPostHog {
     private _distinctId: string | null = null
 
-    init(_apiKey: string, options: any) {
+    init(
+      _apiKey: string,
+      options?: { bootstrap?: { distinctID?: string }; loaded?: (instance: MockPostHog) => void },
+    ) {
       this._distinctId = options?.bootstrap?.distinctID ?? null
       // Call the loaded callback immediately to mimic PostHog behaviour
       options?.loaded?.(this)
@@ -72,7 +75,8 @@ describe('PostHog distinct id consistency', () => {
   })
 
   it('window.__scrape_similar_posthog has the same distinct id in UI context', async () => {
-    delete (globalThis as any).window?.__scrape_similar_posthog
+    // `delete` would narrow the property to `undefined` for the rest of the test.
+    Reflect.deleteProperty(window, '__scrape_similar_posthog')
 
     const bgPosthog = await getPostHogBackground()
     // Distinct id should now be persisted in storage
@@ -93,8 +97,8 @@ describe('PostHog distinct id consistency', () => {
       )
     })
 
-    const uiPosthog = (globalThis as any).window.__scrape_similar_posthog
+    const uiPosthog = window.__scrape_similar_posthog
     expect(uiPosthog).toBeTruthy()
-    expect(uiPosthog.get_distinct_id()).toEqual(persistedDistinctId)
+    expect(uiPosthog?.get_distinct_id()).toEqual(persistedDistinctId)
   })
 })

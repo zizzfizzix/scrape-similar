@@ -3,9 +3,10 @@ import type { ScrapedRow } from '@/utils/types'
 import type ExcelJS from 'exceljs'
 import { describe, expect, it } from 'vitest'
 
-// Helper to create mock scraped rows
-const makeRow = (data: Record<string, any>, isEmpty = false): ScrapedRow => ({
-  data,
+// Takes `unknown` values so a test can pass cells that are not strings, which
+// the exporters coerce.
+const makeRow = (data: Record<string, unknown>, isEmpty = false): ScrapedRow => ({
+  data: data as ScrapedRow['data'],
   metadata: { originalIndex: 0, isEmpty },
 })
 

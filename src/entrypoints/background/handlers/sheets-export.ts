@@ -27,8 +27,9 @@ export type ExportPayloadValidation =
 /**
  * Validate EXPORT_TO_SHEETS payload structure
  */
-export const validateExportPayload = (payload: any): ExportPayloadValidation => {
-  const { filename, scrapedData, columnOrder, columnKeys } = payload || {}
+export const validateExportPayload = (payload: unknown): ExportPayloadValidation => {
+  const { filename, scrapedData, columnOrder, columnKeys } = (payload ||
+    {}) as Partial<ExportPayload>
 
   if (!filename || !filename.trim()) {
     return { isValid: false, error: 'Filename is required for export' }
@@ -44,7 +45,7 @@ export const validateExportPayload = (payload: any): ExportPayloadValidation => 
  * Handle EXPORT_TO_SHEETS message from any context
  */
 export const handleExportToSheets = async (
-  payload: any,
+  payload: unknown,
   sendResponse: (response?: MessageResponse) => void,
   logPrefix: string = '',
 ): Promise<void> => {
@@ -92,10 +93,24 @@ export const handleExportToSheets = async (
 }
 
 /**
+ * The fields read from the Sheets API's reply to a create request. A spreadsheet
+ * created without a `sheets` list gets exactly one default sheet.
+ */
+interface CreatedSpreadsheet {
+  spreadsheetId: string
+  spreadsheetUrl: string
+  sheets: [{ properties: { sheetId: number } }]
+}
+
+/**
  * Issue an authenticated Sheets API request, surfacing an expired token as a
  * distinct error so the caller can ask the user to retry.
  */
-const requestSheetsApi = async (token: string, url: string, body: unknown): Promise<any> => {
+const requestSheetsApi = async <T = unknown>(
+  token: string,
+  url: string,
+  body: unknown,
+): Promise<T> => {
   const response = await fetch(url, {
     method: 'POST',
     body: JSON.stringify(body),
@@ -115,7 +130,7 @@ const requestSheetsApi = async (token: string, url: string, body: unknown): Prom
     throw new Error(`API request failed: ${response.statusText} ${JSON.stringify(errorData)}`)
   }
 
-  return response.json()
+  return response.json() as Promise<T>
 }
 
 /**
@@ -139,7 +154,7 @@ export const exportToGoogleSheets = async (
       return { success: false, error: 'No columns found in data' }
     }
 
-    const spreadsheet = await requestSheetsApi(
+    const spreadsheet = await requestSheetsApi<CreatedSpreadsheet>(
       token,
       SHEETS_API.create(),
       buildCreateSpreadsheetBody(filename),

@@ -39,7 +39,7 @@ test('initialises storage with empty user presets array', async ({ serviceWorker
         resolve(value)
       }
 
-      function onChange(changes: Record<string, any>, area: string) {
+      function onChange(changes: Record<string, chrome.storage.StorageChange>, area: string) {
         if (area === 'sync' && changes.user_presets) {
           const val = changes.user_presets.newValue
           finish(Array.isArray(val) ? val : undefined)

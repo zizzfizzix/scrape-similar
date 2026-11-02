@@ -384,13 +384,7 @@ test.describe('Full Data View', () => {
     const fullDataViewPage = await TestHelpers.openFullDataView(sidePanel, context)
 
     // Mock clipboard
-    await fullDataViewPage.evaluate(() => {
-      ;(window as any).__copied = null
-      navigator.clipboard.writeText = async (text: string) => {
-        ;(window as any).__copied = text
-        return Promise.resolve()
-      }
-    })
+    await TestHelpers.stubClipboard(fullDataViewPage)
 
     // Wait for data to load
     await expect(fullDataViewPage.getByRole('row')).toHaveCount(DEFAULT_SCRAPE_ROW_COUNT + 1)
@@ -407,7 +401,7 @@ test.describe('Full Data View', () => {
     await expect(fullDataViewPage.getByText(/copied row to clipboard/i)).toBeVisible()
 
     // Verify clipboard content
-    const copiedText = await fullDataViewPage.evaluate(() => (window as any).__copied)
+    const copiedText = await TestHelpers.getCopiedText(fullDataViewPage)
     expect(copiedText).not.toBeNull()
     expect(copiedText).toContain('\t') // Should be TSV format
   })
@@ -427,13 +421,7 @@ test.describe('Full Data View', () => {
     const fullDataViewPage = await TestHelpers.openFullDataView(sidePanel, context)
 
     // Mock clipboard for full data view
-    await fullDataViewPage.evaluate(() => {
-      ;(window as any).__copied = null
-      navigator.clipboard.writeText = async (text: string) => {
-        ;(window as any).__copied = text
-        return Promise.resolve()
-      }
-    })
+    await TestHelpers.stubClipboard(fullDataViewPage)
 
     // Wait for data to load and export button to appear
     await expect(fullDataViewPage.getByRole('button', { name: /export/i })).toBeVisible()
@@ -446,9 +434,9 @@ test.describe('Full Data View', () => {
     await expect(fullDataViewPage.getByText(/copied.*to clipboard/i)).toBeVisible()
 
     // Verify clipboard capture holds the header plus every fixture row
-    const text = await fullDataViewPage.evaluate(() => (window as any).__copied)
+    const text = await TestHelpers.getCopiedText(fullDataViewPage)
     expect(text).not.toBeNull()
-    expect(text.split('\n').length).toBe(DEFAULT_SCRAPE_ROW_COUNT + 1)
+    expect(text?.split('\n')).toHaveLength(DEFAULT_SCRAPE_ROW_COUNT + 1)
   })
 
   test('supports export functionality', async ({

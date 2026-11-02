@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
 
-import { captureEvent, MAX_QUEUED_EVENTS, queueEvent } from '@/utils/analytics'
+import { captureEvent, MAX_QUEUED_EVENTS, queueEvent, type QueuedEvent } from '@/utils/analytics'
 import * as consent from '@/utils/consent'
 
 const QUEUE_KEY = eventQueueItem.key
@@ -50,11 +50,11 @@ describe('analytics utilities', () => {
       // Add one more to trigger overflow logic
       await queueEvent({ name: ANALYTICS_EVENTS.PRESET_SAVE, props: {}, timestamp: Date.now() })
 
-      const queue = await storage.getItem<any[]>(QUEUE_KEY)
+      const queue = await storage.getItem<QueuedEvent[]>(QUEUE_KEY)
       expect(queue).toHaveLength(MAX_QUEUED_EVENTS)
       // The first event should have been dropped (FIFO)
-      expect(queue?.[0].timestamp).toBe(1)
-      expect(queue?.[queue.length - 1].name).toBe(ANALYTICS_EVENTS.PRESET_SAVE)
+      expect(queue?.[0]?.timestamp).toBe(1)
+      expect(queue?.at(-1)?.name).toBe(ANALYTICS_EVENTS.PRESET_SAVE)
     })
   })
 
@@ -64,7 +64,7 @@ describe('analytics utilities', () => {
 
       await captureEvent(ANALYTICS_EVENTS.PRESET_HIDE)
 
-      const queue = await storage.getItem<any[]>(QUEUE_KEY)
+      const queue = await storage.getItem<QueuedEvent[]>(QUEUE_KEY)
       expect(queue).toBeNull()
     })
 
@@ -73,12 +73,13 @@ describe('analytics utilities', () => {
 
       await captureEvent(ANALYTICS_EVENTS.PRESET_IMPORT, { reason: 'data' })
 
-      const queue = await storage.getItem<any[]>(QUEUE_KEY)
+      const queue = await storage.getItem<QueuedEvent[]>(QUEUE_KEY)
       expect(queue).toHaveLength(1)
-      const queued = queue![0]
-      expect(queued.name).toBe(ANALYTICS_EVENTS.PRESET_IMPORT)
       // Original properties should be preserved
-      expect(queued.props.reason).toBe('data')
+      expect(queue?.[0]).toMatchObject({
+        name: ANALYTICS_EVENTS.PRESET_IMPORT,
+        props: { reason: 'data' },
+      })
     })
   })
 })

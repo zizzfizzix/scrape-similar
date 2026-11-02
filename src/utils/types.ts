@@ -72,7 +72,7 @@ export interface ExportResult {
   error?: string
 }
 
-export interface Message<T = any> {
+export interface Message<T = unknown> {
   type: string
   payload?: T
 }
