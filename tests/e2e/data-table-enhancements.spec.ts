@@ -1,3 +1,4 @@
+import type { Locator } from '@playwright/test'
 import { expect, FIXTURE_PAGE_COUNTS, SCRAPE_TARGET_PAGE, test, TestHelpers } from './fixtures'
 
 /**
@@ -66,8 +67,8 @@ test.describe('DataTable Enhancements', () => {
     expect(headerCount).toBeGreaterThanOrEqual(3)
 
     // Find the first resizable data column by looking for one with a resize handle
-    let dataColumnHeader = null
-    let resizeHandle = null
+    let dataColumnHeader: Locator | null = null
+    let resizeHandle: Locator | null = null
 
     for (let i = 0; i < headerCount; i++) {
       const header = headers.nth(i)

@@ -36,7 +36,7 @@ export const getDataAttributes = (element: Element): ColumnDefinition[] =>
  */
 export const findRepeatedRowAncestor = (element: HTMLElement): HTMLElement | null => {
   for (const tag of ROW_TAGS) {
-    const candidate = element.closest(tag) as HTMLElement | null
+    const candidate = element.closest(tag)
     const siblingCount = candidate?.parentElement?.querySelectorAll(`:scope > ${tag}`).length ?? 0
     if (siblingCount > 1) return candidate
   }

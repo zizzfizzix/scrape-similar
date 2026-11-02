@@ -321,14 +321,14 @@ describe('DataTable', () => {
     })
 
     it('opens a tab for the current page and closes the panel', async () => {
-      const create = spyOnBrowser(fakeBrowser.tabs, 'create').mockResolvedValue({} as never)
+      const create = spyOnBrowser(fakeBrowser.tabs, 'create').mockResolvedValue({})
       const close = vi.spyOn(window, 'close').mockImplementation(() => {})
       view = render({ tabId: 7 })
 
       await userEvent.click(button('Open in full view'))
 
       expect(create).toHaveBeenCalledWith({
-        url: fakeBrowser.runtime.getURL('/full-data-view.html?tabId=7' as never),
+        url: fakeBrowser.runtime.getURL('/full-data-view.html?tabId=7'),
       })
       expect(close).toHaveBeenCalled()
       expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.FULL_DATA_VIEW_OPEN_BUTTON_PRESS, {

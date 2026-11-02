@@ -39,11 +39,11 @@ export const resolveExportRows = ({
 }: ExportSelection): ResolvedExport => {
   const allRows = scrapeResult.data || []
   const hasSelection = !!selectedRows && selectedRows.length > 0
-  const isExportingAll = !hasSelection || selectedRows!.length === allRows.length
+  const isExportingAll = !hasSelection || selectedRows.length === allRows.length
 
   const rows =
     hasSelection && !isExportingAll
-      ? selectedRows!
+      ? selectedRows
       : showEmptyRows
         ? allRows
         : allRows.filter((row) => !row.metadata.isEmpty)
@@ -100,7 +100,7 @@ export const rowsToXlsxBuffer = async (
     worksheet.addRow(columnKeys.map((key) => row.data[key] ?? ''))
   }
 
-  return workbook.xlsx.writeBuffer() as Promise<ArrayBuffer>
+  return workbook.xlsx.writeBuffer()
 }
 
 export const downloadFile = (content: BlobPart, filename: string, mimeType: string): void => {
@@ -131,7 +131,7 @@ export interface SheetsExportFailure {
  * plain message rather than an error dump.
  */
 export const describeSheetsExportFailure = (response: unknown): SheetsExportFailure => {
-  const reply = (response ?? undefined) as { error?: string; message?: string } | undefined
+  const reply = response as { error?: string; message?: string } | null | undefined
   const error =
     reply?.error || reply?.message || `Export failed - Response: ${JSON.stringify(response)}`
 

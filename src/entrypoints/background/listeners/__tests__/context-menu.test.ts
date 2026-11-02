@@ -271,7 +271,7 @@ describe('setupContextMenuListener', () => {
       clickMenu({ menuItemId: 'scrape-visual-picker' }, tab)
 
     it('toggles picker mode in the clicked tab', async () => {
-      sendMessage.mockResolvedValue(undefined as never)
+      sendMessage.mockResolvedValue(undefined)
 
       await pickMenu({ id: 2, url: 'https://example.com' })
 

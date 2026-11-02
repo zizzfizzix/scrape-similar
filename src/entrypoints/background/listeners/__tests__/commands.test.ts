@@ -14,9 +14,7 @@ describe('setupCommandsListener', () => {
   beforeEach(() => {
     fakeBrowser.reset()
     setOptions = spyOnBrowser(fakeBrowser.sidePanel, 'setOptions').mockResolvedValue(undefined)
-    sendMessage = spyOnBrowser(fakeBrowser.tabs, 'sendMessage').mockResolvedValue(
-      undefined as never,
-    )
+    sendMessage = spyOnBrowser(fakeBrowser.tabs, 'sendMessage').mockResolvedValue(undefined)
     query = spyOnBrowser(fakeBrowser.tabs, 'query').mockResolvedValue([])
     // fake-browser has no in-memory commands implementation, so capture the
     // registered handler and invoke it directly.

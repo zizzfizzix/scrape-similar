@@ -81,7 +81,7 @@ if (typeof window !== 'undefined') {
       observe() {}
       unobserve() {}
       disconnect() {}
-    } as unknown as typeof window.ResizeObserver
+    }
   }
 }
 

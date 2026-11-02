@@ -22,7 +22,7 @@ describe('generateSelectorCandidates', () => {
         </ul>
       </div>
     `
-    const target = document.getElementById('target') as HTMLElement
+    const target = document.getElementById('target')!
 
     const candidates = generateSelectorCandidates(target)
 
@@ -40,7 +40,7 @@ describe('generateSelectorCandidates', () => {
         <span id="target">Deep</span>
       </div></div></div></div></div></div>
     `
-    const target = document.getElementById('target') as HTMLElement
+    const target = document.getElementById('target')!
 
     const candidates = generateSelectorCandidates(target, 3)
 
@@ -53,7 +53,7 @@ describe('generateSelectorCandidates', () => {
         <span id="target">Text</span>
       </div>
     `
-    const target = document.getElementById('target') as HTMLElement
+    const target = document.getElementById('target')!
 
     const candidates = generateSelectorCandidates(target)
 
@@ -73,7 +73,7 @@ describe('generateSelectorCandidates', () => {
         <span id="target">Text</span>
       </div>
     `
-    const target = document.getElementById('target') as HTMLElement
+    const target = document.getElementById('target')!
 
     const candidates = generateSelectorCandidates(target)
 
@@ -84,7 +84,7 @@ describe('generateSelectorCandidates', () => {
 
   it('returns at least one candidate (the element itself)', () => {
     document.body.innerHTML = `<span id="target">Text</span>`
-    const target = document.getElementById('target') as HTMLElement
+    const target = document.getElementById('target')!
 
     const candidates = generateSelectorCandidates(target)
 
@@ -105,7 +105,7 @@ describe('chooseDefaultCandidateIndex', () => {
         <li><span class="item">C</span></li>
       </ul>
     `
-    const target = document.querySelector('.item') as HTMLElement
+    const target = document.querySelector<HTMLElement>('.item')!
     const candidates = generateSelectorCandidates(target)
 
     const index = chooseDefaultCandidateIndex(candidates)
@@ -118,7 +118,7 @@ describe('chooseDefaultCandidateIndex', () => {
 
   it('returns 0 when no candidates have 2 or more matches', () => {
     document.body.innerHTML = `<span id="unique">Only one</span>`
-    const target = document.getElementById('unique') as HTMLElement
+    const target = document.getElementById('unique')!
 
     // Generate candidates - each will be unique to this element
     const candidates = generateSelectorCandidates(target)
@@ -150,7 +150,7 @@ describe('chooseDefaultCandidateIndex', () => {
         </div>
       </div>
     `
-    const target = document.querySelector('.cell') as HTMLElement
+    const target = document.querySelector<HTMLElement>('.cell')!
     const candidates = generateSelectorCandidates(target)
 
     const index = chooseDefaultCandidateIndex(candidates)

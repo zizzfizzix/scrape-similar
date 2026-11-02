@@ -26,7 +26,7 @@ const createBannerHost = (height?: number) => {
   fixed.className = 'fixed'
   shadow.append(fixed)
   if (height !== undefined) withHeight(fixed, height)
-  return { host: host as HTMLDivElement, fixed }
+  return { host, fixed }
 }
 
 let state: ContentScriptState
@@ -55,7 +55,7 @@ describe('getPickerBannerElement', () => {
     fixed.className = 'fixed'
     container.append(fixed)
     document.body.append(container)
-    state.bannerRootEl = container as HTMLDivElement
+    state.bannerRootEl = container
 
     // The root node is the document, which does contain the `.fixed` element.
     expect(getPickerBannerElement(state)).toBe(fixed)
@@ -65,7 +65,7 @@ describe('getPickerBannerElement', () => {
     const host = document.createElement('div')
     host.attachShadow({ mode: 'open' })
     document.body.append(host)
-    state.bannerRootEl = host as HTMLDivElement
+    state.bannerRootEl = host
 
     expect(getPickerBannerElement(state)).toBeNull()
   })
@@ -95,10 +95,10 @@ describe('adjustFixedElementsForBanner', () => {
   /** Render `html` and report the computed style jsdom cannot infer. */
   const withComputedStyle = (styles: Map<HTMLElement, { position: string; top: string }>) => {
     const original = window.getComputedStyle.bind(window)
-    vi.spyOn(window, 'getComputedStyle').mockImplementation(((element: Element) => {
+    vi.spyOn(window, 'getComputedStyle').mockImplementation((element: Element) => {
       const override = styles.get(element as HTMLElement)
       return override ? (override as unknown as CSSStyleDeclaration) : original(element)
-    }) as typeof window.getComputedStyle)
+    })
   }
 
   it('skips nodes that are not HTML elements', () => {
@@ -290,10 +290,11 @@ describe('updateBodyMarginForBanner', () => {
     state.pickerModeActive = true
     state.bannerRootEl = host
     const original = window.getComputedStyle.bind(window)
-    vi.spyOn(window, 'getComputedStyle').mockImplementation(((element: Element) =>
+    vi.spyOn(window, 'getComputedStyle').mockImplementation((element: Element) =>
       element === document.documentElement
         ? ({ marginTop: '20px' } as CSSStyleDeclaration)
-        : original(element)) as typeof window.getComputedStyle)
+        : original(element),
+    )
 
     updateBodyMarginForBanner(state)
 
@@ -306,10 +307,11 @@ describe('updateBodyMarginForBanner', () => {
     state.pickerModeActive = true
     state.bannerRootEl = host
     const original = window.getComputedStyle.bind(window)
-    vi.spyOn(window, 'getComputedStyle').mockImplementation(((element: Element) =>
+    vi.spyOn(window, 'getComputedStyle').mockImplementation((element: Element) =>
       element === document.documentElement
         ? ({ marginTop: '' } as CSSStyleDeclaration)
-        : original(element)) as typeof window.getComputedStyle)
+        : original(element),
+    )
 
     updateBodyMarginForBanner(state)
 

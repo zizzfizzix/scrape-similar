@@ -9,7 +9,7 @@ const setManifest = (contentScripts?: unknown) => {
     name: 'Scrape Similar',
     version: '0.0.0',
     ...(contentScripts === undefined ? {} : { content_scripts: contentScripts }),
-  } as never)
+  })
 }
 
 describe('injectContentScriptToAllTabs', () => {

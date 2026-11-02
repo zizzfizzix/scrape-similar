@@ -37,7 +37,7 @@ test.describe('Preset import/export', () => {
 
       const stream = await download.createReadStream()
       const chunks: Buffer[] = []
-      for await (const chunk of stream!) {
+      for await (const chunk of stream) {
         chunks.push(Buffer.from(chunk))
       }
       const body = Buffer.concat(chunks).toString('utf-8')

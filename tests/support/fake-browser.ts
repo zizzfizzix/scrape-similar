@@ -12,7 +12,7 @@ import { fakeBrowser } from 'wxt/testing/fake-browser'
  */
 
 export const spyOnBrowser = <T extends object>(target: T, method: keyof T & string): MockInstance =>
-  vi.spyOn(target as never, method as never) as unknown as MockInstance
+  vi.spyOn(target as never, method as never)
 
 /**
  * Set (or clear) `browser.runtime.lastError`, which callback-style APIs report

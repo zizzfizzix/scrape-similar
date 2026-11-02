@@ -88,7 +88,7 @@ beforeEach(async () => {
   // What the onboarding page reads from `location` besides `replace`.
   const { href, pathname } = window.location
   vi.stubGlobal('location', { href, pathname, replace })
-  spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue({ success: true } as never)
+  spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue({ success: true })
 })
 
 afterEach(async () => {
@@ -220,7 +220,7 @@ describe('OnboardingApp', () => {
     it('opens the panel, sets up the scrape and navigates to the article', async () => {
       const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue({
         success: true,
-      } as never)
+      })
       view = await render()
       await goToLastSlide()
 
@@ -258,7 +258,7 @@ describe('OnboardingApp', () => {
       spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue({
         success: false,
         error: 'No tab ID available from sender',
-      } as never)
+      })
       view = await render()
       await goToLastSlide()
 
@@ -277,7 +277,7 @@ describe('OnboardingApp', () => {
     it('reports a refusal with no reason', async () => {
       spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue({
         success: false,
-      } as never)
+      })
       view = await render()
       await goToLastSlide()
 

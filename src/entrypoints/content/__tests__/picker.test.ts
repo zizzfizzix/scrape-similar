@@ -68,7 +68,7 @@ beforeEach(() => {
   state = createState()
   state.tabId = 3
   // jsdom has no layout engine, so hit testing is not implemented.
-  document.elementFromPoint = vi.fn(() => null) as typeof document.elementFromPoint
+  document.elementFromPoint = vi.fn(() => null)
   bannerMocks.mountPickerBanner.mockResolvedValue(undefined)
   bannerMocks.getPickerBannerElement.mockReturnValue(null)
   backgroundReplies({ success: true })
@@ -379,7 +379,7 @@ describe('handlePickerMouseMove', () => {
     })
 
     it('does nothing when the pointer is over a non-HTML node', () => {
-      hover(document.createElementNS('http://www.w3.org/2000/svg', 'svg') as unknown as Element)
+      hover(document.createElementNS('http://www.w3.org/2000/svg', 'svg'))
 
       move(10, 20)
 
@@ -399,7 +399,7 @@ describe('handlePickerMouseMove', () => {
     it('lets the pointer through the banner while probing', () => {
       const bannerRoot = document.createElement('div')
       bannerRoot.style.pointerEvents = 'auto'
-      state.bannerRootEl = bannerRoot as HTMLDivElement
+      state.bannerRootEl = bannerRoot
       const elementFromPoint = hover(document.querySelector('#first'))
 
       move(10, 20)
@@ -612,7 +612,7 @@ describe('handlePickerClick', () => {
 
   it('lets a click on the banner through', async () => {
     const banner = document.createElement('div')
-    state.bannerRootEl = banner as HTMLDivElement
+    state.bannerRootEl = banner
 
     const { event, result } = click([banner])
     await result
@@ -622,7 +622,7 @@ describe('handlePickerClick', () => {
 
   it('lets a click on the context menu through', async () => {
     const host = document.createElement('div')
-    state.pickerContextMenuHost = host as HTMLDivElement
+    state.pickerContextMenuHost = host
 
     const { event, result } = click([host])
     await result

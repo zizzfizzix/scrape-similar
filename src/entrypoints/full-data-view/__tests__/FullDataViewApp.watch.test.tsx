@@ -217,7 +217,7 @@ describe('following storage while the view is open', () => {
   it('falls back to placeholders for a tab with no title or URL', async () => {
     await openTabs([{ id: 1, title: 'Populations', url: 'https://a', state: state([row('1')]) }])
     await renderLoaded()
-    spyOnBrowser(fakeBrowser.tabs, 'get').mockResolvedValue({ id: 1 } as never)
+    spyOnBrowser(fakeBrowser.tabs, 'get').mockResolvedValue({ id: 1 })
 
     await writeState(1, { scrapeResult: { data: [row('1')], columnOrder: ['Rank'] } })
 
@@ -236,7 +236,7 @@ describe('following storage while the view is open', () => {
       id: 3,
       title: 'Fresh',
       url: 'https://c',
-    } as never)
+    })
 
     await writeState(3, state([row('7')]))
 

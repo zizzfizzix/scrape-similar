@@ -144,7 +144,7 @@ describe('setupMessageListener', () => {
     it('routes a sender with no tab to the UI handler', () => {
       receive(
         { type: MESSAGE_TYPES.OPEN_SIDEPANEL },
-        { url: extensionUrl('sidepanel.html') } as never,
+        { url: extensionUrl('sidepanel.html') },
         sendResponse,
       )
 

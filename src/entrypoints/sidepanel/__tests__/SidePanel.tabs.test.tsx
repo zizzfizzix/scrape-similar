@@ -132,7 +132,7 @@ beforeEach(async () => {
   setLastError(undefined)
   await userPresetsItem.setValue([])
   await storage.setItem(analyticsConsentItem.key, true)
-  spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(undefined as never)
+  spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(undefined)
   contentScriptReplies({ success: true, matchCount: 3 })
   await attachToTab()
 })
@@ -380,7 +380,7 @@ describe('without a tab to talk to', () => {
   it('does not try to persist a config change', async () => {
     view = await render()
     const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
-      undefined as never,
+      undefined,
     )
 
     act(() =>
@@ -1129,7 +1129,7 @@ describe('one panel per tab', () => {
     await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
     fireEvent.change(mainSelectorInput(), { target: { value: '//li' } })
     const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
-      undefined as never,
+      undefined,
     )
 
     await switchTo(OTHER_TAB_ID)
@@ -1174,7 +1174,7 @@ describe('one panel per tab', () => {
       await storage.setItem(`session:sidepanel_config_${TAB_ID}`, writtenWhileHidden)
     })
     const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
-      undefined as never,
+      undefined,
     )
     let release: ((value: SidePanelConfig | null) => void) | undefined
     const getItem = vi
@@ -1209,7 +1209,7 @@ describe('one panel per tab', () => {
     fireEvent.focusOut(mainSelectorInput())
     await switchTo(TAB_ID)
     const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
-      undefined as never,
+      undefined,
     )
 
     await switchTo(OTHER_TAB_ID)
@@ -1237,7 +1237,7 @@ describe('one panel per tab', () => {
     await switchTo(TAB_ID)
     getItem.mockRestore()
     const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
-      undefined as never,
+      undefined,
     )
 
     // Back in the field before the read lands: the user is editing again.
@@ -1262,7 +1262,7 @@ describe('one panel per tab', () => {
     getItem.mockRestore()
     await switchTo(OTHER_TAB_ID)
     const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
-      undefined as never,
+      undefined,
     )
 
     await switchTo(TAB_ID)
@@ -1296,7 +1296,7 @@ describe('one panel per tab', () => {
     await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
     fireEvent.change(mainSelectorInput(), { target: { value: '//li' } })
     const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
-      undefined as never,
+      undefined,
     )
 
     // The switch lands inside the blur's commit defer.

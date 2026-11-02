@@ -66,7 +66,7 @@ describe('evaluateXPathValues', () => {
       </section>
       <span class="scoped">B</span>
     `
-    const section = document.querySelector('section') as HTMLElement
+    const section = document.querySelector('section')!
 
     // Query inside <section> only
     const scopedValues = evaluateXPathValues('.//span', section)
@@ -86,7 +86,7 @@ describe('evaluateXPathValues', () => {
 describe('extractData', () => {
   it('extracts text content with the "." selector', () => {
     document.body.innerHTML = `<span id="target">Example Text</span>`
-    const element = document.getElementById('target') as HTMLElement
+    const element = document.getElementById('target')!
 
     const column: ColumnDefinition = { name: 'Text', selector: '.' }
     expect(extractData(element, column)).toBe('Example Text')
@@ -94,7 +94,7 @@ describe('extractData', () => {
 
   it('extracts attribute values with the "@" selector', () => {
     document.body.innerHTML = `<span id="target" data-info="42">Example</span>`
-    const element = document.getElementById('target') as HTMLElement
+    const element = document.getElementById('target')!
 
     const column: ColumnDefinition = { name: 'DataInfo', selector: '@data-info' }
     expect(extractData(element, column)).toBe('42')
@@ -102,7 +102,7 @@ describe('extractData', () => {
 
   it('supports XPath string functions (e.g., string(@title))', () => {
     document.body.innerHTML = `<span id="target" title="Greeting">Hi</span>`
-    const element = document.getElementById('target') as HTMLElement
+    const element = document.getElementById('target')!
 
     const column: ColumnDefinition = { name: 'Title', selector: 'string(@title)' }
     expect(extractData(element, column)).toBe('Greeting')
@@ -110,7 +110,7 @@ describe('extractData', () => {
 
   it('returns an empty string when selector matches nothing', () => {
     document.body.innerHTML = `<div id="root"></div>`
-    const root = document.getElementById('root') as HTMLElement
+    const root = document.getElementById('root')!
 
     const col: ColumnDefinition = { name: 'Missing', selector: 'span' }
     expect(extractData(root, col)).toBe('')
@@ -123,7 +123,7 @@ describe('extractData', () => {
         <span class="val">B</span>
       </div>
     `
-    const root = document.getElementById('root') as HTMLElement
+    const root = document.getElementById('root')!
     const col: ColumnDefinition = { name: 'FirstVal', selector: './/span' }
     expect(extractData(root, col)).toBe('A')
   })
@@ -153,7 +153,7 @@ describe('evaluateXPath', () => {
     const matchesGlobal = evaluateXPath('//span')
     expect(matchesGlobal).toHaveLength(2)
 
-    const section = document.querySelector('section') as HTMLElement
+    const section = document.querySelector('section')!
     const matchesScoped = evaluateXPath('.//span', section)
     expect(matchesScoped).toHaveLength(1)
     expect(matchesScoped[0]?.textContent).toBe('Inside')
@@ -167,7 +167,7 @@ describe('evaluateXPath', () => {
         <li>Three</li>
       </ul>
     `
-    const target = document.getElementById('second') as HTMLElement
+    const target = document.getElementById('second')!
     const xp = generateXPath(target)
 
     // Expect path to contain [2] indicating second sibling
@@ -190,7 +190,7 @@ describe('generateXPath & minimizeXPath', () => {
       </div>
     `
 
-    const target = document.getElementById('first') as HTMLElement
+    const target = document.getElementById('first')!
 
     const fullXPath = generateXPath(target)
     const elementsFromFull = evaluateXPath(fullXPath)
@@ -289,7 +289,7 @@ describe('scrapePage', () => {
 describe('guessScrapeConfigForElement', () => {
   it('generates sensible config for an anchor element', () => {
     document.body.innerHTML = `<a href="https://example.com" id="link">Click me</a>`
-    const link = document.getElementById('link') as HTMLElement
+    const link = document.getElementById('link')!
 
     const cfg = guessScrapeConfigForElement(link)
 
@@ -315,7 +315,7 @@ describe('guessScrapeConfigForElement', () => {
         </tbody>
       </table>
     `
-    const row = document.getElementById('row') as HTMLElement
+    const row = document.getElementById('row')!
     const config = guessScrapeConfigForElement(row)
 
     // Should have two columns matching headers
@@ -345,7 +345,7 @@ describe('guessScrapeConfigForElement', () => {
         </tbody>
       </table>
     `
-    const row = document.getElementById('row') as HTMLElement
+    const row = document.getElementById('row')!
     const config = guessScrapeConfigForElement(row)
 
     expect(config.columns).toHaveLength(2)
@@ -365,7 +365,7 @@ describe('guessScrapeConfigForElement', () => {
         </table>
       </div>
     `
-    const target = document.getElementById('target') as HTMLElement
+    const target = document.getElementById('target')!
     const config = guessScrapeConfigForElement(target)
 
     // Should select the tr ancestor, not the span
@@ -382,7 +382,7 @@ describe('guessScrapeConfigForElement', () => {
         <li id="item3"><span>Item 3</span></li>
       </ul>
     `
-    const target = document.getElementById('target') as HTMLElement
+    const target = document.getElementById('target')!
     const config = guessScrapeConfigForElement(target)
 
     // Should select the li ancestor, not the span
@@ -400,7 +400,7 @@ describe('guessScrapeConfigForElement', () => {
         <dd>Description 2</dd>
       </dl>
     `
-    const target = document.getElementById('target') as HTMLElement
+    const target = document.getElementById('target')!
     const config = guessScrapeConfigForElement(target)
 
     // Should select the dt ancestor, not the span
@@ -429,7 +429,7 @@ describe('guessScrapeConfigForElement', () => {
         </div>
       </div>
     `
-    const target = document.getElementById('target') as HTMLElement
+    const target = document.getElementById('target')!
     const config = guessScrapeConfigForElement(target)
 
     // Should select the repeating div.item ancestors
@@ -457,14 +457,14 @@ describe('guessScrapeConfigForElement', () => {
         </section>
       </main>
     `
-    const target = document.getElementById('target') as HTMLElement
+    const target = document.getElementById('target')!
     const config = guessScrapeConfigForElement(target)
 
     // Should select the repeating div.card elements, not the section
     const matchedElements = evaluateXPath(config.mainSelector)
     expect(matchedElements.length).toBeGreaterThanOrEqual(3)
     // Verify it's selecting the cards, not sections
-    const firstMatch = matchedElements[0] as HTMLElement
+    const firstMatch = matchedElements[0]!
     expect(firstMatch.className).toBe('card')
   })
 
@@ -474,7 +474,7 @@ describe('guessScrapeConfigForElement', () => {
         <span id="target">Unique element</span>
       </div>
     `
-    const target = document.getElementById('target') as HTMLElement
+    const target = document.getElementById('target')!
     const config = guessScrapeConfigForElement(target)
 
     // Should work even without repeating structure
@@ -507,7 +507,7 @@ describe('scraper error handling', () => {
 
   it('extractData logs error and returns empty string when selector invalid', () => {
     document.body.innerHTML = `<div id="root"></div>`
-    const root = document.getElementById('root') as HTMLElement
+    const root = document.getElementById('root')!
     const col: ColumnDefinition = { name: 'Invalid', selector: malformedXPath }
     const val = extractData(root, col)
     expect(val).toBe('')

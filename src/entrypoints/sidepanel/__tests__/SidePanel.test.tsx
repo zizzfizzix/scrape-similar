@@ -99,7 +99,7 @@ beforeEach(async () => {
   await userPresetsItem.setValue([])
   // The panel is behind the consent gate.
   await storage.setItem(analyticsConsentItem.key, true)
-  spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(undefined as never)
+  spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(undefined)
   contentScriptReplies({ success: true, matchCount: 3 })
   await attachToTab()
 })
@@ -161,7 +161,7 @@ describe('SidePanel', () => {
     })
 
     it('offers a way back when the tab is the full data view', async () => {
-      await attachToTab(fakeBrowser.runtime.getURL('/full-data-view.html?tabId=9' as never))
+      await attachToTab(fakeBrowser.runtime.getURL('/full-data-view.html?tabId=9'))
 
       view = await render()
 
@@ -176,9 +176,9 @@ describe('SidePanel', () => {
 
     it('switches to the original tab and closes the view', async () => {
       await attachToFullDataView()
-      const get = spyOnBrowser(fakeBrowser.tabs, 'get').mockResolvedValue({} as never)
-      const update = spyOnBrowser(fakeBrowser.tabs, 'update').mockResolvedValue({} as never)
-      const remove = spyOnBrowser(fakeBrowser.tabs, 'remove').mockResolvedValue(undefined as never)
+      const get = spyOnBrowser(fakeBrowser.tabs, 'get').mockResolvedValue({})
+      const update = spyOnBrowser(fakeBrowser.tabs, 'update').mockResolvedValue({})
+      const remove = spyOnBrowser(fakeBrowser.tabs, 'remove').mockResolvedValue(undefined)
       view = await render()
 
       await act(async () => {
@@ -297,7 +297,7 @@ describe('SidePanel', () => {
     it('records a successful match count', async () => {
       const sendMessage = contentScriptReplies({ success: true, matchCount: 7 })
       const runtimeSend = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
-        undefined as never,
+        undefined,
       )
       view = await render()
 
@@ -322,7 +322,7 @@ describe('SidePanel', () => {
     it('records a selector the content script rejected', async () => {
       contentScriptReplies({ success: false, error: 'Invalid XPath' })
       const runtimeSend = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
-        undefined as never,
+        undefined,
       )
       view = await render()
 
@@ -362,7 +362,7 @@ describe('SidePanel', () => {
       await userPresetsItem.setValue([preset])
       await attachToTab(PAGE_URL, { currentScrapeConfig: config })
       const runtimeSend = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
-        undefined as never,
+        undefined,
       )
       view = await render()
       await openPresetList()

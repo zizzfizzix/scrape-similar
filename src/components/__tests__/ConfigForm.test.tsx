@@ -1103,7 +1103,7 @@ describe('ConfigForm', () => {
       </TooltipProvider>,
     )
     const strip = view.container.querySelector<HTMLElement>('.grid.grid-flow-col')!
-    strip.scrollTo = scrollTo as unknown as HTMLElement['scrollTo']
+    strip.scrollTo = scrollTo
 
     await userEvent.click(button('Add column'))
 

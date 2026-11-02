@@ -267,7 +267,7 @@ describe('highlightMatchingElements', () => {
 describe('highlightElementsForPicker', () => {
   it('saves original styles before applying highlight', () => {
     document.body.innerHTML = `<div id="elem" style="outline: 1px solid black; box-shadow: none;">Element</div>`
-    const elem = document.getElementById('elem') as HTMLElement
+    const elem = document.getElementById('elem')!
     const highlightedElements = new Map<HTMLElement, OriginalStyles>()
 
     highlightElementsForPicker([elem], highlightedElements)
@@ -280,7 +280,7 @@ describe('highlightElementsForPicker', () => {
 
   it('applies red outline and box-shadow highlight', () => {
     document.body.innerHTML = `<div id="elem">Element</div>`
-    const elem = document.getElementById('elem') as HTMLElement
+    const elem = document.getElementById('elem')!
     const highlightedElements = new Map<HTMLElement, OriginalStyles>()
 
     highlightElementsForPicker([elem], highlightedElements)
@@ -296,8 +296,8 @@ describe('highlightElementsForPicker', () => {
       <div id="elem1">Element 1</div>
       <div id="elem2">Element 2</div>
     `
-    const elem1 = document.getElementById('elem1') as HTMLElement
-    const elem2 = document.getElementById('elem2') as HTMLElement
+    const elem1 = document.getElementById('elem1')!
+    const elem2 = document.getElementById('elem2')!
     const highlightedElements = new Map<HTMLElement, OriginalStyles>()
 
     // Highlight elem1 first
@@ -318,9 +318,9 @@ describe('highlightElementsForPicker', () => {
       <div id="elem2">Element 2</div>
       <div id="elem3">Element 3</div>
     `
-    const elem1 = document.getElementById('elem1') as HTMLElement
-    const elem2 = document.getElementById('elem2') as HTMLElement
-    const elem3 = document.getElementById('elem3') as HTMLElement
+    const elem1 = document.getElementById('elem1')!
+    const elem2 = document.getElementById('elem2')!
+    const elem3 = document.getElementById('elem3')!
     const highlightedElements = new Map<HTMLElement, OriginalStyles>()
 
     highlightElementsForPicker([elem1, elem2, elem3], highlightedElements)
@@ -335,7 +335,7 @@ describe('highlightElementsForPicker', () => {
 describe('removePickerHighlights', () => {
   it('restores original inline styles', () => {
     document.body.innerHTML = `<div id="elem" style="outline: 1px solid blue;">Element</div>`
-    const elem = document.getElementById('elem') as HTMLElement
+    const elem = document.getElementById('elem')!
     const highlightedElements = new Map<HTMLElement, OriginalStyles>()
 
     // Apply highlight (saves original styles)
@@ -356,8 +356,8 @@ describe('removePickerHighlights', () => {
       <div id="elem1">Element 1</div>
       <div id="elem2">Element 2</div>
     `
-    const elem1 = document.getElementById('elem1') as HTMLElement
-    const elem2 = document.getElementById('elem2') as HTMLElement
+    const elem1 = document.getElementById('elem1')!
+    const elem2 = document.getElementById('elem2')!
     const highlightedElements = new Map<HTMLElement, OriginalStyles>()
 
     highlightElementsForPicker([elem1, elem2], highlightedElements)
@@ -376,7 +376,7 @@ describe('removePickerHighlights', () => {
 
   it('handles elements with no original styles set', () => {
     document.body.innerHTML = `<div id="elem">Element</div>`
-    const elem = document.getElementById('elem') as HTMLElement
+    const elem = document.getElementById('elem')!
     const highlightedElements = new Map<HTMLElement, OriginalStyles>()
 
     // Manually set highlight without original styles

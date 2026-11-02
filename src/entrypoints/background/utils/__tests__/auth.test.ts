@@ -21,7 +21,7 @@ describe('requestAuthToken', () => {
   it('reports a friendly message when the user cancels the flow', async () => {
     spyOnBrowser(fakeBrowser.identity, 'getAuthToken').mockResolvedValue({
       token: 'unused',
-    } as never)
+    })
     setLastError({ message: 'The user cancelled the sign-in flow' })
 
     await expect(requestAuthToken()).resolves.toEqual({
@@ -33,7 +33,7 @@ describe('requestAuthToken', () => {
   it('reports a friendly message when the user denies access', async () => {
     spyOnBrowser(fakeBrowser.identity, 'getAuthToken').mockResolvedValue({
       token: 'unused',
-    } as never)
+    })
     setLastError({ message: 'Access was denied by the user' })
 
     await expect(requestAuthToken()).resolves.toEqual({
@@ -45,7 +45,7 @@ describe('requestAuthToken', () => {
   it('passes any other lastError message through unchanged', async () => {
     spyOnBrowser(fakeBrowser.identity, 'getAuthToken').mockResolvedValue({
       token: 'unused',
-    } as never)
+    })
     setLastError({ message: 'OAuth2 not granted or revoked' })
 
     await expect(requestAuthToken()).resolves.toEqual({
@@ -57,7 +57,7 @@ describe('requestAuthToken', () => {
   it('falls back to a generic message when lastError has no message', async () => {
     spyOnBrowser(fakeBrowser.identity, 'getAuthToken').mockResolvedValue({
       token: 'unused',
-    } as never)
+    })
     setLastError({})
 
     await expect(requestAuthToken()).resolves.toEqual({
@@ -67,7 +67,7 @@ describe('requestAuthToken', () => {
   })
 
   it('fails when the identity API resolves without a token', async () => {
-    spyOnBrowser(fakeBrowser.identity, 'getAuthToken').mockResolvedValue({} as never)
+    spyOnBrowser(fakeBrowser.identity, 'getAuthToken').mockResolvedValue({})
 
     await expect(requestAuthToken()).resolves.toEqual({
       success: false,
@@ -76,7 +76,7 @@ describe('requestAuthToken', () => {
   })
 
   it('fails when the identity API resolves with no result at all', async () => {
-    spyOnBrowser(fakeBrowser.identity, 'getAuthToken').mockResolvedValue(undefined as never)
+    spyOnBrowser(fakeBrowser.identity, 'getAuthToken').mockResolvedValue(undefined)
 
     await expect(requestAuthToken()).resolves.toEqual({
       success: false,
@@ -93,7 +93,7 @@ describe('removeCachedAuthToken', () => {
   it('forwards the token to the identity API', async () => {
     const removeCachedToken = vi
       .spyOn(fakeBrowser.identity, 'removeCachedAuthToken')
-      .mockResolvedValue(undefined as never)
+      .mockResolvedValue(undefined)
 
     await removeCachedAuthToken('ya29.token')
 

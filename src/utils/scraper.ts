@@ -110,9 +110,8 @@ export const extractData = (element: HTMLElement, column: ColumnDefinition): str
     const [first] = evaluateXPathValues(selector, element)
     if (first === undefined) return ''
     // Attributes and text nodes come back as their string value; elements
-    // contribute their text. `textContent` is only null on Document and
-    // DocumentType nodes, which `evaluateXPathValues` never returns.
-    return typeof first === 'string' ? first.trim() : first.textContent!.trim()
+    // contribute their text.
+    return typeof first === 'string' ? first.trim() : first.textContent.trim()
   } catch (error) {
     log.error('Error extracting data:', error)
     return ''
