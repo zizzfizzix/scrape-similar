@@ -1,12 +1,7 @@
 // @vitest-environment jsdom
 import themeBoot from '@/entrypoints/theme-boot/index'
-import {
-  applyThemeMirror,
-  isTheme,
-  resolveTheme,
-  THEME_MIRROR_KEY,
-  writeThemeMirror,
-} from '@/utils/theme-mirror'
+import { applyThemeMirror, isTheme, resolveTheme, THEME_MIRROR_KEY } from '@/utils/theme-mirror'
+import { writeThemeMirror } from '@/utils/theme-mirror-write'
 import { spyOnBrowser } from '@@/tests/support/fake-browser'
 import log from 'loglevel'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -128,12 +123,10 @@ describe('applyThemeMirror', () => {
     vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
       throw new Error('blocked')
     })
-    const warn = vi.spyOn(log, 'warn').mockImplementation(() => {})
 
     applyThemeMirror()
 
     expect(document.documentElement.className).toBe('dark')
-    expect(warn).toHaveBeenCalledWith('Could not read the mirrored theme', expect.any(Error))
   })
 })
 

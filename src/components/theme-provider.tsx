@@ -1,6 +1,7 @@
 import { useLoadedStorageItem } from '@/hooks/use-storage-item'
 import { reportRejection } from '@/utils/report-rejection'
-import { isTheme, writeThemeMirror } from '@/utils/theme-mirror'
+import { DEFAULT_THEME, isTheme } from '@/utils/theme-mirror'
+import { writeThemeMirror } from '@/utils/theme-mirror-write'
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo } from 'react'
 
 interface ThemeProviderProps {
@@ -16,7 +17,7 @@ interface ThemeProviderState {
 }
 
 const initialState: ThemeProviderState = {
-  theme: 'system',
+  theme: DEFAULT_THEME,
   setTheme: () => null,
   rootElement: null,
 }
@@ -31,7 +32,7 @@ const applyTheme = (root: Element, theme: Exclude<Theme, 'system'>) => {
 export function ThemeProvider({ children, rootElement, ...props }: ThemeProviderProps) {
   const [storedTheme, setStoredTheme] = useLoadedStorageItem(themeItem)
   const isLoaded = storedTheme !== undefined
-  const theme = isTheme(storedTheme) ? storedTheme : themeItem.fallback
+  const theme = isTheme(storedTheme) ? storedTheme : DEFAULT_THEME
 
   // A layout effect sets the class in the same commit that changes the theme;
   // a passive effect can run after a frame has been painted with the new theme

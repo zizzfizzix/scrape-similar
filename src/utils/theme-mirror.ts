@@ -1,5 +1,3 @@
-import log from 'loglevel'
-
 /**
  * A synchronous copy of `themeItem` in the extension origin's `localStorage`.
  *
@@ -14,7 +12,9 @@ export const THEME_MIRROR_KEY = 'scrape-similar:theme'
 
 /**
  * `themeItem`'s fallback. Kept here so the render-blocking `theme-boot` bundle
- * does not pull in WXT's storage runtime to read it.
+ * does not pull in WXT's storage runtime to read it. This module imports
+ * nothing for the same reason; the write, which logs, is in
+ * `theme-mirror-write.ts`.
  */
 export const DEFAULT_THEME: Theme = 'system'
 
@@ -28,32 +28,16 @@ export const resolveTheme = (theme: Theme): Exclude<Theme, 'system'> => {
 }
 
 /**
- * A content script shares `localStorage` with the page it runs on, so only the
- * extension's own pages may hold the copy.
+ * `localStorage` throws instead of returning when site data is blocked. A
+ * failed read only means the default theme applies until `ThemeProvider` loads
+ * the stored one.
  */
-const isExtensionPage = () => location.href.startsWith(browser.runtime.getURL('/'))
-
-/** `localStorage` throws instead of returning when site data is blocked. */
 const readThemeMirror = (): Theme | null => {
   try {
     const value = localStorage.getItem(THEME_MIRROR_KEY)
     return isTheme(value) ? value : null
-  } catch (error) {
-    log.warn('Could not read the mirrored theme', error)
+  } catch {
     return null
-  }
-}
-
-/**
- * `getURL` throws in a content script whose extension has been reloaded, so the
- * page check sits inside the `try` with the write.
- */
-export const writeThemeMirror = (theme: Theme): void => {
-  try {
-    if (!isExtensionPage()) return
-    localStorage.setItem(THEME_MIRROR_KEY, theme)
-  } catch (error) {
-    log.warn('Could not mirror the theme', error)
   }
 }
 
