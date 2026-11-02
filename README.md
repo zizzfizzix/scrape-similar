@@ -167,8 +167,7 @@ src/
 
 ESLint enforces the conventions above, plus the hooks rules, the test-harness
 rules and typescript-eslint's `strictTypeChecked` and `stylisticTypeChecked`,
-from `eslint.config.ts`. Rules that are off say why there, with the number of
-violations they would report.
+from `eslint.config.ts`. Rules that are off say why there.
 
 Installing it takes one indirection, because TypeScript 7 is a Go rewrite that
 ships no JavaScript compiler API: the `typescript` package exports `version` and

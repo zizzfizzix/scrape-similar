@@ -30,7 +30,7 @@ import { noContentScriptLock } from './tools/eslint-rules/no-content-script-lock
  * TypeScript files get typescript-eslint's `strictTypeChecked` and
  * `stylisticTypeChecked` (#282). What departs from them is listed here:
  * PRESET_OPTIONS where a preset rule takes other options, BEYOND_PRESETS for
- * typed rules neither preset ships, and OFF_ON_MERITS / OFF_ON_MERITS_IN_TESTS
+ * rules neither preset ships, BOOLEAN_PREFIX, and OFF_ON_MERITS / OFF_ON_MERITS_IN_TESTS
  * for rules that are wrong for this codebase.
  */
 
@@ -124,7 +124,7 @@ const PRESET_OPTIONS: Linter.RulesRecord = {
       allowRegExp: false,
     },
   ],
-  // Without the exemption the rule reports 318 sites, nearly all
+  // Without the exemption the rule reports 312 sites, nearly all
   // `onClick={() => doThing()}`, whose return value nothing reads.
   '@typescript-eslint/no-confusing-void-expression': ['error', { ignoreArrowShorthand: true }],
   '@typescript-eslint/no-unused-vars': [
@@ -203,7 +203,7 @@ const OFF_ON_MERITS = {
   // unparseable code.
   'jest-dom/prefer-to-have-text-content': 'off',
   'jest-dom/prefer-to-have-style': 'off',
-  // 380 reports across 58 files, 342 of them in tests. Outside tests, a `!` with
+  // 385 reports across 58 files, 344 of them in tests. Outside tests, a `!` with
   // a comment saying why the value is present is how this codebase states a
   // guarantee the types cannot (a capture group a successful match always
   // fills, an index whose bounds were just checked, a tab id the router already
@@ -213,7 +213,7 @@ const OFF_ON_MERITS = {
   // `expect(x).not.toBeNull()` does not narrow the type; `assert.exists(x)` from
   // vitest does, and fails with a clearer message, at the assertion rather than
   // at a later use of the value, but the rule would demand that extra line
-  // at 342 sites only to improve the message of a test that is already failing.
+  // at 344 sites only to improve the message of a test that is already failing.
   '@typescript-eslint/no-non-null-assertion': 'off',
 } as const
 
