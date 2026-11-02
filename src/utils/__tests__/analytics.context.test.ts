@@ -122,6 +122,8 @@ describe('captureEvent – context specific behaviour', () => {
     const captureSpy = vi.fn<CaptureFn>()
     vi.spyOn(posthogBg, 'getPostHogBackground').mockResolvedValue(stubBackgroundPostHog(captureSpy))
 
+    // Typed as returning `unknown` so the run-time value can be asserted: a
+    // promise-returning function is assignable to a void-returning type.
     const track: (...args: Parameters<typeof trackContentScriptEvent>) => unknown =
       trackContentScriptEvent
     expect(track(EVENT_NAME, { trigger: 'bar' })).toBeUndefined()

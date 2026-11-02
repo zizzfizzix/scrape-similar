@@ -11,6 +11,8 @@ describe('reportRejection', () => {
     const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
     const failure = new Error('task blew up')
 
+    // Typed as returning `unknown` so the run-time value can be asserted: a
+    // promise-returning function is assignable to a void-returning type.
     const report: (task: Promise<unknown>) => unknown = reportRejection
     expect(report(Promise.reject(failure))).toBeUndefined()
 

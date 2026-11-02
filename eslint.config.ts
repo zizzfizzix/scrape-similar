@@ -324,7 +324,7 @@ const UNNECESSARY_CONDITION: Linter.RulesRecord = {
  * buys no safety. A test that a void function returns nothing at run time
  * calls it through a type returning `unknown`: a function returning a promise
  * is assignable to a void-returning type, so its signature does not rule out
- * the promise, and nothing type-checks the tests in CI.
+ * the promise.
  */
 const CONFUSING_VOID: Linter.RulesRecord = {
   '@typescript-eslint/no-confusing-void-expression': ['error', { ignoreArrowShorthand: true }],
