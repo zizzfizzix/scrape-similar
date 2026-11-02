@@ -44,9 +44,13 @@ const readThemeMirror = (): Theme | null => {
   }
 }
 
+/**
+ * `getURL` throws in a content script whose extension has been reloaded, so the
+ * page check sits inside the `try` with the write.
+ */
 export const writeThemeMirror = (theme: Theme): void => {
-  if (!isExtensionPage()) return
   try {
+    if (!isExtensionPage()) return
     localStorage.setItem(THEME_MIRROR_KEY, theme)
   } catch (error) {
     log.warn('Could not mirror the theme', error)
