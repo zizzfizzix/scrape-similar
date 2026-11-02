@@ -170,9 +170,9 @@ describe('ConfigForm', () => {
       view = await render({ onChange, onHighlight })
 
       fireEvent.change(mainSelectorInput(), { target: { value: '//li' } })
+      // React delivers onBlur from the bubbling focusout event.
+      fireEvent.focusOut(mainSelectorInput())
       await act(() => {
-        // React delivers onBlur from the bubbling focusout event.
-        mainSelectorInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
         vi.advanceTimersByTime(BLUR_COMMIT_DELAY_MS)
       })
 
@@ -187,9 +187,9 @@ describe('ConfigForm', () => {
       view = await render({ onHighlight })
 
       fireEvent.change(mainSelectorInput(), { target: { value: '   ' } })
+      // React delivers onBlur from the bubbling focusout event.
+      fireEvent.focusOut(mainSelectorInput())
       await act(() => {
-        // React delivers onBlur from the bubbling focusout event.
-        mainSelectorInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
         vi.advanceTimersByTime(BLUR_COMMIT_DELAY_MS)
       })
 
@@ -203,8 +203,8 @@ describe('ConfigForm', () => {
       const onHighlight = vi.fn()
       view = await render({ onChange, onHighlight })
 
+      fireEvent.focusOut(mainSelectorInput())
       await act(() => {
-        mainSelectorInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
         vi.advanceTimersByTime(BLUR_COMMIT_DELAY_MS)
       })
 
@@ -219,8 +219,8 @@ describe('ConfigForm', () => {
       const onHighlight = vi.fn()
       view = await render({ onChange, onHighlight, highlightMatchCount: undefined })
 
+      fireEvent.focusOut(mainSelectorInput())
       await act(() => {
-        mainSelectorInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
         vi.advanceTimersByTime(BLUR_COMMIT_DELAY_MS)
       })
 
@@ -254,8 +254,8 @@ describe('ConfigForm', () => {
       view = await render({ onChange, onHighlight })
 
       fireEvent.change(mainSelectorInput(), { target: { value: ' //tr ' } })
+      fireEvent.focusOut(mainSelectorInput())
       await act(() => {
-        mainSelectorInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
         vi.advanceTimersByTime(BLUR_COMMIT_DELAY_MS)
       })
 

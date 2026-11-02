@@ -1157,9 +1157,7 @@ describe('one panel per tab', () => {
     view = await render()
     await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
     fireEvent.change(mainSelectorInput(), { target: { value: '//li' } })
-    act(() => {
-      mainSelectorInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
-    })
+    fireEvent.focusOut(mainSelectorInput())
     await switchTo(OTHER_TAB_ID)
     const guessedColumns = [{ name: 'Guessed', selector: './td[3]' }]
     // A guess that was in flight lands while the tab is in the background.
@@ -1203,9 +1201,7 @@ describe('one panel per tab', () => {
     await switchTo(OTHER_TAB_ID)
     await waitFor(() => expect(mainSelectorInput().value).toBe(''))
     fireEvent.change(mainSelectorInput(), { target: { value: '//li' } })
-    act(() => {
-      mainSelectorInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
-    })
+    fireEvent.focusOut(mainSelectorInput())
     await switchTo(TAB_ID)
     const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
       undefined as never,
@@ -1227,9 +1223,7 @@ describe('one panel per tab', () => {
     view = await render()
     await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
     fireEvent.change(mainSelectorInput(), { target: { value: '//li' } })
-    act(() => {
-      mainSelectorInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
-    })
+    fireEvent.focusOut(mainSelectorInput())
     let release: ((value: SidePanelConfig | null) => void) | undefined
     await switchTo(OTHER_TAB_ID)
     const getItem = vi
@@ -1254,9 +1248,7 @@ describe('one panel per tab', () => {
     view = await render()
     await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
     fireEvent.change(mainSelectorInput(), { target: { value: '//li' } })
-    act(() => {
-      mainSelectorInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
-    })
+    fireEvent.focusOut(mainSelectorInput())
     await switchTo(OTHER_TAB_ID)
     const getItem = vi
       .spyOn(sidePanelConfigItem(TAB_ID), 'getValue')
@@ -1303,9 +1295,7 @@ describe('one panel per tab', () => {
     )
 
     // The switch lands inside the blur's commit defer.
-    act(() => {
-      mainSelectorInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
-    })
+    fireEvent.focusOut(mainSelectorInput())
     await switchTo(OTHER_TAB_ID)
     await outlastBlurCommit()
     expect(sidePanelWrites(sendMessage)).toEqual([])
