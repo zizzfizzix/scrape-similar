@@ -12,6 +12,12 @@ import log from 'loglevel'
  */
 export const THEME_MIRROR_KEY = 'scrape-similar:theme'
 
+/**
+ * `themeItem`'s fallback. Kept here so the render-blocking `theme-boot` bundle
+ * does not pull in WXT's storage runtime to read it.
+ */
+export const DEFAULT_THEME: Theme = 'system'
+
 /** The stored value is whatever was last written there, not necessarily a theme. */
 export const isTheme = (value: unknown): value is Theme =>
   value === 'light' || value === 'dark' || value === 'system'
@@ -25,7 +31,7 @@ export const resolveTheme = (theme: Theme): Exclude<Theme, 'system'> => {
  * A content script shares `localStorage` with the page it runs on, so only the
  * extension's own pages may hold the copy.
  */
-const isExtensionPage = () => location.origin === new URL(browser.runtime.getURL('/')).origin
+const isExtensionPage = () => location.href.startsWith(browser.runtime.getURL('/'))
 
 /** `localStorage` throws instead of returning when site data is blocked. */
 const readThemeMirror = (): Theme | null => {
@@ -52,5 +58,5 @@ export const writeThemeMirror = (theme: Theme): void => {
  * the default theme, as an unset `themeItem` does.
  */
 export const applyThemeMirror = (): void => {
-  document.documentElement.classList.add(resolveTheme(readThemeMirror() ?? themeItem.fallback))
+  document.documentElement.classList.add(resolveTheme(readThemeMirror() ?? DEFAULT_THEME))
 }

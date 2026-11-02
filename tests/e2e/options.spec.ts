@@ -1,3 +1,4 @@
+import { THEME_MIRROR_KEY } from '@/utils/theme-mirror'
 import { expect, test, TestHelpers } from './fixtures'
 
 /**
@@ -129,14 +130,14 @@ test.describe('Options page', () => {
     await firstVisit.emulateMedia({ colorScheme: 'light' })
     await firstVisit.goto(optionsUrl)
     await expect
-      .poll(() => firstVisit.evaluate(() => document.documentElement.className))
+      .poll(() => firstVisit.evaluate((key) => localStorage.getItem(key), THEME_MIRROR_KEY))
       .toBe('dark')
     await firstVisit.close()
 
     const page = await context.newPage()
     await page.emulateMedia({ colorScheme: 'light' })
-    // Records the root's class at the moment <body> is parsed, which is before
-    // the first paint and before any module script has run.
+    // Records the root's class at the first mutation that finds <body>, which
+    // is before any module script runs and so before React could set it.
     await page.addInitScript(() => {
       const observer = new MutationObserver(() => {
         if (!document.body) return

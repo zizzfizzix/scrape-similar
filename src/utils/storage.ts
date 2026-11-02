@@ -1,6 +1,7 @@
 import type { QueuedEvent } from '@/utils/analytics'
 import type { DistinctId } from '@/utils/distinct-id'
 import { updateStorageItem, withStorageLock } from '@/utils/storage-lock'
+import { DEFAULT_THEME } from '@/utils/theme-mirror'
 import log from 'loglevel'
 
 /** Current version for user presets storage and export/import file format. */
@@ -51,7 +52,7 @@ export const debugUnlockedItem = /* @__PURE__ */ storage.defineItem<boolean>(
 )
 
 export const themeItem = /* @__PURE__ */ storage.defineItem<Theme>('local:theme', {
-  fallback: 'system',
+  fallback: DEFAULT_THEME,
 })
 
 export const eventQueueItem = /* @__PURE__ */ storage.defineItem<QueuedEvent[]>(
