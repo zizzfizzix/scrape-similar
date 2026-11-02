@@ -11,13 +11,17 @@ const isSameColumn = (a: ColumnDefinition, b: ColumnDefinition): boolean =>
 
 /**
  * `columns` with `edit` applied, or `null` when the edit targets a column that
- * is no longer at its index as it was when the edit was made.
+ * is no longer at its index as it was when the edit was made. An added column
+ * is numbered after the list it lands on, which may be longer than the one the
+ * editor showed.
  */
 export const applyColumnEdit = (
   columns: ColumnDefinition[],
   edit: ColumnEdit,
 ): ColumnDefinition[] | null => {
-  if (edit.type === 'add') return [...columns, edit.column]
+  if (edit.type === 'add') {
+    return [...columns, { name: `Column ${columns.length + 1}`, selector: DEFAULT_COLUMN_SELECTOR }]
+  }
 
   const stored = columns[edit.index]
   if (!stored || !isSameColumn(stored, edit.expected)) return null

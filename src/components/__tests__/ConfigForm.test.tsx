@@ -347,16 +347,13 @@ describe('ConfigForm', () => {
       })
     })
 
-    it('adds a numbered column', async () => {
+    it('adds a column', async () => {
       const onColumnEdit = vi.fn()
       view = await render({ onColumnEdit })
 
       await userEvent.click(button('Add column'))
 
-      expect(onColumnEdit).toHaveBeenCalledWith({
-        type: 'add',
-        column: { name: 'Column 3', selector: '.' },
-      })
+      expect(onColumnEdit).toHaveBeenCalledWith({ type: 'add' })
       expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.ADD_COLUMN_BUTTON_PRESS)
     })
 

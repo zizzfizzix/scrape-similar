@@ -61,14 +61,25 @@ export const TabPanel = memo(function TabPanel({
 
   const buildFilename = useCallback((now: Date) => buildExportFilename(tabUrl, now), [tabUrl])
 
+  // Column edits sent and not yet answered. Storage lags the panel while any
+  // are, so a watcher event would put back columns from before the latest
+  // keystrokes, and every edit built on those would be refused.
+  const pendingColumnEditsRef = useRef(0)
+
   const applyStoredState = useCallback(
     (stored: SidePanelConfig) => {
       log.debug(`Applying stored state for tab ${String(tabId)}:`, stored)
-      const storedConfig = resolveStoredConfig(stored)
+      const resolvedConfig = resolveStoredConfig(stored)
+      const hasPendingColumnEdits = pendingColumnEditsRef.current > 0
       // Showing a hidden panel re-reads its storage, which nearly always holds
       // what is already on screen; keeping the same references lets React skip
       // re-rendering the form and the table.
-      setConfig((previous) => reuseIfEqual(previous, storedConfig))
+      setConfig((previous) =>
+        reuseIfEqual(
+          previous,
+          hasPendingColumnEdits ? { ...resolvedConfig, columns: previous.columns } : resolvedConfig,
+        ),
+      )
 
       const storedResult = stored.scrapeResult
       if (storedResult) {
@@ -143,18 +154,27 @@ export const TabPanel = memo(function TabPanel({
     )
   }
 
-  // A superseded edit can leave storage unchanged, in which case no watcher
-  // fires, so the panel reads back the columns that replaced the ones it edited.
+  // Once the last pending edit is answered, the panel reads the stored columns
+  // back: the watcher skipped them meanwhile, and a superseded edit can leave
+  // storage unchanged, in which case no watcher fires at all.
   const storeColumnEdit = async (id: number, edit: ColumnEdit) => {
-    const reply: SidePanelUpdateReply | undefined = await browser.runtime.sendMessage({
-      type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
-      payload: { tabId: id, updates: { columnEdit: edit } },
-    })
-    if (!reply?.isColumnEditSuperseded) return
-    log.debug(`Column edit for tab ${String(id)} was superseded by a newer write`)
+    pendingColumnEditsRef.current += 1
+    let reply: SidePanelUpdateReply | undefined
+    try {
+      reply = await browser.runtime.sendMessage({
+        type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
+        payload: { tabId: id, updates: { columnEdit: edit } },
+      })
+    } finally {
+      pendingColumnEditsRef.current -= 1
+    }
+    if (reply?.isColumnEditSuperseded) {
+      log.debug(`Column edit for tab ${String(id)} no longer matched the stored column`)
+    }
+    if (pendingColumnEditsRef.current > 0) return
     const stored = await sidePanelConfigItem(id).getValue()
-    // The update that reported this left a stored state, and only closing the tab removes it.
-    applyStoredState(stored!)
+    // Null only once the tab has closed, and its panel goes with it.
+    if (stored) applyStoredState(stored)
   }
 
   const handleColumnEdit = (edit: ColumnEdit) => {

@@ -61,18 +61,18 @@ describe('applyColumnEdit', () => {
     expect(applyColumnEdit(columns(), { type: 'remove', index: 0, expected: country })).toBeNull()
   })
 
-  it('appends a column to whatever list it is given', () => {
-    const column = { name: 'Notes', selector: DEFAULT_COLUMN_SELECTOR }
+  it('appends a column numbered after the list it lands on', () => {
+    const added = (name: string) => ({ name, selector: DEFAULT_COLUMN_SELECTOR })
 
-    expect(applyColumnEdit(columns(), { type: 'add', column })).toEqual([rank, country, column])
-    expect(applyColumnEdit([], { type: 'add', column })).toEqual([column])
+    expect(applyColumnEdit(columns(), { type: 'add' })).toEqual([rank, country, added('Column 3')])
+    expect(applyColumnEdit([], { type: 'add' })).toEqual([added('Column 1')])
   })
 
   it('does not mutate the list it was given', () => {
     const original = columns()
 
     applyColumnEdit(original, { type: 'remove', index: 0, expected: rank })
-    applyColumnEdit(original, { type: 'add', column: rank })
+    applyColumnEdit(original, { type: 'add' })
     applyColumnEdit(original, { type: 'update', index: 0, expected: rank, column: country })
 
     expect(original).toEqual([rank, country])

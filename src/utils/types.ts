@@ -70,7 +70,7 @@ export interface SidePanelConfigUpdate extends Omit<
 export type ColumnEdit =
   | { type: 'update'; index: number; expected: ColumnDefinition; column: ColumnDefinition }
   | { type: 'remove'; index: number; expected: ColumnDefinition }
-  | { type: 'add'; column: ColumnDefinition }
+  | { type: 'add' }
 
 export type ElementDetailsPayload = {
   xpath: string
@@ -125,6 +125,7 @@ export interface HighlightReply extends StatusReply {
 
 /** The background's reply to UPDATE_SIDEPANEL_DATA. */
 export interface SidePanelUpdateReply extends StatusReply {
+  /** Documented on `MessageResponse`, whose success branch the background sends. */
   isColumnEditSuperseded?: boolean
 }
 

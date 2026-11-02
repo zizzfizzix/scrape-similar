@@ -288,14 +288,15 @@ describe('applySidePanelDataUpdates with a column edit', () => {
     expect((await read(1)).currentScrapeConfig?.columns).toEqual(guessedColumns)
   })
 
-  it('appends an added column to the columns stored since the panel read them', async () => {
+  it('numbers an added column after the columns stored since the panel read them', async () => {
     await storeGuess()
-    const column = { name: 'Column 3', selector: '.' }
-
-    const outcome = await applySidePanelDataUpdates(1, { columnEdit: { type: 'add', column } })
+    const outcome = await applySidePanelDataUpdates(1, { columnEdit: { type: 'add' } })
 
     expect(outcome).toEqual({ isColumnEditSuperseded: false })
-    expect((await read(1)).currentScrapeConfig?.columns).toEqual([...guessedColumns, column])
+    expect((await read(1)).currentScrapeConfig?.columns).toEqual([
+      ...guessedColumns,
+      { name: 'Column 2', selector: '.' },
+    ])
   })
 
   it('applies an edit to the default columns the panel shows before any are stored', async () => {

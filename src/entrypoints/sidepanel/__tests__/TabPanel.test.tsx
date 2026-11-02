@@ -11,6 +11,7 @@ import {
 import { spyOnBrowser } from '@@/tests/support/fake-browser'
 import { renderSettled, settleEffects } from '@@/tests/support/settle'
 import { act, waitFor } from '@testing-library/react'
+import log from 'loglevel'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
@@ -190,19 +191,25 @@ describe('TabPanel column edits', () => {
     expected: rank,
     column: { name: 'Position', selector: './td[1]' },
   }
+  const storageKey = `session:sidepanel_config_${TAB_ID}`
+
+  /** Store `columns` as the background would on applying an edit, then reply. */
+  const applyAndReply = (columns: ColumnDefinition[]) => async () => {
+    await storage.setItem(storageKey, { currentScrapeConfig: { ...config, columns } })
+    return { success: true, isColumnEditSuperseded: false }
+  }
 
   beforeEach(async () => {
     fakeBrowser.reset()
     form.props = undefined
-    await storage.setItem(`session:sidepanel_config_${TAB_ID}`, { currentScrapeConfig: config })
+    await storage.setItem(storageKey, { currentScrapeConfig: config })
   })
 
   it('shows the edit and sends it as an operation rather than the column list', async () => {
     await render()
-    const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue({
-      success: true,
-      isColumnEditSuperseded: false,
-    })
+    const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockImplementation(
+      applyAndReply([rename.column]),
+    )
 
     act(() => {
       form.props!.onColumnEdit(rename)
@@ -236,12 +243,67 @@ describe('TabPanel column edits', () => {
     await waitFor(() => expect(form.props!.config.columns).toEqual(config.columns))
   })
 
-  it('keeps the edit on screen when the background applied it', async () => {
+  it('keeps the columns on screen while an edit is unanswered, then shows the stored ones', async () => {
     await render()
-    spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue({
-      success: true,
-      isColumnEditSuperseded: false,
+    const reply = Promise.withResolvers<unknown>()
+    spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockReturnValue(reply.promise)
+
+    act(() => {
+      form.props!.onColumnEdit(rename)
     })
+    // A write that predates the edit, as the watcher for an earlier keystroke delivers it.
+    await storage.setItem(storageKey, { currentScrapeConfig: { ...config, mainSelector: '//li' } })
+    await settleEffects()
+
+    expect(form.props!.config).toEqual({ mainSelector: '//li', columns: [rename.column] })
+
+    // A Guess reply lands while the edit is still unanswered, which then fails its check.
+    const guessedColumns = [{ name: 'Title', selector: './/h2' }]
+    await storage.setItem(storageKey, {
+      currentScrapeConfig: { mainSelector: '//li', columns: guessedColumns },
+    })
+    await settleEffects()
+    expect(form.props!.config.columns).toEqual([rename.column])
+
+    reply.resolve({ success: true, isColumnEditSuperseded: true })
+    await settleEffects()
+
+    expect(form.props!.config).toEqual({ mainSelector: '//li', columns: guessedColumns })
+  })
+
+  it('reads storage back only once the last of several edits is answered', async () => {
+    await render()
+    const replies = [Promise.withResolvers<unknown>(), Promise.withResolvers<unknown>()]
+    spyOnBrowser(fakeBrowser.runtime, 'sendMessage')
+      .mockReturnValueOnce(replies[0]!.promise)
+      .mockReturnValueOnce(replies[1]!.promise)
+    const getValue = vi.spyOn(sidePanelConfigItem(TAB_ID), 'getValue')
+
+    act(() => {
+      form.props!.onColumnEdit(rename)
+    })
+    act(() => {
+      form.props!.onColumnEdit({ type: 'add' })
+    })
+    getValue.mockClear()
+    replies[0]!.resolve({ success: true, isColumnEditSuperseded: false })
+    await settleEffects()
+
+    expect(getValue).not.toHaveBeenCalled()
+
+    replies[1]!.resolve({ success: true, isColumnEditSuperseded: false })
+    await settleEffects()
+
+    expect(getValue).toHaveBeenCalledTimes(1)
+  })
+
+  it('leaves the panel as it is when the tab closed before the read-back', async () => {
+    await render()
+    spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockImplementation(async () => {
+      await storage.removeItem(storageKey)
+      return { success: true, isColumnEditSuperseded: true }
+    })
+    const logError = vi.spyOn(log, 'error')
 
     act(() => {
       form.props!.onColumnEdit(rename)
@@ -249,6 +311,7 @@ describe('TabPanel column edits', () => {
     await settleEffects()
 
     expect(form.props!.config.columns).toEqual([rename.column])
+    expect(logError).not.toHaveBeenCalled()
   })
 
   it('sends nothing without a tab', async () => {
@@ -258,7 +321,7 @@ describe('TabPanel column edits', () => {
     )
 
     act(() => {
-      form.props!.onColumnEdit({ type: 'add', column: { name: 'Column 2', selector: '.' } })
+      form.props!.onColumnEdit({ type: 'add' })
     })
     await settleEffects()
 

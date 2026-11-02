@@ -33,7 +33,7 @@ import {
 } from '@/utils/autosuggest'
 import { isImeComposing } from '@/utils/ime'
 import { reportRejection } from '@/utils/report-rejection'
-import { DEFAULT_COLUMN_SELECTOR, sanitizeToSingleLine } from '@/utils/scrape-config'
+import { sanitizeToSingleLine } from '@/utils/scrape-config'
 import log from 'loglevel'
 
 import {
@@ -1169,13 +1169,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
                   onClick={() => {
                     trackEvent(ANALYTICS_EVENTS.ADD_COLUMN_BUTTON_PRESS)
 
-                    onColumnEdit({
-                      type: 'add',
-                      column: {
-                        name: `Column ${config.columns.length + 1}`,
-                        selector: DEFAULT_COLUMN_SELECTOR,
-                      },
-                    })
+                    onColumnEdit({ type: 'add' })
                     setShouldScrollToEnd(true)
                   }}
                   aria-label="Add column"
