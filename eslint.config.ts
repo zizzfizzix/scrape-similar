@@ -81,6 +81,7 @@ const NO_HARD_CODED_EXTENSION_ORIGIN = [
     message: OWN_ORIGIN_MESSAGE,
   },
   { selector: "ImportSpecifier[imported.name='chromeExtensionId']", message: OWN_ORIGIN_MESSAGE },
+  { selector: "MemberExpression[property.name='chromeExtensionId']", message: OWN_ORIGIN_MESSAGE },
 ]
 
 interface RestrictedSelector {

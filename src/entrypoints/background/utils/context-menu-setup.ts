@@ -3,8 +3,8 @@ import log from 'loglevel'
 /**
  * The onboarding page is matched by the running extension's own URL, since the origin
  * differs per browser and per install. Firefox parses an unprivileged extension's
- * `documentUrlPatterns` with `restrictSchemes`, so it gets web pages only: an
- * extension-page pattern there risks `create` rejecting the whole item.
+ * `documentUrlPatterns` with `restrictSchemes`, and an invalid pattern rejects the whole
+ * item, so Firefox gets web pages only until a `moz-extension:` pattern is known to pass.
  */
 const getContextMenuUrlPatterns = (): string[] => [
   'http://*/*',

@@ -26,6 +26,11 @@ const NON_INJECTABLE_CASES: Array<{ url: string; pattern: string }> = [
     pattern: 'https://addons.mozilla.org/',
   },
   {
+    url: 'https://support.mozilla.org/en-US/kb/keyboard-shortcuts',
+    pattern: 'https://support.mozilla.org/',
+  },
+  { url: 'https://accounts.firefox.com/signin', pattern: 'https://accounts.firefox.com/' },
+  {
     url: 'https://microsoftedge.microsoft.com/addons/detail/odfafepnkmbhccpbejgmiehpchacaeak',
     pattern: 'https://microsoftedge.microsoft.com/addons/',
   },

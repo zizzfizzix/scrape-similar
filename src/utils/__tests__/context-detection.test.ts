@@ -36,6 +36,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  Reflect.deleteProperty(fakeBrowser, 'extension')
   // Restore window
   if (typeof originalWindow === 'undefined') {
     delete testGlobal.window
@@ -99,6 +100,34 @@ describe('context detection utilities', () => {
 
     expect(isBackgroundContext()).toBe(true)
     expect(getCurrentContext()).toBe(EXTENSION_CONTEXTS.BACKGROUND)
+  })
+
+  it('does not take a content script for the background', () => {
+    vi.stubGlobal('window', undefined)
+    delete (globalThis as any).browser.tabs
+
+    expect(isBackgroundContext()).toBe(false)
+  })
+
+  it('detects the Firefox background page, which has a window', () => {
+    spyOnBrowser(fakeBrowser.runtime, 'getManifest').mockReturnValue({ manifest_version: 2 })
+    const backgroundWindow = createWindow({ pathname: '/background.html' })
+    vi.stubGlobal('window', backgroundWindow)
+    Object.assign(fakeBrowser, { extension: { getBackgroundPage: () => backgroundWindow } })
+
+    expect(isBackgroundContext()).toBe(true)
+    expect(getCurrentContext()).toBe(EXTENSION_CONTEXTS.BACKGROUND)
+  })
+
+  it('does not take an extension page for the background page', () => {
+    spyOnBrowser(fakeBrowser.runtime, 'getManifest').mockReturnValue({ manifest_version: 2 })
+    vi.stubGlobal('window', createWindow({ pathname: '/sidepanel.html' }))
+    Object.assign(fakeBrowser, {
+      extension: { getBackgroundPage: () => createWindow({ pathname: '/background.html' }) },
+    })
+
+    expect(isBackgroundContext()).toBe(false)
+    expect(getCurrentContext()).toBe(EXTENSION_CONTEXTS.SIDEPANEL)
   })
 
   it('detects side panel context', () => {

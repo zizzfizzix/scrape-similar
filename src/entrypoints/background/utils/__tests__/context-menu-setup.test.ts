@@ -1,7 +1,7 @@
 import { initializeContextMenus } from '@/entrypoints/background/utils/context-menu-setup'
 import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
 import log from 'loglevel'
-import { beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 
 describe('initializeContextMenus', () => {
@@ -11,6 +11,10 @@ describe('initializeContextMenus', () => {
     fakeBrowser.reset()
     setLastError(undefined)
     create = spyOnBrowser(fakeBrowser.contextMenus, 'create').mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
   })
 
   it('creates the quick scrape and visual picker items', () => {
@@ -41,7 +45,6 @@ describe('initializeContextMenus', () => {
     expect(create.mock.calls[0]?.[0]).toMatchObject({
       documentUrlPatterns: ['http://*/*', 'https://*/*'],
     })
-    vi.unstubAllEnvs()
   })
 
   it('logs a debug line for each item created without error', () => {
