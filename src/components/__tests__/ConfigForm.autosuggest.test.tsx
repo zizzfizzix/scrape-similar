@@ -484,8 +484,8 @@ describe('the autosuggest dropdown', () => {
       focusField()
       press('Escape')
       const scroll = spyOnScroll()
-      // Holding the frames back is what guarantees Escape lands first; awaiting
-      // `act` between the presses can let a real frame through.
+      // Holding the frames back lets the test run the queued frame after Escape
+      // instead of waiting for jsdom to run it.
       const heldFrames: FrameRequestCallback[] = []
       vi.spyOn(globalThis, 'requestAnimationFrame').mockImplementation((callback) => {
         heldFrames.push(callback)

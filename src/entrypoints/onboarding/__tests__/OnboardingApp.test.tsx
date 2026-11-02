@@ -69,7 +69,7 @@ const hasButton = (text: string) =>
     candidate.textContent?.trim().startsWith(text),
   )
 
-/** Click a button and settle the storage writes its handler starts. */
+/** Click a button and settle any async work its handler starts. */
 const press = async (text: string) => {
   act(() => byText(text).click())
   await settleEffects()
