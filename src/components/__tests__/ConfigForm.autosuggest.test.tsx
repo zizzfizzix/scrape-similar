@@ -4,6 +4,7 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { ANALYTICS_EVENTS, ANALYTICS_SOURCES } from '@/utils/analytics'
 import { getRecentMainSelectors, recentMainSelectorsItem, userPresetsItem } from '@/utils/storage'
 import type { Preset, ScrapeConfig } from '@/utils/types'
+import { outlastBlurCommit } from '@@/tests/support/blur-commit'
 import { setLastError } from '@@/tests/support/fake-browser'
 import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 import { renderSettled, settleEffects } from '@@/tests/support/settle'
@@ -538,7 +539,7 @@ describe('the autosuggest dropdown', () => {
         view.container.querySelector<HTMLElement>('[cmdk-root]')!.focus()
         mainSelectorInput().blur()
       })
-      await new Promise((resolve) => setTimeout(resolve, 200))
+      await outlastBlurCommit()
       await settleEffects()
 
       expect(suggestionItems()).not.toHaveLength(0)
@@ -558,7 +559,7 @@ describe('the autosuggest dropdown', () => {
         suggestionItems()[0]!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
         mainSelectorInput().blur()
       })
-      await new Promise((resolve) => setTimeout(resolve, 200))
+      await outlastBlurCommit()
       await settleEffects()
 
       expect(onChange).not.toHaveBeenCalled()
@@ -572,7 +573,7 @@ describe('the autosuggest dropdown', () => {
 
       await act(() => mainSelectorInput().blur())
       await focusField()
-      await new Promise((resolve) => setTimeout(resolve, 200))
+      await outlastBlurCommit()
       await settleEffects()
 
       expect(onChange).not.toHaveBeenCalled()
@@ -685,12 +686,6 @@ describe('the autosuggest dropdown', () => {
       })
     })
 
-    /** Outlast the 150ms defer on the blur commit. */
-    const letTheBlurCommitFallDue = () =>
-      act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 200))
-      })
-
     it('commits an edited selector on the keypress and leaves the field', async () => {
       const onChange = vi.fn()
       const onHighlight = vi.fn()
@@ -714,7 +709,7 @@ describe('the autosuggest dropdown', () => {
       await type('//h1')
 
       await press('Enter')
-      await letTheBlurCommitFallDue()
+      await outlastBlurCommit()
 
       expect(onChange).toHaveBeenCalledTimes(1)
       expect(onHighlight).toHaveBeenCalledTimes(1)
@@ -834,7 +829,7 @@ describe('the autosuggest dropdown', () => {
 
       await press('Enter')
       await act(() => mainSelectorInput().blur())
-      await letTheBlurCommitFallDue()
+      await outlastBlurCommit()
 
       expect(onScrape).toHaveBeenCalledTimes(1)
       expect(mainSelectorInput().value).toBe('//tr')
@@ -866,7 +861,7 @@ describe('the autosuggest dropdown', () => {
 
       await press('Enter')
       await act(() => mainSelectorInput().blur())
-      await letTheBlurCommitFallDue()
+      await outlastBlurCommit()
 
       expect(onScrape).toHaveBeenCalledTimes(1)
       expect(onChange).not.toHaveBeenCalled()
@@ -890,7 +885,7 @@ describe('the autosuggest dropdown', () => {
       await focusField()
       await type('//h2')
       await act(() => mainSelectorInput().blur())
-      await letTheBlurCommitFallDue()
+      await outlastBlurCommit()
 
       expect(onChange).toHaveBeenLastCalledWith({ ...config, mainSelector: '//h2' })
     })

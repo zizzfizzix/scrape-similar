@@ -90,6 +90,9 @@ interface ConfigFormProps {
   pickerModeActive?: boolean
 }
 
+/** Defer before a blur commits the main selector, so a press on a suggestion or button can cancel it. */
+export const BLUR_COMMIT_DELAY_MS = 150
+
 export const ConfigForm: React.FC<ConfigFormProps> = ({
   tabId,
   storedConfigVersion,
@@ -472,7 +475,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
     blurCommitTimerRef.current = setTimeout(() => {
       pendingBlurRef.current = null
       finishBlurCommit(committedAtBlur)
-    }, 150)
+    }, BLUR_COMMIT_DELAY_MS)
   }
 
   const handleMainSelectorBlur = () => armBlurCommit(latestConfigRef.current.mainSelector)
@@ -535,7 +538,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
   }
 
   // Keeps focus in the textarea while the button reads "Validate selector".
-  // A press held past the 150ms blur defer would otherwise commit first and
+  // A press held past the blur defer would otherwise commit first and
   // turn the click that follows into a scrape.
   const handleMainActionMouseDown = (e: React.MouseEvent) => {
     if (hasUncommittedChanges) e.preventDefault()
