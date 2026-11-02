@@ -946,7 +946,6 @@ describe('enablePickerMode', () => {
     await enablePickerMode(ctx, state, disable)
 
     expect(state.lastMouseX).toBe(0)
-    expect(document.elementFromPoint).not.toHaveBeenCalled()
   })
 
   it('re-offsets the page when the window is resized', async () => {

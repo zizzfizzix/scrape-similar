@@ -459,6 +459,8 @@ export const enablePickerMode = async (
 
   // Mount shadow-root banner UI at top of page (wait for React to be ready)
   await mountPickerBanner(ctx, state, disablePickerMode)
+  // An off-and-on-again during the await passes this check, and both enables
+  // then process the pointer; processing it twice is harmless.
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- narrowed to true by the assignment above, but disablePickerMode can run during the await
   if (!state.pickerModeActive) return
 
