@@ -93,6 +93,17 @@ describe('validateExportPayload', () => {
     })
   })
 
+  it.each([
+    ['a null row', null],
+    ['a row without data', { metadata: { originalIndex: 0, isEmpty: false } }],
+    ['a row with a cell that is not a string', { data: { Title: 1 }, metadata: {} }],
+    ['a row without metadata', { data: { Title: 'A' } }],
+  ])('rejects %s', (_, badRow) => {
+    expect(
+      validateExportPayload({ filename: 'Export', scrapedData: [...scrapedData, badRow] }),
+    ).toEqual({ isValid: false, error: 'Invalid rows in export data' })
+  })
+
   it('rejects a null payload', () => {
     expect(validateExportPayload(null)).toEqual({
       isValid: false,

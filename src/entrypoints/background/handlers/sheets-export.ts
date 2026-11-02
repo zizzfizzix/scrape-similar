@@ -27,12 +27,20 @@ export type ExportPayloadValidation =
 /**
  * Validate EXPORT_TO_SHEETS payload structure
  */
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null
+
 const isOptionalStringList = (value: unknown): value is string[] | undefined =>
   value === undefined || (Array.isArray(value) && value.every((item) => typeof item === 'string'))
 
+const isScrapedRow = (value: unknown): value is ScrapedRow =>
+  isObject(value) &&
+  isObject(value.data) &&
+  Object.values(value.data).every((cell) => typeof cell === 'string') &&
+  isObject(value.metadata)
+
 export const validateExportPayload = (payload: unknown): ExportPayloadValidation => {
-  const fields: Record<string, unknown> =
-    typeof payload === 'object' && payload !== null ? { ...payload } : {}
+  const fields = isObject(payload) ? payload : {}
   const { filename, scrapedData, columnOrder, columnKeys } = fields
 
   if (typeof filename !== 'string' || !filename.trim()) {
@@ -40,6 +48,9 @@ export const validateExportPayload = (payload: unknown): ExportPayloadValidation
   }
   if (!Array.isArray(scrapedData) || scrapedData.length === 0) {
     return { isValid: false, error: 'No data to export' }
+  }
+  if (!scrapedData.every(isScrapedRow)) {
+    return { isValid: false, error: 'Invalid rows in export data' }
   }
   if (!isOptionalStringList(columnOrder) || !isOptionalStringList(columnKeys)) {
     return { isValid: false, error: 'Invalid column mapping' }
