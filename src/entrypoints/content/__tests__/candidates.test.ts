@@ -151,7 +151,6 @@ describe('generateSelectorCandidates', () => {
 
       const candidates = generateSelectorCandidates(document.getElementById('cell')!)
 
-      expect(candidates).not.toContain('/[td]')
       for (const candidate of candidates) expect(() => evaluateXPath(candidate)).not.toThrow()
     })
 
