@@ -321,9 +321,10 @@ const UNNECESSARY_CONDITION: Linter.RulesRecord = {
  * A void call used as a value (#382). Arrow shorthands are exempt: with them
  * the rule reports 318 sites, nearly all `onClick={() => doThing()}`, where
  * the arrow's return value is never read, and rewriting each into a block body
- * buys no safety. A test that a function returns nothing asserts its type with
- * `expectTypeOf(fn).returns.toBeVoid()` rather than
- * `expect(fn()).toBeUndefined()`.
+ * buys no safety. A test that a void function returns nothing at run time
+ * calls it through a type returning `unknown`: a function returning a promise
+ * is assignable to a void-returning type, so its signature does not rule out
+ * the promise, and nothing type-checks the tests in CI.
  */
 const CONFUSING_VOID: Linter.RulesRecord = {
   '@typescript-eslint/no-confusing-void-expression': ['error', { ignoreArrowShorthand: true }],
