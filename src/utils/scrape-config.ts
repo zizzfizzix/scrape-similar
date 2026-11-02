@@ -12,9 +12,8 @@ const isSameColumn = (a: ColumnDefinition, b: ColumnDefinition): boolean =>
 /**
  * `columns` with `edit` applied, or `null` when the edit targets a column that
  * is no longer at its index as it was when the edit was made, or would remove
- * the only column. An added column
- * is numbered after the list it lands on, which may be longer than the one the
- * editor showed.
+ * the only column. An added column is numbered after the list it lands on,
+ * which may be longer than the one the editor showed.
  */
 export const applyColumnEdit = (
   columns: ColumnDefinition[],

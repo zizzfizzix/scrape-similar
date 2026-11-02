@@ -177,12 +177,12 @@ export const TabPanel = memo(function TabPanel({
       })
     } catch (error) {
       log.error(`Could not send a column edit for tab ${String(id)}:`, error)
-      notify.error(COLUMN_EDIT_NOT_SAVED)
+      notify.error(COLUMN_EDIT_NOT_SAVED, { id: COLUMN_EDIT_NOT_SAVED })
       return true
     }
     if (reply?.success !== true) {
       log.error(`Could not store a column edit for tab ${String(id)}:`, reply?.error)
-      notify.error(COLUMN_EDIT_NOT_SAVED)
+      notify.error(COLUMN_EDIT_NOT_SAVED, { id: COLUMN_EDIT_NOT_SAVED })
       return true
     }
     return reply.isColumnEditSuperseded === true

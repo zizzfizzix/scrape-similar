@@ -357,7 +357,9 @@ describe('TabPanel column edits', () => {
       edit(rename)
 
       await waitFor(() => expect(form.props!.config.columns).toEqual(config.columns))
-      expect(toastMocks.toast.error).toHaveBeenCalledWith(COLUMN_EDIT_NOT_SAVED)
+      expect(toastMocks.toast.error).toHaveBeenCalledWith(COLUMN_EDIT_NOT_SAVED, {
+        id: COLUMN_EDIT_NOT_SAVED,
+      })
     },
   )
 

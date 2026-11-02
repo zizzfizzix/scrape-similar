@@ -312,6 +312,15 @@ describe('applySidePanelDataUpdates with a column edit', () => {
     expect((await read(1)).currentScrapeConfig).toEqual({ mainSelector: '//a', columns: [column] })
   })
 
+  it('writes nothing for an update holding only a superseded column edit', async () => {
+    await storeGuess()
+    const setValue = vi.spyOn(sidePanelConfigItem(1), 'setValue')
+
+    await applySidePanelDataUpdates(1, { columnEdit: renameText })
+
+    expect(setValue).not.toHaveBeenCalled()
+  })
+
   it('still writes the other fields of an update whose column edit is superseded', async () => {
     await storeGuess()
 

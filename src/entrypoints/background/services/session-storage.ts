@@ -50,6 +50,8 @@ export const applySidePanelDataUpdates = async (
       } else {
         log.debug(`Dropped superseded column edit for tab ${String(tabId)}`)
         isColumnEditSuperseded = true
+        // An update carrying only the edit has nothing left to write.
+        if (Object.keys(updates).length === 1) return stored
       }
     }
     return next
