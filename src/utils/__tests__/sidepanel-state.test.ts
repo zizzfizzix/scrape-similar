@@ -1,11 +1,10 @@
 import {
   buildConfigChangeUpdates,
+  buildConfigReplaceUpdates,
   buildExportFilename,
-  DEFAULT_SCRAPE_CONFIG,
   hasConfigDrifted,
   isMainSelectorValidated,
   parseFullDataViewTabId,
-  resolveStoredConfig,
   reuseIfEqual,
 } from '@/utils/sidepanel-state'
 import type { ScrapeConfig } from '@/utils/types'
@@ -17,30 +16,66 @@ const makeConfig = (mainSelector: string): ScrapeConfig => ({
 })
 
 describe('buildConfigChangeUpdates', () => {
-  it('persists the new config without touching highlight state when the main selector is unchanged', () => {
+  it('sends only the columns, without touching highlight state, when the main selector is unchanged', () => {
     const previous = makeConfig('//span')
-    const next: ScrapeConfig = { ...previous, columns: [{ name: 'Href', selector: '@href' }] }
+    const columns = [{ name: 'Href', selector: '@href' }]
 
-    const updates = buildConfigChangeUpdates(previous, next)
+    const updates = buildConfigChangeUpdates(previous, { ...previous, columns })
 
-    expect(updates.currentScrapeConfig).toEqual(next)
-    expect(updates).not.toHaveProperty('highlightMatchCount')
-    expect(updates).not.toHaveProperty('highlightError')
+    expect(updates).toEqual({ currentScrapeConfig: { columns } })
   })
 
-  it('resets stored highlight state when the main selector is cleared', () => {
+  it('sends only the main selector, resetting stored highlight state, when it is cleared', () => {
     const updates = buildConfigChangeUpdates(makeConfig('//span'), makeConfig(''))
 
-    expect(updates.currentScrapeConfig).toEqual(makeConfig(''))
-    expect(updates.highlightMatchCount).toBeNull()
-    expect(updates.highlightError).toBeNull()
+    expect(updates).toEqual({
+      currentScrapeConfig: { mainSelector: '' },
+      highlightMatchCount: null,
+      highlightError: null,
+    })
   })
 
   it('resets stored highlight state when the main selector is replaced', () => {
     const updates = buildConfigChangeUpdates(makeConfig('//span'), makeConfig('//a'))
 
-    expect(updates.highlightMatchCount).toBeNull()
-    expect(updates.highlightError).toBeNull()
+    expect(updates).toMatchObject({ highlightMatchCount: null, highlightError: null })
+  })
+
+  it('returns null when nothing changed', () => {
+    const previous = makeConfig('//span')
+
+    expect(buildConfigChangeUpdates(previous, makeConfig('//span'))).toBeNull()
+  })
+
+  it('treats equal columns in a new array as unchanged', () => {
+    const previous = makeConfig('//span')
+    const next = { mainSelector: '//a', columns: previous.columns.map((column) => ({ ...column })) }
+
+    expect(buildConfigChangeUpdates(previous, next)).toEqual({
+      currentScrapeConfig: { mainSelector: '//a' },
+      highlightMatchCount: null,
+      highlightError: null,
+    })
+  })
+
+  it('sends both fields when both changed', () => {
+    const columns = [{ name: 'Href', selector: '@href' }]
+
+    const updates = buildConfigChangeUpdates(makeConfig('//span'), { mainSelector: '//a', columns })
+
+    expect(updates).toMatchObject({ currentScrapeConfig: { mainSelector: '//a', columns } })
+  })
+})
+
+describe('buildConfigReplaceUpdates', () => {
+  it('sends every field and resets stored highlight state', () => {
+    const config = makeConfig('//span')
+
+    expect(buildConfigReplaceUpdates(config)).toEqual({
+      currentScrapeConfig: config,
+      highlightMatchCount: null,
+      highlightError: null,
+    })
   })
 })
 
@@ -139,62 +174,6 @@ describe('buildExportFilename', () => {
     expect(buildExportFilename('https://example.com', at)).not.toBe(
       buildExportFilename('https://example.com', new Date('2026-08-27T13:45:31.000Z')),
     )
-  })
-})
-
-describe('resolveStoredConfig', () => {
-  const storedConfig: ScrapeConfig = {
-    mainSelector: '//tr',
-    columns: [{ name: 'Rank', selector: './td[1]' }],
-  }
-
-  it('starts blank when nothing is stored', () => {
-    expect(resolveStoredConfig({})).toEqual(DEFAULT_SCRAPE_CONFIG)
-  })
-
-  it('uses the stored config as-is', () => {
-    expect(resolveStoredConfig({ currentScrapeConfig: storedConfig })).toEqual(storedConfig)
-  })
-
-  it('keeps the default columns when the stored config has none', () => {
-    const config = resolveStoredConfig({
-      currentScrapeConfig: { mainSelector: '//tr', columns: [] },
-    })
-
-    expect(config).toEqual({ mainSelector: '//tr', columns: DEFAULT_SCRAPE_CONFIG.columns })
-  })
-
-  it('keeps the default columns when the stored config’s columns are not a list', () => {
-    const config = resolveStoredConfig({
-      currentScrapeConfig: { mainSelector: '//tr' } as ScrapeConfig,
-    })
-
-    expect(config.columns).toEqual(DEFAULT_SCRAPE_CONFIG.columns)
-  })
-
-  it('seeds the selector from a right-clicked element when nothing is stored', () => {
-    const config = resolveStoredConfig({
-      elementDetails: { xpath: '/html/body/ul/li', text: 'a' },
-    })
-
-    expect(config).toEqual({ ...DEFAULT_SCRAPE_CONFIG, mainSelector: '/html/body/ul/li' })
-  })
-
-  it('prefers a stored config over a right-clicked element', () => {
-    const config = resolveStoredConfig({
-      currentScrapeConfig: storedConfig,
-      elementDetails: { xpath: '/html/body/ul/li', text: 'a' },
-    })
-
-    expect(config.mainSelector).toBe('//tr')
-  })
-
-  it('ignores element details with no xpath', () => {
-    const config = resolveStoredConfig({
-      elementDetails: { xpath: '' } as { xpath: string },
-    })
-
-    expect(config).toEqual(DEFAULT_SCRAPE_CONFIG)
   })
 })
 

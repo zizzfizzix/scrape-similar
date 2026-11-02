@@ -1,5 +1,7 @@
 import {
   DEFAULT_COLUMN_SELECTOR,
+  DEFAULT_SCRAPE_CONFIG,
+  resolveStoredConfig,
   sanitizeToSingleLine,
   withAddedColumn,
   withColumnName,
@@ -172,5 +174,61 @@ describe('sanitizeToSingleLine', () => {
 
   it('handles an empty value', () => {
     expect(sanitizeToSingleLine('')).toBe('')
+  })
+})
+
+describe('resolveStoredConfig', () => {
+  const storedConfig: ScrapeConfig = {
+    mainSelector: '//tr',
+    columns: [{ name: 'Rank', selector: './td[1]' }],
+  }
+
+  it('starts blank when nothing is stored', () => {
+    expect(resolveStoredConfig({})).toEqual(DEFAULT_SCRAPE_CONFIG)
+  })
+
+  it('uses the stored config as-is', () => {
+    expect(resolveStoredConfig({ currentScrapeConfig: storedConfig })).toEqual(storedConfig)
+  })
+
+  it('keeps the default columns when the stored config has none', () => {
+    const config = resolveStoredConfig({
+      currentScrapeConfig: { mainSelector: '//tr', columns: [] },
+    })
+
+    expect(config).toEqual({ mainSelector: '//tr', columns: DEFAULT_SCRAPE_CONFIG.columns })
+  })
+
+  it('keeps the default columns when the stored config’s columns are not a list', () => {
+    const config = resolveStoredConfig({
+      currentScrapeConfig: { mainSelector: '//tr' } as ScrapeConfig,
+    })
+
+    expect(config.columns).toEqual(DEFAULT_SCRAPE_CONFIG.columns)
+  })
+
+  it('seeds the selector from a right-clicked element when nothing is stored', () => {
+    const config = resolveStoredConfig({
+      elementDetails: { xpath: '/html/body/ul/li', text: 'a' },
+    })
+
+    expect(config).toEqual({ ...DEFAULT_SCRAPE_CONFIG, mainSelector: '/html/body/ul/li' })
+  })
+
+  it('prefers a stored config over a right-clicked element', () => {
+    const config = resolveStoredConfig({
+      currentScrapeConfig: storedConfig,
+      elementDetails: { xpath: '/html/body/ul/li', text: 'a' },
+    })
+
+    expect(config.mainSelector).toBe('//tr')
+  })
+
+  it('ignores element details with no xpath', () => {
+    const config = resolveStoredConfig({
+      elementDetails: { xpath: '' } as { xpath: string },
+    })
+
+    expect(config).toEqual(DEFAULT_SCRAPE_CONFIG)
   })
 })

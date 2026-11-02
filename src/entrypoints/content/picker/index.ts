@@ -27,7 +27,7 @@ import { ANALYTICS_EVENTS, trackEvent } from '@/utils/analytics'
 import { reportingListener, reportRejection } from '@/utils/report-rejection'
 import { buildColumnsForElement } from '@/utils/scrape-guess'
 import { evaluateXPath, minimizeXPath, scrapePage } from '@/utils/scraper'
-import type { ScrapeConfig, ScrapeResult } from '@/utils/types'
+import type { ScrapeConfig, ScrapeResult, SidePanelConfigUpdate } from '@/utils/types'
 import { MESSAGE_TYPES } from '@/utils/types'
 import log from 'loglevel'
 import type { ContentScriptContext } from 'wxt/utils/content-script-context'
@@ -222,7 +222,7 @@ export const buildPickerSelection = (
  * Merge `updates` into the tab's side-panel state, rejecting when the
  * background could not store them.
  */
-const storeSidePanelUpdates = (tabId: number, updates: Record<string, unknown>): Promise<void> =>
+const storeSidePanelUpdates = (tabId: number, updates: SidePanelConfigUpdate): Promise<void> =>
   new Promise<void>((resolve, reject) => {
     browser.runtime.sendMessage(
       { type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA, payload: { tabId, updates } },

@@ -1,3 +1,4 @@
+import { resolveStoredConfig } from '@/utils/scrape-config'
 import { updateStorageItem, withStorageLock } from '@/utils/storage-lock'
 import log from 'loglevel'
 
@@ -15,34 +16,29 @@ const isTabClosed = (tabId: number, operation: string): boolean => {
 }
 
 /**
- * Atomically merge updates into a tab's session storage blob
- * Handles special logic for merging nested currentScrapeConfig
+ * Atomically merge updates into a tab's session storage blob. A field that a
+ * `currentScrapeConfig` update omits keeps the value the side panel shows for
+ * the stored state (`resolveStoredConfig`), so the panel's own partial writes
+ * never change a field the user did not edit.
  */
 export const applySidePanelDataUpdates = async (
   tabId: number,
-  updates: Partial<SidePanelConfig>,
+  updates: SidePanelConfigUpdate,
 ): Promise<void> => {
   if (isTabClosed(tabId, 'side panel update')) return
   await updateStorageItem(sidePanelConfigItem(tabId), (stored) => {
     const current = stored || {}
-    // Shallow-merge top-level, but carefully merge nested config to avoid losing fields
-    const next: SidePanelConfig = { ...current, ...updates }
-    if (updates.currentScrapeConfig) {
-      const prevConfig = current.currentScrapeConfig || ({} as ScrapeConfig)
-      const incoming = updates.currentScrapeConfig
-      // A write that omits `columns` keeps the ones already stored, whether or
-      // not it also changes `mainSelector`.
-      const shouldUseIncomingColumns = Array.isArray(incoming.columns)
-      const mergedColumns = shouldUseIncomingColumns
-        ? (incoming.columns as ColumnDefinition[])
-        : prevConfig.columns || []
-
-      const merged: ScrapeConfig = {
-        ...prevConfig,
-        ...incoming,
-        columns: mergedColumns,
+    const { currentScrapeConfig: incoming, ...topLevel } = updates
+    const next: SidePanelConfig = { ...current, ...topLevel }
+    if (incoming && (incoming.mainSelector !== undefined || incoming.columns !== undefined)) {
+      const shown = resolveStoredConfig(current)
+      // Messages are not validated on receipt, so a selector that is not a
+      // string or a column list that is not an array is dropped rather than stored.
+      next.currentScrapeConfig = {
+        mainSelector:
+          typeof incoming.mainSelector === 'string' ? incoming.mainSelector : shown.mainSelector,
+        columns: Array.isArray(incoming.columns) ? incoming.columns : shown.columns,
       }
-      next.currentScrapeConfig = merged
     }
     return next
   })

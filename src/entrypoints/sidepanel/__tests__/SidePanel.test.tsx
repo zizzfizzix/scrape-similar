@@ -15,7 +15,7 @@ import {
 import { chromeExtensionId } from '@@/package.json' with { type: 'json' }
 import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
 import { renderSettled } from '@@/tests/support/settle'
-import { type RenderResult, act, fireEvent, waitFor } from '@testing-library/react'
+import { type RenderResult, act, fireEvent, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import log from 'loglevel'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -354,6 +354,36 @@ describe('SidePanel', () => {
       await openPresetList()
 
       expect(document.body.textContent).toContain(SYSTEM_PRESETS[0]!.name)
+    })
+
+    it('stores every field of a loaded preset, including ones equal to what the panel shows', async () => {
+      const preset = {
+        id: 'p1',
+        name: 'Same columns',
+        config: { ...config, mainSelector: '//li' },
+        createdAt: 1,
+      }
+      await userPresetsItem.setValue([preset])
+      await attachToTab(PAGE_URL, { currentScrapeConfig: config })
+      const runtimeSend = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
+        undefined as never,
+      )
+      view = await render()
+      await openPresetList()
+
+      fireEvent.click(await screen.findByText(preset.name))
+
+      expect(runtimeSend).toHaveBeenCalledWith({
+        type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
+        payload: {
+          tabId: TAB_ID,
+          updates: {
+            currentScrapeConfig: preset.config,
+            highlightMatchCount: null,
+            highlightError: null,
+          },
+        },
+      })
     })
 
     it('hides a system preset rather than deleting it', async () => {

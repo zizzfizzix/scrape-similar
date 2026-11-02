@@ -1,8 +1,6 @@
 /**
- * Immutable edits to a `ScrapeConfig`'s column list.
- *
- * Split out of `ConfigForm.tsx`, where the same copy-splice-spread dance was
- * repeated for every kind of edit.
+ * The scrape config's defaults and immutable edits to its column list. Kept
+ * free of panel-only dependencies, since the background imports it too.
  */
 
 /** Selector a freshly added column starts with: the row's own text. */
@@ -53,3 +51,33 @@ export const withoutColumn = (config: ScrapeConfig, index: number): ScrapeConfig
  * XPath expression is a single line, and a pasted one often arrives with breaks.
  */
 export const sanitizeToSingleLine = (value: string): string => value.replace(/[\r\n]+/g, ' ')
+
+/** Columns assumed before the user has configured any. */
+export const DEFAULT_SCRAPE_CONFIG: ScrapeConfig = {
+  mainSelector: '',
+  columns: [{ name: 'Text', selector: '.' }],
+}
+
+/**
+ * The config to show for a stored session state.
+ *
+ * A stored config wins. Failing that, a right-click that recorded an element
+ * seeds the main selector from it. Otherwise the panel starts blank.
+ */
+export const resolveStoredConfig = ({
+  currentScrapeConfig,
+  elementDetails,
+}: SidePanelConfig): ScrapeConfig =>
+  currentScrapeConfig
+    ? {
+        ...DEFAULT_SCRAPE_CONFIG,
+        ...currentScrapeConfig,
+        // A stored config with no columns cannot produce anything, so keep the default.
+        columns:
+          Array.isArray(currentScrapeConfig.columns) && currentScrapeConfig.columns.length > 0
+            ? currentScrapeConfig.columns
+            : DEFAULT_SCRAPE_CONFIG.columns,
+      }
+    : elementDetails?.xpath
+      ? { ...DEFAULT_SCRAPE_CONFIG, mainSelector: elementDetails.xpath }
+      : DEFAULT_SCRAPE_CONFIG

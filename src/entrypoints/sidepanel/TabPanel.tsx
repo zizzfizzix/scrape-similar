@@ -1,12 +1,12 @@
 import { useShownToast } from '@/hooks/use-shown-toast'
 import { isSelectorAPreset } from '@/utils/autosuggest'
 import { reportRejection } from '@/utils/report-rejection'
+import { DEFAULT_SCRAPE_CONFIG, resolveStoredConfig } from '@/utils/scrape-config'
 import {
   buildConfigChangeUpdates,
+  buildConfigReplaceUpdates,
   buildExportFilename,
-  DEFAULT_SCRAPE_CONFIG,
   hasConfigDrifted,
-  resolveStoredConfig,
   reuseIfEqual,
 } from '@/utils/sidepanel-state'
 import log from 'loglevel'
@@ -97,7 +97,7 @@ export const TabPanel = memo(function TabPanel({
     )
   }, [tabId, applyStoredState])
 
-  const saveSidePanelState = (id: number, updates: Partial<SidePanelConfig>) => {
+  const saveSidePanelState = (id: number, updates: SidePanelConfigUpdate) => {
     reportRejection(
       browser.runtime.sendMessage({
         type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
@@ -106,7 +106,7 @@ export const TabPanel = memo(function TabPanel({
     )
   }
 
-  const handleConfigChange = (newConfig: ScrapeConfig) => {
+  const showConfig = (newConfig: ScrapeConfig, updates: SidePanelConfigUpdate | null) => {
     const hasMainSelectorChanged = newConfig.mainSelector !== config.mainSelector
 
     setConfig(newConfig)
@@ -121,11 +121,13 @@ export const TabPanel = memo(function TabPanel({
       setHighlightError(undefined)
     }
 
-    if (tabId !== null) {
-      // Also resets the persisted highlight result when the main selector
-      // changed, so the storage watcher can't restore a stale match count.
-      saveSidePanelState(tabId, buildConfigChangeUpdates(config, newConfig))
+    if (tabId !== null && updates) {
+      saveSidePanelState(tabId, updates)
     }
+  }
+
+  const handleConfigChange = (newConfig: ScrapeConfig) => {
+    showConfig(newConfig, buildConfigChangeUpdates(config, newConfig))
   }
 
   // The button only scrapes a selector the page has already matched, and that
@@ -242,7 +244,7 @@ export const TabPanel = memo(function TabPanel({
   }
 
   const handleLoadPreset = (preset: Preset) => {
-    handleConfigChange(preset.config)
+    showConfig(preset.config, buildConfigReplaceUpdates(preset.config))
 
     if (preset.config.mainSelector) {
       handleHighlight(preset.config.mainSelector)

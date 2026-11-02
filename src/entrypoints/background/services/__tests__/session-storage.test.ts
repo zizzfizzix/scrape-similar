@@ -4,6 +4,8 @@ import {
   getSessionState,
   initializeSessionState,
 } from '@/entrypoints/background/services/session-storage'
+import { DEFAULT_SCRAPE_CONFIG } from '@/utils/scrape-config'
+import { buildConfigChangeUpdates } from '@/utils/sidepanel-state'
 import type { ScrapeConfig, SidePanelConfig } from '@/utils/types'
 import log from 'loglevel'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -44,7 +46,7 @@ describe('applySidePanelDataUpdates', () => {
     await applySidePanelDataUpdates(1, { currentScrapeConfig: { mainSelector: '//div', columns } })
 
     await applySidePanelDataUpdates(1, {
-      currentScrapeConfig: { mainSelector: '//li' } as ScrapeConfig,
+      currentScrapeConfig: { mainSelector: '//li' },
     })
 
     expect((await read(1)).currentScrapeConfig).toEqual({ mainSelector: '//li', columns })
@@ -55,7 +57,7 @@ describe('applySidePanelDataUpdates', () => {
     await applySidePanelDataUpdates(1, { currentScrapeConfig: { mainSelector: '//div', columns } })
 
     await applySidePanelDataUpdates(1, {
-      currentScrapeConfig: { mainSelector: '//div' } as ScrapeConfig,
+      currentScrapeConfig: { mainSelector: '//div' },
     })
 
     expect((await read(1)).currentScrapeConfig).toEqual({ mainSelector: '//div', columns })
@@ -87,12 +89,111 @@ describe('applySidePanelDataUpdates', () => {
     expect((await read(1)).currentScrapeConfig?.columns).toEqual([])
   })
 
-  it('defaults columns to an empty array when neither side has any', async () => {
+  it('defaults columns to the ones the panel shows when neither side has any', async () => {
     await applySidePanelDataUpdates(1, {
-      currentScrapeConfig: { mainSelector: '//div' } as ScrapeConfig,
+      currentScrapeConfig: { mainSelector: '//div' },
     })
 
+    expect((await read(1)).currentScrapeConfig).toEqual({
+      mainSelector: '//div',
+      columns: DEFAULT_SCRAPE_CONFIG.columns,
+    })
+  })
+
+  it('keeps the stored main selector when an update only changes the columns', async () => {
+    await applySidePanelDataUpdates(1, {
+      currentScrapeConfig: { mainSelector: '//div', columns: [] },
+    })
+    const columns = [{ name: 'Href', selector: '@href' }]
+
+    await applySidePanelDataUpdates(1, { currentScrapeConfig: { columns } })
+
+    expect((await read(1)).currentScrapeConfig).toEqual({ mainSelector: '//div', columns })
+  })
+
+  it('defaults the main selector to blank when neither side has one', async () => {
+    const columns = [{ name: 'Href', selector: '@href' }]
+
+    await applySidePanelDataUpdates(1, { currentScrapeConfig: { columns } })
+
+    expect((await read(1)).currentScrapeConfig).toEqual({ mainSelector: '', columns })
+  })
+
+  it('keeps the selector the panel seeded from a right-clicked element when an update only changes the columns', async () => {
+    await applySidePanelDataUpdates(1, { elementDetails: { xpath: '//a' } })
+    const columns = [{ name: 'Href', selector: '@href' }]
+
+    await applySidePanelDataUpdates(1, { currentScrapeConfig: { columns } })
+
+    expect((await read(1)).currentScrapeConfig).toEqual({ mainSelector: '//a', columns })
+  })
+
+  it('keeps the stored fields when an update carries malformed ones', async () => {
+    const stored: ScrapeConfig = {
+      mainSelector: '//div',
+      columns: [{ name: 'Title', selector: './/h2' }],
+    }
+    await applySidePanelDataUpdates(1, { currentScrapeConfig: stored })
+
+    await applySidePanelDataUpdates(1, {
+      currentScrapeConfig: { mainSelector: 7, columns: { name: 'x' } } as unknown as ScrapeConfig,
+    })
+
+    expect((await read(1)).currentScrapeConfig).toEqual(stored)
+  })
+
+  it('fills a stored empty column list with the default the panel shows on a selector-only update', async () => {
+    await applySidePanelDataUpdates(1, {
+      currentScrapeConfig: { mainSelector: '//div', columns: [] },
+    })
+
+    await applySidePanelDataUpdates(1, { currentScrapeConfig: { mainSelector: '//li' } })
+
+    expect((await read(1)).currentScrapeConfig).toEqual({
+      mainSelector: '//li',
+      columns: DEFAULT_SCRAPE_CONFIG.columns,
+    })
+  })
+
+  it('leaves the config unstored when an update carries no config fields', async () => {
+    await applySidePanelDataUpdates(1, { elementDetails: { xpath: '//a' } })
+
+    await applySidePanelDataUpdates(1, { currentScrapeConfig: {} })
+
+    expect(await read(1)).toEqual({ elementDetails: { xpath: '//a' } })
+  })
+
+  it('keeps the stored config when an update sets it to undefined', async () => {
+    await applySidePanelDataUpdates(1, {
+      currentScrapeConfig: { mainSelector: '//div', columns: [] },
+    })
+
+    await applySidePanelDataUpdates(1, { currentScrapeConfig: undefined })
+
     expect((await read(1)).currentScrapeConfig).toEqual({ mainSelector: '//div', columns: [] })
+  })
+
+  it('keeps guessed columns stored after the panel read its config when the panel edits the selector', async () => {
+    const shownInPanel: ScrapeConfig = {
+      mainSelector: '//div',
+      columns: [{ name: 'Text', selector: '.' }],
+    }
+    await applySidePanelDataUpdates(1, { currentScrapeConfig: shownInPanel })
+    const guessedColumns = [{ name: 'Title', selector: './/h2' }]
+    // The content script stores a Guess reply the panel has not applied yet.
+    await applySidePanelDataUpdates(1, {
+      currentScrapeConfig: { mainSelector: '//div', columns: guessedColumns },
+    })
+
+    await applySidePanelDataUpdates(
+      1,
+      buildConfigChangeUpdates(shownInPanel, { ...shownInPanel, mainSelector: '//li' })!,
+    )
+
+    expect((await read(1)).currentScrapeConfig).toEqual({
+      mainSelector: '//li',
+      columns: guessedColumns,
+    })
   })
 
   it('serialises concurrent updates so none are lost', async () => {

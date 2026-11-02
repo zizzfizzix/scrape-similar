@@ -47,6 +47,20 @@ export interface SidePanelConfig {
   pickerModeActive?: boolean
 }
 
+/**
+ * A write to a tab's `SidePanelConfig`. A field `currentScrapeConfig` omits
+ * takes the value the side panel shows for the stored state (see
+ * `applySidePanelDataUpdates`), so a writer sends only what it changed. An
+ * update cannot remove the stored config: one with no config fields, or with
+ * `currentScrapeConfig: undefined`, leaves it as it is.
+ */
+export interface SidePanelConfigUpdate extends Omit<
+  Partial<SidePanelConfig>,
+  'currentScrapeConfig'
+> {
+  currentScrapeConfig?: Partial<ScrapeConfig>
+}
+
 export type ElementDetailsPayload = {
   xpath: string
   text?: string
