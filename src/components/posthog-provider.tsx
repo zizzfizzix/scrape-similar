@@ -18,6 +18,18 @@ interface PostHogWrapperProps {
 
 // Module-level initialization state to prevent concurrent initialization across all component instances
 let initializationPromise: Promise<void> | null = null
+// Bumped by every reset, so an initialisation the reset overtook can tell its
+// instance is no longer wanted.
+let generation = 0
+const stopWatchingDebugMode = new WeakMap<PostHog, () => void>()
+
+// Dropping the reference leaves the instance's global exception handlers
+// installed and sending. Opting out instead would persist under the token and
+// silence every later instance.
+const retire = (instance: PostHog) => {
+  instance.stopExceptionAutocapture()
+  stopWatchingDebugMode.get(instance)?.()
+}
 
 // Helper function to check if PostHog is already initialized
 const isPostHogInitialized = (): boolean => {
@@ -32,8 +44,10 @@ const isPostHogInitialized = (): boolean => {
  * Reset PostHog UI instance - used when consent is revoked
  */
 export const resetPostHogUI = () => {
+  generation += 1
   initializationPromise = null
   if (isPostHogInitialized()) {
+    retire((window as any).__scrape_similar_posthog)
     delete (window as any).__scrape_similar_posthog
     log.debug('PostHog UI instance reset due to consent revocation')
   }
@@ -53,7 +67,7 @@ async function initializePostHog(): Promise<void> {
     return initializationPromise
   }
 
-  // Start initialization
+  const startedIn = generation
   initializationPromise = (async () => {
     const consentState = await getConsentState()
     if (consentState !== true) {
@@ -82,7 +96,12 @@ async function initializePostHog(): Promise<void> {
 
       const isDebugModeEnabled = await debugModeItem.getValue()
 
-      // Initialize PostHog instance
+      // `init` wraps the global error handlers, and retiring an instance unwraps
+      // them, so an instance a reset has already overtaken is never initialised:
+      // unwrapping it later could remove the handlers of a newer one. `loaded`
+      // runs synchronously inside `init`, so no reset can land after this check.
+      if (generation !== startedIn) return
+
       const posthogInstance = new PostHog()
       posthogInstance.init(apiKey, {
         debug: isDevOrTest || isDebugModeEnabled,
@@ -112,11 +131,18 @@ async function initializePostHog(): Promise<void> {
           '$session_entry_pathname',
           '$session_entry_referrer',
         ],
-        loaded: (posthogInstance) => {
-          // Expose PostHog instance to window for analytics utility
-          // Using a custom property name to avoid conflicts with website's PostHog
+        loaded: () => {
+          // A custom property name avoids clashing with a page's own PostHog
           ;(window as any).__scrape_similar_posthog = posthogInstance
           log.debug('PostHog instance exposed to window.__scrape_similar_posthog')
+          if (!isDevOrTest) {
+            stopWatchingDebugMode.set(
+              posthogInstance,
+              debugModeItem.watch((isEnabled) => {
+                posthogInstance.set_config({ debug: isEnabled })
+              }),
+            )
+          }
         },
       })
 
@@ -150,27 +176,10 @@ export const PostHogWrapper: React.FC<PostHogWrapperProps> = ({ children }) => {
       resetPostHogUI()
     }
 
-    return () => {
-      if (isPostHogInitialized()) {
-        delete (window as any).__scrape_similar_posthog
-        log.debug('PostHog instance removed from window')
-      }
-    }
+    // Runs on unmount and before the re-run for a revoked consent; either way
+    // the instance must be retired, not just unpublished.
+    return resetPostHogUI
   }, [isLoading, consentState])
-
-  // Sync PostHog debug config with storage changes (production only)
-  useEffect(() => {
-    if (isDevOrTest) return
-
-    const unwatch = debugModeItem.watch((isEnabled) => {
-      if (isPostHogInitialized()) {
-        ;(window as any).__scrape_similar_posthog.set_config({ debug: isEnabled })
-      }
-    })
-
-    // `watch` always hands back an unsubscribe function.
-    return unwatch
-  }, [])
 
   return <>{children}</>
 }

@@ -50,6 +50,7 @@ const loadProvider = async ({
         instances.push(this)
         config.loaded?.(this)
       }
+      stopExceptionAutocapture() {}
     }
     return { PostHog }
   })

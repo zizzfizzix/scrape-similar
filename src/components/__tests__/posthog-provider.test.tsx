@@ -9,14 +9,18 @@ import { storage } from 'wxt/utils/storage'
 
 /** A PostHog stand-in that records how it was configured. */
 const posthogMock = vi.hoisted(() => {
-  const instances: Array<{ init: ReturnType<typeof vi.fn>; set_config: ReturnType<typeof vi.fn> }> =
-    []
+  const instances: Array<{
+    init: ReturnType<typeof vi.fn>
+    set_config: ReturnType<typeof vi.fn>
+    stopExceptionAutocapture: ReturnType<typeof vi.fn>
+  }> = []
   class PostHog {
     init = vi.fn((_apiKey: string, config: { loaded?: (instance: unknown) => void }) => {
       config.loaded?.(this)
     })
     set_config = vi.fn()
     capture = vi.fn()
+    stopExceptionAutocapture = vi.fn()
     constructor() {
       instances.push(this)
     }
@@ -231,6 +235,19 @@ describe('PostHogWrapper', () => {
     expect(exposedInstance()).toBeUndefined()
   })
 
+  it('stops the exception capture of an instance whose consent is revoked', async () => {
+    await storage.setItem(consentKey, true)
+    view = await render()
+    await settleEffects()
+
+    await act(async () => {
+      await storage.setItem(consentKey, false)
+      await flushMicrotasks()
+    })
+
+    expect(posthogMock.instances[0]!.stopExceptionAutocapture).toHaveBeenCalled()
+  })
+
   it('withdraws the instance on unmount', async () => {
     await storage.setItem(consentKey, true)
     view = await render()
@@ -266,12 +283,31 @@ describe('PostHogWrapper', () => {
     expect(posthogMock.instances).toHaveLength(0)
   })
 
+  it('stops following debug mode once the instance is retired', async () => {
+    await storage.setItem(consentKey, true)
+    view = await render()
+    await settleEffects()
+    const instance = posthogMock.instances[0]!
+
+    resetPostHogUI()
+    instance.set_config.mockClear()
+    await act(async () => {
+      await storage.setItem('local:debugMode', true)
+      await flushMicrotasks()
+    })
+
+    expect(instance.set_config).not.toHaveBeenCalled()
+  })
+
   it('does not watch debug mode in dev or test builds', async () => {
     modeFlags.isDevOrTest = true
+    await storage.setItem(consentKey, true)
     const watch = vi.spyOn(storage, 'watch')
 
     view = await render()
+    await settleEffects()
 
+    expect(posthogMock.instances).toHaveLength(1)
     expect(watch).not.toHaveBeenCalledWith('local:debugMode', expect.anything())
   })
 })
@@ -284,6 +320,33 @@ describe('resetPostHogUI', () => {
 
     resetPostHogUI()
 
+    expect(exposedInstance()).toBeUndefined()
+  })
+
+  it('stops the exception capture of the instance it drops', async () => {
+    await storage.setItem(consentKey, true)
+    view = await render()
+    await settleEffects()
+
+    resetPostHogUI()
+
+    expect(posthogMock.instances[0]!.stopExceptionAutocapture).toHaveBeenCalled()
+  })
+
+  it('never initialises an instance whose initialisation a reset overtook', async () => {
+    let grantConsent!: (state: true) => void
+    // The provider reads consent once for its own state; the initializer's read
+    // is held until the reset has run.
+    vi.spyOn(consent, 'getConsentState')
+      .mockResolvedValueOnce(true)
+      .mockReturnValue(new Promise((resolve) => (grantConsent = resolve)))
+    view = await render()
+
+    resetPostHogUI()
+    grantConsent(true)
+    await settleEffects()
+
+    expect(posthogMock.instances).toHaveLength(0)
     expect(exposedInstance()).toBeUndefined()
   })
 
