@@ -53,8 +53,10 @@ describe('buildConfigChangeUpdates', () => {
     const previous = makeConfig('//span')
     const next = { mainSelector: '//a', columns: previous.columns.map((column) => ({ ...column })) }
 
-    expect(buildConfigChangeUpdates(previous, next)).toMatchObject({
+    expect(buildConfigChangeUpdates(previous, next)).toEqual({
       currentScrapeConfig: { mainSelector: '//a' },
+      highlightMatchCount: null,
+      highlightError: null,
     })
   })
 

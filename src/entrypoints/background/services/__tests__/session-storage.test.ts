@@ -118,6 +118,29 @@ describe('applySidePanelDataUpdates', () => {
     expect((await read(1)).currentScrapeConfig).toEqual({ mainSelector: '', columns })
   })
 
+  it('keeps the selector the panel seeded from a right-clicked element when an update only changes the columns', async () => {
+    await applySidePanelDataUpdates(1, { elementDetails: { xpath: '//a' } })
+    const columns = [{ name: 'Href', selector: '@href' }]
+
+    await applySidePanelDataUpdates(1, { currentScrapeConfig: { columns } })
+
+    expect((await read(1)).currentScrapeConfig).toEqual({ mainSelector: '//a', columns })
+  })
+
+  it('keeps the stored fields when an update carries malformed ones', async () => {
+    const stored: ScrapeConfig = {
+      mainSelector: '//div',
+      columns: [{ name: 'Title', selector: './/h2' }],
+    }
+    await applySidePanelDataUpdates(1, { currentScrapeConfig: stored })
+
+    await applySidePanelDataUpdates(1, {
+      currentScrapeConfig: { mainSelector: 7, columns: { name: 'x' } } as unknown as ScrapeConfig,
+    })
+
+    expect((await read(1)).currentScrapeConfig).toEqual(stored)
+  })
+
   it('keeps guessed columns stored after the panel read its config when the panel edits the selector', async () => {
     const shownInPanel: ScrapeConfig = {
       mainSelector: '//div',

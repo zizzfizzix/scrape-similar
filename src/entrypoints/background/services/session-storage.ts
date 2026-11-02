@@ -1,4 +1,4 @@
-import { DEFAULT_SCRAPE_CONFIG } from '@/utils/sidepanel-state'
+import { resolveStoredConfig } from '@/utils/sidepanel-state'
 import { updateStorageItem, withStorageLock } from '@/utils/storage-lock'
 import log from 'loglevel'
 
@@ -16,9 +16,10 @@ const isTabClosed = (tabId: number, operation: string): boolean => {
 }
 
 /**
- * Atomically merge updates into a tab's session storage blob. A partial
- * `currentScrapeConfig` is merged field by field into the stored one; with
- * nothing stored, a missing field takes the default the side panel shows.
+ * Atomically merge updates into a tab's session storage blob. A field that a
+ * `currentScrapeConfig` update omits keeps the value the side panel shows for
+ * the stored state (`resolveStoredConfig`), so the panel's own partial writes
+ * never change a field the user did not edit.
  */
 export const applySidePanelDataUpdates = async (
   tabId: number,
@@ -30,10 +31,13 @@ export const applySidePanelDataUpdates = async (
     const { currentScrapeConfig: incoming, ...topLevel } = updates
     const next: SidePanelConfig = { ...current, ...topLevel }
     if (incoming) {
-      const prevConfig = current.currentScrapeConfig
+      const shown = resolveStoredConfig(current)
+      // Messages are not validated on receipt, so a malformed field is dropped
+      // rather than stored.
       next.currentScrapeConfig = {
-        mainSelector: incoming.mainSelector ?? prevConfig?.mainSelector ?? '',
-        columns: incoming.columns ?? prevConfig?.columns ?? DEFAULT_SCRAPE_CONFIG.columns,
+        mainSelector:
+          typeof incoming.mainSelector === 'string' ? incoming.mainSelector : shown.mainSelector,
+        columns: Array.isArray(incoming.columns) ? incoming.columns : shown.columns,
       }
     }
     return next
