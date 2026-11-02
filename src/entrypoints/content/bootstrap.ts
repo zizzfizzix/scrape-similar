@@ -74,15 +74,15 @@ export const requestTabId = (state: ContentScriptState): void => {
 export const trackContextMenuTarget = (state: ContentScriptState, event: MouseEvent): void => {
   log.debug('Context menu event captured', event.target)
 
-  state.lastRightClickedElement = closestHtmlElement(event.target)
-  if (state.lastRightClickedElement) {
-    const selector = minimizeXPath(state.lastRightClickedElement)
-    state.lastRightClickedElementDetails = {
-      xpath: selector,
-      text: state.lastRightClickedElement.textContent || '',
-      html: state.lastRightClickedElement.outerHTML,
-    }
-  }
+  const element = closestHtmlElement(event.target)
+  state.lastRightClickedElement = element
+  state.lastRightClickedElementDetails = element
+    ? {
+        xpath: minimizeXPath(element),
+        text: element.textContent || '',
+        html: element.outerHTML,
+      }
+    : null
 
   state.lastMouseX = event.clientX
   state.lastMouseY = event.clientY

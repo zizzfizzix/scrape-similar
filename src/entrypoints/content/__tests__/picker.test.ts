@@ -401,7 +401,7 @@ describe('handlePickerMouseMove', () => {
       expect(bannerMocks.updatePickerBannerContent).toHaveBeenCalledWith(0, '', state)
     })
 
-    it('does nothing when the pointer is over a detached non-HTML node', () => {
+    it('does nothing when the pointer is over a non-HTML node with no HTML ancestor', () => {
       hover(document.createElementNS('http://www.w3.org/2000/svg', 'svg'))
 
       move(10, 20)
@@ -677,7 +677,7 @@ describe('handlePickerClick', () => {
 
   it.each([
     ['placed directly in the body', () => document.body.appendChild(svgElement())],
-    ['detached from the page', svgElement],
+    ['without an HTML ancestor', svgElement],
   ])('stays on when the clicked SVG is %s', async (_, makeSvg) => {
     const { event, result } = click([makeSvg()])
     await result

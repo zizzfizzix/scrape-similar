@@ -256,8 +256,11 @@ describe('trackContextMenuTarget', () => {
     expect(state.lastRightClickedElementDetails?.xpath).toBe('/html/body/a')
   })
 
-  it('keeps no details when the event names no element', () => {
+  it('drops the previous details when the event names no element', () => {
     const state = createState()
+    const previous = document.createElement('td')
+    document.body.append(previous)
+    trackContextMenuTarget(state, contextMenuOn(previous, 1, 2))
 
     trackContextMenuTarget(state, contextMenuOn(null, 5, 6))
 
