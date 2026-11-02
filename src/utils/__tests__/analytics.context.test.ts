@@ -51,7 +51,7 @@ describe('captureEvent – context specific behaviour', () => {
     // Default consent behaviour for these tests is granted
     vi.spyOn(consent, 'getConsentState').mockResolvedValue(true)
     // Ensure PostHog is absent
-    testGlobal.window = testGlobal.window || {}
+    testGlobal.window ??= {}
     delete testGlobal.window.__scrape_similar_posthog
   })
 

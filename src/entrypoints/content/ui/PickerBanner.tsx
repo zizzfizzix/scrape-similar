@@ -73,7 +73,7 @@ export function mountPickerBannerReact(
 
   function BannerWrapper({ count, xpath }: { count: number; xpath: string }) {
     return (
-      <ThemeProvider rootElement={themeRoot || container}>
+      <ThemeProvider rootElement={themeRoot ?? container}>
         <PickerBanner count={count} xpath={xpath} onClose={handlers.onClose} />
         <SignalReady />
       </ThemeProvider>

@@ -52,11 +52,8 @@ export const showPickerContextMenu = async (
   state.contextMenuX = x
   state.contextMenuY = y
 
-  // Create wheel handler if not exists
-  if (!state.contextMenuWheelHandler) {
-    state.contextMenuWheelHandler = (e: WheelEvent) =>
-      handlePickerContextMenuWheel(e, state, onLevelChange)
-  }
+  state.contextMenuWheelHandler ??= (e: WheelEvent) =>
+    handlePickerContextMenuWheel(e, state, onLevelChange)
 
   // If already open, just update state (don't track again)
   if (state.pickerContextMenuUi && state.pickerContextMenuApi) {

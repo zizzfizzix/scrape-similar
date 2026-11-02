@@ -108,7 +108,7 @@ export const createMessageHandler = (state: ContentScriptState, deps: HandlerDep
 
         case MESSAGE_TYPES.ENABLE_PICKER_MODE: {
           log.debug('Enabling picker mode via message')
-          const { source } = (message.payload || {}) as PickerModePayload
+          const { source } = (message.payload ?? {}) as PickerModePayload
           reportRejection(deps.enablePickerMode(source))
           sendResponse({ success: true, message: 'Picker mode enabled' })
           break
@@ -116,7 +116,7 @@ export const createMessageHandler = (state: ContentScriptState, deps: HandlerDep
 
         case MESSAGE_TYPES.DISABLE_PICKER_MODE: {
           log.debug('Disabling picker mode via message')
-          const { source } = (message.payload || {}) as PickerModePayload
+          const { source } = (message.payload ?? {}) as PickerModePayload
           deps.disablePickerMode(source)
           sendResponse({ success: true, message: 'Picker mode disabled' })
           break
@@ -124,7 +124,7 @@ export const createMessageHandler = (state: ContentScriptState, deps: HandlerDep
 
         case MESSAGE_TYPES.TOGGLE_PICKER_MODE: {
           log.debug('Toggling picker mode via message')
-          const { source } = (message.payload || {}) as PickerModePayload
+          const { source } = (message.payload ?? {}) as PickerModePayload
           if (state.pickerModeActive) {
             deps.disablePickerMode(source || ANALYTICS_SOURCES.BUTTON)
             sendResponse({ success: true, message: 'Picker mode disabled' })
@@ -214,7 +214,7 @@ const handleStartScrape = (
  */
 const handleHighlightElements = (message: Message, sendResponse: SendResponse): void => {
   log.debug('Highlighting elements:', message.payload)
-  const { selector, shouldScroll } = (message.payload || {}) as {
+  const { selector, shouldScroll } = (message.payload ?? {}) as {
     selector: string
     shouldScroll?: boolean
   }
@@ -317,7 +317,7 @@ const handleGuessConfigFromSelector = (
   state: ContentScriptState,
   sendResponse: SendResponse,
 ): boolean => {
-  const { mainSelector } = (message.payload || {}) as { mainSelector?: unknown }
+  const { mainSelector } = (message.payload ?? {}) as { mainSelector?: unknown }
   if (typeof mainSelector !== 'string' || !mainSelector.trim()) {
     sendResponse({ success: false, error: 'Missing mainSelector' })
     return true

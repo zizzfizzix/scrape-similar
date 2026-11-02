@@ -25,8 +25,8 @@ const createContextMenuItem = (item: ContextMenuItem): void => {
     {
       id: item.id,
       title: item.title,
-      contexts: item.contexts || ['selection', 'page', 'link', 'image'],
-      documentUrlPatterns: item.documentUrlPatterns || getContextMenuUrlPatterns(),
+      contexts: item.contexts ?? ['selection', 'page', 'link', 'image'],
+      documentUrlPatterns: item.documentUrlPatterns ?? getContextMenuUrlPatterns(),
     },
     () => {
       if (browser.runtime.lastError) {

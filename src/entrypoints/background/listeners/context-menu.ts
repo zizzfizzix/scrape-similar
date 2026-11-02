@@ -59,7 +59,7 @@ const handleQuickScrape = async (
     log.debug('Told content script to save element details to storage.')
 
     // Fetch the latest config from session storage
-    const currentData = (await getSessionState(targetTabId)) || {}
+    const currentData = (await getSessionState(targetTabId)) ?? {}
     const config = currentData.currentScrapeConfig
     if (config?.mainSelector) {
       // Highlight elements before scraping

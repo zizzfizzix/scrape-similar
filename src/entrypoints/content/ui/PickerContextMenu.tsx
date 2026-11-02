@@ -111,7 +111,7 @@ export function mountPickerContextMenuReact(
     }, [])
 
     return (
-      <ThemeProvider rootElement={themeRoot || container}>
+      <ThemeProvider rootElement={themeRoot ?? container}>
         <PickerContextMenu
           x={state.x}
           y={state.y}
