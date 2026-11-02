@@ -132,9 +132,6 @@ export type AnalyticsSource = (typeof ANALYTICS_SOURCES)[keyof typeof ANALYTICS_
  * way and reports filter on it.
  */
 export const ANALYTICS_PROPERTIES = {
-  // Added by the background when it flushes events queued before consent
-  BUFFERED: 'buffered',
-
   // Shared across events
   TYPE: 'type',
   SOURCE: 'source',
@@ -229,6 +226,14 @@ export type EnvelopeProperty = (typeof ENVELOPE_PROPERTIES)[keyof typeof ENVELOP
 
 /** An event's properties as captured or queued: the caller's plus the envelope. */
 export type CapturedProperties = AnalyticsProperties & Partial<Record<EnvelopeProperty, unknown>>
+
+/**
+ * Properties the background sets on events it flushes from the queue. Kept out
+ * of `ANALYTICS_PROPERTIES` for the same reason as `ENVELOPE_PROPERTIES`.
+ */
+export const FLUSH_PROPERTIES = {
+  BUFFERED: 'buffered',
+} as const
 
 /** Values of the `trigger` property on `SIDE_PANEL_OPEN`. */
 export const SIDE_PANEL_TRIGGERS = {
