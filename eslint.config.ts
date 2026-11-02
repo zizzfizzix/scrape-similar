@@ -69,6 +69,20 @@ const NO_VOID = {
     '`void` hides a promise from `no-floating-promises`. Use `reportRejection(task())` for a promise; otherwise drop the `void`.',
 }
 
+// The extension origin differs per browser and per install: `moz-extension://<uuid>`
+// on Firefox, a different id on Edge and unpacked builds. The store id in
+// package.json only names the Chrome Web Store build.
+const OWN_ORIGIN_MESSAGE =
+  "Extension origins differ per browser and install. Build or match the extension's own URLs with `browser.runtime.getURL(path)`."
+const NO_HARD_CODED_EXTENSION_ORIGIN = [
+  { selector: 'Literal[value=/^(chrome|moz)-extension:/]', message: OWN_ORIGIN_MESSAGE },
+  {
+    selector: 'TemplateElement[value.raw=/^(chrome|moz)-extension:/]',
+    message: OWN_ORIGIN_MESSAGE,
+  },
+  { selector: "ImportSpecifier[imported.name='chromeExtensionId']", message: OWN_ORIGIN_MESSAGE },
+]
+
 interface RestrictedSelector {
   selector: string
   message: string
@@ -262,7 +276,13 @@ export default defineConfig([
     // what the rule is about.
     files: ['src/**/*.{ts,tsx}'],
     ignores: TEST_FILES,
-    rules: restrictedSyntax(NO_ENUM, NO_DEFAULT_EXPORT, NO_INNER_HTML, NO_VOID),
+    rules: restrictedSyntax(
+      NO_ENUM,
+      NO_DEFAULT_EXPORT,
+      NO_INNER_HTML,
+      NO_VOID,
+      ...NO_HARD_CODED_EXTENSION_ORIGIN,
+    ),
   },
 
   {

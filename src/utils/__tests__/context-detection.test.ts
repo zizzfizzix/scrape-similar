@@ -55,14 +55,14 @@ afterEach(() => {
 })
 
 const createWindow = ({
-  protocol = 'chrome-extension:',
+  origin = fakeBrowser.runtime.getURL('/' as never).slice(0, -1),
   pathname,
 }: {
-  protocol?: string
+  origin?: string
   pathname: string
 }) => ({
   location: {
-    protocol,
+    href: `${origin}${pathname}`,
     pathname,
   },
 })
@@ -72,9 +72,9 @@ const getEntrypointPaths = () => {
   return Object.keys(entrypoints).map((path) => {
     const filename = path.split('/').pop()!
     if (filename === 'index.html') {
-      return `${path.split('/').at(-2)}.html`
+      return `/${path.split('/').at(-2)}.html`
     }
-    return filename
+    return `/${filename}`
   })
 }
 
@@ -148,10 +148,32 @@ describe('context detection utilities', () => {
     expect(getCurrentContext()).toBe(EXTENSION_CONTEXTS.UNKNOWN)
   })
 
-  it('returns UNKNOWN context when protocol does not match extension pages', () => {
-    // Window exists but protocol and pathname not matching extension pages
-    vi.stubGlobal('window', createWindow({ pathname: '/index.html', protocol: 'https:' }))
+  it('returns UNKNOWN context on a web page whose path names an extension page', () => {
+    vi.stubGlobal(
+      'window',
+      createWindow({ pathname: '/sidepanel.html', origin: 'https://example.com' }),
+    )
 
     expect(getCurrentContext()).toBe(EXTENSION_CONTEXTS.UNKNOWN)
+  })
+
+  it("returns UNKNOWN context on another extension's page", () => {
+    vi.stubGlobal(
+      'window',
+      createWindow({
+        pathname: '/sidepanel.html',
+        origin: 'chrome-extension://someotherextension',
+      }),
+    )
+
+    expect(getCurrentContext()).toBe(EXTENSION_CONTEXTS.UNKNOWN)
+  })
+
+  it('detects an extension page under a Firefox extension origin', () => {
+    const origin = 'moz-extension://0b7c1f2e-5a4d-4e8b-9c3a-1d2e3f4a5b6c'
+    vi.spyOn(fakeBrowser.runtime, 'getURL').mockImplementation((path: string) => `${origin}${path}`)
+    vi.stubGlobal('window', createWindow({ pathname: '/full-data-view.html', origin }))
+
+    expect(getCurrentContext()).toBe(EXTENSION_CONTEXTS.FULL_DATA_VIEW)
   })
 })

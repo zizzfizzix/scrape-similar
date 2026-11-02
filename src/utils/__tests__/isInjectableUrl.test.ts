@@ -6,7 +6,12 @@ import { getInjectableUrlPattern, isInjectableUrl } from '@/utils/isInjectableUr
 const NON_INJECTABLE_CASES: Array<{ url: string; pattern: string }> = [
   { url: 'chrome://settings', pattern: 'chrome://' },
   { url: 'chrome://extensions', pattern: 'chrome://' },
+  { url: 'edge://settings', pattern: 'edge://' },
   { url: 'about:blank', pattern: 'about:' },
+  {
+    url: 'moz-extension://0b7c1f2e-5a4d-4e8b-9c3a-1d2e3f4a5b6c/options.html',
+    pattern: 'moz-extension://',
+  },
   {
     url: 'chrome-extension://ibamcdbhdohmndghmidginmpggcjmeob/options.html',
     pattern: 'chrome-extension://',

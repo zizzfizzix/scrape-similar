@@ -1,12 +1,13 @@
 import log from 'loglevel'
 
 /**
- * Common document URL patterns for context menu items
+ * The onboarding page is matched by the running extension's own URL: the origin differs
+ * per browser and per install, and on Firefox it is not derived from `runtime.id`.
  */
-const CONTEXT_MENU_URL_PATTERNS = [
+const getContextMenuUrlPatterns = (): string[] => [
   'http://*/*',
   'https://*/*',
-  `chrome-extension://${browser.runtime.id}/onboarding.html`,
+  browser.runtime.getURL('/onboarding.html'),
 ]
 
 interface ContextMenuItem {
@@ -25,7 +26,7 @@ const createContextMenuItem = (item: ContextMenuItem): void => {
       id: item.id,
       title: item.title,
       contexts: item.contexts || ['selection', 'page', 'link', 'image'],
-      documentUrlPatterns: item.documentUrlPatterns || CONTEXT_MENU_URL_PATTERNS,
+      documentUrlPatterns: item.documentUrlPatterns || getContextMenuUrlPatterns(),
     },
     () => {
       if (browser.runtime.lastError) {

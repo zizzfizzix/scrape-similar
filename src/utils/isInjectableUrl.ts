@@ -1,8 +1,12 @@
 const nonInjectableUrls = {
   startsWith: [
     'chrome://',
+    'edge://',
     'about:',
+    // eslint-disable-next-line no-restricted-syntax -- every extension's pages are refused
     'chrome-extension://',
+    // eslint-disable-next-line no-restricted-syntax -- every extension's pages are refused
+    'moz-extension://',
     'https://chromewebstore.google.com/',
     'file://',
     'ftp://',
