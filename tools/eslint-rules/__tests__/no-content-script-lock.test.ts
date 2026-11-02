@@ -22,7 +22,13 @@ const ROUTE_BOUNDARY = {
 const ruleTester = new RuleTester({
   languageOptions: {
     parser: tseslint.parser,
-    parserOptions: { project: './tsconfig.json', tsconfigRootDir: FIXTURES },
+    parserOptions: {
+      project: './tsconfig.json',
+      tsconfigRootDir: FIXTURES,
+      // Under `CI`, typescript-eslint assumes a one-shot lint and builds the
+      // program from disk, where the fixture holds none of the code under test.
+      disallowAutomaticSingleRunInference: true,
+    },
   },
 })
 
