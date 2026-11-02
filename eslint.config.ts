@@ -379,12 +379,13 @@ const OFF_ON_MERITS = {
   // fills, an index whose bounds were just checked, a tab id the router already
   // required), in place of a defensive branch no test can reach. The rule would
   // turn each one back into that branch or into a disable carrying the same
-  // comment. In tests, a `!` reads back what the test just rendered or set up,
-  // and nothing replaces it: `expect(x).not.toBeNull()` does not narrow the
-  // type, so the line after it still needs a `!`, an `if` that
-  // `vitest/no-conditional-expect` rejects, or a disable. Only the `strict`,
-  // `strictTypeChecked` and `all` presets ship the rule; it is listed so the
-  // decision survives a move to one of them.
+  // comment. In tests, a `!` reads back what the test just rendered or set up.
+  // `expect(x).not.toBeNull()` does not narrow the type; `assert.exists(x)` from
+  // vitest does, and fails sooner and more clearly than a `!` (whose missing
+  // value surfaces at its first use), but the rule would demand that extra line
+  // at 342 sites only to improve the message of a test that is already failing.
+  // Only the `strict`, `strictTypeChecked` and `all` presets ship the rule; it
+  // is listed so the decision survives a move to one of them.
   '@typescript-eslint/no-non-null-assertion': 'off',
 } as const
 
