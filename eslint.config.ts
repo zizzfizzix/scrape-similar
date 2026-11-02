@@ -80,8 +80,8 @@ const NO_HARD_CODED_EXTENSION_ORIGIN = [
     selector: 'TemplateElement[value.raw=/^(chrome|moz)-extension:/]',
     message: OWN_ORIGIN_MESSAGE,
   },
-  { selector: "ImportSpecifier[imported.name='chromeExtensionId']", message: OWN_ORIGIN_MESSAGE },
-  { selector: "MemberExpression[property.name='chromeExtensionId']", message: OWN_ORIGIN_MESSAGE },
+  // Any position: a named import, a member read, a destructured binding.
+  { selector: "Identifier[name='chromeExtensionId']", message: OWN_ORIGIN_MESSAGE },
   {
     selector:
       "MemberExpression[object.property.name='env'][property.name=/^(BROWSER|CHROME|EDGE|FIREFOX)$/]",
