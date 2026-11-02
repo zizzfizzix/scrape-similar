@@ -380,8 +380,9 @@ const OFF_ON_MERITS = {
   // required), in place of a defensive branch no test can reach. The rule would
   // turn each one back into that branch or into a disable carrying the same
   // comment. In tests, a `!` reads back what the test just rendered or set up,
-  // and a missing value fails the test on that line, as an
-  // `expect(x).not.toBeNull()` before it would. Only the `strict`,
+  // and nothing replaces it: `expect(x).not.toBeNull()` does not narrow the
+  // type, so the line after it still needs a `!`, an `if` that
+  // `vitest/no-conditional-expect` rejects, or a disable. Only the `strict`,
   // `strictTypeChecked` and `all` presets ship the rule; it is listed so the
   // decision survives a move to one of them.
   '@typescript-eslint/no-non-null-assertion': 'off',
