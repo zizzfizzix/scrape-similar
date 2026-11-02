@@ -7,7 +7,7 @@
 # they are checked per commit. Nothing else type-checks locally: Vite and Vitest
 # strip types without checking them.
 #
-# All three commands only read, so they run concurrently: ~34s sequential
+# All three commands only read, so they run concurrently: ~35s sequential
 # against ~28s in parallel, since Prettier's ~10s and tsc's ~1s hide inside
 # ESLint's. That holds only while every command here is read-only — a `pnpm fmt`
 # that writes would race the linter reading the same files, and would have to go
