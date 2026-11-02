@@ -4,7 +4,8 @@ import {
   getSessionState,
   initializeSessionState,
 } from '@/entrypoints/background/services/session-storage'
-import { buildConfigChangeUpdates, DEFAULT_SCRAPE_CONFIG } from '@/utils/sidepanel-state'
+import { DEFAULT_SCRAPE_CONFIG } from '@/utils/scrape-config'
+import { buildConfigChangeUpdates } from '@/utils/sidepanel-state'
 import type { ScrapeConfig, SidePanelConfig } from '@/utils/types'
 import log from 'loglevel'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -139,6 +140,27 @@ describe('applySidePanelDataUpdates', () => {
     })
 
     expect((await read(1)).currentScrapeConfig).toEqual(stored)
+  })
+
+  it('fills a stored empty column list with the default the panel shows on a selector-only update', async () => {
+    await applySidePanelDataUpdates(1, {
+      currentScrapeConfig: { mainSelector: '//div', columns: [] },
+    })
+
+    await applySidePanelDataUpdates(1, { currentScrapeConfig: { mainSelector: '//li' } })
+
+    expect((await read(1)).currentScrapeConfig).toEqual({
+      mainSelector: '//li',
+      columns: DEFAULT_SCRAPE_CONFIG.columns,
+    })
+  })
+
+  it('leaves the config unstored when an update carries no config fields', async () => {
+    await applySidePanelDataUpdates(1, { elementDetails: { xpath: '//a' } })
+
+    await applySidePanelDataUpdates(1, { currentScrapeConfig: {} })
+
+    expect(await read(1)).toEqual({ elementDetails: { xpath: '//a' } })
   })
 
   it('keeps guessed columns stored after the panel read its config when the panel edits the selector', async () => {

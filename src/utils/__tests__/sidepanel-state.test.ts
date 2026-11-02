@@ -2,11 +2,9 @@ import {
   buildConfigChangeUpdates,
   buildConfigReplaceUpdates,
   buildExportFilename,
-  DEFAULT_SCRAPE_CONFIG,
   hasConfigDrifted,
   isMainSelectorValidated,
   parseFullDataViewTabId,
-  resolveStoredConfig,
   reuseIfEqual,
 } from '@/utils/sidepanel-state'
 import type { ScrapeConfig } from '@/utils/types'
@@ -176,62 +174,6 @@ describe('buildExportFilename', () => {
     expect(buildExportFilename('https://example.com', at)).not.toBe(
       buildExportFilename('https://example.com', new Date('2026-08-27T13:45:31.000Z')),
     )
-  })
-})
-
-describe('resolveStoredConfig', () => {
-  const storedConfig: ScrapeConfig = {
-    mainSelector: '//tr',
-    columns: [{ name: 'Rank', selector: './td[1]' }],
-  }
-
-  it('starts blank when nothing is stored', () => {
-    expect(resolveStoredConfig({})).toEqual(DEFAULT_SCRAPE_CONFIG)
-  })
-
-  it('uses the stored config as-is', () => {
-    expect(resolveStoredConfig({ currentScrapeConfig: storedConfig })).toEqual(storedConfig)
-  })
-
-  it('keeps the default columns when the stored config has none', () => {
-    const config = resolveStoredConfig({
-      currentScrapeConfig: { mainSelector: '//tr', columns: [] },
-    })
-
-    expect(config).toEqual({ mainSelector: '//tr', columns: DEFAULT_SCRAPE_CONFIG.columns })
-  })
-
-  it('keeps the default columns when the stored config’s columns are not a list', () => {
-    const config = resolveStoredConfig({
-      currentScrapeConfig: { mainSelector: '//tr' } as ScrapeConfig,
-    })
-
-    expect(config.columns).toEqual(DEFAULT_SCRAPE_CONFIG.columns)
-  })
-
-  it('seeds the selector from a right-clicked element when nothing is stored', () => {
-    const config = resolveStoredConfig({
-      elementDetails: { xpath: '/html/body/ul/li', text: 'a' },
-    })
-
-    expect(config).toEqual({ ...DEFAULT_SCRAPE_CONFIG, mainSelector: '/html/body/ul/li' })
-  })
-
-  it('prefers a stored config over a right-clicked element', () => {
-    const config = resolveStoredConfig({
-      currentScrapeConfig: storedConfig,
-      elementDetails: { xpath: '/html/body/ul/li', text: 'a' },
-    })
-
-    expect(config.mainSelector).toBe('//tr')
-  })
-
-  it('ignores element details with no xpath', () => {
-    const config = resolveStoredConfig({
-      elementDetails: { xpath: '' } as { xpath: string },
-    })
-
-    expect(config).toEqual(DEFAULT_SCRAPE_CONFIG)
   })
 })
 

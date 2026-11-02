@@ -70,12 +70,6 @@ export const isMainSelectorValidated = ({
   typeof highlightMatchCount === 'number' &&
   !highlightError
 
-/** Columns assumed before the user has configured any. */
-export const DEFAULT_SCRAPE_CONFIG: ScrapeConfig = {
-  mainSelector: '',
-  columns: [{ name: 'Text', selector: '.' }],
-}
-
 /**
  * Filename for an export from this tab.
  *
@@ -87,30 +81,6 @@ export const buildExportFilename = (tabUrl: string | null, now: Date): string =>
   const slug = slugify(tabUrl || 'unknown-url', { lower: true, strict: true })
   return `Data export for ${slug} at ${dateTime}`
 }
-
-/**
- * The config to show for a stored session state.
- *
- * A stored config wins. Failing that, a right-click that recorded an element
- * seeds the main selector from it. Otherwise the panel starts blank.
- */
-export const resolveStoredConfig = ({
-  currentScrapeConfig,
-  elementDetails,
-}: SidePanelConfig): ScrapeConfig =>
-  currentScrapeConfig
-    ? {
-        ...DEFAULT_SCRAPE_CONFIG,
-        ...currentScrapeConfig,
-        // A stored config with no columns cannot produce anything, so keep the default.
-        columns:
-          Array.isArray(currentScrapeConfig.columns) && currentScrapeConfig.columns.length > 0
-            ? currentScrapeConfig.columns
-            : DEFAULT_SCRAPE_CONFIG.columns,
-      }
-    : elementDetails?.xpath
-      ? { ...DEFAULT_SCRAPE_CONFIG, mainSelector: elementDetails.xpath }
-      : DEFAULT_SCRAPE_CONFIG
 
 /**
  * The tab a full-data-view URL was opened for, or null when it names none.

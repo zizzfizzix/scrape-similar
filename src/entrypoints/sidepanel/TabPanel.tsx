@@ -1,13 +1,12 @@
 import { useShownToast } from '@/hooks/use-shown-toast'
 import { isSelectorAPreset } from '@/utils/autosuggest'
 import { reportRejection } from '@/utils/report-rejection'
+import { DEFAULT_SCRAPE_CONFIG, resolveStoredConfig } from '@/utils/scrape-config'
 import {
   buildConfigChangeUpdates,
   buildConfigReplaceUpdates,
   buildExportFilename,
-  DEFAULT_SCRAPE_CONFIG,
   hasConfigDrifted,
-  resolveStoredConfig,
   reuseIfEqual,
 } from '@/utils/sidepanel-state'
 import log from 'loglevel'

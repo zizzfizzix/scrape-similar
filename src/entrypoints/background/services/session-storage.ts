@@ -1,4 +1,4 @@
-import { resolveStoredConfig } from '@/utils/sidepanel-state'
+import { resolveStoredConfig } from '@/utils/scrape-config'
 import { updateStorageItem, withStorageLock } from '@/utils/storage-lock'
 import log from 'loglevel'
 
@@ -30,10 +30,10 @@ export const applySidePanelDataUpdates = async (
     const current = stored || {}
     const { currentScrapeConfig: incoming, ...topLevel } = updates
     const next: SidePanelConfig = { ...current, ...topLevel }
-    if (incoming) {
+    if (incoming && (incoming.mainSelector !== undefined || incoming.columns !== undefined)) {
       const shown = resolveStoredConfig(current)
-      // Messages are not validated on receipt, so a malformed field is dropped
-      // rather than stored.
+      // Messages are not validated on receipt, so a selector that is not a
+      // string or a column list that is not an array is dropped rather than stored.
       next.currentScrapeConfig = {
         mainSelector:
           typeof incoming.mainSelector === 'string' ? incoming.mainSelector : shown.mainSelector,

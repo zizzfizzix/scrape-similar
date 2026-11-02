@@ -48,8 +48,9 @@ export interface SidePanelConfig {
 }
 
 /**
- * A write to a tab's `SidePanelConfig`. The fields of `currentScrapeConfig` it
- * omits keep their stored values, so a writer sends only what it changed.
+ * A write to a tab's `SidePanelConfig`. A field `currentScrapeConfig` omits
+ * takes the value the side panel shows for the stored state (see
+ * `applySidePanelDataUpdates`), so a writer sends only what it changed.
  */
 export interface SidePanelConfigUpdate extends Omit<
   Partial<SidePanelConfig>,
