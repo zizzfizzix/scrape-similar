@@ -12,6 +12,13 @@ import 'posthog-js/dist/tracing-headers.js'
 import 'posthog-js/dist/web-vitals.js'
 import React, { type ReactNode, useEffect } from 'react'
 
+declare global {
+  interface Window {
+    // A custom property name avoids clashing with a page's own PostHog
+    __scrape_similar_posthog?: PostHog
+  }
+}
+
 interface PostHogWrapperProps {
   children: ReactNode
 }
@@ -31,13 +38,9 @@ const retire = (instance: PostHog) => {
   stopWatchingDebugMode.get(instance)?.()
 }
 
-// Helper function to check if PostHog is already initialized
-const isPostHogInitialized = (): boolean => {
-  return (
-    typeof window !== 'undefined' &&
-    (window as any).__scrape_similar_posthog &&
-    (window as any).__scrape_similar_posthog instanceof PostHog
-  )
+const getInitializedPostHog = (): PostHog | null => {
+  const instance = window.__scrape_similar_posthog
+  return instance instanceof PostHog ? instance : null
 }
 
 /**
@@ -46,9 +49,10 @@ const isPostHogInitialized = (): boolean => {
 export const resetPostHogUI = () => {
   generation += 1
   initializationPromise = null
-  if (isPostHogInitialized()) {
-    retire((window as any).__scrape_similar_posthog)
-    delete (window as any).__scrape_similar_posthog
+  const instance = getInitializedPostHog()
+  if (instance) {
+    retire(instance)
+    delete window.__scrape_similar_posthog
     log.debug('PostHog UI instance reset due to consent revocation')
   }
 }
@@ -57,8 +61,7 @@ export const resetPostHogUI = () => {
  * Initialize PostHog instance with proper error handling and race condition protection
  */
 async function initializePostHog(): Promise<void> {
-  // Return existing instance if already initialized
-  if (isPostHogInitialized()) {
+  if (getInitializedPostHog()) {
     return
   }
 
@@ -132,8 +135,7 @@ async function initializePostHog(): Promise<void> {
           '$session_entry_referrer',
         ],
         loaded: () => {
-          // A custom property name avoids clashing with a page's own PostHog
-          ;(window as any).__scrape_similar_posthog = posthogInstance
+          window.__scrape_similar_posthog = posthogInstance
           log.debug('PostHog instance exposed to window.__scrape_similar_posthog')
           if (!isDevOrTest) {
             stopWatchingDebugMode.set(

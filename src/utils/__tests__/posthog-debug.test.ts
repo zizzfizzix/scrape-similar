@@ -25,10 +25,10 @@ async function runScenario({ env, debugMode }: Scenario): Promise<boolean[]> {
   const debugHistory: boolean[] = []
   vi.doMock('posthog-js/dist/module.no-external', () => {
     class PostHog {
-      init(_: any, cfg: any) {
+      init(_: string, cfg: { debug?: boolean }) {
         debugHistory.push(!!cfg.debug)
       }
-      set_config(cfg: any) {
+      set_config(cfg: { debug?: boolean }) {
         if ('debug' in cfg) debugHistory.push(!!cfg.debug)
       }
     }

@@ -24,17 +24,33 @@ export interface ExportPayload {
 export type ExportPayloadValidation =
   { isValid: true; data: ExportPayload } | { isValid: false; error: string }
 
-/**
- * Validate EXPORT_TO_SHEETS payload structure
- */
-export const validateExportPayload = (payload: any): ExportPayloadValidation => {
-  const { filename, scrapedData, columnOrder, columnKeys } = payload || {}
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null
 
-  if (!filename || !filename.trim()) {
+const isOptionalStringList = (value: unknown): value is string[] | undefined =>
+  value === undefined || (Array.isArray(value) && value.every((item) => typeof item === 'string'))
+
+const isScrapedRow = (value: unknown): value is ScrapedRow =>
+  isObject(value) &&
+  isObject(value.data) &&
+  Object.values(value.data).every((cell) => typeof cell === 'string') &&
+  isObject(value.metadata)
+
+export const validateExportPayload = (payload: unknown): ExportPayloadValidation => {
+  const fields = isObject(payload) ? payload : {}
+  const { filename, scrapedData, columnOrder, columnKeys } = fields
+
+  if (typeof filename !== 'string' || !filename.trim()) {
     return { isValid: false, error: 'Filename is required for export' }
   }
-  if (!scrapedData || !Array.isArray(scrapedData) || scrapedData.length === 0) {
+  if (!Array.isArray(scrapedData) || scrapedData.length === 0) {
     return { isValid: false, error: 'No data to export' }
+  }
+  if (!scrapedData.every(isScrapedRow)) {
+    return { isValid: false, error: 'Invalid rows in export data' }
+  }
+  if (!isOptionalStringList(columnOrder) || !isOptionalStringList(columnKeys)) {
+    return { isValid: false, error: 'Invalid column mapping' }
   }
 
   return { isValid: true, data: { filename, scrapedData, columnOrder, columnKeys } }
@@ -44,7 +60,7 @@ export const validateExportPayload = (payload: any): ExportPayloadValidation => 
  * Handle EXPORT_TO_SHEETS message from any context
  */
 export const handleExportToSheets = async (
-  payload: any,
+  payload: unknown,
   sendResponse: (response?: MessageResponse) => void,
   logPrefix: string = '',
 ): Promise<void> => {
@@ -92,10 +108,20 @@ export const handleExportToSheets = async (
 }
 
 /**
+ * The fields read from the Sheets API's reply to a create request. A spreadsheet
+ * created without a `sheets` list gets exactly one default sheet.
+ */
+interface CreatedSpreadsheet {
+  spreadsheetId: string
+  spreadsheetUrl: string
+  sheets: [{ properties: { sheetId: number } }]
+}
+
+/**
  * Issue an authenticated Sheets API request, surfacing an expired token as a
  * distinct error so the caller can ask the user to retry.
  */
-const requestSheetsApi = async (token: string, url: string, body: unknown): Promise<any> => {
+const requestSheetsApi = async (token: string, url: string, body: unknown): Promise<unknown> => {
   const response = await fetch(url, {
     method: 'POST',
     body: JSON.stringify(body),
@@ -139,11 +165,11 @@ export const exportToGoogleSheets = async (
       return { success: false, error: 'No columns found in data' }
     }
 
-    const spreadsheet = await requestSheetsApi(
+    const spreadsheet = (await requestSheetsApi(
       token,
       SHEETS_API.create(),
       buildCreateSpreadsheetBody(filename),
-    )
+    )) as CreatedSpreadsheet
 
     const spreadsheetId = spreadsheet.spreadsheetId
     const spreadsheetUrl = spreadsheet.spreadsheetUrl

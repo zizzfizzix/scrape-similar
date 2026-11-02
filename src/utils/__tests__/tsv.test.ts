@@ -3,9 +3,10 @@ import { describe, expect, it } from 'vitest'
 import { rowToTsv, rowsToTsv } from '@/utils/tsv'
 import type { ScrapedRow } from '@/utils/types'
 
-// Helper to build ScrapedRow quickly
-const makeRow = (data: Record<string, any>): ScrapedRow => ({
-  data,
+// Takes `unknown` values so a test can pass cells that are not strings, which
+// the exporters coerce.
+const makeRow = (data: Record<string, unknown>): ScrapedRow => ({
+  data: data as ScrapedRow['data'],
   metadata: { originalIndex: 0, isEmpty: false },
 })
 

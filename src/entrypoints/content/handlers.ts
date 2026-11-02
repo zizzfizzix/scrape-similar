@@ -6,6 +6,9 @@ import { evaluateXPath, guessScrapeConfigForElement, scrapePage } from '@/utils/
 import { MESSAGE_TYPES, type Message, type ScrapeConfig, type ScrapeResult } from '@/utils/types'
 import log from 'loglevel'
 
+// Each message type answers with its own shape; the sender narrows the reply.
+type SendResponse = (response: unknown) => void
+
 interface HandlerDependencies {
   enablePickerMode: (source?: AnalyticsSource) => Promise<void>
   disablePickerMode: (source?: AnalyticsSource) => void
@@ -61,10 +64,7 @@ export const interpretStoreReply = (
  * Evaluate `selector`, replying with a failure instead of throwing when the
  * expression is rejected. Returns null once it has replied.
  */
-const evaluateOrReply = (
-  selector: string,
-  sendResponse: (response: any) => void,
-): HTMLElement[] | null => {
+const evaluateOrReply = (selector: string, sendResponse: SendResponse): HTMLElement[] | null => {
   try {
     return evaluateXPath(selector)
   } catch (error) {
@@ -80,7 +80,7 @@ export const createMessageHandler = (state: ContentScriptState, deps: HandlerDep
   return (
     message: Message,
     sender: Browser.runtime.MessageSender,
-    sendResponse: (response: any) => void,
+    sendResponse: SendResponse,
   ): boolean | void => {
     log.debug('Content script received message:', message)
 
@@ -147,7 +147,7 @@ export const createMessageHandler = (state: ContentScriptState, deps: HandlerDep
 const handleStartScrape = (
   message: Message,
   state: ContentScriptState,
-  sendResponse: (response: any) => void,
+  sendResponse: SendResponse,
 ): boolean => {
   log.debug('Starting scrape with config (direct from UI):', message.payload)
   const config = message.payload as ScrapeConfig
@@ -204,7 +204,7 @@ const handleStartScrape = (
 /**
  * Handle HIGHLIGHT_ELEMENTS message
  */
-const handleHighlightElements = (message: Message, sendResponse: (response: any) => void): void => {
+const handleHighlightElements = (message: Message, sendResponse: SendResponse): void => {
   log.debug('Highlighting elements:', message.payload)
   const { selector, shouldScroll } = (message.payload || {}) as {
     selector: string
@@ -232,10 +232,7 @@ const handleHighlightElements = (message: Message, sendResponse: (response: any)
 /**
  * Handle HIGHLIGHT_ROW_ELEMENT message
  */
-const handleHighlightRowElement = (
-  message: Message,
-  sendResponse: (response: any) => void,
-): void => {
+const handleHighlightRowElement = (message: Message, sendResponse: SendResponse): void => {
   log.debug('Highlighting row element:', message.payload)
   const { selector } = message.payload as { selector: string }
   const elements = evaluateOrReply(selector, sendResponse)
@@ -262,7 +259,7 @@ const handleHighlightRowElement = (
 const handleSaveElementDetails = (
   message: Message,
   state: ContentScriptState,
-  sendResponse: (response: any) => void,
+  sendResponse: SendResponse,
 ): boolean => {
   if (!state.lastRightClickedElementDetails || !state.lastRightClickedElement) {
     log.warn('No lastRightClickedElementDetails or element to save.')
@@ -310,10 +307,10 @@ const handleSaveElementDetails = (
 const handleGuessConfigFromSelector = (
   message: Message,
   state: ContentScriptState,
-  sendResponse: (response: any) => void,
+  sendResponse: SendResponse,
 ): boolean => {
-  const { mainSelector } = message.payload || {}
-  if (!mainSelector?.trim()) {
+  const { mainSelector } = (message.payload || {}) as { mainSelector?: unknown }
+  if (typeof mainSelector !== 'string' || !mainSelector.trim()) {
     sendResponse({ success: false, error: 'Missing mainSelector' })
     return true
   }

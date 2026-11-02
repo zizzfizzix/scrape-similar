@@ -92,6 +92,43 @@ describe('validateExportPayload', () => {
       error: 'No data to export',
     })
   })
+
+  it.each([
+    ['a null row', null],
+    ['a row without data', { metadata: { originalIndex: 0, isEmpty: false } }],
+    ['a row with a cell that is not a string', { data: { Title: 1 }, metadata: {} }],
+    ['a row without metadata', { data: { Title: 'A' } }],
+  ])('rejects %s', (_, badRow) => {
+    expect(
+      validateExportPayload({ filename: 'Export', scrapedData: [...scrapedData, badRow] }),
+    ).toEqual({ isValid: false, error: 'Invalid rows in export data' })
+  })
+
+  it('rejects a null payload', () => {
+    expect(validateExportPayload(null)).toEqual({
+      isValid: false,
+      error: 'Filename is required for export',
+    })
+  })
+
+  it('rejects a filename that is not a string', () => {
+    expect(validateExportPayload({ filename: 42, scrapedData })).toEqual({
+      isValid: false,
+      error: 'Filename is required for export',
+    })
+  })
+
+  it('rejects a column order holding something other than strings', () => {
+    expect(
+      validateExportPayload({ filename: 'Export', scrapedData, columnOrder: ['Title', 1] }),
+    ).toEqual({ isValid: false, error: 'Invalid column mapping' })
+  })
+
+  it('rejects column keys that are not a list', () => {
+    expect(validateExportPayload({ filename: 'Export', scrapedData, columnKeys: 'col_0' })).toEqual(
+      { isValid: false, error: 'Invalid column mapping' },
+    )
+  })
 })
 
 describe('exportToGoogleSheets', () => {

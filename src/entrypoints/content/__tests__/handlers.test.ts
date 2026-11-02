@@ -526,6 +526,12 @@ describe('createMessageHandler', () => {
       expect(sendResponse).toHaveBeenCalledWith({ success: false, error: 'Missing mainSelector' })
     })
 
+    it('refuses a selector that is not a string', () => {
+      dispatch({ type: MESSAGE_TYPES.GUESS_CONFIG_FROM_SELECTOR, payload: { mainSelector: 42 } })
+
+      expect(sendResponse).toHaveBeenCalledWith({ success: false, error: 'Missing mainSelector' })
+    })
+
     it('refuses a message with no payload', () => {
       dispatch({ type: MESSAGE_TYPES.GUESS_CONFIG_FROM_SELECTOR })
 

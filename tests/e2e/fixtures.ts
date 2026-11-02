@@ -263,6 +263,9 @@ export const getFirstWorksheet = (workbook: ExcelJS.Workbook): ExcelJS.Worksheet
 }
 
 // Shared test helpers
+// What `stubClipboard` records in the page, for `getCopiedText` to read back.
+type ClipboardStubWindow = Window & { __copied?: string | null }
+
 export const TestHelpers = {
   /**
    * Dismisses analytics consent modal by setting storage directly
@@ -333,9 +336,10 @@ export const TestHelpers = {
    */
   async stubClipboard(page: Page): Promise<void> {
     await page.evaluate(() => {
-      ;(window as any).__copied = null
+      const stubWindow = window as ClipboardStubWindow
+      stubWindow.__copied = null
       navigator.clipboard.writeText = async (t) => {
-        ;(window as any).__copied = t
+        stubWindow.__copied = t
         return Promise.resolve()
       }
     })
@@ -345,7 +349,7 @@ export const TestHelpers = {
    * Gets the text that was copied to the stubbed clipboard
    */
   async getCopiedText(page: Page): Promise<string | null> {
-    return await page.evaluate(() => (window as any).__copied)
+    return await page.evaluate(() => (window as ClipboardStubWindow).__copied ?? null)
   },
 
   /**
