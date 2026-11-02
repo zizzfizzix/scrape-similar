@@ -192,7 +192,12 @@ export const TabPanel = memo(function TabPanel({
     notify.error(failure, { id: failure })
     const inFlight = [...inFlightConfigSeqsRef.current]
     // A later write is still awaited, or was stored and is already shown.
-    if (inFlight.some((other) => other > seq) || awaitedConfigSeqRef.current > seq) return false
+    if (inFlight.some((other) => other > seq) || awaitedConfigSeqRef.current > seq) {
+      // Later column edits were built on this one's columns and are dropped too,
+      // so the stored columns are shown now and the next edit is built on them.
+      if (updates.columnEdit) await showStoredColumns(id)
+      return false
+    }
     // No stored state will record this write, so wait for the newest write still
     // on its way instead, or for none. The state recording that write may already
     // have arrived and been skipped, so storage is read now as well; the read is
@@ -202,6 +207,14 @@ export const TabPanel = memo(function TabPanel({
     // With nothing stored, show the default config, as a panel opened on this tab would.
     applyStoredState(stored ?? {})
     return false
+  }
+
+  // Only the columns: the selector shown may belong to a write still on its way.
+  const showStoredColumns = async (id: number) => {
+    const stored = await sidePanelConfigItem(id).getValue()
+    const { columns } = resolveStoredConfig(stored ?? {})
+    shownConfigRef.current = { ...shownConfigRef.current, columns }
+    setConfig((previous) => reuseIfEqual(previous, { ...previous, columns }))
   }
 
   // Built on the latest config: ConfigForm's deferred blur commit calls the
@@ -218,9 +231,10 @@ export const TabPanel = memo(function TabPanel({
   }
 
   const handleColumnEdit = (edit: ColumnEdit) => {
-    // The form builds the edit from the config this render passed it, so it
-    // always applies; the other fields come from the latest config.
-    showConfig({ ...shownConfigRef.current, columns: applyColumnEdit(config.columns, edit)! })
+    const latest = shownConfigRef.current
+    // An edit made on columns since replaced in storage does not apply to the
+    // latest ones, and the background drops it as well.
+    showConfig({ ...latest, columns: applyColumnEdit(latest.columns, edit) ?? latest.columns })
     if (tabId !== null) {
       reportRejection(writeConfig(tabId, { columnEdit: edit }, COLUMN_EDIT_NOT_SAVED))
     }
@@ -304,12 +318,13 @@ export const TabPanel = memo(function TabPanel({
       tabId,
       { type: MESSAGE_TYPES.HIGHLIGHT_ELEMENTS, payload: { selector } },
       (response: HighlightReply | undefined) => {
+        // A reply for a selector replaced meanwhile would validate the newer one
+        // with its count, and its failure concerns a request already abandoned.
+        if (shownConfigRef.current.mainSelector !== selector) return
         if (!response && browser.runtime.lastError) {
           notify.error(CONTENT_SCRIPT_UNREACHABLE)
           return
         }
-        // A reply for a selector replaced meanwhile would validate the newer one with its count.
-        if (shownConfigRef.current.mainSelector !== selector) return
 
         if (response?.success === false && response.error) {
           setHighlightMatchCount(undefined)

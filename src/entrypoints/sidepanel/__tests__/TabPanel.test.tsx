@@ -4,6 +4,7 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { applySidePanelDataUpdates } from '@/entrypoints/background/services/session-storage'
 import {
   COLUMN_EDIT_NOT_SAVED,
+  CONTENT_SCRIPT_UNREACHABLE,
   MAIN_SELECTOR_NOT_SAVED,
   PRESET_NOT_SAVED,
   TabPanel,
@@ -19,7 +20,7 @@ import {
   type ScrapeConfig,
   type SidePanelConfigUpdate,
 } from '@/utils/types'
-import { spyOnBrowser } from '@@/tests/support/fake-browser'
+import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
 import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 import { renderSettled, settleEffects } from '@@/tests/support/settle'
 import { act, waitFor } from '@testing-library/react'
@@ -457,32 +458,52 @@ describe('TabPanel numbered config writes', () => {
     })
   })
 
-  it('shows the state of a later write when an earlier one fails', async () => {
+  it('shows the stored columns at once when a column edit fails with later ones on their way', async () => {
     await render()
-    const later = Promise.withResolvers<undefined>()
-    spyOnBrowser(fakeBrowser.runtime, 'sendMessage')
-      .mockResolvedValueOnce({ success: false, error: 'Lock timed out' })
-      .mockImplementationOnce(async (message: unknown) => {
-        await later.promise
-        const { tabId, updates } = (message as Message<UpdatePayload>).payload!
-        await applySidePanelDataUpdates(tabId, updates)
-        return { success: true }
-      })
-    const readBack = vi.spyOn(sidePanelConfigItem(TAB_ID), 'getValue')
+    const { answer } = scriptedBackground()
     vi.spyOn(log, 'error').mockImplementation(() => {})
 
     edit(rename)
-    edit({ type: 'update', index: 0, expected: rename.column, column: rank })
+    edit({ type: 'add' })
+    await answer(0, 'fail')
+
+    // The add was built on the rename, so the next keystroke is built on storage instead.
+    expect(form.props!.config.columns).toEqual(config.columns)
+
+    await answer(1, 'store')
+
+    // An add checks nothing, so it lands on the stored list.
+    expect(form.props!.config.columns).toEqual([rank, added])
+  })
+
+  it('shows the default columns when a column edit fails with later ones on their way and nothing is stored', async () => {
+    await render()
+    const { answer } = scriptedBackground()
+    vi.spyOn(log, 'error').mockImplementation(() => {})
+
+    edit(rename)
+    edit({ type: 'add' })
+    await storage.removeItem(storageKey)
+    await answer(0, 'fail')
+
+    expect(form.props!.config.columns).toEqual(DEFAULT_SCRAPE_CONFIG.columns)
+  })
+
+  it('leaves the panel alone when a selector write fails with a column edit on its way', async () => {
+    await render()
+    const { answer } = scriptedBackground()
+    const readBack = vi.spyOn(sidePanelConfigItem(TAB_ID), 'getValue')
+    vi.spyOn(log, 'error').mockImplementation(() => {})
+
+    act(() => {
+      form.props!.onMainSelectorChange('//li')
+    })
+    edit(rename)
     readBack.mockClear()
-    await settleEffects()
+    await answer(0, 'fail')
 
     expect(readBack).not.toHaveBeenCalled()
-
-    later.resolve(undefined)
-    await settleEffects()
-
-    // The first edit never reached storage, so the second one no longer matches it.
-    expect(form.props!.config.columns).toEqual(config.columns)
+    expect(form.props!.config).toEqual({ mainSelector: '//li', columns: [rename.column] })
   })
 
   it('waits for an earlier write still on its way when the latest one fails', async () => {
@@ -549,16 +570,13 @@ describe('TabPanel numbered config writes', () => {
   it('keeps the state of a later write that was stored when an earlier one fails', async () => {
     await render()
     const { answer } = scriptedBackground()
-    const readBack = vi.spyOn(sidePanelConfigItem(TAB_ID), 'getValue')
     vi.spyOn(log, 'error').mockImplementation(() => {})
 
     edit(rename)
     edit({ type: 'add' })
     await answer(1, 'store')
-    readBack.mockClear()
     await answer(0, 'fail')
 
-    expect(readBack).not.toHaveBeenCalled()
     expect(form.props!.config.columns).toEqual([rank, added])
   })
 
@@ -753,6 +771,47 @@ describe('TabPanel numbered config writes', () => {
     })
 
     expect(highlightRequests(tabsSendMessage)).toEqual([])
+  })
+
+  it('leaves out a column edit made on columns replaced before it rendered', async () => {
+    await render()
+    heldBackground()
+
+    await act(async () => {
+      await storage.setItem(storageKey, {
+        currentScrapeConfig: { ...config, columns: guessedColumns },
+      })
+      await flushMicrotasks()
+      // Built by a render that still showed the columns the Guess replaced.
+      form.props!.onColumnEdit(rename)
+    })
+
+    expect(form.props!.config.columns).toEqual(guessedColumns)
+  })
+
+  it('does not report an unreachable content script for a highlight already abandoned', async () => {
+    await render()
+    const { release } = heldBackground()
+    const tabsSendMessage = spyOnBrowser(fakeBrowser.tabs, 'sendMessage').mockImplementation(
+      () => {},
+    )
+
+    commitSelector('//a')
+    await release()
+    const [[, , answerHighlight]] = highlightRequests(tabsSendMessage) as [
+      [number, unknown, (reply: HighlightReply | undefined) => void],
+    ]
+    act(() => {
+      form.props!.onMainSelectorChange('//b')
+    })
+    setLastError({ message: 'Could not establish connection' })
+    act(() => {
+      answerHighlight(undefined)
+    })
+
+    setLastError(undefined)
+
+    expect(toastMocks.toast.error).not.toHaveBeenCalledWith(CONTENT_SCRIPT_UNREACHABLE)
   })
 
   it('sends nothing without a tab', async () => {
