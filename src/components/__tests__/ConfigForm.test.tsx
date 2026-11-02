@@ -172,7 +172,7 @@ describe('ConfigForm', () => {
       fireEvent.change(mainSelectorInput(), { target: { value: '//li' } })
       // React delivers onBlur from the bubbling focusout event.
       fireEvent.focusOut(mainSelectorInput())
-      await act(() => {
+      act(() => {
         vi.advanceTimersByTime(BLUR_COMMIT_DELAY_MS)
       })
 
@@ -189,7 +189,7 @@ describe('ConfigForm', () => {
       fireEvent.change(mainSelectorInput(), { target: { value: '   ' } })
       // React delivers onBlur from the bubbling focusout event.
       fireEvent.focusOut(mainSelectorInput())
-      await act(() => {
+      act(() => {
         vi.advanceTimersByTime(BLUR_COMMIT_DELAY_MS)
       })
 
@@ -204,7 +204,7 @@ describe('ConfigForm', () => {
       view = await render({ onChange, onHighlight })
 
       fireEvent.focusOut(mainSelectorInput())
-      await act(() => {
+      act(() => {
         vi.advanceTimersByTime(BLUR_COMMIT_DELAY_MS)
       })
 
@@ -220,7 +220,7 @@ describe('ConfigForm', () => {
       view = await render({ onChange, onHighlight, highlightMatchCount: undefined })
 
       fireEvent.focusOut(mainSelectorInput())
-      await act(() => {
+      act(() => {
         vi.advanceTimersByTime(BLUR_COMMIT_DELAY_MS)
       })
 
@@ -255,7 +255,7 @@ describe('ConfigForm', () => {
 
       fireEvent.change(mainSelectorInput(), { target: { value: ' //tr ' } })
       fireEvent.focusOut(mainSelectorInput())
-      await act(() => {
+      act(() => {
         vi.advanceTimersByTime(BLUR_COMMIT_DELAY_MS)
       })
 
@@ -452,7 +452,7 @@ describe('ConfigForm', () => {
         const onHighlight = vi.fn()
         const onChange = vi.fn()
         view = await render({ onHighlight, onChange })
-        await editSelector('  //li ')
+        editSelector('  //li ')
 
         await pressActionButton('Validate selector')
 
@@ -501,7 +501,7 @@ describe('ConfigForm', () => {
         const onScrape = vi.fn()
         const onHighlight = vi.fn()
         view = await render({ onScrape, onHighlight })
-        await editSelector(' //tr ')
+        editSelector(' //tr ')
 
         await pressActionButton('Scrape')
         await outlastBlurCommit()
@@ -562,7 +562,7 @@ describe('ConfigForm', () => {
       const onClearLastScrapeRowCount = vi.fn()
       view = await render({ lastScrapeRowCount: 0, onClearLastScrapeRowCount })
 
-      await act(() => {
+      act(() => {
         vi.advanceTimersByTime(2000)
       })
 
@@ -678,7 +678,7 @@ describe('ConfigForm', () => {
 
       expect(guessButton().querySelector('.lucide-check')).not.toBeNull()
 
-      await act(() => {
+      act(() => {
         vi.advanceTimersByTime(1500)
       })
 
@@ -715,7 +715,7 @@ describe('ConfigForm', () => {
       })
 
       view.rerender(inPanel('hidden'))
-      await act(() => {
+      act(() => {
         vi.advanceTimersByTime(1500)
       })
       view.rerender(inPanel('visible'))
@@ -758,7 +758,7 @@ describe('ConfigForm', () => {
       expect(guessButton().querySelector('.lucide-loader-circle')).not.toBeNull()
       expect(guessButton().disabled).toBe(true)
 
-      await act(() => release!())
+      act(() => release!())
     })
 
     it('settles a failed guess back to idle', async () => {
@@ -772,7 +772,7 @@ describe('ConfigForm', () => {
       })
       expect(guessButton().querySelector('.lucide-x')).not.toBeNull()
 
-      await act(() => {
+      act(() => {
         vi.advanceTimersByTime(1500)
       })
 
@@ -813,7 +813,7 @@ describe('ConfigForm', () => {
       await recentMainSelectorsItem.setValue(['//span'])
       view = await render({ presets, config: { ...config, mainSelector: '' } })
 
-      await act(() => mainSelectorInput().focus())
+      act(() => mainSelectorInput().focus())
 
       expect(view.container.textContent).toContain('Table rows')
       expect(view.container.textContent).toContain('//span')
@@ -821,7 +821,7 @@ describe('ConfigForm', () => {
 
     it('narrows the suggestions as the user types', async () => {
       view = await render({ presets, config: { ...config, mainSelector: '' } })
-      await act(() => mainSelectorInput().focus())
+      act(() => mainSelectorInput().focus())
 
       fireEvent.change(mainSelectorInput(), { target: { value: 'links' } })
 
@@ -927,7 +927,7 @@ describe('ConfigForm', () => {
         view = await render({ onSavePreset })
         const nameField = await openSaveDrawer()
 
-        await act(() => {
+        act(() => {
           nameField.dispatchEvent(
             new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
           )
@@ -948,7 +948,7 @@ describe('ConfigForm', () => {
         view = await render({ presets, onLoadPreset })
         const rows = await openLoadPopover()
 
-        await act(() =>
+        act(() =>
           rows()
             .find((row) => row.textContent?.includes('All links'))!
             .click(),
@@ -1028,7 +1028,7 @@ describe('ConfigForm', () => {
         const remove = await deleteButtonFor('All links')
         await userEvent.click(remove)
 
-        await act(() =>
+        act(() =>
           [...document.querySelectorAll<HTMLButtonElement>('button')]
             .find((candidate) => candidate.textContent?.trim() === 'Delete')!
             .click(),
@@ -1060,7 +1060,7 @@ describe('ConfigForm', () => {
         const remove = await deleteButtonFor('All links')
         await userEvent.click(remove)
 
-        await act(() =>
+        act(() =>
           [...document.querySelectorAll<HTMLButtonElement>('button')]
             .find((candidate) => candidate.textContent?.trim() === 'Cancel')!
             .click(),

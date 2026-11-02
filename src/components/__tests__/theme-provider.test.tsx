@@ -208,7 +208,7 @@ describe('ThemeProvider', () => {
       </ThemeProvider>,
     )
 
-    await act(() => media.emit(true))
+    act(() => media.emit(true))
 
     expect(document.documentElement).toHaveClass('dark')
     expect(document.documentElement).not.toHaveClass('light')

@@ -38,7 +38,7 @@ describe('PickerBanner', () => {
     const onClose = vi.fn()
     view = renderComponent(<PickerBanner count={1} xpath="//li" onClose={onClose} />)
 
-    await act(() => {
+    act(() => {
       view.container.querySelector<HTMLButtonElement>('button[aria-label="Close picker"]')!.click()
     })
 

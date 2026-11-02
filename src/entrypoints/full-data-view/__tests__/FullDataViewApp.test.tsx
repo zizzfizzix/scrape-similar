@@ -207,7 +207,7 @@ describe('FullDataViewApp', () => {
     await renderLoaded()
     expect(text()).toContain('Show 1 empty rows')
 
-    await act(() => view.container.querySelector<HTMLElement>('#show-empty-rows')!.click())
+    act(() => view.container.querySelector<HTMLElement>('#show-empty-rows')!.click())
 
     expect(bodyRows()).toHaveLength(3)
     expect(text()).toContain('3 total rows')
@@ -248,7 +248,7 @@ describe('FullDataViewApp', () => {
     it('drops the empty rows again, since they never match', async () => {
       await openSingleTab()
       await renderLoaded()
-      await act(() => view.container.querySelector<HTMLElement>('#show-empty-rows')!.click())
+      act(() => view.container.querySelector<HTMLElement>('#show-empty-rows')!.click())
 
       fireEvent.change(search(), { target: { value: 'Poland' } })
 
@@ -447,7 +447,7 @@ describe('FullDataViewApp', () => {
     it('orders the empty rows in with the rest when they are shown', async () => {
       await openSingleTab()
       await renderLoaded()
-      await act(() => view.container.querySelector<HTMLElement>('#show-empty-rows')!.click())
+      act(() => view.container.querySelector<HTMLElement>('#show-empty-rows')!.click())
 
       const countryHeader = [...view.container.querySelectorAll<HTMLElement>('th')].find((th) =>
         th.textContent?.startsWith('Country'),
@@ -501,7 +501,7 @@ describe('FullDataViewApp', () => {
       await renderLoaded()
 
       await userEvent.click(byText('20'))
-      await act(() => {
+      act(() => {
         const option = [...document.querySelectorAll<HTMLElement>('[role="menuitemradio"]')].find(
           (item) => item.textContent === '50',
         )
@@ -567,7 +567,7 @@ describe('FullDataViewApp', () => {
 
     expect(handle.className).toContain('opacity-0')
 
-    await act(() => {
+    act(() => {
       handle.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: 0 }))
     })
 
@@ -590,7 +590,7 @@ describe('FullDataViewApp', () => {
       await renderLoaded()
 
       await userEvent.click(byText('First'))
-      await act(() => {
+      act(() => {
         const option = [...document.querySelectorAll<HTMLElement>('[cmdk-item]')].find((item) =>
           item.textContent?.includes('Second'),
         )

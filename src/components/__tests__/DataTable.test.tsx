@@ -123,7 +123,7 @@ describe('DataTable', () => {
     const onShowEmptyRowsChange = vi.fn()
     view = render({ onShowEmptyRowsChange })
 
-    await act(() => view.container.querySelector<HTMLElement>('[role="switch"]')!.click())
+    act(() => view.container.querySelector<HTMLElement>('[role="switch"]')!.click())
 
     expect(onShowEmptyRowsChange).toHaveBeenCalledWith(true)
   })
@@ -182,7 +182,7 @@ describe('DataTable', () => {
 
     expect(handle.className).toContain('opacity-0')
 
-    await act(() => {
+    act(() => {
       handle.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: 0 }))
     })
 

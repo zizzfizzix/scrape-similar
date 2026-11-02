@@ -8,7 +8,7 @@ import { HIDDEN_UNLOCK_WINDOW_MS, PRESET_EXPORT_FILENAME } from '@/utils/preset-
 import { getPresets, setPresets, userPresetsItem } from '@/utils/storage'
 import { type Preset } from '@/utils/types'
 import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
-import { renderSettled } from '@@/tests/support/settle'
+import { renderSettled, settleEffects } from '@@/tests/support/settle'
 import { act, type RenderResult } from '@testing-library/react'
 import userEventBase from '@testing-library/user-event'
 import log from 'loglevel'
@@ -262,12 +262,13 @@ describe('Settings', () => {
       view = await render()
       await chooseFile(validFile)
 
-      await act(() => {
+      act(() => {
         const confirmButton = [...document.querySelectorAll('button')].find(
           (candidate) => candidate.textContent === 'Import' && candidate.closest('[role="dialog"]'),
         )
         confirmButton!.click()
       })
+      await settleEffects()
 
       expect(await getPresets()).toEqual([preset()])
       expect(toastMocks.toast.success).toHaveBeenCalledWith('Imported 1 presets.')
@@ -282,7 +283,7 @@ describe('Settings', () => {
       view = await render()
       await chooseFile(validFile)
 
-      await act(() => {
+      act(() => {
         const cancel = [...document.querySelectorAll('button')].find(
           (candidate) => candidate.textContent === 'Cancel',
         )
@@ -319,9 +320,10 @@ describe('Settings', () => {
     it('does nothing when the picker is dismissed without a file', async () => {
       view = await render()
 
-      await act(() => {
+      act(() => {
         fileInput().dispatchEvent(new Event('change', { bubbles: true }))
       })
+      await settleEffects()
 
       expect(toastMocks.toast.error).not.toHaveBeenCalled()
       expect(document.body.textContent).not.toContain('Current presets will be lost.')
@@ -333,12 +335,13 @@ describe('Settings', () => {
       await chooseFile(validFile)
       vi.spyOn(userPresetsItem, 'setValue').mockRejectedValueOnce(new Error('quota exceeded'))
 
-      await act(() => {
+      act(() => {
         const confirmButton = [...document.querySelectorAll('button')].find(
           (candidate) => candidate.textContent === 'Import' && candidate.closest('[role="dialog"]'),
         )
         confirmButton!.click()
       })
+      await settleEffects()
 
       expect(toastMocks.toast.error).toHaveBeenCalledWith('Failed to import presets')
       expect(errorSpy).toHaveBeenCalledWith('Error setting presets in storage:', expect.any(Error))
@@ -382,7 +385,8 @@ describe('Settings', () => {
     it('records a change of mind', async () => {
       view = await render()
 
-      await act(() => view.container.querySelector<HTMLElement>('[role="switch"]')!.click())
+      act(() => view.container.querySelector<HTMLElement>('[role="switch"]')!.click())
+      await settleEffects()
 
       expect(await storage.getItem(analyticsConsentItem.key)).toBe(true)
     })
@@ -424,8 +428,9 @@ describe('Settings', () => {
       view = await render({ ref })
 
       for (let i = 0; i < 5; i++) {
-        await act(() => ref.current!.unlockDebugMode())
+        act(() => ref.current!.unlockDebugMode())
       }
+      await settleEffects()
 
       expect(view.container.textContent).toContain('Debug mode')
       expect(await storage.getItem('local:debugUnlocked')).toBe(true)
@@ -437,7 +442,7 @@ describe('Settings', () => {
       view = await render({ ref })
 
       for (let i = 0; i < 4; i++) {
-        await act(() => ref.current!.unlockDebugMode())
+        act(() => ref.current!.unlockDebugMode())
       }
 
       expect(view.container.textContent).not.toContain('Debug mode')
@@ -449,12 +454,12 @@ describe('Settings', () => {
       view = await render({ ref })
 
       for (let i = 0; i < 4; i++) {
-        await act(() => ref.current!.unlockDebugMode())
+        act(() => ref.current!.unlockDebugMode())
       }
-      await act(() => {
+      act(() => {
         vi.advanceTimersByTime(HIDDEN_UNLOCK_WINDOW_MS + 1)
       })
-      await act(() => ref.current!.unlockDebugMode())
+      act(() => ref.current!.unlockDebugMode())
 
       expect(view.container.textContent).not.toContain('Debug mode')
       vi.useRealTimers()
@@ -465,7 +470,7 @@ describe('Settings', () => {
       const ref = createRef<{ unlockDebugMode: () => void }>()
       view = await render({ ref })
 
-      await act(() => ref.current!.unlockDebugMode())
+      act(() => ref.current!.unlockDebugMode())
 
       expect(trackEvent).not.toHaveBeenCalledWith(ANALYTICS_EVENTS.HIDDEN_SETTINGS_UNLOCK)
     })
@@ -493,10 +498,11 @@ describe('Settings', () => {
       const onDebugModeChange = vi.fn()
 
       view = await render({ debugMode: true, onDebugModeChange })
-      await act(() => {
+      act(() => {
         const switches = [...view.container.querySelectorAll<HTMLElement>('[role="switch"]')]
         switches.at(-1)!.click()
       })
+      await settleEffects()
 
       expect(onDebugModeChange).toHaveBeenCalledWith(false)
       expect(await storage.getItem('local:debugUnlocked')).toBeNull()
@@ -510,7 +516,7 @@ describe('Settings', () => {
       const onDebugModeChange = vi.fn()
 
       view = await render({ onDebugModeChange })
-      await act(() => {
+      act(() => {
         const switches = [...view.container.querySelectorAll<HTMLElement>('[role="switch"]')]
         switches.at(-1)!.click()
       })
@@ -523,7 +529,7 @@ describe('Settings', () => {
       await storage.setItem('local:debugUnlocked', true)
 
       view = await render()
-      await act(() => {
+      act(() => {
         const switches = [...view.container.querySelectorAll<HTMLElement>('[role="switch"]')]
         switches.at(-1)!.click()
       })
