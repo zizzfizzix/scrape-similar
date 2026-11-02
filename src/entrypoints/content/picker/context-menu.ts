@@ -126,7 +126,9 @@ export const showPickerContextMenu = async (
     ui.mount()
   } catch (e) {
     log.warn('Failed to mount picker context menu', e)
-    removePickerContextMenu(state, removeCrosshairCursor, () => {})
+    removePickerContextMenu(state, removeCrosshairCursor, () => {
+      // The crosshair is removed only once the menu mounts, so it is still on.
+    })
     return
   }
 
