@@ -1,0 +1,13 @@
+name: Stack Probe All
+permissions: {}
+on:
+  pull_request:
+    types: [assigned, unassigned, labeled, unlabeled, opened, edited, closed, reopened, synchronize, converted_to_draft, ready_for_review, locked, unlocked, review_requested, review_request_removed, auto_merge_enabled, auto_merge_disabled, milestoned, demilestoned, enqueued, dequeued]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          ACTION: ${{ github.event.action }}
+          STACK_BASE: ${{ github.event.pull_request.stack.base.ref }}
+        run: echo "action=$ACTION stack.base.ref=$STACK_BASE"
