@@ -82,12 +82,15 @@ const NO_HARD_CODED_EXTENSION_ORIGIN = [
   },
   // Any position: a named import, a member read, a destructured binding.
   { selector: "Identifier[name='chromeExtensionId']", message: OWN_ORIGIN_MESSAGE },
-  {
-    selector:
-      "MemberExpression[object.property.name='env'][property.name=/^(BROWSER|CHROME|EDGE|FIREFOX)$/]",
+  ...[
+    "MemberExpression[object.property.name='env'][property.name=/^(BROWSER|CHROME|EDGE|FIREFOX)$/]",
+    // `const { FIREFOX } = import.meta.env`, which Vite also replaces.
+    "VariableDeclarator[init.object.type='MetaProperty'][init.property.name='env'] > ObjectPattern > Property[key.name=/^(BROWSER|CHROME|EDGE|FIREFOX)$/]",
+  ].map((selector) => ({
+    selector,
     message:
       'Chrome and Edge run the same build, so a build flag cannot tell them apart. Branch on `getBrowserFamily()`.',
-  },
+  })),
 ]
 
 interface RestrictedSelector {
