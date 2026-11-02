@@ -14,6 +14,7 @@ import {
   type ScrapeConfig,
   type SidePanelConfig,
 } from '@/utils/types'
+import { outlastBlurCommit } from '@@/tests/support/blur-commit'
 import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
 import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 import { renderSettled } from '@@/tests/support/settle'
@@ -407,10 +408,8 @@ describe('without a tab to talk to', () => {
         .click()
       await Promise.resolve()
     })
-    await act(async () => {
-      mainSelectorInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
-      await new Promise((resolve) => setTimeout(resolve, 200))
-    })
+    fireEvent.focusOut(mainSelectorInput())
+    await outlastBlurCommit()
 
     expect(sendMessage).not.toHaveBeenCalled()
   })
@@ -577,10 +576,8 @@ describe('remembering the selector a scrape used', () => {
     fireEvent.change(mainSelectorInput(), { target: { value: '//li' } })
 
     const sendMessage = await scrape(scraped, 'Validate selector')
-    // Outlast the 150ms blur defer, so a commit the press failed to cancel lands.
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 200))
-    })
+    // A commit the press failed to cancel would land here.
+    await outlastBlurCommit()
 
     expect(
       sendMessage.mock.calls.map(([, message]) => [
@@ -663,11 +660,8 @@ describe('remembering a validated selector', () => {
     const sendMessage = contentScriptReplies(response)
 
     fireEvent.change(mainSelectorInput(), { target: { value: selector } })
-    await act(async () => {
-      mainSelectorInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
-      // Outlast the 150ms blur defer.
-      await new Promise((resolve) => setTimeout(resolve, 200))
-    })
+    fireEvent.focusOut(mainSelectorInput())
+    await outlastBlurCommit()
     return sendMessage
   }
 
@@ -1005,10 +999,8 @@ describe('talking to the content script', () => {
     contentScriptReplies(undefined, { message: 'port closed' })
 
     fireEvent.change(mainSelectorInput(), { target: { value: '//td' } })
-    await act(async () => {
-      mainSelectorInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
-      await new Promise((resolve) => setTimeout(resolve, 200))
-    })
+    fireEvent.focusOut(mainSelectorInput())
+    await outlastBlurCommit()
 
     await waitFor(() => expect(toastMocks.toast.error).toHaveBeenCalledWith(CONNECT_ERROR))
   })
@@ -1020,10 +1012,8 @@ describe('talking to the content script', () => {
     contentScriptReplies({ success: true })
 
     fireEvent.change(mainSelectorInput(), { target: { value: '//td' } })
-    await act(async () => {
-      mainSelectorInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
-      await new Promise((resolve) => setTimeout(resolve, 200))
-    })
+    fireEvent.focusOut(mainSelectorInput())
+    await outlastBlurCommit()
 
     expect(toastMocks.toast.error).not.toHaveBeenCalled()
   })
@@ -1142,10 +1132,8 @@ describe('one panel per tab', () => {
 
     await switchTo(OTHER_TAB_ID)
     await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
-    await act(async () => {
-      mainSelectorInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
-      await new Promise((resolve) => setTimeout(resolve, 200))
-    })
+    fireEvent.focusOut(mainSelectorInput())
+    await outlastBlurCommit()
     await switchTo(TAB_ID)
 
     expect(mainSelectorInput().value).toBe('//li')
@@ -1172,9 +1160,7 @@ describe('one panel per tab', () => {
     view = await render()
     await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
     fireEvent.change(mainSelectorInput(), { target: { value: '//li' } })
-    act(() => {
-      mainSelectorInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
-    })
+    fireEvent.focusOut(mainSelectorInput())
     await switchTo(OTHER_TAB_ID)
     const guessedColumns = [{ name: 'Guessed', selector: './td[3]' }]
     // A guess that was in flight lands while the tab is in the background.
@@ -1196,9 +1182,7 @@ describe('one panel per tab', () => {
     await switchTo(TAB_ID)
     getItem.mockRestore()
     // Longer than the blur's own delay: the commit waits for the read itself.
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 200))
-    })
+    await outlastBlurCommit()
     expect(sidePanelWrites(sendMessage)).toEqual([])
     await act(async () => {
       release!(writtenWhileHidden)
@@ -1220,9 +1204,7 @@ describe('one panel per tab', () => {
     await switchTo(OTHER_TAB_ID)
     await waitFor(() => expect(mainSelectorInput().value).toBe(''))
     fireEvent.change(mainSelectorInput(), { target: { value: '//li' } })
-    act(() => {
-      mainSelectorInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
-    })
+    fireEvent.focusOut(mainSelectorInput())
     await switchTo(TAB_ID)
     const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
       undefined as never,
@@ -1244,9 +1226,7 @@ describe('one panel per tab', () => {
     view = await render()
     await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
     fireEvent.change(mainSelectorInput(), { target: { value: '//li' } })
-    act(() => {
-      mainSelectorInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
-    })
+    fireEvent.focusOut(mainSelectorInput())
     let release: ((value: SidePanelConfig | null) => void) | undefined
     await switchTo(OTHER_TAB_ID)
     const getItem = vi
@@ -1271,9 +1251,7 @@ describe('one panel per tab', () => {
     view = await render()
     await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
     fireEvent.change(mainSelectorInput(), { target: { value: '//li' } })
-    act(() => {
-      mainSelectorInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
-    })
+    fireEvent.focusOut(mainSelectorInput())
     await switchTo(OTHER_TAB_ID)
     const getItem = vi
       .spyOn(sidePanelConfigItem(TAB_ID), 'getValue')
@@ -1319,14 +1297,10 @@ describe('one panel per tab', () => {
       undefined as never,
     )
 
-    // The blur defers its commit by 150ms; the switch lands inside that window.
-    act(() => {
-      mainSelectorInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
-    })
+    // The switch lands inside the blur's commit defer.
+    fireEvent.focusOut(mainSelectorInput())
     await switchTo(OTHER_TAB_ID)
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 200))
-    })
+    await outlastBlurCommit()
     expect(sidePanelWrites(sendMessage)).toEqual([])
 
     await switchTo(TAB_ID)

@@ -13,6 +13,7 @@ import {
   type SidePanelConfig,
 } from '@/utils/types'
 import { chromeExtensionId } from '@@/package.json' with { type: 'json' }
+import { outlastBlurCommit } from '@@/tests/support/blur-commit'
 import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
 import { renderSettled } from '@@/tests/support/settle'
 import { type RenderResult, act, fireEvent, screen, waitFor } from '@testing-library/react'
@@ -302,10 +303,8 @@ describe('SidePanel', () => {
       view = await render()
 
       fireEvent.change(mainSelectorInput(), { target: { value: '//li' } })
-      await act(async () => {
-        mainSelectorInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
-        await new Promise((resolve) => setTimeout(resolve, 200))
-      })
+      fireEvent.focusOut(mainSelectorInput())
+      await outlastBlurCommit()
 
       expect(sendMessage).toHaveBeenCalledWith(
         TAB_ID,
@@ -329,10 +328,8 @@ describe('SidePanel', () => {
       view = await render()
 
       fireEvent.change(mainSelectorInput(), { target: { value: '//[[' } })
-      await act(async () => {
-        mainSelectorInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
-        await new Promise((resolve) => setTimeout(resolve, 200))
-      })
+      fireEvent.focusOut(mainSelectorInput())
+      await outlastBlurCommit()
 
       expect(runtimeSend).toHaveBeenCalledWith({
         type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,

@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
-import { ConfigForm } from '@/components/ConfigForm'
+import { BLUR_COMMIT_DELAY_MS, ConfigForm } from '@/components/ConfigForm'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ANALYTICS_EVENTS, ANALYTICS_SOURCES } from '@/utils/analytics'
 import { recentMainSelectorsItem, userPresetsItem } from '@/utils/storage'
 import { SYSTEM_PRESETS } from '@/utils/system_presets'
 import { type Preset, type ScrapeConfig } from '@/utils/types'
+import { outlastBlurCommit } from '@@/tests/support/blur-commit'
 import { stubOffsetWidth } from '@@/tests/support/dom'
 import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
 import { renderSettled, settleEffects } from '@@/tests/support/settle'
@@ -169,10 +170,10 @@ describe('ConfigForm', () => {
       view = await render({ onChange, onHighlight })
 
       fireEvent.change(mainSelectorInput(), { target: { value: '//li' } })
+      // React delivers onBlur from the bubbling focusout event.
+      fireEvent.focusOut(mainSelectorInput())
       await act(() => {
-        // React delivers onBlur from the bubbling focusout event.
-        mainSelectorInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
-        vi.advanceTimersByTime(200)
+        vi.advanceTimersByTime(BLUR_COMMIT_DELAY_MS)
       })
 
       expect(onChange).toHaveBeenCalledWith({ ...config, mainSelector: '//li' })
@@ -186,10 +187,10 @@ describe('ConfigForm', () => {
       view = await render({ onHighlight })
 
       fireEvent.change(mainSelectorInput(), { target: { value: '   ' } })
+      // React delivers onBlur from the bubbling focusout event.
+      fireEvent.focusOut(mainSelectorInput())
       await act(() => {
-        // React delivers onBlur from the bubbling focusout event.
-        mainSelectorInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
-        vi.advanceTimersByTime(200)
+        vi.advanceTimersByTime(BLUR_COMMIT_DELAY_MS)
       })
 
       expect(onHighlight).not.toHaveBeenCalled()
@@ -202,9 +203,9 @@ describe('ConfigForm', () => {
       const onHighlight = vi.fn()
       view = await render({ onChange, onHighlight })
 
+      fireEvent.focusOut(mainSelectorInput())
       await act(() => {
-        mainSelectorInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
-        vi.advanceTimersByTime(200)
+        vi.advanceTimersByTime(BLUR_COMMIT_DELAY_MS)
       })
 
       expect(onChange).not.toHaveBeenCalled()
@@ -218,9 +219,9 @@ describe('ConfigForm', () => {
       const onHighlight = vi.fn()
       view = await render({ onChange, onHighlight, highlightMatchCount: undefined })
 
+      fireEvent.focusOut(mainSelectorInput())
       await act(() => {
-        mainSelectorInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
-        vi.advanceTimersByTime(200)
+        vi.advanceTimersByTime(BLUR_COMMIT_DELAY_MS)
       })
 
       expect(onChange).not.toHaveBeenCalled()
@@ -240,7 +241,7 @@ describe('ConfigForm', () => {
         </TooltipProvider>,
       )
       act(() => {
-        vi.advanceTimersByTime(200)
+        vi.advanceTimersByTime(BLUR_COMMIT_DELAY_MS)
       })
 
       expect(onHighlight).not.toHaveBeenCalled()
@@ -253,9 +254,9 @@ describe('ConfigForm', () => {
       view = await render({ onChange, onHighlight })
 
       fireEvent.change(mainSelectorInput(), { target: { value: ' //tr ' } })
+      fireEvent.focusOut(mainSelectorInput())
       await act(() => {
-        mainSelectorInput().dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
-        vi.advanceTimersByTime(200)
+        vi.advanceTimersByTime(BLUR_COMMIT_DELAY_MS)
       })
 
       expect(onChange).not.toHaveBeenCalled()
@@ -283,7 +284,7 @@ describe('ConfigForm', () => {
         </TooltipProvider>,
       )
       act(() => {
-        vi.advanceTimersByTime(200)
+        vi.advanceTimersByTime(BLUR_COMMIT_DELAY_MS)
       })
 
       expect(onChange).not.toHaveBeenCalled()
@@ -399,12 +400,6 @@ describe('ConfigForm', () => {
         fireEvent.change(mainSelectorInput(), { target: { value } })
       }
 
-      /** Outlast the 150ms defer, so a commit the press failed to cancel lands. */
-      const letTheBlurCommitFallDue = () =>
-        act(async () => {
-          await new Promise((resolve) => setTimeout(resolve, 200))
-        })
-
       it('validates the edited selector instead of scraping the old one', async () => {
         // #271: the press scraped the selector the field held before the edit.
         const onScrape = vi.fn()
@@ -430,7 +425,7 @@ describe('ConfigForm', () => {
 
         const user = userEvent.setup()
         await user.pointer({ keys: '[MouseLeft>]', target: validate })
-        await letTheBlurCommitFallDue()
+        await outlastBlurCommit()
         await user.pointer({ keys: '[/MouseLeft]', target: validate })
 
         expect(onScrape).not.toHaveBeenCalled()
@@ -445,7 +440,7 @@ describe('ConfigForm', () => {
 
         const user = userEvent.setup()
         await user.pointer({ keys: '[MouseLeft>]', target: byText('Validate selector') })
-        await letTheBlurCommitFallDue()
+        await outlastBlurCommit()
         await user.pointer({ keys: '[/MouseLeft]', target: view.container })
 
         expect(onHighlight).not.toHaveBeenCalled()
@@ -472,7 +467,7 @@ describe('ConfigForm', () => {
         editSelector('//li')
 
         await pressActionButton('Validate selector')
-        await letTheBlurCommitFallDue()
+        await outlastBlurCommit()
 
         expect(onHighlight).toHaveBeenCalledTimes(1)
       })
@@ -495,7 +490,7 @@ describe('ConfigForm', () => {
             />
           </TooltipProvider>,
         )
-        await letTheBlurCommitFallDue()
+        await outlastBlurCommit()
 
         expect(onChange).toHaveBeenCalledTimes(1)
         expect(onHighlight).toHaveBeenCalledTimes(1)
@@ -509,7 +504,7 @@ describe('ConfigForm', () => {
         await editSelector(' //tr ')
 
         await pressActionButton('Scrape')
-        await letTheBlurCommitFallDue()
+        await outlastBlurCommit()
 
         expect(onScrape).toHaveBeenCalledTimes(1)
         expect(onHighlight).not.toHaveBeenCalled()
