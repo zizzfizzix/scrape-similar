@@ -79,6 +79,8 @@ export const TabPanel = memo(function TabPanel({
   // Set wherever the config is, not from an effect: ConfigForm's effects run
   // before this component's, and its held blur commit reads the config from one.
   const shownConfigRef = useRef(config)
+  // The write a selector commit sent, which the commit's highlight waits for.
+  const selectorWriteRef = useRef<{ selector: string; isStored: Promise<boolean> } | null>(null)
 
   const applyStoredState = useCallback(
     (stored: SidePanelConfig) => {
@@ -142,7 +144,7 @@ export const TabPanel = memo(function TabPanel({
 
   const showConfig = (incomingConfig: ScrapeConfig) => {
     const newConfig = withTrimmedMainSelector(incomingConfig)
-    const hasMainSelectorChanged = newConfig.mainSelector !== config.mainSelector
+    const hasMainSelectorChanged = newConfig.mainSelector !== shownConfigRef.current.mainSelector
 
     shownConfigRef.current = newConfig
     setConfig(newConfig)
@@ -207,13 +209,16 @@ export const TabPanel = memo(function TabPanel({
     const shown = showConfig({ ...latest, mainSelector })
     const updates = buildMainSelectorUpdates(latest.mainSelector, shown.mainSelector)
     if (tabId !== null && updates) {
-      reportRejection(writeConfig(tabId, updates, MAIN_SELECTOR_NOT_SAVED))
+      const isStored = writeConfig(tabId, updates, MAIN_SELECTOR_NOT_SAVED)
+      selectorWriteRef.current = { selector: shown.mainSelector, isStored }
+      reportRejection(isStored)
     }
   }
 
   const handleColumnEdit = (edit: ColumnEdit) => {
-    // The form builds the edit from the config this render passed it, so it always applies.
-    showConfig({ ...config, columns: applyColumnEdit(config.columns, edit)! })
+    // The form builds the edit from the config this render passed it, so it
+    // always applies; the other fields come from the latest config.
+    showConfig({ ...shownConfigRef.current, columns: applyColumnEdit(config.columns, edit)! })
     if (tabId !== null) {
       reportRejection(writeConfig(tabId, { columnEdit: edit }, COLUMN_EDIT_NOT_SAVED))
     }
@@ -271,7 +276,27 @@ export const TabPanel = memo(function TabPanel({
     }
   }, [scrapedRowCount])
 
+  // A highlight waits for the write that set its selector, so a write that
+  // fails leaves neither the highlight on the page nor its match count stored,
+  // and one superseded on its way does not paint over the newer selector.
+  const highlightOnceStored = async (selector: string, isStored: Promise<boolean>) => {
+    const wasStored = await isStored
+    if (wasStored && selector && shownConfigRef.current.mainSelector === selector) {
+      sendHighlight(selector)
+    }
+  }
+
   const handleHighlight = (selector: string) => {
+    const write = selectorWriteRef.current
+    if (write?.selector === selector) {
+      selectorWriteRef.current = null
+      reportRejection(highlightOnceStored(selector, write.isStored))
+      return
+    }
+    sendHighlight(selector)
+  }
+
+  const sendHighlight = (selector: string) => {
     if (tabId === null) return
     browser.tabs.sendMessage(
       tabId,
@@ -332,22 +357,11 @@ export const TabPanel = memo(function TabPanel({
     )
   }
 
-  // Highlighting waits for the preset to be stored, so a load that fails
-  // leaves neither its highlight on the page nor its match count in storage.
-  // A selector committed or another preset loaded while this one was on its way
-  // has its own highlight, which this one must not paint over.
-  const storePreset = async (id: number, loaded: ScrapeConfig) => {
-    const isStored = await writeConfig(id, buildConfigReplaceUpdates(loaded), PRESET_NOT_SAVED)
-    const isStillShown = shownConfigRef.current.mainSelector === loaded.mainSelector
-    if (isStored && isStillShown && loaded.mainSelector) {
-      handleHighlight(loaded.mainSelector)
-    }
-  }
-
   const handleLoadPreset = (preset: Preset) => {
     const loaded = showConfig(preset.config)
     if (tabId !== null) {
-      reportRejection(storePreset(tabId, loaded))
+      const isStored = writeConfig(tabId, buildConfigReplaceUpdates(loaded), PRESET_NOT_SAVED)
+      reportRejection(highlightOnceStored(loaded.mainSelector, isStored))
     }
 
     // User presets are named by the user, so only a system preset's name and id are sent.

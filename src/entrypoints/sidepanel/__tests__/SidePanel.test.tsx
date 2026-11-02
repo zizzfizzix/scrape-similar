@@ -296,9 +296,9 @@ describe('SidePanel', () => {
   describe('highlighting', () => {
     it('records a successful match count', async () => {
       const sendMessage = contentScriptReplies({ success: true, matchCount: 7 })
-      const runtimeSend = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
-        undefined,
-      )
+      const runtimeSend = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue({
+        success: true,
+      })
       view = await render()
 
       fireEvent.change(mainSelectorInput(), { target: { value: '//li' } })
@@ -321,9 +321,9 @@ describe('SidePanel', () => {
 
     it('records a selector the content script rejected', async () => {
       contentScriptReplies({ success: false, error: 'Invalid XPath' })
-      const runtimeSend = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
-        undefined,
-      )
+      const runtimeSend = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue({
+        success: true,
+      })
       view = await render()
 
       fireEvent.change(mainSelectorInput(), { target: { value: '//[[' } })

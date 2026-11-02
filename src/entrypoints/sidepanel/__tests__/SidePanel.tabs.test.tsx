@@ -1305,9 +1305,9 @@ describe('one panel per tab', () => {
     view = await render()
     await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
     fireEvent.change(mainSelectorInput(), { target: { value: '//li' } })
-    const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
-      undefined,
-    )
+    const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue({
+      success: true,
+    })
 
     // The switch lands inside the blur's commit defer.
     fireEvent.focusOut(mainSelectorInput())
@@ -1328,11 +1328,13 @@ describe('one panel per tab', () => {
         },
       }),
     )
-    // The highlight that follows the commit is stored for the same tab.
-    expect(sidePanelWrites(sendMessage)).toEqual([
-      expect.objectContaining({ tabId: TAB_ID }),
-      expect.objectContaining({ tabId: TAB_ID }),
-    ])
+    // The highlight that follows the stored commit is stored for the same tab.
+    await waitFor(() =>
+      expect(sidePanelWrites(sendMessage)).toEqual([
+        expect.objectContaining({ tabId: TAB_ID }),
+        expect.objectContaining({ tabId: TAB_ID }),
+      ]),
+    )
   })
 
   it('keeps an open save drawer and its typed name with its own tab', async () => {

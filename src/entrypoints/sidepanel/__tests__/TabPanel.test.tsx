@@ -273,6 +273,14 @@ describe('TabPanel numbered config writes', () => {
     })
   }
 
+  /** Commit a selector as ConfigForm does: the change, then its highlight. */
+  const commitSelector = (selector: string) => {
+    act(() => {
+      form.props!.onMainSelectorChange(selector)
+      form.props!.onHighlight(selector)
+    })
+  }
+
   const loadPreset = (loaded: Preset) => {
     act(() => {
       form.props!.onLoadPreset(loaded)
@@ -412,9 +420,7 @@ describe('TabPanel numbered config writes', () => {
       'a main selector',
       MAIN_SELECTOR_NOT_SAVED,
       () => {
-        act(() => {
-          form.props!.onMainSelectorChange('//li')
-        })
+        commitSelector('//li')
       },
     ],
   ])('restores the stored config when %s is not stored', async (_, failure, write) => {
@@ -619,6 +625,73 @@ describe('TabPanel numbered config writes', () => {
     await release()
 
     expect(form.props!.config).toEqual({ mainSelector: '//li', columns: guessedColumns })
+  })
+
+  it('highlights a committed selector once its write is stored', async () => {
+    await render()
+    const { release } = heldBackground()
+    const tabsSendMessage = spyOnBrowser(fakeBrowser.tabs, 'sendMessage').mockResolvedValue(
+      undefined,
+    )
+
+    commitSelector('//li')
+    await settleEffects()
+
+    expect(highlightRequests(tabsSendMessage)).toEqual([])
+
+    await release()
+
+    expect(highlightRequests(tabsSendMessage)).toEqual([
+      [
+        TAB_ID,
+        { type: MESSAGE_TYPES.HIGHLIGHT_ELEMENTS, payload: { selector: '//li' } },
+        expect.any(Function),
+      ],
+    ])
+  })
+
+  it('does not highlight a selector replaced before its write was stored', async () => {
+    await render()
+    const { release } = heldBackground()
+    const tabsSendMessage = spyOnBrowser(fakeBrowser.tabs, 'sendMessage').mockResolvedValue(
+      undefined,
+    )
+
+    commitSelector('//li')
+    act(() => {
+      form.props!.onMainSelectorChange('//ul')
+    })
+    await release()
+
+    expect(highlightRequests(tabsSendMessage)).toEqual([])
+  })
+
+  it('keeps a selector commit not yet rendered when a column edit follows it', async () => {
+    await render()
+    heldBackground()
+
+    act(() => {
+      form.props!.onMainSelectorChange('//li')
+      form.props!.onColumnEdit(rename)
+    })
+
+    expect(form.props!.config).toEqual({ mainSelector: '//li', columns: [rename.column] })
+  })
+
+  it('keeps the match count of a stored selector not yet rendered when a column edit follows it', async () => {
+    await render()
+    heldBackground()
+
+    await act(async () => {
+      await storage.setItem(storageKey, {
+        currentScrapeConfig: { ...config, mainSelector: '//li' },
+        highlightMatchCount: 5,
+      })
+      await flushMicrotasks()
+      form.props!.onColumnEdit(rename)
+    })
+
+    expect(form.props!.highlightMatchCount).toBe(5)
   })
 
   it('sends nothing without a tab', async () => {
