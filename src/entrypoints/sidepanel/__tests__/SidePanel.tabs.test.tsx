@@ -1198,6 +1198,7 @@ describe('one panel per tab', () => {
           currentScrapeConfig: { mainSelector: '//li' },
           highlightMatchCount: null,
           highlightError: null,
+          panelConfigSeq: 1,
         },
       }),
     )
@@ -1224,6 +1225,7 @@ describe('one panel per tab', () => {
           currentScrapeConfig: { mainSelector: '//li' },
           highlightMatchCount: null,
           highlightError: null,
+          panelConfigSeq: 1,
         },
       }),
     )
@@ -1279,6 +1281,7 @@ describe('one panel per tab', () => {
           currentScrapeConfig: { mainSelector: '//li' },
           highlightMatchCount: null,
           highlightError: null,
+          panelConfigSeq: 1,
         },
       }),
     )
@@ -1321,6 +1324,7 @@ describe('one panel per tab', () => {
           currentScrapeConfig: { mainSelector: '//li' },
           highlightMatchCount: null,
           highlightError: null,
+          panelConfigSeq: 1,
         },
       }),
     )

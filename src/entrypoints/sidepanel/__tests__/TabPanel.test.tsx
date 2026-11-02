@@ -1,14 +1,22 @@
 // @vitest-environment jsdom
 import type { ConfigForm } from '@/components/ConfigForm'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import { COLUMN_EDIT_NOT_SAVED, PRESET_NOT_SAVED, TabPanel } from '@/entrypoints/sidepanel/TabPanel'
+import { applySidePanelDataUpdates } from '@/entrypoints/background/services/session-storage'
+import {
+  COLUMN_EDIT_NOT_SAVED,
+  MAIN_SELECTOR_NOT_SAVED,
+  PRESET_NOT_SAVED,
+  TabPanel,
+} from '@/entrypoints/sidepanel/TabPanel'
 import { DEFAULT_SCRAPE_CONFIG } from '@/utils/scrape-config'
 import {
   MESSAGE_TYPES,
   type ColumnDefinition,
   type ColumnEdit,
+  type Message,
+  type Preset,
   type ScrapeConfig,
-  type SidePanelConfig,
+  type SidePanelConfigUpdate,
 } from '@/utils/types'
 import { spyOnBrowser } from '@@/tests/support/fake-browser'
 import { renderSettled, settleEffects } from '@@/tests/support/settle'
@@ -19,6 +27,11 @@ import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
 
 type ConfigFormProps = Parameters<typeof ConfigForm>[0]
+
+interface UpdatePayload {
+  tabId: number
+  updates: SidePanelConfigUpdate
+}
 
 const toastMocks = vi.hoisted(() => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 vi.mock('sonner', () => toastMocks)
@@ -96,6 +109,7 @@ describe('TabPanel config edits', () => {
               currentScrapeConfig: { mainSelector: '//li' },
               highlightMatchCount: null,
               highlightError: null,
+              panelConfigSeq: 1,
             },
           },
         },
@@ -124,6 +138,7 @@ describe('TabPanel config edits', () => {
               currentScrapeConfig: { mainSelector: '//li' },
               highlightMatchCount: null,
               highlightError: null,
+              panelConfigSeq: 1,
             },
           },
         },
@@ -133,9 +148,9 @@ describe('TabPanel config edits', () => {
 
   it('trims the selector of a loaded preset before showing, writing and highlighting it', async () => {
     await render()
-    const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
-      undefined,
-    )
+    const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue({
+      success: true,
+    })
     const tabsSendMessage = spyOnBrowser(fakeBrowser.tabs, 'sendMessage').mockResolvedValue(
       undefined,
     )
@@ -160,11 +175,13 @@ describe('TabPanel config edits', () => {
               currentScrapeConfig: { mainSelector: '//li', columns: config.columns },
               highlightMatchCount: null,
               highlightError: null,
+              panelConfigSeq: 1,
             },
           },
         },
       ],
     ])
+    await settleEffects()
     expect(tabsSendMessage).toHaveBeenCalledWith(
       TAB_ID,
       { type: MESSAGE_TYPES.HIGHLIGHT_ELEMENTS, payload: { selector: '//li' } },
@@ -188,7 +205,7 @@ describe('TabPanel config edits', () => {
   })
 })
 
-describe('TabPanel column edits', () => {
+describe('TabPanel numbered config writes', () => {
   const [rank] = config.columns as [ColumnDefinition]
   const rename: ColumnEdit = {
     type: 'update',
@@ -196,15 +213,37 @@ describe('TabPanel column edits', () => {
     expected: rank,
     column: { name: 'Position', selector: './td[1]' },
   }
+  const added = { name: 'Column 2', selector: '.' }
   const guessedColumns = [{ name: 'Title', selector: './/h2' }]
   const storageKey = `session:sidepanel_config_${TAB_ID}`
-  const applied = { success: true, isColumnEditDropped: false }
-  const superseded = { success: true, isColumnEditDropped: true }
+  const preset = (mainSelector: string, columns: ColumnDefinition[]): Preset => ({
+    id: 'p',
+    name: 'Preset',
+    config: { mainSelector, columns },
+    createdAt: 0,
+  })
 
-  /** Store `columns` as the background would on applying an edit, then reply. */
-  const applyAndReply = (columns: ColumnDefinition[]) => async () => {
-    await storage.setItem(storageKey, { currentScrapeConfig: { ...config, columns } })
-    return applied
+  /**
+   * A background that applies each write with the real merge, once released,
+   * in the order the writes were sent.
+   */
+  const heldBackground = () => {
+    const gates: PromiseWithResolvers<undefined>[] = []
+    const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockImplementation(
+      async (message: unknown) => {
+        const gate = Promise.withResolvers<undefined>()
+        gates.push(gate)
+        await gate.promise
+        const { tabId, updates } = (message as Message<UpdatePayload>).payload!
+        await applySidePanelDataUpdates(tabId, updates)
+        return { success: true }
+      },
+    )
+    const release = async () => {
+      gates.shift()!.resolve(undefined)
+      await settleEffects()
+    }
+    return { sendMessage, release }
   }
 
   const edit = (columnEdit: ColumnEdit) => {
@@ -213,7 +252,24 @@ describe('TabPanel column edits', () => {
     })
   }
 
-  const spyOnReadBack = () => vi.spyOn(sidePanelConfigItem(TAB_ID), 'getValue')
+  const loadPreset = (loaded: Preset) => {
+    act(() => {
+      form.props!.onLoadPreset(loaded)
+    })
+  }
+
+  /** A write another context (Guess, the picker) stores while the panel waits. */
+  const storeGuess = async (mainSelector = '//tr') => {
+    await applySidePanelDataUpdates(TAB_ID, {
+      currentScrapeConfig: { mainSelector, columns: guessedColumns },
+    })
+    await settleEffects()
+  }
+
+  const highlightRequests = (tabsSendMessage: ReturnType<typeof spyOnBrowser>) =>
+    tabsSendMessage.mock.calls.filter(
+      ([, message]) => (message as { type: string }).type === MESSAGE_TYPES.HIGHLIGHT_ELEMENTS,
+    )
 
   beforeEach(async () => {
     fakeBrowser.reset()
@@ -222,257 +278,210 @@ describe('TabPanel column edits', () => {
     await storage.setItem(storageKey, { currentScrapeConfig: config })
   })
 
-  it('shows the edit and sends it as an operation rather than the column list', async () => {
+  it('shows a column edit and sends it as a numbered operation', async () => {
     await render()
-    const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockImplementation(
-      applyAndReply([rename.column]),
-    )
+    const { sendMessage, release } = heldBackground()
 
     edit(rename)
-    await settleEffects()
+    await release()
 
     expect(form.props!.config.columns).toEqual([rename.column])
     expect(sidePanelWrites(sendMessage)).toEqual([
       [
         {
           type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
-          payload: { tabId: TAB_ID, updates: { columnEdit: rename } },
+          payload: { tabId: TAB_ID, updates: { columnEdit: rename, panelConfigSeq: 1 } },
         },
       ],
     ])
   })
 
-  it('reads nothing back when the stored columns match the panel', async () => {
+  it('numbers its writes after the last one storage recorded', async () => {
+    await storage.setItem(storageKey, { currentScrapeConfig: config, panelConfigSeq: 7 })
     await render()
-    spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockImplementation(
-      applyAndReply([rename.column]),
-    )
-    const readBack = spyOnReadBack()
+    const { sendMessage, release } = heldBackground()
 
     edit(rename)
-    await settleEffects()
+    await release()
 
-    expect(readBack).not.toHaveBeenCalled()
+    expect(sidePanelWrites(sendMessage)[0]![0]).toMatchObject({
+      payload: { updates: { panelConfigSeq: 8 } },
+    })
   })
 
-  it('reads back the stored columns once the background reports the edit superseded', async () => {
+  it('keeps guessed columns stored before a column edit lands, once the edit is answered', async () => {
     await render()
-    // Storage is left as it was, so no watcher fires and only the read-back can restore it.
-    spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(superseded)
+    const { release } = heldBackground()
 
     edit(rename)
+    await storeGuess()
+
+    // The Guess predates the edit still on its way, so the edit stays on screen.
     expect(form.props!.config.columns).toEqual([rename.column])
 
-    await waitFor(() => expect(form.props!.config.columns).toEqual(config.columns))
+    await release()
+
+    expect(form.props!.config.columns).toEqual(guessedColumns)
   })
 
-  it('holds the stored columns while an edit is unanswered and shows them once it is', async () => {
+  it('lets a Guess stored after a column edit replace the edited columns', async () => {
     await render()
-    const reply = Promise.withResolvers<unknown>()
-    spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockReturnValue(reply.promise)
+    const { release } = heldBackground()
 
     edit(rename)
-    // A Guess reply stored after the edit, with a selector of its own.
-    await storage.setItem(storageKey, {
-      currentScrapeConfig: { mainSelector: '//li', columns: guessedColumns },
-    })
-    await settleEffects()
+    await release()
+    await storeGuess()
 
-    expect(form.props!.config).toEqual({ mainSelector: '//li', columns: [rename.column] })
-
-    reply.resolve(applied)
-    await settleEffects()
-
-    expect(form.props!.config).toEqual({ mainSelector: '//li', columns: guessedColumns })
+    expect(form.props!.config.columns).toEqual(guessedColumns)
   })
 
-  it('takes only the columns from a read-back', async () => {
+  it('does not roll a column back to an earlier keystroke while a later one is unanswered', async () => {
     await render()
-    const reply = Promise.withResolvers<unknown>()
-    spyOnBrowser(fakeBrowser.runtime, 'sendMessage')
-      .mockReturnValueOnce(reply.promise)
-      // The selector write has not landed when the read-back runs.
-      .mockResolvedValue(undefined)
-
-    edit(rename)
-    act(() => {
-      form.props!.onMainSelectorChange('//li')
-    })
-    reply.resolve(superseded)
-    await settleEffects()
-
-    expect(form.props!.config).toEqual({ mainSelector: '//li', columns: config.columns })
-  })
-
-  it('reads storage back once, after the last of several edits is answered', async () => {
-    await render()
-    const replies = [Promise.withResolvers<unknown>(), Promise.withResolvers<unknown>()]
-    spyOnBrowser(fakeBrowser.runtime, 'sendMessage')
-      .mockReturnValueOnce(replies[0]!.promise)
-      .mockReturnValueOnce(replies[1]!.promise)
-    const readBack = spyOnReadBack()
+    const { release } = heldBackground()
 
     edit(rename)
     edit({ type: 'add' })
-    readBack.mockClear()
-    replies[0]!.resolve(superseded)
-    await settleEffects()
+    await release()
 
-    expect(readBack).not.toHaveBeenCalled()
+    expect(form.props!.config.columns).toEqual([rename.column, added])
 
-    replies[1]!.resolve(applied)
-    await settleEffects()
+    await release()
 
-    expect(readBack).toHaveBeenCalledTimes(1)
-    expect(form.props!.config.columns).toEqual(config.columns)
+    expect(form.props!.config.columns).toEqual([rename.column, added])
   })
 
-  it('discards a read-back that an edit made during the read has overtaken', async () => {
+  it('shows a preset whole while it is unanswered and highlights it once stored', async () => {
     await render()
-    const laterReply = Promise.withResolvers<unknown>()
-    spyOnBrowser(fakeBrowser.runtime, 'sendMessage')
-      .mockResolvedValueOnce(superseded)
-      .mockReturnValueOnce(laterReply.promise)
-    const read = Promise.withResolvers<SidePanelConfig | null>()
-    spyOnReadBack().mockReturnValueOnce(read.promise)
+    const { release } = heldBackground()
+    const tabsSendMessage = spyOnBrowser(fakeBrowser.tabs, 'sendMessage').mockResolvedValue(
+      undefined,
+    )
+    const loaded = preset('//li', guessedColumns)
 
     edit(rename)
-    await settleEffects()
-    edit({ type: 'add' })
-    read.resolve({ currentScrapeConfig: { ...config, columns: guessedColumns } })
-    await settleEffects()
+    loadPreset(loaded)
+    // The edit lands first; its state predates the preset.
+    await release()
 
-    expect(form.props!.config.columns).toEqual([rename.column, { name: 'Column 2', selector: '.' }])
+    expect(form.props!.config).toEqual(loaded.config)
+    expect(highlightRequests(tabsSendMessage)).toEqual([])
+
+    await release()
+
+    expect(form.props!.config).toEqual(loaded.config)
+    expect(highlightRequests(tabsSendMessage)).toHaveLength(1)
   })
 
   it.each([
-    ['refuses the edit', () => Promise.resolve({ success: false, error: 'Lock timed out' })],
-    ['cannot be reached', () => Promise.reject(new Error('Receiving end does not exist'))],
-  ])(
-    'reports a lost edit and shows the stored columns when the background %s',
-    async (_, reply) => {
-      await render()
-      spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockImplementation(reply)
-      vi.spyOn(log, 'error').mockImplementation(() => {})
-
-      edit(rename)
-
-      await waitFor(() => expect(form.props!.config.columns).toEqual(config.columns))
-      expect(toastMocks.toast.error).toHaveBeenCalledWith(COLUMN_EDIT_NOT_SAVED, {
-        id: COLUMN_EDIT_NOT_SAVED,
-      })
-    },
-  )
-
-  it('shows the default columns when nothing is stored for the tab', async () => {
+    [
+      'a column edit',
+      COLUMN_EDIT_NOT_SAVED,
+      () => {
+        edit(rename)
+      },
+    ],
+    [
+      'a preset load',
+      PRESET_NOT_SAVED,
+      () => {
+        loadPreset(preset('//li', guessedColumns))
+      },
+    ],
+    [
+      'a main selector',
+      MAIN_SELECTOR_NOT_SAVED,
+      () => {
+        act(() => {
+          form.props!.onMainSelectorChange('//li')
+        })
+      },
+    ],
+  ])('restores the stored config when %s is not stored', async (_, failure, write) => {
     await render()
-    spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockImplementation(async () => {
-      await storage.removeItem(storageKey)
-      return superseded
+    spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue({
+      success: false,
+      error: 'Lock timed out',
     })
+    const tabsSendMessage = spyOnBrowser(fakeBrowser.tabs, 'sendMessage').mockResolvedValue(
+      undefined,
+    )
+    vi.spyOn(log, 'error').mockImplementation(() => {})
 
-    edit(rename)
+    write()
 
-    await waitFor(() => expect(form.props!.config.columns).toEqual(DEFAULT_SCRAPE_CONFIG.columns))
+    await waitFor(() => expect(form.props!.config).toEqual(config))
+    expect(toastMocks.toast.error).toHaveBeenCalledWith(failure, { id: failure })
+    expect(highlightRequests(tabsSendMessage)).toEqual([])
   })
 
-  it('reads back on the next settle when a read-back fails', async () => {
+  it('restores the stored config when the background cannot be reached', async () => {
     await render()
-    const added = { name: 'Column 2', selector: '.' }
-    spyOnBrowser(fakeBrowser.runtime, 'sendMessage')
-      .mockResolvedValueOnce(superseded)
-      // Stores exactly what the panel shows, so only the failed read calls for another.
-      .mockImplementationOnce(applyAndReply([rename.column, added]))
-    const readBack = spyOnReadBack().mockRejectedValueOnce(new Error('Storage unavailable'))
+    spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockRejectedValue(
+      new Error('Receiving end does not exist'),
+    )
     vi.spyOn(log, 'error').mockImplementation(() => {})
 
     edit(rename)
-    await settleEffects()
-    edit({ type: 'add' })
-    await settleEffects()
 
-    expect(readBack).toHaveBeenCalledTimes(2)
+    await waitFor(() => expect(form.props!.config).toEqual(config))
+    expect(toastMocks.toast.error).toHaveBeenCalledWith(COLUMN_EDIT_NOT_SAVED, {
+      id: COLUMN_EDIT_NOT_SAVED,
+    })
   })
 
-  it('counts a preset load with the column edits it overtakes', async () => {
+  it('shows the state of a later write when an earlier one fails', async () => {
     await render()
-    const editReply = Promise.withResolvers<unknown>()
-    const presetReply = Promise.withResolvers<unknown>()
-    const presetColumns = [{ name: 'Price', selector: './/span' }]
+    const later = Promise.withResolvers<undefined>()
     spyOnBrowser(fakeBrowser.runtime, 'sendMessage')
-      .mockReturnValueOnce(editReply.promise)
-      .mockReturnValueOnce(presetReply.promise)
-    const readBack = spyOnReadBack()
+      .mockResolvedValueOnce({ success: false, error: 'Lock timed out' })
+      .mockImplementationOnce(async (message: unknown) => {
+        await later.promise
+        const { tabId, updates } = (message as Message<UpdatePayload>).payload!
+        await applySidePanelDataUpdates(tabId, updates)
+        return { success: true }
+      })
+    const readBack = vi.spyOn(sidePanelConfigItem(TAB_ID), 'getValue')
+    vi.spyOn(log, 'error').mockImplementation(() => {})
 
     edit(rename)
-    // The edit's own write reaches the watcher; the preset's has not landed yet.
-    await storage.setItem(storageKey, {
-      currentScrapeConfig: { ...config, columns: [rename.column] },
-    })
-    act(() => {
-      form.props!.onLoadPreset({
-        id: 'p',
-        name: 'Prices',
-        // A blank selector, so the load starts no highlight.
-        config: { mainSelector: '', columns: presetColumns },
-        createdAt: 0,
-      })
-    })
-    editReply.resolve(applied)
-    await settleEffects()
-
-    expect(form.props!.config.columns).toEqual(presetColumns)
-
-    await storage.setItem(storageKey, {
-      currentScrapeConfig: { mainSelector: '', columns: presetColumns },
-    })
-    presetReply.resolve({ success: true })
+    edit({ type: 'update', index: 0, expected: rename.column, column: rank })
+    readBack.mockClear()
     await settleEffects()
 
     expect(readBack).not.toHaveBeenCalled()
-    expect(form.props!.config.columns).toEqual(presetColumns)
+
+    later.resolve(undefined)
+    await settleEffects()
+
+    // The first edit never reached storage, so the second one no longer matches it.
+    expect(form.props!.config.columns).toEqual(config.columns)
   })
 
-  it.each([
-    ['refuses the write', () => Promise.resolve({ success: false, error: 'Lock timed out' })],
-    ['cannot be reached', () => Promise.reject(new Error('Receiving end does not exist'))],
-  ])(
-    'reports a lost preset load and restores the saved configuration when the background %s',
-    async (_, reply) => {
-      await render()
-      spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockImplementation(reply)
-      vi.spyOn(log, 'error').mockImplementation(() => {})
+  it('shows the default config when a write fails and nothing is stored', async () => {
+    await render()
+    spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockImplementation(async () => {
+      await storage.removeItem(storageKey)
+      return { success: false, error: 'Tab closed' }
+    })
+    vi.spyOn(log, 'error').mockImplementation(() => {})
 
-      act(() => {
-        form.props!.onLoadPreset({
-          id: 'p',
-          name: 'Titles',
-          // A blank selector, so the load starts no highlight.
-          config: { mainSelector: '', columns: guessedColumns },
-          createdAt: 0,
-        })
-      })
+    edit(rename)
 
-      await waitFor(() => expect(form.props!.config).toEqual(config))
-      expect(toastMocks.toast.error).toHaveBeenCalledWith(PRESET_NOT_SAVED, {
-        id: PRESET_NOT_SAVED,
-      })
-    },
-  )
+    await waitFor(() => expect(form.props!.config).toEqual(DEFAULT_SCRAPE_CONFIG))
+  })
 
   it('keeps a column edit when a selector commit from an earlier render lands after it', async () => {
     await render()
-    spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockImplementation(
-      applyAndReply([rename.column]),
-    )
+    const { release } = heldBackground()
     // The handler a deferred blur commit holds on to.
     const commitFromBlurRender = form.props!.onMainSelectorChange
 
     edit(rename)
-    await settleEffects()
+    await release()
     act(() => {
       commitFromBlurRender('//li')
     })
+    await release()
 
     expect(form.props!.config).toEqual({ mainSelector: '//li', columns: [rename.column] })
   })
@@ -482,27 +491,17 @@ describe('TabPanel column edits', () => {
     const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
       undefined,
     )
+    const loaded = preset('', guessedColumns)
 
     edit({ type: 'add' })
     await settleEffects()
 
     expect(form.props!.config.columns).toHaveLength(2)
-    expect(sidePanelWrites(sendMessage)).toEqual([])
-  })
 
-  it('loads a preset without writing it when there is no tab', async () => {
-    await render(null)
-    const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
-      undefined,
-    )
-    const preset = { mainSelector: '', columns: guessedColumns }
-
-    act(() => {
-      form.props!.onLoadPreset({ id: 'p', name: 'Titles', config: preset, createdAt: 0 })
-    })
+    loadPreset(loaded)
     await settleEffects()
 
-    expect(form.props!.config).toEqual(preset)
+    expect(form.props!.config).toEqual(loaded.config)
     expect(sidePanelWrites(sendMessage)).toEqual([])
   })
 })

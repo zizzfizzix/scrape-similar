@@ -377,6 +377,7 @@ describe('SidePanel', () => {
             currentScrapeConfig: preset.config,
             highlightMatchCount: null,
             highlightError: null,
+            panelConfigSeq: 1,
           },
         },
       })

@@ -135,7 +135,7 @@ const definedKeys = (value: object): string[] =>
  * Avoids serialising both sides, which for a large scrape result costs
  * megabytes of strings on every storage write.
  */
-export const hasSameData = (a: unknown, b: unknown): boolean => {
+const hasSameData = (a: unknown, b: unknown): boolean => {
   if (Object.is(a, b)) return true
   if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false
   if (Array.isArray(a) !== Array.isArray(b)) return false

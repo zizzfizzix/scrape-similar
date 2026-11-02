@@ -39,7 +39,7 @@ export const setupMessageListener = (): void => {
           return true
         }
         applySidePanelDataUpdates(targetId, updates)
-          .then(({ isColumnEditDropped }) => sendResponse({ success: true, isColumnEditDropped }))
+          .then(() => sendResponse({ success: true }))
           .catch((error: unknown) => {
             log.error('Error updating sidepanel state:', error)
             sendResponse({ success: false, error: (error as Error).message })

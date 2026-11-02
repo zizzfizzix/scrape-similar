@@ -20,17 +20,18 @@ const isTabClosed = (tabId: number, operation: string): boolean => {
  * `currentScrapeConfig` update omits keeps the value the side panel shows for
  * the stored state (`resolveStoredConfig`), so the panel's own partial writes
  * never change a field the user did not edit. A `columnEdit` is applied to the
- * columns shown for the merged state, and dropped when it no longer matches.
+ * columns shown for the merged state, and dropped when it no longer matches;
+ * the update's `panelConfigSeq` is recorded either way, so the panel sees its
+ * write answered by the stored state that replaced its edit.
  */
 export const applySidePanelDataUpdates = async (
   tabId: number,
   updates: SidePanelConfigUpdate,
-): Promise<{ isColumnEditDropped: boolean }> => {
-  let isColumnEditDropped = false
-  if (isTabClosed(tabId, 'side panel update')) return { isColumnEditDropped }
+): Promise<void> => {
+  if (isTabClosed(tabId, 'side panel update')) return
   await updateStorageItem(sidePanelConfigItem(tabId), (stored) => {
     const current = stored ?? {}
-    const { currentScrapeConfig: incoming, columnEdit, ...topLevel } = updates
+    const { currentScrapeConfig: incoming, columnEdit, panelConfigSeq, ...topLevel } = updates
     const next: SidePanelConfig = { ...current, ...topLevel }
     if (incoming && (incoming.mainSelector !== undefined || incoming.columns !== undefined)) {
       const shown = resolveStoredConfig(current)
@@ -51,16 +52,11 @@ export const applySidePanelDataUpdates = async (
         next.currentScrapeConfig = { mainSelector: shown.mainSelector, columns }
       } else {
         log.debug(`Dropped a superseded or malformed column edit for tab ${String(tabId)}`)
-        isColumnEditDropped = true
-        const hasNothingElse =
-          next.currentScrapeConfig === current.currentScrapeConfig &&
-          Object.keys(topLevel).length === 0
-        if (hasNothingElse) return stored
       }
     }
+    if (Number.isInteger(panelConfigSeq)) next.panelConfigSeq = panelConfigSeq
     return next
   })
-  return { isColumnEditDropped }
 }
 
 /**

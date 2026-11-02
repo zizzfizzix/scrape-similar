@@ -43,6 +43,8 @@ export interface SidePanelConfig {
   highlightMatchCount?: number | null
   highlightError?: string | null
   pickerModeActive?: boolean
+  /** Number of the last side panel config write applied (see `TabPanel`). */
+  panelConfigSeq?: number
 }
 
 /**
@@ -87,8 +89,6 @@ export type MessageResponse =
       success: true
       tabId?: number
       debugMode?: boolean
-      /** Whether an UPDATE_SIDEPANEL_DATA's `columnEdit` was dropped: superseded (see `ColumnEdit`) or malformed. */
-      isColumnEditDropped?: boolean
     }
   | {
       success: false
@@ -121,12 +121,6 @@ export interface ExportResult extends StatusReply {
 /** A content script's reply to HIGHLIGHT_ELEMENTS. */
 export interface HighlightReply extends StatusReply {
   matchCount?: number
-}
-
-/** The background's reply to UPDATE_SIDEPANEL_DATA. */
-export interface SidePanelUpdateReply extends StatusReply {
-  /** Documented on `MessageResponse`, whose success branch the background sends. */
-  isColumnEditDropped?: boolean
 }
 
 /** A content script's reply to START_SCRAPE. */

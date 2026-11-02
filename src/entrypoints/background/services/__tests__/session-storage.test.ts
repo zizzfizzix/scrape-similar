@@ -248,9 +248,8 @@ describe('applySidePanelDataUpdates with a column edit', () => {
   })
 
   it('applies an edit to the column it was made against', async () => {
-    const outcome = await applySidePanelDataUpdates(1, { columnEdit: renameText })
+    await applySidePanelDataUpdates(1, { columnEdit: renameText })
 
-    expect(outcome).toEqual({ isColumnEditDropped: false })
     expect((await read(1)).currentScrapeConfig).toEqual({
       mainSelector: '//div',
       columns: [renameText.column, link],
@@ -260,9 +259,8 @@ describe('applySidePanelDataUpdates with a column edit', () => {
   it('keeps guessed columns stored after the panel read its config when the panel renames a column', async () => {
     await storeGuess()
 
-    const outcome = await applySidePanelDataUpdates(1, { columnEdit: renameText })
+    await applySidePanelDataUpdates(1, { columnEdit: renameText })
 
-    expect(outcome).toEqual({ isColumnEditDropped: true })
     expect((await read(1)).currentScrapeConfig).toEqual({
       mainSelector: '//div',
       columns: guessedColumns,
@@ -280,19 +278,17 @@ describe('applySidePanelDataUpdates with a column edit', () => {
   it('keeps guessed columns when the panel removes a column it no longer shows', async () => {
     await storeGuess()
 
-    const outcome = await applySidePanelDataUpdates(1, {
+    await applySidePanelDataUpdates(1, {
       columnEdit: { type: 'remove', index: 1, expected: link },
     })
 
-    expect(outcome).toEqual({ isColumnEditDropped: true })
     expect((await read(1)).currentScrapeConfig?.columns).toEqual(guessedColumns)
   })
 
   it('numbers an added column after the columns stored since the panel read them', async () => {
     await storeGuess()
-    const outcome = await applySidePanelDataUpdates(1, { columnEdit: { type: 'add' } })
+    await applySidePanelDataUpdates(1, { columnEdit: { type: 'add' } })
 
-    expect(outcome).toEqual({ isColumnEditDropped: false })
     expect((await read(1)).currentScrapeConfig?.columns).toEqual([
       ...guessedColumns,
       { name: 'Column 2', selector: '.' },
@@ -312,15 +308,6 @@ describe('applySidePanelDataUpdates with a column edit', () => {
     expect((await read(1)).currentScrapeConfig).toEqual({ mainSelector: '//a', columns: [column] })
   })
 
-  it('writes nothing for an update holding only a superseded column edit', async () => {
-    await storeGuess()
-    const setValue = vi.spyOn(sidePanelConfigItem(1), 'setValue')
-
-    await applySidePanelDataUpdates(1, { columnEdit: renameText })
-
-    expect(setValue).not.toHaveBeenCalled()
-  })
-
   it('still writes the other fields of an update whose column edit is superseded', async () => {
     await storeGuess()
 
@@ -333,11 +320,10 @@ describe('applySidePanelDataUpdates with a column edit', () => {
   })
 
   it('drops a malformed column edit and reports it', async () => {
-    const outcome = await applySidePanelDataUpdates(1, {
+    await applySidePanelDataUpdates(1, {
       columnEdit: { type: 'rename', index: 0, expected: text } as unknown as ColumnEdit,
     })
 
-    expect(outcome).toEqual({ isColumnEditDropped: true })
     expect((await read(1)).currentScrapeConfig).toEqual(shownInPanel)
   })
 
@@ -353,6 +339,35 @@ describe('applySidePanelDataUpdates with a column edit', () => {
       mainSelector: '//li',
       columns: guessedColumns,
     })
+  })
+
+  it('records the panel write number whether the edit is applied or dropped', async () => {
+    await applySidePanelDataUpdates(1, { columnEdit: renameText, panelConfigSeq: 4 })
+
+    expect((await read(1)).panelConfigSeq).toBe(4)
+
+    await applySidePanelDataUpdates(1, { columnEdit: renameText, panelConfigSeq: 5 })
+
+    expect(await read(1)).toMatchObject({
+      panelConfigSeq: 5,
+      currentScrapeConfig: { columns: [renameText.column, link] },
+    })
+  })
+
+  it('keeps the recorded write number through a write that carries none', async () => {
+    await applySidePanelDataUpdates(1, { columnEdit: renameText, panelConfigSeq: 4 })
+
+    await storeGuess()
+
+    expect((await read(1)).panelConfigSeq).toBe(4)
+  })
+
+  it('ignores a write number that is not an integer', async () => {
+    await applySidePanelDataUpdates(1, { panelConfigSeq: 4 })
+
+    await applySidePanelDataUpdates(1, { panelConfigSeq: '5' as unknown as number })
+
+    expect((await read(1)).panelConfigSeq).toBe(4)
   })
 
   it('never stores the edit itself', async () => {

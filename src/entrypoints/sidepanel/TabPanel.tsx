@@ -12,7 +12,6 @@ import {
   buildExportFilename,
   buildMainSelectorUpdates,
   hasConfigDrifted,
-  hasSameData,
   reuseIfEqual,
 } from '@/utils/sidepanel-state'
 import log from 'loglevel'
@@ -21,6 +20,8 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react'
 export const COLUMN_EDIT_NOT_SAVED =
   'Could not save the column change. The saved columns are shown.'
 export const PRESET_NOT_SAVED = 'Could not load the preset. The saved configuration is shown.'
+export const MAIN_SELECTOR_NOT_SAVED =
+  'Could not save the main selector. The saved configuration is shown.'
 
 export const CONTENT_SCRIPT_UNREACHABLE =
   'Could not connect to the content script. Please reload the page or ensure the extension is enabled for this site.'
@@ -66,16 +67,14 @@ export const TabPanel = memo(function TabPanel({
 
   const buildFilename = useCallback((now: Date) => buildExportFilename(tabUrl, now), [tabUrl])
 
-  // Writes that set the columns (column edits, preset loads) sent and not yet
-  // answered. Storage lags the panel while any are, so the watcher holds the
-  // columns it reports instead of showing them: columns from before the latest
-  // keystrokes would make every edit built on them fail its check.
-  const pendingColumnWritesRef = useRef(0)
-  const heldColumnsRef = useRef<ColumnDefinition[] | null>(null)
-  // Set when storage may differ from the panel's columns, until a read-back lands.
-  const needsColumnReadBackRef = useRef(false)
-  // Set when a whole-config write failed, so the read-back restores the selector too.
-  const needsConfigRestoreRef = useRef(false)
+  // Every config write the panel sends is numbered, and storage records the
+  // number of the last one applied. A stored state recording an earlier number
+  // predates a write still on its way, so it is skipped rather than shown: it
+  // would put back what the panel already shows as changed, and every column
+  // edit built on that would fail its check. States are cumulative, so the one
+  // recording the awaited write carries whatever was skipped.
+  const lastConfigSeqRef = useRef(0)
+  const awaitedConfigSeqRef = useRef(0)
   const shownConfigRef = useRef(config)
   useEffect(() => {
     shownConfigRef.current = config
@@ -83,21 +82,21 @@ export const TabPanel = memo(function TabPanel({
 
   const applyStoredState = useCallback(
     (stored: SidePanelConfig) => {
+      const storedSeq = stored.panelConfigSeq ?? 0
+      if (storedSeq < awaitedConfigSeqRef.current) {
+        log.debug(
+          `Skipped stored state for tab ${String(tabId)} older than write ${String(awaitedConfigSeqRef.current)}`,
+        )
+        return
+      }
+      // A panel opened after earlier ones numbers its writes after theirs.
+      lastConfigSeqRef.current = Math.max(lastConfigSeqRef.current, storedSeq)
       log.debug(`Applying stored state for tab ${String(tabId)}:`, stored)
-      const resolvedConfig = resolveStoredConfig(stored)
-      const hasPendingColumnWrites = pendingColumnWritesRef.current > 0
-      if (hasPendingColumnWrites) heldColumnsRef.current = resolvedConfig.columns
+      const storedConfig = resolveStoredConfig(stored)
       // Showing a hidden panel re-reads its storage, which nearly always holds
       // what is already on screen; keeping the same references lets React skip
       // re-rendering the form and the table.
-      setConfig((previous) =>
-        reuseIfEqual(
-          previous,
-          hasPendingColumnWrites
-            ? { ...resolvedConfig, columns: previous.columns }
-            : resolvedConfig,
-        ),
-      )
+      setConfig((previous) => reuseIfEqual(previous, storedConfig))
 
       const storedResult = stored.scrapeResult
       if (storedResult) {
@@ -140,12 +139,8 @@ export const TabPanel = memo(function TabPanel({
     )
   }
 
-  const showConfig = (
-    incomingConfig: ScrapeConfig,
-    buildUpdates: (newConfig: ScrapeConfig) => SidePanelConfigUpdate | null,
-  ) => {
+  const showConfig = (incomingConfig: ScrapeConfig) => {
     const newConfig = withTrimmedMainSelector(incomingConfig)
-    const updates = buildUpdates(newConfig)
     const hasMainSelectorChanged = newConfig.mainSelector !== config.mainSelector
 
     setConfig(newConfig)
@@ -159,90 +154,60 @@ export const TabPanel = memo(function TabPanel({
       setHighlightMatchCount(undefined)
       setHighlightError(undefined)
     }
-
-    if (tabId !== null && updates) {
-      saveSidePanelState(tabId, updates)
-    }
     return newConfig
+  }
+
+  /**
+   * Send a config write, numbered as described at `lastConfigSeqRef`.
+   * Resolves to whether it was stored; one that was not is toasted as `failure`.
+   */
+  const writeConfig = async (
+    id: number,
+    updates: SidePanelConfigUpdate,
+    failure: string,
+  ): Promise<boolean> => {
+    lastConfigSeqRef.current += 1
+    const seq = lastConfigSeqRef.current
+    awaitedConfigSeqRef.current = seq
+    let reply: StatusReply | undefined
+    try {
+      reply = await browser.runtime.sendMessage({
+        type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
+        payload: { tabId: id, updates: { ...updates, panelConfigSeq: seq } },
+      })
+    } catch (error) {
+      reply = { success: false, error: String(error) }
+    }
+    if (reply?.success === true) return true
+
+    log.error(`Could not store config write ${String(seq)} for tab ${String(id)}:`, reply?.error)
+    notify.error(failure, { id: failure })
+    // A later write is awaited instead, and its stored state will be shown.
+    if (seq !== lastConfigSeqRef.current) return false
+    // No stored state will record this write, so stop waiting for one.
+    awaitedConfigSeqRef.current = 0
+    const stored = await sidePanelConfigItem(id).getValue()
+    // Nothing stored is shown as the watcher would show it: the default config.
+    applyStoredState(stored ?? {})
+    return false
   }
 
   // Built on the latest config: ConfigForm's deferred blur commit calls the
   // handler from the render at blur time, which can predate a column edit.
   const handleMainSelectorChange = (mainSelector: string) => {
     const latest = shownConfigRef.current
-    showConfig({ ...latest, mainSelector }, (trimmed) =>
-      buildMainSelectorUpdates(latest.mainSelector, trimmed.mainSelector),
-    )
-  }
-
-  /** Send a write that sets the columns, toasting `failure` if it is not stored. */
-  const sendColumnWrite = async (
-    id: number,
-    updates: SidePanelConfigUpdate,
-    failure: string,
-  ): Promise<'stored' | 'dropped' | 'failed'> => {
-    let reply: SidePanelUpdateReply | undefined
-    try {
-      reply = await browser.runtime.sendMessage({
-        type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
-        payload: { tabId: id, updates },
-      })
-    } catch (error) {
-      log.error(`Could not send a side panel update for tab ${String(id)}:`, error)
-      notify.error(failure, { id: failure })
-      return 'failed'
+    const shown = showConfig({ ...latest, mainSelector })
+    const updates = buildMainSelectorUpdates(latest.mainSelector, shown.mainSelector)
+    if (tabId !== null && updates) {
+      reportRejection(writeConfig(tabId, updates, MAIN_SELECTOR_NOT_SAVED))
     }
-    if (reply?.success !== true) {
-      log.error(`Could not store a side panel update for tab ${String(id)}:`, reply?.error)
-      notify.error(failure, { id: failure })
-      return 'failed'
-    }
-    return reply.isColumnEditDropped ? 'dropped' : 'stored'
-  }
-
-  // Once the last pending write is answered, the columns the watcher held are
-  // checked against the panel's. Only a mismatch, or a write that was dropped
-  // or failed (which can leave storage unchanged, so no watcher fires), costs a
-  // read. Watcher events and replies arrive on separate channels, so a held
-  // value can trail the panel by one write and cost a read that changes nothing.
-  // The read replaces only the columns, since a snapshot taken now can be older
-  // than a main selector the panel has already sent; only a failed whole-config
-  // write, whose selector never reached storage, restores the rest as well.
-  const runColumnWrite = async (id: number, updates: SidePanelConfigUpdate, failure: string) => {
-    pendingColumnWritesRef.current += 1
-    const outcome = await sendColumnWrite(id, updates, failure)
-    pendingColumnWritesRef.current -= 1
-    if (outcome !== 'stored') needsColumnReadBackRef.current = true
-    if (outcome === 'failed' && updates.currentScrapeConfig) needsConfigRestoreRef.current = true
-    if (pendingColumnWritesRef.current > 0) return
-
-    const held = heldColumnsRef.current
-    heldColumnsRef.current = null
-    if (held !== null && !hasSameData(held, shownConfigRef.current.columns)) {
-      needsColumnReadBackRef.current = true
-    }
-    if (!needsColumnReadBackRef.current) return
-
-    const stored = await sidePanelConfigItem(id).getValue()
-    // A write started during the read; its own settling reads again.
-    if (pendingColumnWritesRef.current > 0) return
-    needsColumnReadBackRef.current = false
-    // Nothing stored is shown as the watcher would show it: the default config.
-    const resolved = stored ?? {}
-    if (needsConfigRestoreRef.current) {
-      needsConfigRestoreRef.current = false
-      applyStoredState(resolved)
-      return
-    }
-    const { columns } = resolveStoredConfig(resolved)
-    setConfig((previous) => reuseIfEqual(previous, { ...previous, columns }))
   }
 
   const handleColumnEdit = (edit: ColumnEdit) => {
     // The form builds the edit from the config this render passed it, so it always applies.
-    showConfig({ ...config, columns: applyColumnEdit(config.columns, edit)! }, () => null)
+    showConfig({ ...config, columns: applyColumnEdit(config.columns, edit)! })
     if (tabId !== null) {
-      reportRejection(runColumnWrite(tabId, { columnEdit: edit }, COLUMN_EDIT_NOT_SAVED))
+      reportRejection(writeConfig(tabId, { columnEdit: edit }, COLUMN_EDIT_NOT_SAVED))
     }
   }
 
@@ -359,14 +324,19 @@ export const TabPanel = memo(function TabPanel({
     )
   }
 
-  const handleLoadPreset = (preset: Preset) => {
-    const loaded = showConfig(preset.config, () => null)
-    if (tabId !== null) {
-      reportRejection(runColumnWrite(tabId, buildConfigReplaceUpdates(loaded), PRESET_NOT_SAVED))
-    }
-
-    if (loaded.mainSelector) {
+  // Highlighting waits for the preset to be stored, so a load that fails
+  // leaves neither its highlight on the page nor its match count in storage.
+  const storePreset = async (id: number, loaded: ScrapeConfig) => {
+    const isStored = await writeConfig(id, buildConfigReplaceUpdates(loaded), PRESET_NOT_SAVED)
+    if (isStored && loaded.mainSelector) {
       handleHighlight(loaded.mainSelector)
+    }
+  }
+
+  const handleLoadPreset = (preset: Preset) => {
+    const loaded = showConfig(preset.config)
+    if (tabId !== null) {
+      reportRejection(storePreset(tabId, loaded))
     }
 
     // User presets are named by the user, so only a system preset's name and id are sent.
