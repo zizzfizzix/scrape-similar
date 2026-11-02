@@ -742,6 +742,19 @@ describe('TabPanel numbered config writes', () => {
     expect(reported).toHaveLength(1)
   })
 
+  it('does not highlight a selector the panel does not show', async () => {
+    await render()
+    const tabsSendMessage = spyOnBrowser(fakeBrowser.tabs, 'sendMessage').mockResolvedValue(
+      undefined,
+    )
+
+    act(() => {
+      form.props!.onHighlight('//li')
+    })
+
+    expect(highlightRequests(tabsSendMessage)).toEqual([])
+  })
+
   it('sends nothing without a tab', async () => {
     await render(null)
     const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(

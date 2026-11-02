@@ -72,7 +72,9 @@ export const TabPanel = memo(function TabPanel({
   // predates a write still on its way, so it is skipped rather than shown: it
   // would put back what the panel already shows as changed, and every column
   // edit built on that would fail its check. States are cumulative, so the one
-  // recording the awaited write carries whatever was skipped.
+  // recording the awaited write carries whatever was skipped. Numbering starts
+  // after the stored number only once the panel has read it, so a write sent
+  // before the first read is not protected this way.
   const lastConfigSeqRef = useRef(0)
   const awaitedConfigSeqRef = useRef(0)
   const inFlightConfigSeqsRef = useRef(new Set<number>())
@@ -282,9 +284,7 @@ export const TabPanel = memo(function TabPanel({
   const highlightOnceStored = async (selector: string, isStored: Promise<boolean>) => {
     // The caller reports a rejected write; here it only means "not stored".
     const wasStored = await isStored.catch(() => false)
-    if (wasStored && selector && shownConfigRef.current.mainSelector === selector) {
-      sendHighlight(selector)
-    }
+    if (wasStored && selector) sendHighlight(selector)
   }
 
   const handleHighlight = (selector: string) => {
@@ -297,8 +297,9 @@ export const TabPanel = memo(function TabPanel({
     sendHighlight(selector)
   }
 
+  // Only the selector shown is highlighted, so the page never lights up one the panel does not show.
   const sendHighlight = (selector: string) => {
-    if (tabId === null) return
+    if (tabId === null || shownConfigRef.current.mainSelector !== selector) return
     browser.tabs.sendMessage(
       tabId,
       { type: MESSAGE_TYPES.HIGHLIGHT_ELEMENTS, payload: { selector } },
