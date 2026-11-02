@@ -19,7 +19,10 @@ async function runScenario({ env, debugMode }: Scenario): Promise<boolean[]> {
     await storage.setItem('local:debugMode', debugMode)
   }
 
-  vi.doMock('@/utils/consent', () => ({ getConsentState: () => Promise.resolve(true) }))
+  vi.doMock('@/utils/consent', () => ({
+    getConsentState: () => Promise.resolve(true),
+    readConsentState: () => Promise.resolve(true),
+  }))
   vi.doMock('@/utils/distinct-id', () => ({ getOrCreateDistinctId: () => Promise.resolve('id') }))
 
   const debugHistory: boolean[] = []

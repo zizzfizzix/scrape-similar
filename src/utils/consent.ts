@@ -7,10 +7,14 @@ export type ConsentState = boolean | undefined
 export const toConsentState = (value: boolean | string | null): ConsentState =>
   value === '' || value === null ? undefined : !!value
 
+/** Like `getConsentState`, but rejects when storage cannot be read. */
+export const readConsentState = async (): Promise<ConsentState> =>
+  toConsentState(await analyticsConsentItem.getValue())
+
 // Helper to get the raw consent state (including undefined for "not asked")
 export const getConsentState = async (): Promise<ConsentState> => {
   try {
-    return toConsentState(await analyticsConsentItem.getValue())
+    return await readConsentState()
   } catch (error) {
     log.error('Failed to get consent state from storage:', error)
     return undefined

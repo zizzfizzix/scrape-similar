@@ -35,7 +35,7 @@ const loadModule = async ({
     isTest: isDevOrTest,
     isDevOrTest,
   }))
-  vi.doMock('@/utils/consent', () => ({ getConsentState: () => Promise.resolve(true) }))
+  vi.doMock('@/utils/consent', () => ({ readConsentState: () => Promise.resolve(true) }))
   vi.doMock('@/utils/distinct-id', () => ({ getOrCreateDistinctId: distinctId }))
   vi.doMock('posthog-js/dist/exception-autocapture.js', () => ({}))
   vi.doMock('posthog-js/dist/tracing-headers.js', () => ({}))

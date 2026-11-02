@@ -47,14 +47,16 @@ export const currentPostHogBackground = (): PostHog | null => posthogInstance
 type Initialisation = PostHog | 'unavailable' | 'failed'
 
 const initializePostHog = async (startedIn: number): Promise<Initialisation> => {
-  const consentState = await getConsentState()
-  if (consentState !== true) {
-    log.debug('User has not given consent – PostHog will not be initialized (background).')
-    return 'unavailable'
-  }
-
   let built: PostHog | null = null
   try {
+    // Read so that a storage error rejects: remembering it as "not asked"
+    // would keep PostHog off until the next consent change.
+    const consentState = await readConsentState()
+    if (consentState !== true) {
+      log.debug('User has not given consent – PostHog will not be initialized (background).')
+      return 'unavailable'
+    }
+
     const apiKey = import.meta.env.VITE_PUBLIC_POSTHOG_KEY
     const apiHost = import.meta.env.VITE_PUBLIC_POSTHOG_HOST
 
@@ -78,6 +80,7 @@ const initializePostHog = async (startedIn: number): Promise<Initialisation> => 
     // `init` wraps the global error handlers, and retiring an instance unwraps
     // them, so an instance a reset has already overtaken is never initialised:
     // unwrapping it later could remove the handlers of a newer one.
+    // The caller's generation check discards this result, whatever its label.
     if (generation !== startedIn) return 'failed'
 
     const instance = new PostHog()
