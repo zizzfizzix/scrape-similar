@@ -106,6 +106,7 @@ describe('validatePresetImport migrations', () => {
   it('stringifies a migration that throws a non-error', () => {
     storageMock.PRESET_MIGRATIONS = {
       2: () => {
+        // eslint-disable-next-line @typescript-eslint/only-throw-error -- the case under test
         throw 'unexpected shape'
       },
       3: (old) => old as Preset[],

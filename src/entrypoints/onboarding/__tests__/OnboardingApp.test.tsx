@@ -85,7 +85,9 @@ beforeEach(async () => {
   modeFlags.isTest = true
   await storage.setItem(consentKey, true)
   replace = vi.fn()
-  vi.stubGlobal('location', { ...window.location, replace })
+  // What the onboarding page reads from `location` besides `replace`.
+  const { href, pathname } = window.location
+  vi.stubGlobal('location', { href, pathname, replace })
   spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue({ success: true } as never)
 })
 

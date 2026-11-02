@@ -247,7 +247,7 @@ export const noContentScriptLock: Rule.RuleModule = {
       const declarations = symbol.declarations ?? []
       const [first] = declarations
       // A module namespace is not walked whole; `ns.member` resolves the member.
-      if (!first || ts.isSourceFile(first) || (symbol.flags & TYPE_ONLY) === symbol.flags) {
+      if (!first || ts.isSourceFile(first) || (symbol.flags & ~TYPE_ONLY) === 0) {
         return null
       }
 

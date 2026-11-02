@@ -4,6 +4,7 @@ import { ANALYTICS_EVENTS } from '@/utils/analytics'
 import { SHEETS_EXPORT_TIMEOUT_MS } from '@/utils/export-data'
 import { MESSAGE_TYPES, type ScrapeConfig, type ScrapedRow, type ScrapeResult } from '@/utils/types'
 import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
+import { stubClipboard } from '@@/tests/support/navigator'
 import {
   act,
   fireEvent,
@@ -12,7 +13,7 @@ import {
   type RenderResult,
 } from '@testing-library/react'
 import { Activity } from 'react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 
 const trackEvent = vi.hoisted(() => vi.fn())
@@ -90,14 +91,7 @@ beforeEach(() => {
   fakeBrowser.reset()
   setLastError(undefined)
   exportMocks.rowsToXlsxBuffer.mockResolvedValue(new ArrayBuffer(8))
-  vi.stubGlobal('navigator', {
-    ...navigator,
-    clipboard: { writeText: vi.fn().mockResolvedValue(undefined) },
-  })
-})
-
-afterEach(async () => {
-  vi.unstubAllGlobals()
+  stubClipboard()
 })
 
 describe('ExportButtons', () => {

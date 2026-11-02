@@ -28,8 +28,8 @@ import { noContentScriptLock } from './tools/eslint-rules/no-content-script-lock
  * other's binary. See the README for when that indirection can come out.
  *
  * Type-aware linting is switched on (`projectService`). What is on from it is
- * the rules this codebase already passes (ALREADY_CLEAN), the promise rules
- * (PROMISE_RULES) and the boolean naming rule; the rest is a backlog tracked in
+ * the rules this codebase already passes (ALREADY_CLEAN), the correctness and
+ * promise rules (CORRECTNESS_RULES, PROMISE_RULES) and the boolean naming rule; the rest is a backlog tracked in
  * #282, and any rule held off with violations to fix goes in DEFERRED below with
  * the count it has. A rule that is wrong for this codebase rather than merely
  * unfixed goes in OFF_ON_MERITS instead, which is not a worklist.
@@ -117,6 +117,7 @@ const restrictedSyntax = (
  * class ones (both banned by convention) and `ban-tslint-comment`.
  */
 const ALREADY_CLEAN: Linter.RulesRecord = {
+  '@typescript-eslint/adjacent-overload-signatures': 'error',
   '@typescript-eslint/consistent-generic-constructors': 'error',
   '@typescript-eslint/consistent-type-assertions': 'error',
   '@typescript-eslint/dot-notation': 'error',
@@ -146,6 +147,7 @@ const ALREADY_CLEAN: Linter.RulesRecord = {
   '@typescript-eslint/prefer-string-starts-ends-with': 'error',
   // The option `strictTypeChecked` uses: flag only the `return await` that
   // changes error handling, not the one that is merely redundant.
+  '@typescript-eslint/restrict-plus-operands': 'error',
   '@typescript-eslint/return-await': ['error', 'error-handling-correctness-only'],
   '@typescript-eslint/unified-signatures': 'error',
 }
@@ -179,6 +181,22 @@ const BOOLEAN_PREFIX: Linter.RulesRecord = {
       filter: { regex: '[Cc]onsentState$', match: false },
     },
   ],
+}
+
+/**
+ * Typed rules that each had a handful of violations when they came on (#375).
+ */
+const CORRECTNESS_RULES: Linter.RulesRecord = {
+  // Throwing or rejecting with something that is not an `Error` loses the
+  // stack trace. A test of the non-`Error` branch disables these on the line.
+  '@typescript-eslint/only-throw-error': 'error',
+  '@typescript-eslint/prefer-promise-reject-errors': 'error',
+  // Spreading a class instance copies only its own enumerable properties:
+  // `{ ...navigator }` copies none, because they are prototype getters.
+  '@typescript-eslint/no-misused-spread': 'error',
+  '@typescript-eslint/no-unsafe-enum-comparison': 'error',
+  '@typescript-eslint/restrict-template-expressions': 'error',
+  '@typescript-eslint/use-unknown-in-catch-callback-variable': 'error',
 }
 
 /**
@@ -270,6 +288,7 @@ export default defineConfig([
       // compares by identity.
       eqeqeq: ['error', 'always', { null: 'ignore' }],
       ...ALREADY_CLEAN,
+      ...CORRECTNESS_RULES,
       ...PROMISE_RULES,
       ...BOOLEAN_PREFIX,
       '@typescript-eslint/no-unused-vars': [

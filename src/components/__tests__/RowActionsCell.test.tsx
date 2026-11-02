@@ -3,9 +3,10 @@ import { RowActionsCell } from '@/components/RowActionsCell'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ANALYTICS_EVENTS } from '@/utils/analytics'
 import type { ScrapedRow } from '@/utils/types'
+import { stubClipboard } from '@@/tests/support/navigator'
 import { act, render as renderComponent, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const trackEvent = vi.hoisted(() => vi.fn())
 vi.mock('@/utils/analytics', async (importOriginal) => ({
@@ -45,14 +46,7 @@ const clickCopy = () =>
   })
 
 beforeEach(() => {
-  vi.stubGlobal('navigator', {
-    ...navigator,
-    clipboard: { writeText: vi.fn().mockResolvedValue(undefined) },
-  })
-})
-
-afterEach(() => {
-  vi.unstubAllGlobals()
+  stubClipboard()
 })
 
 describe('RowActionsCell', () => {

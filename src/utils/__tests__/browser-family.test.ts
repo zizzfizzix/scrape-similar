@@ -1,16 +1,14 @@
 import { BROWSER_FAMILIES, getBrowserFamily } from '@/utils/browser-family'
+import { stubUserAgent } from '@@/tests/support/navigator'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const CHROME_UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
 const EDGE_UA = `${CHROME_UA} Edg/130.0.0.0`
 
-const stubUserAgent = (userAgent: string) => vi.stubGlobal('navigator', { ...navigator, userAgent })
-
 describe('getBrowserFamily', () => {
   afterEach(() => {
     vi.unstubAllEnvs()
-    vi.unstubAllGlobals()
   })
 
   it('reports Chrome for the Chromium build in Chrome', () => {

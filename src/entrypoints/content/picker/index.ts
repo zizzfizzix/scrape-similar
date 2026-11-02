@@ -229,7 +229,7 @@ const storeSidePanelUpdates = (tabId: number, updates: SidePanelConfigUpdate): P
       (response) => {
         if (browser.runtime.lastError) {
           log.error('Error saving picker config to background:', browser.runtime.lastError)
-          reject(browser.runtime.lastError)
+          reject(new Error(browser.runtime.lastError.message))
         } else if (response?.success) {
           log.debug('Picker config saved successfully')
           resolve()

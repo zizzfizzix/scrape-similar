@@ -8,6 +8,7 @@ import { HIDDEN_UNLOCK_WINDOW_MS, PRESET_EXPORT_FILENAME } from '@/utils/preset-
 import { getPresets, setPresets, userPresetsItem } from '@/utils/storage'
 import { type Preset } from '@/utils/types'
 import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
+import { stubClipboard, stubUserAgent } from '@@/tests/support/navigator'
 import { renderSettled, settleEffects } from '@@/tests/support/settle'
 import { act, type RenderResult } from '@testing-library/react'
 import userEventBase from '@testing-library/user-event'
@@ -117,12 +118,10 @@ describe('Settings', () => {
   describe('keyboard shortcut', () => {
     afterEach(() => {
       vi.unstubAllEnvs()
-      vi.unstubAllGlobals()
     })
 
     it('copies the shortcuts page address and opens a blank tab', async () => {
-      const writeText = vi.fn().mockResolvedValue(undefined)
-      vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } })
+      const writeText = stubClipboard()
       const open = vi.spyOn(window, 'open').mockReturnValue(null)
       view = await render()
 
@@ -136,12 +135,8 @@ describe('Settings', () => {
     })
 
     it("copies Edge's own shortcuts address in Edge", async () => {
-      const writeText = vi.fn().mockResolvedValue(undefined)
-      vi.stubGlobal('navigator', {
-        ...navigator,
-        userAgent: 'Mozilla/5.0 Chrome/130.0.0.0 Edg/130.0.0.0',
-        clipboard: { writeText },
-      })
+      stubUserAgent('Mozilla/5.0 Chrome/130.0.0.0 Edg/130.0.0.0')
+      const writeText = stubClipboard()
       vi.spyOn(window, 'open').mockReturnValue(null)
       view = await render()
 
@@ -152,8 +147,7 @@ describe('Settings', () => {
 
     it('copies the add-ons manager address on Firefox', async () => {
       vi.stubEnv('FIREFOX', true as never)
-      const writeText = vi.fn().mockResolvedValue(undefined)
-      vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } })
+      const writeText = stubClipboard()
       vi.spyOn(window, 'open').mockReturnValue(null)
       view = await render()
 

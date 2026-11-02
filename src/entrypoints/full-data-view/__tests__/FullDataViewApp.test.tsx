@@ -11,10 +11,11 @@ import {
 } from '@/utils/types'
 import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
 import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
+import { stubClipboard } from '@@/tests/support/navigator'
 import { renderSettled } from '@@/tests/support/settle'
 import { type RenderResult, act, fireEvent, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
 
@@ -115,15 +116,8 @@ beforeEach(async () => {
   fakeBrowser.reset()
   window.history.replaceState({}, '', '/full-data-view.html?tabId=1')
   await storage.setItem(consentKey, true)
-  vi.stubGlobal('navigator', {
-    ...navigator,
-    clipboard: { writeText: vi.fn().mockResolvedValue(undefined) },
-  })
+  stubClipboard()
   spyOnBrowser(fakeBrowser.tabs, 'query').mockResolvedValue([] as never)
-})
-
-afterEach(async () => {
-  vi.unstubAllGlobals()
 })
 
 describe('FullDataViewApp', () => {
