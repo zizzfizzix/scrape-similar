@@ -1,7 +1,11 @@
 import { useShownToast } from '@/hooks/use-shown-toast'
 import { isSelectorAPreset } from '@/utils/autosuggest'
 import { reportRejection } from '@/utils/report-rejection'
-import { DEFAULT_SCRAPE_CONFIG, resolveStoredConfig } from '@/utils/scrape-config'
+import {
+  DEFAULT_SCRAPE_CONFIG,
+  resolveStoredConfig,
+  withTrimmedMainSelector,
+} from '@/utils/scrape-config'
 import {
   buildConfigChangeUpdates,
   buildConfigReplaceUpdates,
@@ -106,7 +110,12 @@ export const TabPanel = memo(function TabPanel({
     )
   }
 
-  const showConfig = (newConfig: ScrapeConfig, updates: SidePanelConfigUpdate | null) => {
+  const showConfig = (
+    incomingConfig: ScrapeConfig,
+    buildUpdates: (newConfig: ScrapeConfig) => SidePanelConfigUpdate | null,
+  ) => {
+    const newConfig = withTrimmedMainSelector(incomingConfig)
+    const updates = buildUpdates(newConfig)
     const hasMainSelectorChanged = newConfig.mainSelector !== config.mainSelector
 
     setConfig(newConfig)
@@ -124,10 +133,11 @@ export const TabPanel = memo(function TabPanel({
     if (tabId !== null && updates) {
       saveSidePanelState(tabId, updates)
     }
+    return newConfig
   }
 
   const handleConfigChange = (newConfig: ScrapeConfig) => {
-    showConfig(newConfig, buildConfigChangeUpdates(config, newConfig))
+    showConfig(newConfig, (trimmed) => buildConfigChangeUpdates(config, trimmed))
   }
 
   // The button only scrapes a selector the page has already matched, and that
@@ -244,10 +254,10 @@ export const TabPanel = memo(function TabPanel({
   }
 
   const handleLoadPreset = (preset: Preset) => {
-    showConfig(preset.config, buildConfigReplaceUpdates(preset.config))
+    const loaded = showConfig(preset.config, buildConfigReplaceUpdates)
 
-    if (preset.config.mainSelector) {
-      handleHighlight(preset.config.mainSelector)
+    if (loaded.mainSelector) {
+      handleHighlight(loaded.mainSelector)
     }
 
     // User presets are named by the user, so only a system preset's name and id are sent.

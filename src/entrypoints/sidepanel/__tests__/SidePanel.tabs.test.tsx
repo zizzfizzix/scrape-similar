@@ -623,7 +623,7 @@ describe('remembering the selector a scrape used', () => {
   it('remembers the selector without its surrounding whitespace', async () => {
     await withValidatedSelector('  //tr  ')
     view = await render()
-    await waitFor(() => expect(mainSelectorInput().value).toBe('  //tr  '))
+    await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
 
     await scrape(scraped)
 

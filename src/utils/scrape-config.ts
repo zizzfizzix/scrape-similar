@@ -52,19 +52,24 @@ export const withoutColumn = (config: ScrapeConfig, index: number): ScrapeConfig
  */
 export const sanitizeToSingleLine = (value: string): string => value.replace(/[\r\n]+/g, ' ')
 
+/**
+ * Every config the panel shows passes through here, so code comparing a
+ * committed main selector never has to trim either side.
+ */
+export const withTrimmedMainSelector = (config: ScrapeConfig): ScrapeConfig => {
+  const mainSelector = config.mainSelector.trim()
+  return mainSelector === config.mainSelector ? config : { ...config, mainSelector }
+}
+
 /** Columns assumed before the user has configured any. */
 export const DEFAULT_SCRAPE_CONFIG: ScrapeConfig = {
   mainSelector: '',
   columns: [{ name: 'Text', selector: '.' }],
 }
 
-/**
- * The config to show for a stored session state.
- *
- * A stored config wins. Failing that, a right-click that recorded an element
- * seeds the main selector from it. Otherwise the panel starts blank.
- */
-export const resolveStoredConfig = ({
+// A stored config wins. Failing that, a right-click that recorded an element
+// seeds the main selector from it. Otherwise the panel starts blank.
+const resolveUntrimmedStoredConfig = ({
   currentScrapeConfig,
   elementDetails,
 }: SidePanelConfig): ScrapeConfig =>
@@ -81,3 +86,7 @@ export const resolveStoredConfig = ({
     : elementDetails?.xpath
       ? { ...DEFAULT_SCRAPE_CONFIG, mainSelector: elementDetails.xpath }
       : DEFAULT_SCRAPE_CONFIG
+
+/** The config to show for a stored session state. */
+export const resolveStoredConfig = (stored: SidePanelConfig): ScrapeConfig =>
+  withTrimmedMainSelector(resolveUntrimmedStoredConfig(stored))

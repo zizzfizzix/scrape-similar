@@ -93,4 +93,73 @@ describe('TabPanel config edits', () => {
       ],
     ])
   })
+
+  it('trims the selector of an edit before writing it', async () => {
+    await render()
+    const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
+      undefined,
+    )
+
+    act(() => {
+      form.props!.onChange({ ...form.props!.config, mainSelector: '  //li ' })
+    })
+
+    expect(form.props!.config.mainSelector).toBe('//li')
+    expect(sidePanelWrites(sendMessage)).toEqual([
+      [
+        {
+          type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
+          payload: {
+            tabId: TAB_ID,
+            updates: {
+              currentScrapeConfig: { mainSelector: '//li' },
+              highlightMatchCount: null,
+              highlightError: null,
+            },
+          },
+        },
+      ],
+    ])
+  })
+
+  it('trims the selector of a loaded preset before showing, writing and highlighting it', async () => {
+    await render()
+    const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
+      undefined,
+    )
+    const tabsSendMessage = spyOnBrowser(fakeBrowser.tabs, 'sendMessage').mockResolvedValue(
+      undefined,
+    )
+
+    act(() => {
+      form.props!.onLoadPreset({
+        id: 'padded',
+        name: 'Padded',
+        config: { ...config, mainSelector: ' //li\t' },
+        createdAt: 0,
+      })
+    })
+
+    expect(form.props!.config.mainSelector).toBe('//li')
+    expect(sidePanelWrites(sendMessage)).toEqual([
+      [
+        {
+          type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
+          payload: {
+            tabId: TAB_ID,
+            updates: {
+              currentScrapeConfig: { mainSelector: '//li', columns: config.columns },
+              highlightMatchCount: null,
+              highlightError: null,
+            },
+          },
+        },
+      ],
+    ])
+    expect(tabsSendMessage).toHaveBeenCalledWith(
+      TAB_ID,
+      { type: MESSAGE_TYPES.HIGHLIGHT_ELEMENTS, payload: { selector: '//li' } },
+      expect.any(Function),
+    )
+  })
 })
