@@ -130,6 +130,20 @@ describe('Settings', () => {
       expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.KEYBOARD_SHORTCUT_COPY)
       vi.unstubAllGlobals()
     })
+
+    it('copies the add-ons manager address on Firefox', async () => {
+      vi.stubEnv('FIREFOX', true as never)
+      const writeText = vi.fn().mockResolvedValue(undefined)
+      vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } })
+      vi.spyOn(window, 'open').mockReturnValue(null)
+      view = await render()
+
+      await userEvent.click(rowByLabel('Keyboard shortcut').querySelector('button')!)
+
+      expect(writeText).toHaveBeenCalledWith('about:addons')
+      vi.unstubAllGlobals()
+      vi.unstubAllEnvs()
+    })
   })
 
   describe('system presets', () => {

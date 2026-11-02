@@ -7,7 +7,10 @@ const nonInjectableUrls = {
     'chrome-extension://',
     // eslint-disable-next-line no-restricted-syntax -- every extension's pages are refused
     'moz-extension://',
+    'view-source:',
     'https://chromewebstore.google.com/',
+    'https://addons.mozilla.org/',
+    'https://microsoftedge.microsoft.com/addons/',
     'file://',
     'ftp://',
     'ftps://',

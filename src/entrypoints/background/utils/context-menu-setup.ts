@@ -1,13 +1,15 @@
 import log from 'loglevel'
 
 /**
- * The onboarding page is matched by the running extension's own URL: the origin differs
- * per browser and per install, and on Firefox it is not derived from `runtime.id`.
+ * The onboarding page is matched by the running extension's own URL, since the origin
+ * differs per browser and per install. Firefox parses an unprivileged extension's
+ * `documentUrlPatterns` with `restrictSchemes`, so it gets web pages only: an
+ * extension-page pattern there risks `create` rejecting the whole item.
  */
 const getContextMenuUrlPatterns = (): string[] => [
   'http://*/*',
   'https://*/*',
-  browser.runtime.getURL('/onboarding.html'),
+  ...(import.meta.env.FIREFOX ? [] : [browser.runtime.getURL('/onboarding.html')]),
 ]
 
 interface ContextMenuItem {

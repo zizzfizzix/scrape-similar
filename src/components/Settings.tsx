@@ -41,6 +41,15 @@ interface ImportConfirmState {
   skippedSystemCount: number
 }
 
+/**
+ * Firefox has no address for its shortcuts page; it sits behind about:addons' gear menu.
+ * Edge redirects chrome:// addresses to edge://.
+ */
+const getShortcutsPageUrl = (): string =>
+  import.meta.env.FIREFOX
+    ? 'about:addons'
+    : 'chrome://extensions/shortcuts#:~:text=Scrape%20Similar'
+
 const CLOSED_IMPORT_CONFIRM: ImportConfirmState = {
   open: false,
   presets: [],
@@ -106,8 +115,7 @@ export const Settings = React.memo(
     }
 
     const handleKeyboardShortcutClick = useCallback(() => {
-      const url = 'chrome://extensions/shortcuts#:~:text=Scrape%20Similar'
-      reportRejection(navigator.clipboard.writeText(url))
+      reportRejection(navigator.clipboard.writeText(getShortcutsPageUrl()))
       window.open('about:blank', '_blank')
 
       // Track keyboard shortcut copied
@@ -236,7 +244,11 @@ export const Settings = React.memo(
                 Copy address
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Paste in a new tab to open settings</TooltipContent>
+            <TooltipContent>
+              {import.meta.env.FIREFOX
+                ? 'Paste in a new tab, then pick Manage Extension Shortcuts from the gear menu'
+                : 'Paste in a new tab to open settings'}
+            </TooltipContent>
           </Tooltip>
         </div>
         <div className="flex items-center justify-between gap-4">

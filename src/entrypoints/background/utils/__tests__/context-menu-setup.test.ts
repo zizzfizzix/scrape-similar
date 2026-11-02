@@ -33,6 +33,17 @@ describe('initializeContextMenus', () => {
     })
   })
 
+  it('limits the items to web pages on Firefox', () => {
+    vi.stubEnv('FIREFOX', true as never)
+
+    initializeContextMenus()
+
+    expect(create.mock.calls[0]?.[0]).toMatchObject({
+      documentUrlPatterns: ['http://*/*', 'https://*/*'],
+    })
+    vi.unstubAllEnvs()
+  })
+
   it('logs a debug line for each item created without error', () => {
     const debugSpy = vi.spyOn(log, 'debug').mockImplementation(() => {})
 

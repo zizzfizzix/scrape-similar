@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 
+import { spyOnBrowser } from '@@/tests/support/fake-browser'
+
 import {
   EXTENSION_CONTEXTS,
   getCurrentContext,
@@ -171,7 +173,9 @@ describe('context detection utilities', () => {
 
   it('detects an extension page under a Firefox extension origin', () => {
     const origin = 'moz-extension://0b7c1f2e-5a4d-4e8b-9c3a-1d2e3f4a5b6c'
-    vi.spyOn(fakeBrowser.runtime, 'getURL').mockImplementation((path: string) => `${origin}${path}`)
+    spyOnBrowser(fakeBrowser.runtime, 'getURL').mockImplementation(
+      (path: string) => `${origin}${path}`,
+    )
     vi.stubGlobal('window', createWindow({ pathname: '/full-data-view.html', origin }))
 
     expect(getCurrentContext()).toBe(EXTENSION_CONTEXTS.FULL_DATA_VIEW)

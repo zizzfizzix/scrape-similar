@@ -20,6 +20,15 @@ const NON_INJECTABLE_CASES: Array<{ url: string; pattern: string }> = [
     url: 'https://chromewebstore.google.com/detail/docsafterdark/pihphjfnfjmdbhakhjifipfdgbpenobg',
     pattern: 'https://chromewebstore.google.com/',
   },
+  { url: 'view-source:https://example.com/', pattern: 'view-source:' },
+  {
+    url: 'https://addons.mozilla.org/en-US/firefox/addon/ublock-origin/',
+    pattern: 'https://addons.mozilla.org/',
+  },
+  {
+    url: 'https://microsoftedge.microsoft.com/addons/detail/odfafepnkmbhccpbejgmiehpchacaeak',
+    pattern: 'https://microsoftedge.microsoft.com/addons/',
+  },
   {
     url: 'https://chrome.google.com/webstore/detail/ibamcdbhdohmndghmidginmpggcjmeob',
     pattern: '^https://chrome\\.google\\.com/(.+/)?webstore/',

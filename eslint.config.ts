@@ -376,7 +376,7 @@ export default defineConfig([
 
   {
     files: ['src/entrypoints/*/index.ts'],
-    rules: restrictedSyntax(NO_ENUM, NO_INNER_HTML, NO_VOID),
+    rules: restrictedSyntax(NO_ENUM, NO_INNER_HTML, NO_VOID, ...NO_HARD_CODED_EXTENSION_ORIGIN),
   },
 
   {
