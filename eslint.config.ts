@@ -30,10 +30,10 @@ import { noContentScriptLock } from './tools/eslint-rules/no-content-script-lock
  * Type-aware linting is switched on (`projectService`). What is on from it is
  * the rules this codebase already passes (ALREADY_CLEAN), the correctness,
  * stylistic, assertion, unsafe-`any`, promise, unbound-method,
- * nullish-coalescing, unnecessary-condition and confusing-void rules
- * (CORRECTNESS_RULES, TIDY_RULES, ASSERTION_RULES, UNSAFE_ANY_RULES,
+ * nullish-coalescing, unnecessary-condition, confusing-void and empty-body
+ * rules (CORRECTNESS_RULES, TIDY_RULES, ASSERTION_RULES, UNSAFE_ANY_RULES,
  * PROMISE_RULES, UNBOUND_METHOD, NULLISH_COALESCING, UNNECESSARY_CONDITION,
- * CONFUSING_VOID) and the boolean naming rule; the
+ * CONFUSING_VOID, EMPTY_BODY_RULES) and the boolean naming rule; the
  * rest is a backlog tracked in #282, and any rule held off with violations to
  * fix goes in DEFERRED below with the count it has. A rule that is wrong for
  * this codebase rather than merely unfixed goes in OFF_ON_MERITS instead, which
@@ -331,6 +331,17 @@ const CONFUSING_VOID: Linter.RulesRecord = {
 }
 
 /**
+ * An `async` function that never awaits, and a function with an empty body
+ * (#383). Everything but tests, which are exempt in OFF_ON_MERITS_IN_TESTS. An empty
+ * function that is a deliberate no-op says why in a comment inside its body,
+ * which the rule accepts.
+ */
+const EMPTY_BODY_RULES: Linter.RulesRecord = {
+  '@typescript-eslint/require-await': 'error',
+  '@typescript-eslint/no-empty-function': 'error',
+}
+
+/**
  * Rules worth having that no longer fit in the diff that turned the linter on.
  * Each is off with the number of violations it reports today, so re-enabling one
  * is a line here plus the fixes it names — and so the count is a claim a reviewer
@@ -362,6 +373,26 @@ const OFF_ON_MERITS = {
   // unparseable code.
   'jest-dom/prefer-to-have-text-content': 'off',
   'jest-dom/prefer-to-have-style': 'off',
+} as const
+
+/**
+ * OFF_ON_MERITS for test files only, where the idioms these rules report are
+ * the point of the code.
+ */
+const OFF_ON_MERITS_IN_TESTS = {
+  // 136 reports, all in tests. 86 are `it` / hook callbacks, where dropping the
+  // `async` changes nothing but means putting it back with the first `await`.
+  // The other 50 are why the rule stays off: `act(async () => …)`, which waits
+  // for microtasks that a synchronous `act` does not (and awaiting a
+  // synchronous `act` fails `await-thenable`), and stand-ins for a callback
+  // typed to return a promise (`withStorageLock`, `collectTabsWithData`,
+  // `mockImplementation`), where `async` is the plainest way to return one.
+  '@typescript-eslint/require-await': 'off',
+  // 244 reports, all in tests: `onChange: () => {}` props,
+  // `mockImplementation(() => {})` silencing a spy, and the E2E specs'
+  // best-effort `.catch(() => {})` on cleanup. A comment in each body would
+  // say "no-op" 244 times.
+  '@typescript-eslint/no-empty-function': 'off',
 } as const
 
 export default defineConfig([
@@ -409,6 +440,7 @@ export default defineConfig([
       ...NULLISH_COALESCING,
       ...UNNECESSARY_CONDITION,
       ...CONFUSING_VOID,
+      ...EMPTY_BODY_RULES,
       ...BOOLEAN_PREFIX,
       '@typescript-eslint/no-unused-vars': [
         'error',
@@ -583,4 +615,5 @@ export default defineConfig([
 
   // Last, so it wins over the shared configs above that switch these on.
   { files: ['**/*.{ts,tsx}'], rules: { ...DEFERRED, ...OFF_ON_MERITS } },
+  { files: [...TEST_FILES, 'tests/e2e/**/*.ts'], rules: OFF_ON_MERITS_IN_TESTS },
 ])
