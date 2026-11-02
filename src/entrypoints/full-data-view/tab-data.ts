@@ -52,6 +52,7 @@ export const collectTabsWithData = async (
         tabId: tab.id,
         tabUrl: tab.url || 'Unknown URL',
         tabTitle: tab.title || 'Unknown Title',
+        // `hasScrapedRows` is false for a null state or a missing result.
         scrapeResult: state!.scrapeResult!,
         config: resolveTabConfig(state!),
       })
