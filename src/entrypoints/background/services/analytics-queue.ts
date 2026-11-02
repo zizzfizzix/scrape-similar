@@ -92,7 +92,7 @@ export const initializeAnalyticsQueue = async (): Promise<void> => {
     reportingListener(async (value) => {
       const sanitizedConsentState = toConsentState(value)
       if (sanitizedConsentState === true) {
-        // Clears the result remembered while consent was not yet given.
+        // Clears the null remembered while consent was withheld.
         resetPostHogInstance()
         await flushQueuedEvents()
       } else if (sanitizedConsentState === false) {
