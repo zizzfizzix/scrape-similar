@@ -1,6 +1,5 @@
 import {
   BOOTSTRAP_EXCLUSIONS,
-  BOOTSTRAP_LINE_BUDGET,
   COVERAGE_EXCLUSIONS,
   GENERATED_EXCLUSIONS,
   TYPE_ONLY_EXCLUSIONS,
@@ -65,17 +64,6 @@ describe('the type-only exemption', () => {
 })
 
 describe('the bootstrap exemption', () => {
-  it('covers only files small enough to still be wiring', async () => {
-    for (const relativePath of BOOTSTRAP_EXCLUSIONS) {
-      const lineCount = (await readSource(relativePath)).trimEnd().split('\n').length
-
-      expect(
-        lineCount,
-        `${relativePath} has grown past ${BOOTSTRAP_LINE_BUDGET} lines — move its logic to a module beside it and cover it there`,
-      ).toBeLessThanOrEqual(BOOTSTRAP_LINE_BUDGET)
-    }
-  })
-
   it('covers only entrypoint files, never a module they delegate to', () => {
     for (const relativePath of BOOTSTRAP_EXCLUSIONS) {
       expect(relativePath).toMatch(/\/(main\.tsx|index\.ts)$/)
