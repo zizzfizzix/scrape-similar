@@ -58,7 +58,7 @@ const render = () =>
 
 const byText = (text: string): HTMLButtonElement => {
   const found = [...view.container.querySelectorAll('button')].find((candidate) =>
-    candidate.textContent?.trim().startsWith(text),
+    candidate.textContent.trim().startsWith(text),
   )
   if (!found) throw new Error(`No button starting with "${text}"`)
   return found
@@ -66,7 +66,7 @@ const byText = (text: string): HTMLButtonElement => {
 
 const hasButton = (text: string) =>
   [...view.container.querySelectorAll('button')].some((candidate) =>
-    candidate.textContent?.trim().startsWith(text),
+    candidate.textContent.trim().startsWith(text),
   )
 
 /** Click a button and settle any async work its handler starts. */

@@ -392,7 +392,7 @@ export const FullDataViewApp: React.FC = () => {
     if (!currentTabData) return []
 
     const columnsOrder =
-      currentTabData.scrapeResult.columnOrder && currentTabData.scrapeResult.columnOrder.length > 0
+      currentTabData.scrapeResult.columnOrder.length > 0
         ? currentTabData.scrapeResult.columnOrder
         : currentTabData.config.columns.map((col) => col.name)
     const columnKeys = getColumnKeys(columnsOrder, currentTabData.config.columns)

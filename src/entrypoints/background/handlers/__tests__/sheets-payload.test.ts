@@ -18,13 +18,6 @@ describe('buildSheetValues', () => {
     expect(buildSheetValues([])).toEqual({ headers: [], values: [] })
   })
 
-  it('returns nothing when the result set is missing entirely', () => {
-    expect(buildSheetValues(undefined as unknown as ScrapedData)).toEqual({
-      headers: [],
-      values: [],
-    })
-  })
-
   it('returns nothing when the first row has no columns', () => {
     expect(buildSheetValues([row({})])).toEqual({ headers: [], values: [] })
   })

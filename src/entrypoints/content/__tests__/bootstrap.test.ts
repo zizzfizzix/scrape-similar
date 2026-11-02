@@ -137,12 +137,12 @@ describe('applyDebugMode', () => {
     expect(setLevel).toHaveBeenCalledWith('trace')
   })
 
-  it('treats a broadcast with no payload as the flag being off', async () => {
+  it('drops back to errors only when a broadcast turns the flag off', async () => {
     backgroundReplies({ [MESSAGE_TYPES.GET_DEBUG_MODE]: { success: true, debugMode: true } })
     applyDebugMode()
     setLevel.mockClear()
 
-    await broadcast({ type: MESSAGE_TYPES.DEBUG_MODE_CHANGED })
+    await broadcast({ type: MESSAGE_TYPES.DEBUG_MODE_CHANGED, payload: { debugMode: false } })
 
     expect(setLevel).toHaveBeenCalledWith('error')
   })

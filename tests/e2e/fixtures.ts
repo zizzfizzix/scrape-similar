@@ -179,10 +179,10 @@ async function waitForChromeApis(worker: Worker, timeout = 5000) {
     const hasApi = await worker.evaluate(
       () =>
         typeof chrome !== 'undefined' &&
-        typeof chrome?.storage !== 'undefined' &&
-        typeof chrome?.tabs !== 'undefined' &&
-        typeof chrome?.sidePanel !== 'undefined' &&
-        typeof chrome?.runtime !== 'undefined',
+        typeof chrome.storage !== 'undefined' &&
+        typeof chrome.tabs !== 'undefined' &&
+        typeof chrome.sidePanel !== 'undefined' &&
+        typeof chrome.runtime !== 'undefined',
     )
     if (hasApi) return
     await new Promise((r) => setTimeout(r, 50))

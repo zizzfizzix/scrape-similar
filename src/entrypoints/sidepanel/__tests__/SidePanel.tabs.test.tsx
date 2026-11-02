@@ -405,7 +405,7 @@ describe('without a tab to talk to', () => {
     // would normally ask the page for a highlight.
     await act(async () => {
       ;[...view.container.querySelectorAll('button')]
-        .find((candidate) => candidate.textContent?.trim() === 'Validate selector')!
+        .find((candidate) => candidate.textContent.trim() === 'Validate selector')!
         .click()
       await Promise.resolve()
     })
@@ -465,7 +465,7 @@ describe('reading the stored state', () => {
     await waitFor(() =>
       expect(
         [...view.container.querySelectorAll('button')].some(
-          (candidate) => candidate.textContent?.trim() === 'Scrape',
+          (candidate) => candidate.textContent.trim() === 'Scrape',
         ),
       ).toBe(true),
     )
@@ -529,7 +529,7 @@ describe('remembering the selector a scrape used', () => {
     const sendMessage = contentScriptReplies(response)
     await act(async () => {
       ;[...view.container.querySelectorAll('button')]
-        .find((candidate) => candidate.textContent?.trim() === label)!
+        .find((candidate) => candidate.textContent.trim() === label)!
         .click()
       await Promise.resolve()
     })
@@ -717,7 +717,7 @@ describe('presets', () => {
 
   const byLabel = (label: string) =>
     [...view.container.querySelectorAll('button')].find(
-      (candidate) => candidate.textContent?.trim() === label,
+      (candidate) => candidate.textContent.trim() === label,
     )!
 
   /** Open the Load popover; its content is portalled onto the body. */
@@ -725,7 +725,7 @@ describe('presets', () => {
 
   const presetRow = (name: string) =>
     [...document.querySelectorAll<HTMLElement>('[cmdk-item]')].find((candidate) =>
-      candidate.textContent?.includes(name),
+      candidate.textContent.includes(name),
     )
 
   const waitForPreset = async (name: string) => {
@@ -746,7 +746,7 @@ describe('presets', () => {
     fireEvent.change(nameField, { target: { value: name } })
     await act(async () => {
       ;[...document.querySelectorAll<HTMLButtonElement>('[data-slot="drawer-content"] button')]
-        .filter((candidate) => candidate.textContent?.trim() === 'Save')
+        .filter((candidate) => candidate.textContent.trim() === 'Save')
         .at(-1)!
         .click()
       await Promise.resolve()
@@ -761,7 +761,7 @@ describe('presets', () => {
     await userEvent.click(presetRow(name)!.querySelector<HTMLButtonElement>('button')!)
     await userEvent.click(
       [...document.querySelectorAll<HTMLButtonElement>('button')].find((candidate) =>
-        ['Delete', 'Hide'].includes(candidate.textContent?.trim() ?? ''),
+        ['Delete', 'Hide'].includes(candidate.textContent.trim()),
       )!,
     )
   }
@@ -935,7 +935,7 @@ describe('presets', () => {
       // The Settings row and the confirmation both read "Import"; the
       // confirmation is portalled, so it comes last in the document.
       ;[...document.querySelectorAll<HTMLButtonElement>('button')]
-        .filter((candidate) => candidate.textContent?.trim() === 'Import')
+        .filter((candidate) => candidate.textContent.trim() === 'Import')
         .at(-1)!
         .click()
       await Promise.resolve()
@@ -1102,7 +1102,7 @@ describe('one panel per tab', () => {
   const shownButton = (label: string) =>
     [...view.container.querySelectorAll('button')]
       .filter(isShown)
-      .find((candidate) => candidate.textContent?.trim() === label)
+      .find((candidate) => candidate.textContent.trim() === label)
 
   const sidePanelWrites = (sendMessage: ReturnType<typeof spyOnBrowser>) =>
     sendMessage.mock.calls

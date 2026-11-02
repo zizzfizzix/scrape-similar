@@ -22,7 +22,7 @@ const MIN_LAYOUT_SIBLINGS = 3
 /** Row-ish tags that mark a repeated record when the parent holds several. */
 const ROW_TAGS = ['tr', 'li', 'dt', 'dd'] as const
 
-const getText = (element: Element): string => element.textContent?.trim() || ''
+const getText = (element: Element): string => element.textContent.trim()
 
 /** Every `data-*` attribute on the element, as its own column. */
 export const getDataAttributes = (element: Element): ColumnDefinition[] =>

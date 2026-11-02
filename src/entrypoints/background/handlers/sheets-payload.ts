@@ -26,7 +26,7 @@ export const buildSheetValues = (
   columnOrder?: string[],
   columnKeys?: string[],
 ): SheetValues => {
-  const [firstRow] = scrapedData ?? []
+  const [firstRow] = scrapedData
   if (!firstRow) return { headers: [], values: [] }
 
   const headers = columnOrder && columnOrder.length > 0 ? columnOrder : Object.keys(firstRow.data)

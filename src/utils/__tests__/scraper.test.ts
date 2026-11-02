@@ -208,6 +208,10 @@ describe('generateXPath & minimizeXPath', () => {
     const bodyXPath = generateXPath(document.body)
     expect(bodyXPath).toBe('/html/body')
   })
+
+  it('stops at the document for an element outside the body', () => {
+    expect(generateXPath(document.documentElement)).toBe('/html')
+  })
 })
 
 describe('scrapePage', () => {
@@ -522,11 +526,6 @@ describe('scraper error handling', () => {
     const res = scrapePage(cfg)
     expect(res).toEqual([])
     expect(logSpy).toHaveBeenCalled()
-  })
-
-  it('generateXPath returns empty string when node invalid', () => {
-    // @ts-expect-error - passing null intentionally
-    expect(generateXPath(null)).toBe('')
   })
 })
 

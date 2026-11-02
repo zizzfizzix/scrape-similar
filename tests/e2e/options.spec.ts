@@ -140,7 +140,7 @@ test.describe('Options page', () => {
     // is before any module script runs and so before React could set it.
     await page.addInitScript(() => {
       const observer = new MutationObserver(() => {
-        if (!document.body) return
+        if (!(document.body as HTMLElement | null)) return
         ;(window as { classAtBody?: string }).classAtBody = document.documentElement.className
         observer.disconnect()
       })

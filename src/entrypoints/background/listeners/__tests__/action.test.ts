@@ -46,12 +46,6 @@ describe('setupActionListener', () => {
     expect(setOptions).not.toHaveBeenCalled()
   })
 
-  it('ignores a missing tab entirely', async () => {
-    await fakeBrowser.action.onClicked.trigger(undefined as unknown as Browser.tabs.Tab)
-
-    expect(setOptions).not.toHaveBeenCalled()
-  })
-
   it('logs but does not rethrow when seeding session state fails', async () => {
     const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
     const failure = new Error('session unavailable')

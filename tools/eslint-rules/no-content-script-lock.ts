@@ -235,6 +235,21 @@ export const noContentScriptLock: Rule.RuleModule = {
     // the path through the symbol in progress, so it is not cached.
     let cycleHits = 0
 
+    const chainWithin = (symbol: ts.Symbol, declaration: ts.Declaration): Chain => {
+      let found: Chain = null
+      forEachIdentifier(declaration, (identifier) => {
+        if (found) return
+        const resolved = symbolAt(identifier)
+        if (!resolved) return
+        // Parameters and locals are walked as part of the declaration they
+        // sit in.
+        if (resolved.declarations?.every((d) => isWithin(d, declaration))) return
+        const rest = chainFrom(resolved)
+        if (rest) found = [symbol.name, ...rest]
+      })
+      return found
+    }
+
     const chainFrom = (start: ts.Symbol): Chain => {
       const symbol = resolveAlias(start)
       const cached = chains.get(symbol)
@@ -278,16 +293,7 @@ export const noContentScriptLock: Rule.RuleModule = {
         chain = target && target !== symbol ? chainFrom(target) : null
       } else {
         for (const declaration of declarations) {
-          forEachIdentifier(declaration, (identifier) => {
-            if (chain) return
-            const resolved = symbolAt(identifier)
-            if (!resolved) return
-            // Parameters and locals are walked as part of the declaration
-            // they sit in.
-            if (resolved.declarations?.every((d) => isWithin(d, declaration))) return
-            const rest = chainFrom(resolved)
-            if (rest) chain = [symbol.name, ...rest]
-          })
+          chain = chainWithin(symbol, declaration)
           if (chain) break
         }
       }

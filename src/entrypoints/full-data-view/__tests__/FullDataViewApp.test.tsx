@@ -96,9 +96,9 @@ const renderLoaded = async () => {
   return view
 }
 
-const text = () => view.container.textContent ?? ''
+const text = () => view.container.textContent
 const bodyRows = () => [...view.container.querySelectorAll('tbody tr')]
-const headers = () => [...view.container.querySelectorAll('th')].map((th) => th.textContent?.trim())
+const headers = () => [...view.container.querySelectorAll('th')].map((th) => th.textContent.trim())
 const button = (label: string) =>
   view.container.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)!
 const allButtons = (label: string) => [
@@ -106,7 +106,7 @@ const allButtons = (label: string) => [
 ]
 const byText = (label: string): HTMLButtonElement => {
   const found = [...view.container.querySelectorAll('button')].find((candidate) =>
-    candidate.textContent?.trim().startsWith(label),
+    candidate.textContent.trim().startsWith(label),
   )
   if (!found) throw new Error(`No button starting with "${label}"`)
   return found
@@ -425,7 +425,7 @@ describe('FullDataViewApp', () => {
       await renderLoaded()
 
       const countryHeader = [...view.container.querySelectorAll<HTMLElement>('th')].find((th) =>
-        th.textContent?.startsWith('Country'),
+        th.textContent.startsWith('Country'),
       )!
       await userEvent.click(countryHeader)
 
@@ -442,7 +442,7 @@ describe('FullDataViewApp', () => {
       act(() => view.container.querySelector<HTMLElement>('#show-empty-rows')!.click())
 
       const countryHeader = [...view.container.querySelectorAll<HTMLElement>('th')].find((th) =>
-        th.textContent?.startsWith('Country'),
+        th.textContent.startsWith('Country'),
       )!
       await userEvent.click(countryHeader)
 
@@ -583,7 +583,7 @@ describe('FullDataViewApp', () => {
       await userEvent.click(byText('First'))
       act(() => {
         const option = [...document.querySelectorAll<HTMLElement>('[cmdk-item]')].find((item) =>
-          item.textContent?.includes('Second'),
+          item.textContent.includes('Second'),
         )
         option!.click()
       })

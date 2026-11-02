@@ -19,7 +19,7 @@ const handleGetTabId: MessageHandler = (message, sender, sendResponse) => {
  */
 const handleTrackEvent: MessageHandler = (message, sender, sendResponse) => {
   const tabId = sender.tab?.id
-  const { eventName, properties } = message.payload as TrackEventPayload
+  const { eventName, properties } = message.payload as Partial<TrackEventPayload>
   if (eventName) {
     trackContentScriptEvent(eventName, { ...properties })
     log.debug(`Tracked event from content script in tab ${tabId}: ${eventName}`)

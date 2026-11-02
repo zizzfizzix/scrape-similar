@@ -87,7 +87,7 @@ const mainSelectorInput = () =>
   view.container.querySelector<HTMLTextAreaElement>('textarea#mainSelector')!
 const byText = (text: string): HTMLButtonElement => {
   const found = [...view.container.querySelectorAll('button')].find(
-    (candidate) => candidate.textContent?.trim() === text,
+    (candidate) => candidate.textContent.trim() === text,
   )
   if (!found) throw new Error(`No button labelled "${text}"`)
   return found

@@ -31,7 +31,7 @@ export const setupMessageListener = (): void => {
       if (message.type === MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA) {
         const { tabId: explicitTabId, updates } = (message.payload ?? {}) as {
           tabId?: number
-          updates: SidePanelConfigUpdate
+          updates?: SidePanelConfigUpdate
         }
         const targetId = explicitTabId ?? sender.tab?.id
         if (typeof targetId !== 'number' || !updates) {

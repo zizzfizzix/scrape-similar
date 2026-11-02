@@ -422,7 +422,7 @@ test.describe('Sidepanel Core Functionality', () => {
         const ths = Array.from(document.querySelectorAll('table thead th'))
         // Exclude selection checkbox (empty), row index '#', and 'Actions'
         return ths
-          .map((th) => th.textContent?.trim() || '')
+          .map((th) => th.textContent.trim())
           .filter((txt) => txt && txt !== '#' && txt.toLowerCase() !== 'actions')
       })
       expect(headers).toEqual(uiHeaders)
@@ -473,7 +473,7 @@ test.describe('Sidepanel Core Functionality', () => {
       const uiHeaders = await sidePanel.evaluate(() => {
         const ths = Array.from(document.querySelectorAll('table thead th'))
         return ths
-          .map((th) => th.textContent?.trim() || '')
+          .map((th) => th.textContent.trim())
           .filter((txt) => txt && txt !== '#' && txt.toLowerCase() !== 'actions')
       })
       expect(aoa[0]).toEqual(uiHeaders)

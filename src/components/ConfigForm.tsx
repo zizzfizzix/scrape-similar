@@ -768,7 +768,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
                   "
                   {presetToDelete ? (
                     <span
-                      className={`font-semibold text-destructive ${presetToDelete && isSystemPreset(presetToDelete) ? '' : 'ph_hidden'}`}
+                      className={`font-semibold text-destructive ${isSystemPreset(presetToDelete) ? '' : 'ph_hidden'}`}
                     >
                       {presetToDelete.name}
                     </span>
