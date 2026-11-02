@@ -7,6 +7,7 @@ import {
   withColumnName,
   withColumnSelector,
   withoutColumn,
+  withTrimmedMainSelector,
 } from '@/utils/scrape-config'
 import type { ScrapeConfig } from '@/utils/types'
 import { describe, expect, it } from 'vitest'
@@ -177,6 +178,18 @@ describe('sanitizeToSingleLine', () => {
   })
 })
 
+describe('withTrimmedMainSelector', () => {
+  it('trims whitespace around the main selector', () => {
+    expect(withTrimmedMainSelector({ ...config(), mainSelector: '  //tr \t' })).toEqual(config())
+  })
+
+  it('returns a config whose selector is already trimmed unchanged', () => {
+    const trimmed = config()
+
+    expect(withTrimmedMainSelector(trimmed)).toBe(trimmed)
+  })
+})
+
 describe('resolveStoredConfig', () => {
   const storedConfig: ScrapeConfig = {
     mainSelector: '//tr',
@@ -189,6 +202,14 @@ describe('resolveStoredConfig', () => {
 
   it('uses the stored config as-is', () => {
     expect(resolveStoredConfig({ currentScrapeConfig: storedConfig })).toEqual(storedConfig)
+  })
+
+  it('trims the stored selector', () => {
+    const config = resolveStoredConfig({
+      currentScrapeConfig: { ...storedConfig, mainSelector: ' //tr ' },
+    })
+
+    expect(config).toEqual(storedConfig)
   })
 
   it('keeps the default columns when the stored config has none', () => {

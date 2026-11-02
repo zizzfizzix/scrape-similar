@@ -183,8 +183,8 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
 
   // Derived flags
   const trimmedDraft = mainSelectorDraft.trim()
-  // Commits trim, so surrounding whitespace on either side is not a change.
-  const hasUncommittedChanges = trimmedDraft !== config.mainSelector.trim()
+  // The committed selector is always trimmed, so whitespace around the draft is not a change.
+  const hasUncommittedChanges = trimmedDraft !== config.mainSelector
 
   // Shared by the scrape button and the Enter shortcut so neither can start a
   // scrape the other would refuse.
@@ -192,7 +192,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
 
   // Show highlight/error badges only when a non-empty selector is committed
   const isMainSelectorValid = isMainSelectorValidated({
-    mainSelector: mainSelectorDraft,
+    mainSelector: trimmedDraft,
     hasUncommittedChanges,
     highlightMatchCount,
     highlightError,
@@ -290,7 +290,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
     const value = draft.trim()
     setMainSelectorDraft(value)
     const latest = latestConfigRef.current
-    if (value !== latest.mainSelector.trim()) {
+    if (value !== latest.mainSelector) {
       onChange({ ...latest, mainSelector: value })
     }
     if (value) {
@@ -319,11 +319,10 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
    * Guess the columns for the current selector.
    *
    * The button is disabled until the selector is non-blank, committed and
-   * validated, so the draft agrees with the config by the time this runs, and
-   * validating needs a tab, so one is attached.
+   * validated, and validating needs a tab, so one is attached.
    */
   const handleGuessConfig = () => {
-    const selector = mainSelectorDraft.trim()
+    const selector = config.mainSelector
 
     // Track auto-generate config button press
     trackEvent(ANALYTICS_EVENTS.AUTO_GENERATE_CONFIG_BUTTON_PRESS)
@@ -394,8 +393,10 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
 
   // Handle autosuggest preset selection
   const handleAutosuggestSelect = (preset: Preset) => {
-    // Update the draft immediately to prevent blur handler from committing stale value
-    setMainSelectorDraft(preset.config.mainSelector)
+    // Update the draft immediately to prevent blur handler from committing stale value.
+    // Trimmed here because a preset whose trimmed selector equals the committed
+    // one leaves the config unchanged, so the draft is never resynced from it.
+    setMainSelectorDraft(preset.config.mainSelector.trim())
     // Load the full preset (including columns) just like the Load button does
     onLoadPreset(preset)
     setIsAutosuggestOpen(false)
@@ -453,7 +454,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
     // again, which is how a failed highlight gets retried.
     const value = mainSelectorDraft.trim()
     const isValidatedAndUnchanged =
-      value === committedAtBlur.trim() &&
+      value === committedAtBlur &&
       isMainSelectorValidated({
         mainSelector: value,
         hasUncommittedChanges: false,

@@ -58,6 +58,7 @@ interface MainSelectorValidationState {
 /**
  * Whether the committed main selector has a usable highlight result, i.e.
  * whether the match-count badge should be shown and scraping allowed.
+ * `mainSelector` is trimmed, so a blank one is empty.
  */
 export const isMainSelectorValidated = ({
   mainSelector,
@@ -65,7 +66,7 @@ export const isMainSelectorValidated = ({
   highlightMatchCount,
   highlightError,
 }: MainSelectorValidationState): boolean =>
-  !!mainSelector.trim() &&
+  !!mainSelector &&
   !hasUncommittedChanges &&
   typeof highlightMatchCount === 'number' &&
   !highlightError

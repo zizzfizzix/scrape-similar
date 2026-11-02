@@ -309,6 +309,19 @@ describe('the autosuggest dropdown', () => {
       expect(scrapeEvents()).toBe(0)
     })
 
+    it('shows a padded preset selector trimmed when it matches the committed one', async () => {
+      const padded = preset('p3', 'Padded rows', '  //tr ')
+      view = await render({ presets: [padded], config: { ...config, mainSelector: '//tr' } })
+      focusField()
+      type('')
+      press('ArrowDown')
+      await waitFor(() => expect(selectedSuggestion().textContent).toContain('Padded rows'))
+
+      press('Enter')
+
+      expect(mainSelectorInput().value).toBe('//tr')
+    })
+
     it('applies a highlighted preset once while Enter is held', async () => {
       const onLoadPreset = vi.fn()
       const onScrape = vi.fn()
@@ -846,25 +859,6 @@ describe('the autosuggest dropdown', () => {
 
       expect(onScrape).toHaveBeenCalledTimes(1)
       expect(suggestionItems()).toHaveLength(0)
-    })
-
-    it('scrapes a validated selector that was committed with surrounding whitespace', async () => {
-      const onScrape = vi.fn()
-      const onChange = vi.fn()
-      view = await render({
-        presets: [],
-        onScrape,
-        onChange,
-        config: { ...config, mainSelector: ' //tr' },
-      })
-      focusField()
-
-      press('Enter')
-      act(() => mainSelectorInput().blur())
-      await outlastBlurCommit()
-
-      expect(onScrape).toHaveBeenCalledTimes(1)
-      expect(onChange).not.toHaveBeenCalled()
     })
 
     it('still commits on a later blur after a suggestion click and an Enter', async () => {

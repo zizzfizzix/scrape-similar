@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import type { ConfigForm } from '@/components/ConfigForm'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { TabPanel } from '@/entrypoints/sidepanel/TabPanel'
 import { MESSAGE_TYPES, type ScrapeConfig } from '@/utils/types'
 import { spyOnBrowser } from '@@/tests/support/fake-browser'
@@ -34,13 +35,15 @@ const sidePanelWrites = (sendMessage: ReturnType<typeof spyOnBrowser>) =>
 
 const render = () =>
   renderSettled(
-    <TabPanel
-      tabId={TAB_ID}
-      tabUrl="https://example.com/table"
-      presets={[]}
-      onSavePreset={() => Promise.resolve()}
-      onDeletePreset={() => {}}
-    />,
+    <TooltipProvider>
+      <TabPanel
+        tabId={TAB_ID}
+        tabUrl="https://example.com/table"
+        presets={[]}
+        onSavePreset={() => Promise.resolve()}
+        onDeletePreset={() => {}}
+      />
+    </TooltipProvider>,
   )
 
 describe('TabPanel config edits', () => {
@@ -92,5 +95,89 @@ describe('TabPanel config edits', () => {
         },
       ],
     ])
+  })
+
+  it('trims the selector of an edit before writing it', async () => {
+    await render()
+    const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
+      undefined,
+    )
+
+    act(() => {
+      form.props!.onChange({ ...form.props!.config, mainSelector: '  //li ' })
+    })
+
+    expect(form.props!.config.mainSelector).toBe('//li')
+    expect(sidePanelWrites(sendMessage)).toEqual([
+      [
+        {
+          type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
+          payload: {
+            tabId: TAB_ID,
+            updates: {
+              currentScrapeConfig: { mainSelector: '//li' },
+              highlightMatchCount: null,
+              highlightError: null,
+            },
+          },
+        },
+      ],
+    ])
+  })
+
+  it('trims the selector of a loaded preset before showing, writing and highlighting it', async () => {
+    await render()
+    const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
+      undefined,
+    )
+    const tabsSendMessage = spyOnBrowser(fakeBrowser.tabs, 'sendMessage').mockResolvedValue(
+      undefined,
+    )
+
+    act(() => {
+      form.props!.onLoadPreset({
+        id: 'padded',
+        name: 'Padded',
+        config: { ...config, mainSelector: ' //li\t' },
+        createdAt: 0,
+      })
+    })
+
+    expect(form.props!.config.mainSelector).toBe('//li')
+    expect(sidePanelWrites(sendMessage)).toEqual([
+      [
+        {
+          type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
+          payload: {
+            tabId: TAB_ID,
+            updates: {
+              currentScrapeConfig: { mainSelector: '//li', columns: config.columns },
+              highlightMatchCount: null,
+              highlightError: null,
+            },
+          },
+        },
+      ],
+    ])
+    expect(tabsSendMessage).toHaveBeenCalledWith(
+      TAB_ID,
+      { type: MESSAGE_TYPES.HIGHLIGHT_ELEMENTS, payload: { selector: '//li' } },
+      expect.any(Function),
+    )
+  })
+
+  it('does not advise a re-scrape for a stored result whose selector differs only by padding', async () => {
+    await storage.setItem(`session:sidepanel_config_${TAB_ID}`, {
+      currentScrapeConfig: config,
+      resultProducingConfig: { ...config, mainSelector: ' //tr ' },
+      scrapeResult: {
+        data: [{ data: { Rank: '1' }, metadata: { originalIndex: 0, isEmpty: false } }],
+        columnOrder: ['Rank'],
+      },
+    })
+
+    await render()
+
+    expect(form.props!.rescrapeAdvised).toBe(false)
   })
 })

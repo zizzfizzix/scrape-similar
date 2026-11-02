@@ -314,8 +314,6 @@ describe('getAllPresets', () => {
 })
 
 describe('recent main selectors', () => {
-  const read = () => storage.getItem<string[]>(recentMainSelectorsItem.key)
-
   it('starts out empty', async () => {
     expect(await getRecentMainSelectors()).toEqual([])
   })
@@ -351,18 +349,6 @@ describe('recent main selectors', () => {
     await pushRecentMainSelector('//a')
 
     expect(await getRecentMainSelectors()).toEqual(['//a', '//div'])
-  })
-
-  it('trims surrounding whitespace before storing', async () => {
-    await pushRecentMainSelector('  //a  ')
-
-    expect(await getRecentMainSelectors()).toEqual(['//a'])
-  })
-
-  it('ignores a blank selector', async () => {
-    await pushRecentMainSelector('   ')
-
-    expect(await read()).toBeNull()
   })
 
   it('keeps only the five most recent selectors', async () => {

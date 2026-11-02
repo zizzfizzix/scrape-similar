@@ -233,13 +233,11 @@ const updateRecentMainSelectors = async (
   }
 }
 
-export const pushRecentMainSelector = async (selector: string): Promise<void> => {
-  const sanitized = selector.trim()
-  if (!sanitized) return
-  await updateRecentMainSelectors((current) =>
-    [sanitized, ...current.filter((s) => s !== sanitized)].slice(0, 5),
+/** `selector` is a committed main selector: trimmed (`withTrimmedMainSelector`) and non-blank. */
+export const pushRecentMainSelector = async (selector: string): Promise<void> =>
+  updateRecentMainSelectors((current) =>
+    [selector, ...current.filter((s) => s !== selector)].slice(0, 5),
   )
-}
 
 export const removeRecentMainSelector = async (selector: string): Promise<void> =>
   updateRecentMainSelectors((current) => current.filter((s) => s !== selector))
