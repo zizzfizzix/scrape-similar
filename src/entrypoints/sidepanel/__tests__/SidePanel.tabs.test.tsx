@@ -563,7 +563,8 @@ describe('remembering the selector a scrape used', () => {
 
     await scrape(scraped)
 
-    await waitFor(async () => expect(await getRecentMainSelectors()).toEqual([]))
+    await act(flushMicrotasks)
+    expect(await getRecentMainSelectors()).toEqual([])
   })
 
   it('validates an edited selector instead of scraping the committed one', async () => {
@@ -587,7 +588,8 @@ describe('remembering the selector a scrape used', () => {
         (message as Message).payload,
       ]),
     ).toEqual([[MESSAGE_TYPES.HIGHLIGHT_ELEMENTS, { selector: '//li' }]])
-    await waitFor(async () => expect(await getRecentMainSelectors()).toEqual([]))
+    await act(flushMicrotasks)
+    expect(await getRecentMainSelectors()).toEqual([])
   })
 
   it('ignores a preset with no selector while checking the recents', async () => {
@@ -647,7 +649,8 @@ describe('remembering the selector a scrape used', () => {
     await scrape({ data: { data: [row] } })
 
     // No `success: true`, so nothing is remembered about the config used.
-    await waitFor(async () => expect(await getRecentMainSelectors()).toEqual([]))
+    await act(flushMicrotasks)
+    expect(await getRecentMainSelectors()).toEqual([])
   })
 })
 
