@@ -141,7 +141,7 @@ export const TabPanel = memo(function TabPanel({
     browser.tabs.sendMessage(
       id,
       { type: MESSAGE_TYPES.START_SCRAPE, payload: config },
-      (response) => {
+      (response: ScrapeReply | undefined) => {
         setIsScraping(false)
         if (!response && browser.runtime.lastError) {
           notify.error(CONTENT_SCRIPT_UNREACHABLE)
@@ -187,7 +187,7 @@ export const TabPanel = memo(function TabPanel({
     browser.tabs.sendMessage(
       tabId,
       { type: MESSAGE_TYPES.HIGHLIGHT_ELEMENTS, payload: { selector } },
-      (response) => {
+      (response: HighlightReply | undefined) => {
         if (!response && browser.runtime.lastError) {
           notify.error(CONTENT_SCRIPT_UNREACHABLE)
           return
@@ -220,7 +220,7 @@ export const TabPanel = memo(function TabPanel({
     browser.tabs.sendMessage(
       tabId!,
       { type: MESSAGE_TYPES.HIGHLIGHT_ROW_ELEMENT, payload: { selector } },
-      (response) => {
+      (response: StatusReply | undefined) => {
         if (!response && browser.runtime.lastError) {
           notify.error(CONTENT_SCRIPT_UNREACHABLE)
         }
@@ -233,7 +233,7 @@ export const TabPanel = memo(function TabPanel({
     browser.tabs.sendMessage(
       tabId,
       { type: MESSAGE_TYPES.TOGGLE_PICKER_MODE, payload: { source: ANALYTICS_SOURCES.BUTTON } },
-      (response) => {
+      (response: StatusReply | undefined) => {
         if (!response && browser.runtime.lastError) {
           notify.error(CONTENT_SCRIPT_UNREACHABLE)
         } else if (response?.success) {

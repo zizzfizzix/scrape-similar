@@ -5,7 +5,8 @@ import { beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 
 describe('initializeContextMenus', () => {
-  let create: MockInstance
+  // Every item is created with a callback, so the spy's calls carry one.
+  let create: MockInstance<(properties: unknown, callback: () => void) => void>
 
   beforeEach(() => {
     fakeBrowser.reset()

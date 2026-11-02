@@ -27,7 +27,7 @@ import { ANALYTICS_EVENTS, trackEvent } from '@/utils/analytics'
 import { reportingListener, reportRejection } from '@/utils/report-rejection'
 import { buildColumnsForElement } from '@/utils/scrape-guess'
 import { evaluateXPath, minimizeXPath, scrapePage } from '@/utils/scraper'
-import type { ScrapeConfig, ScrapeResult, SidePanelConfigUpdate } from '@/utils/types'
+import type { ScrapeConfig, ScrapeResult, SidePanelConfigUpdate, StatusReply } from '@/utils/types'
 import { MESSAGE_TYPES } from '@/utils/types'
 import log from 'loglevel'
 import type { ContentScriptContext } from 'wxt/utils/content-script-context'
@@ -226,7 +226,7 @@ const storeSidePanelUpdates = (tabId: number, updates: SidePanelConfigUpdate): P
   new Promise<void>((resolve, reject) => {
     browser.runtime.sendMessage(
       { type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA, payload: { tabId, updates } },
-      (response) => {
+      (response: StatusReply | undefined) => {
         if (browser.runtime.lastError) {
           log.error('Error saving picker config to background:', browser.runtime.lastError)
           reject(new Error(browser.runtime.lastError.message))

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
 
 import {
   countXPathMatches,
@@ -485,7 +485,7 @@ describe('guessScrapeConfigForElement', () => {
 })
 
 describe('scraper error handling', () => {
-  let logSpy: ReturnType<typeof vi.spyOn>
+  let logSpy: MockInstance<typeof log.error>
 
   beforeEach(() => {
     logSpy = vi.spyOn(log, 'error').mockImplementation(() => {})

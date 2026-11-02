@@ -25,14 +25,15 @@ const fileWith = (text: string) => ({ text: () => Promise.resolve(text) })
 
 describe('buildPresetExportJson', () => {
   it('stamps the current format version', () => {
-    const parsed = JSON.parse(buildPresetExportJson([preset()]))
+    const parsed: unknown = JSON.parse(buildPresetExportJson([preset()]))
 
-    expect(parsed.version).toBe(USER_PRESETS_VERSION)
-    expect(parsed.presets).toEqual([preset()])
+    expect(parsed).toEqual({ version: USER_PRESETS_VERSION, presets: [preset()] })
   })
 
   it('exports an empty list as an empty array', () => {
-    expect(JSON.parse(buildPresetExportJson([])).presets).toEqual([])
+    const parsed: unknown = JSON.parse(buildPresetExportJson([]))
+
+    expect(parsed).toEqual({ version: USER_PRESETS_VERSION, presets: [] })
   })
 
   it('formats the file for a human to edit before re-importing', () => {

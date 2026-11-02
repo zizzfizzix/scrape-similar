@@ -562,7 +562,7 @@ export const OnboardingApp: React.FC = () => {
       })
 
       // Set up the demo config in background
-      const response = await browser.runtime.sendMessage({
+      const response: StatusReply | undefined = await browser.runtime.sendMessage({
         type: MESSAGE_TYPES.TRIGGER_DEMO_SCRAPE,
       })
 

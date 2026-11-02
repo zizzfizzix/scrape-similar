@@ -54,7 +54,7 @@ describe('the coverage exclusion list', () => {
 describe('the type-only exemption', () => {
   it('covers only modules that compile to nothing', async () => {
     for (const relativePath of TYPE_ONLY_EXCLUSIONS) {
-      const module = await import(/* @vite-ignore */ `@@/${relativePath}`)
+      const module = (await import(/* @vite-ignore */ `@@/${relativePath}`)) as object
 
       expect(
         Object.keys(module),

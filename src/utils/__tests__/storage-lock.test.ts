@@ -16,9 +16,10 @@ describe('withStorageLock', () => {
 
     expect(requestSpy).toHaveBeenCalledWith(
       'sync:user_presets',
-      { signal: expect.any(AbortSignal) },
+      expect.anything(),
       expect.any(Function),
     )
+    expect(requestSpy.mock.lastCall?.[1]?.signal).toBeInstanceOf(AbortSignal)
   })
 
   it("resolves with the task's result", async () => {

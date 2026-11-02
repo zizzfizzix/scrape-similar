@@ -11,12 +11,15 @@ import type { ContentScriptContext } from 'wxt/utils/content-script-context'
  * handler reaches which function, with what — without re-testing behaviour that
  * `picker.test.ts` and `picker-context-menu.test.ts` already cover.
  */
+type ContextMenuModule = typeof import('@/entrypoints/content/picker/context-menu')
 const contextMenuMocks = vi.hoisted(() => ({
-  handleLevelChange: vi.fn(),
-  handlePickerContextMenu: vi.fn(),
+  handleLevelChange: vi.fn<ContextMenuModule['handleLevelChange']>(),
+  handlePickerContextMenu: vi.fn<ContextMenuModule['handlePickerContextMenu']>(),
   handlePickerContextMenuClickOutside: vi.fn(),
-  removePickerContextMenu: vi.fn(),
-  showPickerContextMenu: vi.fn().mockResolvedValue(undefined),
+  removePickerContextMenu: vi.fn<ContextMenuModule['removePickerContextMenu']>(),
+  showPickerContextMenu: vi
+    .fn<ContextMenuModule['showPickerContextMenu']>()
+    .mockResolvedValue(undefined),
 }))
 vi.mock('@/entrypoints/content/picker/context-menu', () => contextMenuMocks)
 
@@ -129,7 +132,7 @@ describe('the callbacks the context menu is given', () => {
   const showContextMenu = async () => {
     handlers().contextMenuHandler(new MouseEvent('contextmenu'))
     const [, , show] = contextMenuMocks.handlePickerContextMenu.mock.calls.at(-1)!
-    await (show as (x: number, y: number) => Promise<void>)(12, 34)
+    await show(12, 34)
     return contextMenuMocks.showPickerContextMenu.mock.calls.at(-1)!
   }
 
@@ -142,7 +145,7 @@ describe('the callbacks the context menu is given', () => {
   it('updates the banner when the level changes', async () => {
     const [, , , , onLevelChange] = await showContextMenu()
 
-    ;(onLevelChange as (level: number, method?: string) => void)(1, 'slider')
+    onLevelChange(1, 'slider')
 
     expect(contextMenuMocks.handleLevelChange).toHaveBeenCalledWith(
       1,
@@ -153,7 +156,7 @@ describe('the callbacks the context menu is given', () => {
 
     // The reporter it passes writes straight to the banner.
     const [, , report] = contextMenuMocks.handleLevelChange.mock.calls.at(-1)!
-    ;(report as (matches: number, xpath: string) => void)(3, '//li')
+    report(3, '//li')
     expect(bannerMocks.updatePickerBannerContent).toHaveBeenCalledWith(3, '//li', state)
   })
 
@@ -161,7 +164,7 @@ describe('the callbacks the context menu is given', () => {
     contextMenuMocks.removePickerContextMenu.mockClear()
     const [, , , , , onClose] = await showContextMenu()
 
-    ;(onClose as () => void)()
+    onClose()
 
     expect(contextMenuMocks.removePickerContextMenu).toHaveBeenCalledWith(
       state,

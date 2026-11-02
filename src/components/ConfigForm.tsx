@@ -336,7 +336,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
       browser.tabs.sendMessage(
         tabId!,
         { type: MESSAGE_TYPES.GUESS_CONFIG_FROM_SELECTOR, payload: { mainSelector: selector } },
-        (response) => {
+        (response: StatusReply | undefined) => {
           setGuessButtonState(response?.success === true ? 'success' : 'failure')
         },
       )

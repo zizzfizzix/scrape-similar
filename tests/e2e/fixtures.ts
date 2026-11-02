@@ -477,7 +477,8 @@ export const TestHelpers = {
   async getUserPresets(serviceWorker: Worker): Promise<Record<string, unknown>[]> {
     return await serviceWorker.evaluate(async () => {
       const { user_presets } = await chrome.storage.sync.get('user_presets')
-      return Array.isArray(user_presets) ? user_presets : []
+      // `Array.isArray` narrows `unknown` to `any[]`.
+      return Array.isArray(user_presets) ? (user_presets as Record<string, unknown>[]) : []
     })
   },
 }

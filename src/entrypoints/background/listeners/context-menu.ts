@@ -51,7 +51,7 @@ const handleQuickScrape = async (
 
   // Tell content script to save element details to storage, then trigger highlight, then scrape
   try {
-    const saveResp = await browser.tabs.sendMessage(targetTabId, {
+    const saveResp: StatusReply | undefined = await browser.tabs.sendMessage(targetTabId, {
       type: MESSAGE_TYPES.SAVE_ELEMENT_DETAILS_TO_STORAGE,
     })
     if (!saveResp?.success)
@@ -63,14 +63,17 @@ const handleQuickScrape = async (
     const config = currentData.currentScrapeConfig
     if (config?.mainSelector) {
       // Highlight elements before scraping
-      const highlightResp = await browser.tabs.sendMessage(targetTabId, {
-        type: MESSAGE_TYPES.HIGHLIGHT_ELEMENTS,
-        payload: { selector: config.mainSelector, shouldScroll: false },
-      })
+      const highlightResp: HighlightReply | undefined = await browser.tabs.sendMessage(
+        targetTabId,
+        {
+          type: MESSAGE_TYPES.HIGHLIGHT_ELEMENTS,
+          payload: { selector: config.mainSelector, shouldScroll: false },
+        },
+      )
       // Store highlight result in session storage immediately
       await applySidePanelDataUpdates(targetTabId, {
-        highlightMatchCount: highlightResp.matchCount,
-        highlightError: highlightResp.error,
+        highlightMatchCount: highlightResp?.matchCount,
+        highlightError: highlightResp?.error,
       })
       if (
         !highlightResp?.success ||
@@ -81,7 +84,7 @@ const handleQuickScrape = async (
         return
       }
       // Send START_SCRAPE to content script
-      const scrapeResp = await browser.tabs.sendMessage(targetTabId, {
+      const scrapeResp: StatusReply | undefined = await browser.tabs.sendMessage(targetTabId, {
         type: MESSAGE_TYPES.START_SCRAPE,
         payload: config,
       })

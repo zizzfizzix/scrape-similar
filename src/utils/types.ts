@@ -94,6 +94,26 @@ export type MessageResponse =
       url: string
     }
 
+/**
+ * Replies as their receivers read them. `sendMessage` takes a reply's type from
+ * the variable or callback parameter that receives it, `any` when that has no
+ * annotation, and nothing validates it.
+ */
+export interface StatusReply {
+  success: boolean
+  error?: string
+}
+
+/** A content script's reply to HIGHLIGHT_ELEMENTS. */
+export interface HighlightReply extends StatusReply {
+  matchCount?: number
+}
+
+/** A content script's reply to START_SCRAPE. */
+export interface ScrapeReply extends StatusReply {
+  data?: ScrapeResult
+}
+
 // Message types
 export const MESSAGE_TYPES = {
   // From background to content script
