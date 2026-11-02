@@ -407,7 +407,7 @@ export const FullDataViewApp: React.FC = () => {
               (table.getIsSomePageRowsSelected() && 'indeterminate')
             }
             onCheckedChange={(value: boolean) => {
-              table.toggleAllPageRowsSelected(!!value)
+              table.toggleAllPageRowsSelected(value)
 
               // Track select all action
               trackEvent(ANALYTICS_EVENTS.FULL_DATA_VIEW_ROW_SELECTION, {
@@ -425,7 +425,7 @@ export const FullDataViewApp: React.FC = () => {
           <Checkbox
             checked={row.getIsSelected()}
             onCheckedChange={(value: boolean) => {
-              row.toggleSelected(!!value)
+              row.toggleSelected(value)
 
               // Track individual row selection
               trackEvent(ANALYTICS_EVENTS.FULL_DATA_VIEW_ROW_SELECTION, {

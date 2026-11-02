@@ -9,11 +9,11 @@ import { storage } from 'wxt/utils/storage'
 
 /** A PostHog stand-in that records how it was configured. */
 const posthogMock = vi.hoisted(() => {
-  const instances: Array<{
+  const instances: {
     init: ReturnType<typeof vi.fn>
     set_config: ReturnType<typeof vi.fn>
     stopExceptionAutocapture: ReturnType<typeof vi.fn>
-  }> = []
+  }[] = []
   class PostHog {
     init = vi.fn((_apiKey: string, config: { loaded?: (instance: unknown) => void }) => {
       config.loaded?.(this)

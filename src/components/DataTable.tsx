@@ -51,7 +51,7 @@ export const DataTable: React.FC<DataTableProps> = ({
   config,
   onRowHighlight,
   columnOrder,
-  showEmptyRows = false,
+  showEmptyRows,
   onShowEmptyRowsChange,
   tabId,
 }) => {

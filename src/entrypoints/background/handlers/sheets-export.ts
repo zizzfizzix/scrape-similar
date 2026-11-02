@@ -62,7 +62,7 @@ export const validateExportPayload = (payload: unknown): ExportPayloadValidation
 export const handleExportToSheets = async (
   payload: unknown,
   sendResponse: (response?: MessageResponse) => void,
-  logPrefix: string = '',
+  logPrefix = '',
 ): Promise<void> => {
   log.debug(`${logPrefix} Processing EXPORT_TO_SHEETS`)
 

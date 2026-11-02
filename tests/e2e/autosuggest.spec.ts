@@ -280,7 +280,7 @@ test.describe('Main selector autosuggest', () => {
 
     // Enter MORE than 5 selectors to test the cap. Every match count differs, so
     // waiting for the badge really does wait for the new selector's validation.
-    const selectors: Array<[selector: string, matches: number]> = [
+    const selectors: [selector: string, matches: number][] = [
       ['//h1', FIXTURE_PAGE_COUNTS.h1],
       ['//h2', FIXTURE_PAGE_COUNTS.h2],
       ['//tbody/tr', FIXTURE_PAGE_COUNTS.tbodyTr],

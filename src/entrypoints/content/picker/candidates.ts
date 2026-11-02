@@ -3,10 +3,7 @@ import { evaluateXPath, minimizeXPath } from '@/utils/scraper'
 /**
  * Generate selector candidates by walking up the DOM tree from a starting element
  */
-export const generateSelectorCandidates = (
-  start: HTMLElement,
-  maxLevels: number = 10,
-): string[] => {
+export const generateSelectorCandidates = (start: HTMLElement, maxLevels = 10): string[] => {
   // A Set keeps insertion order while collapsing ancestors that minimize to the
   // same expression.
   const candidates = new Set<string>()

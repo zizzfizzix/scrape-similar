@@ -15,7 +15,7 @@ const makeSource = () => {
   let notify: ((value: StoredValue | null) => void) | undefined
   let resolveRead: ((value: StoredValue | null) => void) | undefined
   const unwatch = vi.fn()
-  const setupOrder: Array<'watch' | 'read'> = []
+  const setupOrder: ('watch' | 'read')[] = []
 
   return {
     source: {

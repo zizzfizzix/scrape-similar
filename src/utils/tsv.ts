@@ -12,12 +12,7 @@ const escapeTsvField = (value: string): string =>
  * Convert a single row to a TSV line given an ordered list of column keys.
  */
 export const rowToTsv = (row: ScrapedRow, columnKeys: string[]): string =>
-  columnKeys
-    .map((key) => {
-      const value = row.data[key] ?? ''
-      return escapeTsvField(String(value))
-    })
-    .join('\t')
+  columnKeys.map((key) => escapeTsvField(row.data[key] ?? '')).join('\t')
 
 /**
  * Convert multiple rows to TSV string. Optionally include header row.

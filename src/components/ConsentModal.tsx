@@ -24,7 +24,7 @@ export const ConsentModal: React.FC<ConsentModalProps> = ({
   )
 
   if (variant === 'slide') {
-    return <div className={`${className}`}>{content}</div>
+    return <div className={className}>{content}</div>
   }
 
   return (

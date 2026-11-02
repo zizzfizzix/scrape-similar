@@ -5,7 +5,7 @@ import { Check, EyeOff, Trash2 } from 'lucide-react'
 import React from 'react'
 
 // Ellipsize text helper
-const ellipsize = (text: string, maxLength: number = 100) => {
+const ellipsize = (text: string, maxLength = 100) => {
   return text.length > maxLength ? text.substring(0, maxLength) + '…' : text
 }
 

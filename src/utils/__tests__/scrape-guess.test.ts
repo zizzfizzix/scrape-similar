@@ -11,9 +11,9 @@ import {
 import { beforeEach, describe, expect, it } from 'vitest'
 
 /** Render `html` into the document body and return the element matching `selector`. */
-const render = <T extends HTMLElement = HTMLElement>(html: string, selector: string): T => {
+const render = (html: string, selector: string): HTMLElement => {
   document.body.innerHTML = html
-  const element = document.querySelector<T>(selector)
+  const element = document.querySelector<HTMLElement>(selector)
   if (!element) throw new Error(`No element matched ${selector}`)
   return element
 }

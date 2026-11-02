@@ -52,7 +52,7 @@ export const setupMessageListener = (): void => {
       const isExtensionPage = sender.url?.startsWith(browser.runtime.getURL(''))
 
       // Handle messages from content script (on web pages) vs UI (extension pages, sidepanel, popup)
-      if (sender.tab && sender.tab.id && !isExtensionPage) {
+      if (sender.tab?.id && !isExtensionPage) {
         log.debug('🔵 Routing to handleContentScriptMessage - sender has tab:', sender.tab.id)
         log.debug('🔵 Sender URL:', sender.url)
         log.debug('🔵 Message type:', message.type)

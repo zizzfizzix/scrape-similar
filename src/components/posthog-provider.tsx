@@ -110,7 +110,7 @@ async function initializePostHog(): Promise<void> {
         debug: isDevOrTest || isDebugModeEnabled,
         // Supply our own distinct_id to ensure consistent distinct_id across extension contexts
         bootstrap: {
-          distinctID: distinctId.toString(),
+          distinctID: distinctId,
         },
         api_host: apiHost,
         persistence: 'localStorage',
