@@ -100,13 +100,13 @@ if (typeof jsdom !== 'undefined') {
   })
 }
 
-// A fresh manager per test, so a task one test leaves unsettled cannot hold a
-// key that a later test locks.
-// The fake browser throws from `extension.getBackgroundPage`, which context
-// detection calls on every extension page; outside the background page it
-// returns another window or null. Assigned rather than spied, so `restoreMocks`
-// returns a test's override to it.
 beforeEach(() => {
+  // A fresh manager per test, so a task one test leaves unsettled cannot hold a
+  // key that a later test locks.
   Object.defineProperty(navigator, 'locks', { value: createLockManager(), configurable: true })
+  // The fake throws from `extension.getBackgroundPage`, which context detection
+  // calls on every extension page. Away from the background page a real browser
+  // returns another window (Firefox) or nothing (Chromium MV3). Assigned rather
+  // than spied, so `restoreMocks` returns a test's override to it.
   fakeBrowser.extension.getBackgroundPage = () => null
 })
