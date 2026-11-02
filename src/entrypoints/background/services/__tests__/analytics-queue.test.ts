@@ -243,6 +243,7 @@ describe('initializeAnalyticsQueue', () => {
     await storage.setItem(analyticsConsentItem.key, true)
     await flushMicrotasks()
 
+    expect(posthogMocks.resetPostHogInstance).toHaveBeenCalled()
     expect(ph.capture).toHaveBeenCalledWith(
       ANALYTICS_EVENTS.PRESET_LOAD,
       expect.anything(),

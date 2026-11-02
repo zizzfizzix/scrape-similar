@@ -49,6 +49,19 @@ describe('getPostHogBackground', () => {
     expect(second).toBe(first)
   })
 
+  it('remembers an undecided consent until the next reset', async () => {
+    const consentSpy = vi.spyOn(consent, 'getConsentState').mockResolvedValue(undefined)
+    await getPostHogBackground()
+
+    expect(await getPostHogBackground()).toBeNull()
+    expect(consentSpy).toHaveBeenCalledTimes(1)
+
+    consentSpy.mockResolvedValue(true)
+    resetPostHogInstance()
+
+    expect(await getPostHogBackground()).not.toBeNull()
+  })
+
   it('shares one instance between concurrent callers', async () => {
     vi.spyOn(consent, 'getConsentState').mockResolvedValue(true)
 
