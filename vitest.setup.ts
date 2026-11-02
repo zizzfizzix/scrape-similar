@@ -68,7 +68,13 @@ if (typeof window !== 'undefined') {
     window.PointerEvent = JsdomPointerEvent as unknown as typeof window.PointerEvent
   }
 
-  const stubElementMethod = <K extends keyof Element>(name: K, stub: Element[K]) => {
+  type ElementMethod = {
+    [K in keyof Element]: Element[K] extends (...args: never) => unknown ? K : never
+  }[keyof Element]
+  const stubElementMethod = <K extends ElementMethod & keyof Element>(
+    name: K,
+    stub: Element[K],
+  ) => {
     if (typeof Element.prototype[name] !== 'function') Element.prototype[name] = stub
   }
   stubElementMethod('hasPointerCapture', () => false)

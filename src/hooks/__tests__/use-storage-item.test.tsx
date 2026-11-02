@@ -53,6 +53,21 @@ describe('useStorageItem', () => {
     expect(await storage.getItem('local:debugMode')).toBe(true)
   })
 
+  it('keeps the setter identity until the item changes', async () => {
+    const otherItem = storage.defineItem<boolean>('local:otherFlag', { fallback: false })
+    const { result, rerender } = renderHook(({ item }) => useStorageItem(item), {
+      initialProps: { item: debugModeItem },
+    })
+    const firstSetter = result.current[1]
+
+    rerender({ item: debugModeItem })
+    expect(result.current[1]).toBe(firstSetter)
+
+    rerender({ item: otherItem })
+    expect(result.current[1]).not.toBe(firstSetter)
+    await act(flushMicrotasks)
+  })
+
   it('resets to the default when the key is removed', async () => {
     await storage.setItem('local:debugMode', true)
     const { result } = renderHook(() => useStorageItem(debugModeItem))
