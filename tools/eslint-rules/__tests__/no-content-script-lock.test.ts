@@ -199,5 +199,13 @@ ruleTester.run('no-content-script-lock', noContentScriptLock, {
       code: "import * as components from './components'\nexport const view = <components.Banner />",
       errors: [chain('Banner', 'Banner', 'saveThing', 'withLock')],
     },
+    {
+      filename: CONTENT,
+      code: 'navigator.locks!.query()\n;(navigator.locks as LockManager).query()',
+      errors: [
+        { messageId: 'reachesLock', data: { name: 'locks', chain: 'locks' } },
+        { messageId: 'reachesLock', data: { name: 'locks', chain: 'locks' } },
+      ],
+    },
   ],
 })

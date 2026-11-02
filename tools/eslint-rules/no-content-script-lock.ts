@@ -80,6 +80,27 @@ const RUNTIME_TS_NODES = new Set([
   'TSTypeAssertion',
 ])
 
+const TS_EXPRESSION_WRAPPERS = new Set([
+  'TSAsExpression',
+  'TSNonNullExpression',
+  'TSSatisfiesExpression',
+  'TSTypeAssertion',
+])
+
+const isExpressionWrapper = (node: unknown): node is { expression: unknown } =>
+  typeof node === 'object' &&
+  node !== null &&
+  'type' in node &&
+  typeof node.type === 'string' &&
+  TS_EXPRESSION_WRAPPERS.has(node.type) &&
+  'expression' in node
+
+const unwrapExpression = (node: unknown): unknown => {
+  let current = node
+  while (isExpressionWrapper(current)) current = current.expression
+  return current
+}
+
 /** The fields `check` reads from an identifier's parent, whatever its type. */
 interface LooseNode {
   type: string
@@ -290,8 +311,12 @@ export const noContentScriptLock: Rule.RuleModule = {
         (parent.type === 'MemberExpression' || parent.type === 'JSXMemberExpression') &&
         parent.property === node
       ) {
-        const { object } = parent
-        const last: unknown = object && 'property' in object ? object.property : object
+        // `navigator.locks!.query()`: the wrapper sits between the two names.
+        const object = unwrapExpression(parent.object)
+        const last: unknown =
+          typeof object === 'object' && object !== null && 'property' in object
+            ? object.property
+            : object
         if (typeof last === 'object' && last !== null && reported.has(last)) return
       }
       // A property key in `{ saveThing }` or `{ saveThing: save } = ns` names
