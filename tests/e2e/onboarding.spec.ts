@@ -147,7 +147,7 @@ test.describe('Onboarding Flow', () => {
       onboardingPage.locator('[data-slot="card-title"]', { hasText: 'Get Started' }),
     ).toBeVisible()
 
-    await expect(previousButton).not.toBeVisible()
+    await expect(previousButton).toBeHidden()
   })
 })
 

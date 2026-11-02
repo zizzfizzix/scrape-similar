@@ -62,7 +62,7 @@ test.describe('Main selector autosuggest', () => {
     await input.press('Enter') // selects the highlighted suggestion
   })
 
-  test('outside click closes dropdown; clicking remove recent keeps it open', async ({
+  test('outside click closes dropdown and refocusing reopens it', async ({
     openSidePanel,
     serviceWorker,
     context,
@@ -89,12 +89,6 @@ test.describe('Main selector autosuggest', () => {
     await input.click()
     await input.fill('')
     await expect(dropdown).toBeVisible()
-    // Try clicking the remove control if exists
-    const removeButton = sidePanel.locator('[aria-label="Remove recent selector"]').first()
-    if (await removeButton.isVisible()) {
-      await removeButton.click()
-      await expect(dropdown).toBeVisible()
-    }
   })
 
   test('refocusing the main selector keeps the autosuggest open past a pending blur', async ({
@@ -124,7 +118,7 @@ test.describe('Main selector autosuggest', () => {
 
     // Once that timer fires it has to leave the suggestions alone: the input is
     // focused again, and closing the dropdown would yank them away mid-typing.
-    await sidePanel.waitForTimeout(400)
+    await TestHelpers.waitForBlurCommit(sidePanel)
     await expect(dropdown).toBeVisible()
   })
 
@@ -533,7 +527,7 @@ test.describe('Main selector autosuggest', () => {
 
     // Step 3: Trigger validation by focusing and blurring
     await input.blur()
-    await testPage.waitForTimeout(1000) // Wait for blur handler delay
+    await TestHelpers.waitForBlurCommit(sidePanel)
 
     // Bug fix verification: selector should still have the preset value, not be empty
     await expect(input).toHaveValue('//h1 | //h2 | //h3 | //h4 | //h5 | //h6')
@@ -576,15 +570,12 @@ test.describe('Main selector autosuggest', () => {
       .first()
     await presetItem.click()
 
-    // Wait a moment for the preset to load and state to update
-    await testPage.waitForTimeout(100)
-
     // Verify preset is loaded with its full selector
     await expect(input).toHaveValue('//img')
 
     // Step 3: Trigger validation by blurring
     await input.blur()
-    await testPage.waitForTimeout(100) // Wait for blur handler delay
+    await TestHelpers.waitForBlurCommit(sidePanel)
 
     // Bug fix verification: selector should still have the preset value, not be empty
     await expect(input).toHaveValue('//img')

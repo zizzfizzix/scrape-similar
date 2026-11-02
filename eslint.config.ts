@@ -2,6 +2,7 @@ import js from '@eslint/js'
 import vitest from '@vitest/eslint-plugin'
 import type { Linter } from 'eslint'
 import jestDom from 'eslint-plugin-jest-dom'
+import playwright from 'eslint-plugin-playwright'
 import reactHooks from 'eslint-plugin-react-hooks'
 import testingLibrary from 'eslint-plugin-testing-library'
 import { defineConfig, globalIgnores } from 'eslint/config'
@@ -66,6 +67,15 @@ const NO_VOID = {
   selector: "UnaryExpression[operator='void']",
   message:
     '`void` hides a promise from `no-floating-promises`. Use `reportRejection(task())` for a promise; otherwise drop the `void`.',
+}
+
+// `playwright/no-wait-for-timeout` only recognises a page by its name
+// (`page…`, `frame…`, `…Page`, `…Frame`), so `sidePanel.waitForTimeout()`
+// passes it.
+const NO_FIXED_SLEEP = {
+  selector: "CallExpression[callee.property.name='waitForTimeout']",
+  message:
+    'A fixed sleep is flaky and pure wall-clock. Wait for the condition itself: a retrying `expect`, or `TestHelpers.waitForBlurCommit` for the blur timer.',
 }
 
 // The extension origin differs per browser and per install: `moz-extension://<uuid>`
@@ -428,6 +438,10 @@ export default defineConfig([
 
   {
     files: ['tests/e2e/**/*.ts'],
+    // The guard rules are the reason for the plugin (#283): `no-focused-test`,
+    // `no-skipped-test`, `missing-playwright-await` and `expect-expect` each
+    // catch a suite that reports success without running what it claims to.
+    extends: [playwright.configs['flat/recommended']],
     rules: {
       // The specs reach for `chrome.*` inside `serviceWorker.evaluate`
       // callbacks, which run in the extension's context rather than the spec's.
@@ -437,7 +451,7 @@ export default defineConfig([
       'no-empty-pattern': 'off',
       // Without NO_VOID: callbacks passed to `evaluate` run in the browser and
       // cannot import `reportRejection`.
-      ...restrictedSyntax(NO_ENUM, NO_DEFAULT_EXPORT),
+      ...restrictedSyntax(NO_ENUM, NO_DEFAULT_EXPORT, NO_FIXED_SLEEP),
     },
   },
 

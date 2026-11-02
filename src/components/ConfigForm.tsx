@@ -90,9 +90,6 @@ interface ConfigFormProps {
   pickerModeActive?: boolean
 }
 
-/** Defer before a blur commits the main selector, so a press on a suggestion or button can cancel it. */
-export const BLUR_COMMIT_DELAY_MS = 150
-
 export const ConfigForm: React.FC<ConfigFormProps> = ({
   tabId,
   storedConfigVersion,

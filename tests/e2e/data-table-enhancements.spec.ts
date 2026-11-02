@@ -1,5 +1,11 @@
-import type { Locator } from '@playwright/test'
-import { expect, FIXTURE_PAGE_COUNTS, SCRAPE_TARGET_PAGE, test, TestHelpers } from './fixtures'
+import {
+  expect,
+  FIXTURE_PAGE_COUNTS,
+  getBoundingBox,
+  SCRAPE_TARGET_PAGE,
+  test,
+  TestHelpers,
+} from './fixtures'
 
 /**
  * End-to-end tests for DataTable enhancements introduced in recent commits:
@@ -66,44 +72,32 @@ test.describe('DataTable Enhancements', () => {
     // Should have at least 3 columns: row index, actions, and data column(s)
     expect(headerCount).toBeGreaterThanOrEqual(3)
 
-    // Find the first resizable data column by looking for one with a resize handle
-    let dataColumnHeader: Locator | null = null
-    let resizeHandle: Locator | null = null
+    // The first resizable data column is the first header with a resize handle
+    const resizeHandleSelector = 'div.cursor-col-resize'
+    const dataColumnHeader = headers
+      .filter({ has: sidePanel.locator(resizeHandleSelector) })
+      .first()
+    const resizeHandle = dataColumnHeader.locator(resizeHandleSelector)
 
-    for (let i = 0; i < headerCount; i++) {
-      const header = headers.nth(i)
-      const potentialHandle = header.locator('div.cursor-col-resize')
-
-      if ((await potentialHandle.count()) > 0) {
-        dataColumnHeader = header
-        resizeHandle = potentialHandle
-        break
-      }
-    }
-
-    // Ensure we found a resizable column
-    expect(dataColumnHeader).not.toBeNull()
-    expect(resizeHandle).not.toBeNull()
-
-    await expect(dataColumnHeader!).toBeVisible()
+    await expect(dataColumnHeader).toBeVisible()
 
     // Hover over the header to make resize handle visible
-    await dataColumnHeader!.hover()
-    await expect(resizeHandle!).toBeVisible()
+    await dataColumnHeader.hover()
+    await expect(resizeHandle).toBeVisible()
 
     // Verify resize handle has proper classes and cursor style
-    const handleClasses = await resizeHandle!.getAttribute('class')
+    const handleClasses = await resizeHandle.getAttribute('class')
     expect(handleClasses).toContain('cursor-col-resize')
     expect(handleClasses).toContain('select-none')
     expect(handleClasses).toContain('touch-none')
 
     // Verify the column has appropriate sizing attributes
-    const headerStyle = await dataColumnHeader!.getAttribute('style')
+    const headerStyle = await dataColumnHeader.getAttribute('style')
     expect(headerStyle).toContain('width')
     expect(headerStyle).toContain('position: relative')
 
     // Verify resize handle is positioned correctly (absolute, top-0, right-0)
-    const handleStyle = await resizeHandle!.evaluate((el) => {
+    const handleStyle = await resizeHandle.evaluate((el) => {
       const computedStyle = window.getComputedStyle(el)
       return {
         position: computedStyle.position,
@@ -120,13 +114,9 @@ test.describe('DataTable Enhancements', () => {
     expect(handleStyle.cursor).toBe('col-resize')
 
     // Verify the column width is set and within reasonable bounds
-    const width = await dataColumnHeader!.evaluate((el) => el.getBoundingClientRect().width)
+    const width = await dataColumnHeader.evaluate((el) => el.getBoundingClientRect().width)
     expect(width).toBeGreaterThanOrEqual(60) // minSize
     expect(width).toBeLessThanOrEqual(400) // maxSize
-
-    // Verify the resize handle becomes more visible on hover
-    await resizeHandle!.hover()
-    await sidePanel.waitForTimeout(100)
 
     // Check that the handle has hover effect classes
     expect(handleClasses).toContain('hover:bg-primary/50')
@@ -294,31 +284,15 @@ test.describe('DataTable Enhancements', () => {
       expect(width).toBeLessThan(400) // Maximum width for sidepanel
     })
 
-    // Verify that the auto-resizing actually calculated different widths
-    // (not all columns have exactly the same width)
-    if (dataColumnWidths.length > 1) {
-      // If we have multiple columns, they should have some variation in width
-      // Allow for some tolerance due to rounding
-      const minWidth = Math.min(...dataColumnWidths)
-      const maxWidth = Math.max(...dataColumnWidths)
-
-      // There should be at least some difference (more than 10px) between columns
-      // if the content is actually different
-      expect(maxWidth - minWidth).toBeGreaterThanOrEqual(0) // At minimum, they shouldn't be negative
-    }
-
     // Verify that widths are reasonable for the content
     // Headers should be at least as wide as their text content
     for (let i = 2; i < headerCount; i++) {
       const header = headers.nth(i)
-      const headerText = await header.textContent()
+      const headerText = await header.innerText()
       const width = dataColumnWidths[i - 2]
 
-      // Width should be at least as long as the header text (rough estimate: 8px per character)
-      if (headerText) {
-        const estimatedMinWidth = headerText.length * 6 // Conservative estimate
-        expect(width).toBeGreaterThanOrEqual(Math.min(estimatedMinWidth, 80)) // But not less than 80px minimum
-      }
+      // Rough estimate of 6px per character, capped at 80px
+      expect(width).toBeGreaterThanOrEqual(Math.min(headerText.length * 6, 80))
     }
   })
 
@@ -348,14 +322,12 @@ test.describe('DataTable Enhancements', () => {
     expect(buttonClasses).toContain('fixed')
 
     // Verify button is positioned correctly relative to the table
-    const tableBox = await dataTable.boundingBox()
-    const buttonBox = await expandButton.boundingBox()
+    const tableBox = await getBoundingBox(dataTable)
+    const buttonBox = await getBoundingBox(expandButton)
 
-    if (tableBox && buttonBox) {
-      // Button should be positioned near the bottom-right of the table area
-      expect(buttonBox.x).toBeGreaterThan(tableBox.x)
-      expect(buttonBox.y).toBeGreaterThan(tableBox.y)
-    }
+    // Button should be positioned near the bottom-right of the table area
+    expect(buttonBox.x).toBeGreaterThan(tableBox.x)
+    expect(buttonBox.y).toBeGreaterThan(tableBox.y)
   })
 
   test('data table handles empty rows toggle correctly', async ({

@@ -126,6 +126,9 @@ importers:
       eslint-plugin-jest-dom:
         specifier: ^5.10.1
         version: 5.10.1(@testing-library/dom@10.4.1)(eslint@10.9.0(jiti@2.7.0))
+      eslint-plugin-playwright:
+        specifier: ^2.12.1
+        version: 2.12.1(eslint@10.9.0(jiti@2.7.0))
       eslint-plugin-react-hooks:
         specifier: ^7.1.0
         version: 7.1.1(eslint@10.9.0(jiti@2.7.0))
@@ -2784,6 +2787,12 @@ packages:
     peerDependenciesMeta:
       '@testing-library/dom':
         optional: true
+
+  eslint-plugin-playwright@2.12.1:
+    resolution: {integrity: sha512-JhavNuYBIq7SE/Zg9Esf9RGHkXoDbzrEKS383cowzMyvZ4JMbmdNCN6CoW+RU1Cjzwcoea1tou0je58uXmT/9A==}
+    engines: {node: '>=16.9.0'}
+    peerDependencies:
+      eslint: '>=8.40.0'
 
   eslint-plugin-react-hooks@7.1.1:
     resolution: {integrity: sha512-f2I7Gw6JbvCexzIInuSbZpfdQ44D7iqdWX01FKLvrPgqxoE7oMj8clOfto8U6vYiz4yd5oKu39rRSVOe1zRu0g==}
@@ -6600,6 +6609,11 @@ snapshots:
       requireindex: 1.2.0
     optionalDependencies:
       '@testing-library/dom': 10.4.1
+
+  eslint-plugin-playwright@2.12.1(eslint@10.9.0(jiti@2.7.0)):
+    dependencies:
+      eslint: 10.9.0(jiti@2.7.0)
+      globals: 17.11.0
 
   eslint-plugin-react-hooks@7.1.1(eslint@10.9.0(jiti@2.7.0)):
     dependencies:

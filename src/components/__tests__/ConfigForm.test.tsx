@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import { BLUR_COMMIT_DELAY_MS, ConfigForm } from '@/components/ConfigForm'
+import { ConfigForm } from '@/components/ConfigForm'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ANALYTICS_EVENTS, ANALYTICS_SOURCES } from '@/utils/analytics'
+import { BLUR_COMMIT_DELAY_MS } from '@/utils/blur-commit'
 import { recentMainSelectorsItem, userPresetsItem } from '@/utils/storage'
 import { SYSTEM_PRESETS } from '@/utils/system_presets'
 import { type Preset, type ScrapeConfig } from '@/utils/types'

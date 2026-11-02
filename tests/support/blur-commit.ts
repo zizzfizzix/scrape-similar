@@ -1,4 +1,4 @@
-import { BLUR_COMMIT_DELAY_MS } from '@/components/ConfigForm'
+import { BLUR_COMMIT_DELAY_MS } from '@/utils/blur-commit'
 import { act } from '@testing-library/react'
 
 /**
