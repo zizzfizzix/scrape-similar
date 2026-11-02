@@ -1,0 +1,19 @@
+name: Stack Probe
+permissions: {}
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          STACK: ${{ toJSON(github.event.pull_request.stack) }}
+          BASE: ${{ github.event.pull_request.base.ref }}
+          STACK_BASE: ${{ github.event.pull_request.stack.base.ref }}
+          WOULD_RUN: ${{ github.event.pull_request.base.ref == 'main' || github.event.pull_request.stack.base.ref == 'main' }}
+        run: |
+          echo "base=$BASE"
+          echo "stack.base.ref=$STACK_BASE"
+          echo "would_run=$WOULD_RUN"
+          echo "stack=$STACK"
