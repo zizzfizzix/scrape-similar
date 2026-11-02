@@ -211,7 +211,7 @@ export const FullDataViewApp: React.FC = () => {
               tabUrl: tabInfo.url || 'Unknown URL',
               tabTitle: tabInfo.title || 'Unknown Title',
               scrapeResult: newValue.scrapeResult,
-              config: newValue.currentScrapeConfig || DEFAULT_SCRAPE_CONFIG,
+              config: newValue.currentScrapeConfig ?? DEFAULT_SCRAPE_CONFIG,
             }
 
             setAllTabsData((prev) => {

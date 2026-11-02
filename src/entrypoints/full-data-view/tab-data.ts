@@ -24,7 +24,7 @@ export interface TabData {
  * the main selector only describe the rows that were scraped with them.
  */
 export const resolveTabConfig = (state: SidePanelConfig): ScrapeConfig =>
-  state.resultProducingConfig || state.currentScrapeConfig || DEFAULT_SCRAPE_CONFIG
+  state.resultProducingConfig ?? state.currentScrapeConfig ?? DEFAULT_SCRAPE_CONFIG
 
 export const hasScrapedRows = (state: SidePanelConfig | null): boolean =>
   !!state?.scrapeResult?.data && state.scrapeResult.data.length > 0

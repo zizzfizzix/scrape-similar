@@ -22,7 +22,7 @@ export const setupMessageListener = (): void => {
           messageType: message.type,
           hasPayload: !!message.payload,
           payloadKeys: message.payload ? Object.keys(message.payload) : [],
-          senderTab: sender.tab?.id || 'no-tab',
+          senderTab: sender.tab?.id ?? 'no-tab',
           senderUrl: sender.url || 'no-url',
         })
       }

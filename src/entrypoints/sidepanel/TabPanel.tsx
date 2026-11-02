@@ -294,7 +294,7 @@ export const TabPanel = memo(function TabPanel({
               <h2 className="text-2xl font-bold">Extracted Data</h2>
               <ExportButtons
                 scrapeResult={scrapeResult}
-                config={resultProducingConfig || config}
+                config={resultProducingConfig ?? config}
                 showEmptyRows={shouldShowEmptyRows}
                 buildFilename={buildFilename}
                 variant="outline"
@@ -303,7 +303,7 @@ export const TabPanel = memo(function TabPanel({
             <DataTable
               data={scrapeResult.data}
               onRowHighlight={handleRowHighlight}
-              config={resultProducingConfig || config}
+              config={resultProducingConfig ?? config}
               columnOrder={scrapeResult.columnOrder}
               showEmptyRows={shouldShowEmptyRows}
               onShowEmptyRowsChange={setShouldShowEmptyRows}

@@ -27,7 +27,7 @@ export const applySidePanelDataUpdates = async (
 ): Promise<void> => {
   if (isTabClosed(tabId, 'side panel update')) return
   await updateStorageItem(sidePanelConfigItem(tabId), (stored) => {
-    const current = stored || {}
+    const current = stored ?? {}
     const { currentScrapeConfig: incoming, ...topLevel } = updates
     const next: SidePanelConfig = { ...current, ...topLevel }
     if (incoming && (incoming.mainSelector !== undefined || incoming.columns !== undefined)) {

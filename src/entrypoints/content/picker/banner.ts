@@ -7,7 +7,7 @@ import type { ContentScriptContext } from 'wxt/utils/content-script-context'
  */
 export const getPickerBannerElement = (state: ContentScriptState): HTMLElement | null => {
   if (!state.bannerRootEl) return null
-  const shadowRoot = state.bannerRootEl.shadowRoot || state.bannerRootEl.getRootNode()
+  const shadowRoot = state.bannerRootEl.shadowRoot ?? state.bannerRootEl.getRootNode()
   return (shadowRoot as ShadowRoot)?.querySelector?.<HTMLElement>('.fixed')
 }
 
@@ -16,6 +16,7 @@ export const getPickerBannerElement = (state: ContentScriptState): HTMLElement |
  */
 export const getPickerBannerHeight = (state: ContentScriptState): number => {
   const bannerEl = getPickerBannerElement(state)
+  // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- a banner not laid out yet measures 0, which falls back to its usual height
   return bannerEl?.getBoundingClientRect().height || 53
 }
 
@@ -74,9 +75,7 @@ export const updateBodyMarginForBanner = (state: ContentScriptState): void => {
 
   const height = getPickerBannerHeight(state)
 
-  if (state.originalBodyMarginTopInline === null) {
-    state.originalBodyMarginTopInline = document.documentElement.style.marginTop
-  }
+  state.originalBodyMarginTopInline ??= document.documentElement.style.marginTop
   if (state.originalBodyMarginTopComputedPx === null) {
     const computed = parseFloat(getComputedStyle(document.documentElement).marginTop || '0') || 0
     state.originalBodyMarginTopComputedPx = computed
