@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import type { ContentScriptState } from '@/entrypoints/content/state'
 import { ANALYTICS_EVENTS } from '@/utils/analytics'
+import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 import log from 'loglevel'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ContentScriptContext } from 'wxt/utils/content-script-context'
@@ -48,8 +49,10 @@ const contextMenuReact = vi.hoisted(() => ({
 }))
 vi.mock('@/entrypoints/content/ui/PickerContextMenu', () => contextMenuReact)
 
-const { mountPickerBanner } = await import('@/entrypoints/content/picker/banner')
-const { showPickerContextMenu } = await import('@/entrypoints/content/picker/context-menu')
+const { mountPickerBanner, unmountPickerBanner } =
+  await import('@/entrypoints/content/picker/banner')
+const { removePickerContextMenu, showPickerContextMenu } =
+  await import('@/entrypoints/content/picker/context-menu')
 const { createState } = await import('@/entrypoints/content/state')
 
 const ctx = {} as ContentScriptContext
@@ -69,6 +72,34 @@ const stubShadowRootUi = () => {
     return { mount, remove }
   })
   return { mount, remove }
+}
+
+/**
+ * Like `stubShadowRootUi`, but each createShadowRootUi call stays pending until
+ * the test releases it, and each call gets its own UI.
+ */
+const holdShadowRootUi = () => {
+  const calls: {
+    release: () => void
+    mount: ReturnType<typeof vi.fn<() => void>>
+    remove: ReturnType<typeof vi.fn<() => void>>
+  }[] = []
+  shadowRoot.createShadowRootUi.mockImplementation(
+    (_ctx: unknown, options: NonNullable<typeof shadowRoot.options>) =>
+      new Promise((resolve) => {
+        let mounted: HTMLElement | undefined
+        const mount = vi.fn(() => {
+          const container = document.createElement('div')
+          document.body.append(container)
+          mounted = options.onMount(container)
+        })
+        const remove = vi.fn(() => {
+          options.onRemove(mounted)
+        })
+        calls.push({ release: () => resolve({ mount, remove }), mount, remove })
+      }),
+  )
+  return calls
 }
 
 let state: ContentScriptState
@@ -201,6 +232,57 @@ describe('mountPickerBanner', () => {
     await mountPickerBanner(ctx, state, onClose)
 
     expect(() => shadowRoot.options!.onRemove(undefined)).not.toThrow()
+    expect(state.bannerRootEl).toBeNull()
+  })
+
+  it('does not create a shadow root when unmounted while the banner module loads', async () => {
+    stubShadowRootUi()
+
+    const mounting = mountPickerBanner(ctx, state, onClose)
+    unmountPickerBanner(state)
+    await mounting
+
+    expect(shadowRoot.createShadowRootUi).not.toHaveBeenCalled()
+    expect(state.pickerBannerUi).toBeNull()
+  })
+
+  it('drops a banner unmounted while its shadow root is created', async () => {
+    const calls = holdShadowRootUi()
+    state.pickerModeActive = true
+
+    const mounting = mountPickerBanner(ctx, state, onClose)
+    await vi.waitFor(() => expect(calls).toHaveLength(1))
+    unmountPickerBanner(state)
+    state.pickerModeActive = false
+    calls[0]!.release()
+    await mounting
+
+    expect(calls[0]!.mount).not.toHaveBeenCalled()
+    expect(state.pickerBannerUi).toBeNull()
+    expect(state.bannerRootEl).toBeNull()
+    expect(document.documentElement.style.getPropertyValue('margin-top')).toBe('')
+  })
+
+  it('keeps only the banner of the latest mount when remounted while mounting', async () => {
+    const calls = holdShadowRootUi()
+
+    const first = mountPickerBanner(ctx, state, onClose)
+    await vi.waitFor(() => expect(calls).toHaveLength(1))
+    unmountPickerBanner(state)
+    const second = mountPickerBanner(ctx, state, onClose)
+    await vi.waitFor(() => expect(calls).toHaveLength(2))
+    calls[0]!.release()
+    calls[1]!.release()
+    await Promise.all([first, second])
+
+    expect(calls[0]!.mount).not.toHaveBeenCalled()
+    expect(calls[1]!.mount).toHaveBeenCalledTimes(1)
+    expect(bannerReact.mountPickerBannerReact).toHaveBeenCalledTimes(1)
+    expect(state.bannerRootEl).not.toBeNull()
+
+    unmountPickerBanner(state)
+
+    expect(calls[1]!.remove).toHaveBeenCalled()
     expect(state.bannerRootEl).toBeNull()
   })
 
@@ -362,6 +444,66 @@ describe('showPickerContextMenu', () => {
     await show()
 
     expect(() => shadowRoot.options!.onRemove(undefined)).not.toThrow()
+    expect(state.pickerContextMenuApi).toBeNull()
+  })
+
+  it('drops a menu removed while its shadow root is created', async () => {
+    const calls = holdShadowRootUi()
+
+    const showing = show()
+    await vi.waitFor(() => expect(calls).toHaveLength(1))
+    removePickerContextMenu(state, removeCrosshairCursor, () => {})
+    calls[0]!.release()
+    await showing
+
+    expect(calls[0]!.mount).not.toHaveBeenCalled()
+    expect(state.pickerContextMenuUi).toBeNull()
+    expect(state.pickerContextMenuOpen).toBe(false)
+    expect(removeCrosshairCursor).not.toHaveBeenCalled()
+  })
+
+  it('mounts one menu, at the latest pointer, when right-clicked again while mounting', async () => {
+    const calls = holdShadowRootUi()
+
+    const first = show(10, 20)
+    await vi.waitFor(() => expect(calls).toHaveLength(1))
+    await show(90, 180)
+    calls[0]!.release()
+    await first
+    await vi.waitFor(() => expect(state.pickerContextMenuApi).toBe(menuApi))
+
+    expect(shadowRoot.createShadowRootUi).toHaveBeenCalledTimes(1)
+    expect(contextMenuReact.mountPickerContextMenuReact).toHaveBeenCalledWith(
+      expect.any(HTMLElement),
+      expect.objectContaining({ x: 90, y: 180 }),
+      expect.any(HTMLElement),
+    )
+    expect(trackEvent).toHaveBeenCalledTimes(1)
+    expect(state.pickerContextMenuOpen).toBe(true)
+  })
+
+  it('does not mount a second menu while the first loads its React component', async () => {
+    stubShadowRootUi()
+    state.pickerContextMenuUi = { mount: vi.fn(), remove: vi.fn() }
+
+    await show(90, 180)
+
+    expect(shadowRoot.createShadowRootUi).not.toHaveBeenCalled()
+    expect(state.contextMenuX).toBe(90)
+  })
+
+  it('does not mount React into a menu removed while the component loads', async () => {
+    const { mount } = stubShadowRootUi()
+    const mountUi = mount.getMockImplementation()!
+    mount.mockImplementation(() => {
+      mountUi()
+      removePickerContextMenu(state, removeCrosshairCursor, () => {})
+    })
+
+    await show()
+    await flushMicrotasks()
+
+    expect(contextMenuReact.mountPickerContextMenuReact).not.toHaveBeenCalled()
     expect(state.pickerContextMenuApi).toBeNull()
   })
 

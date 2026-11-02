@@ -31,6 +31,7 @@ describe('createState', () => {
     const state = createState()
 
     expect(state.pickerBannerUi).toBeNull()
+    expect(state.pendingBannerMount).toBeNull()
     expect(state.bannerRootEl).toBeNull()
     expect(state.bannerCountEl).toBeNull()
     expect(state.bannerXPathEl).toBeNull()
@@ -45,6 +46,7 @@ describe('createState', () => {
 
     expect(state.pickerContextMenuHost).toBeNull()
     expect(state.pickerContextMenuUi).toBeNull()
+    expect(state.pendingContextMenuMount).toBeNull()
     expect(state.pickerContextMenuOpen).toBe(false)
     expect(state.pickerContextMenuApi).toBeNull()
     expect(state.originalFixedElementTops).toBeInstanceOf(Map)

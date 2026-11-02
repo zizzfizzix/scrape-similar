@@ -459,6 +459,8 @@ export const enablePickerMode = async (
 
   // Mount shadow-root banner UI at top of page (wait for React to be ready)
   await mountPickerBanner(ctx, state, disablePickerMode)
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- narrowed to true by the assignment above, but disablePickerMode can run during the await
+  if (!state.pickerModeActive) return
 
   // Immediately evaluate what's under the cursor when picker mode is enabled
   // If mouse position is at origin (0,0), use viewport center as fallback

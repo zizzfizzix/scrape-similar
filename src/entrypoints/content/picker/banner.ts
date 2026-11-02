@@ -110,9 +110,12 @@ export const mountPickerBanner = async (
   onClose: () => void,
 ): Promise<void> => {
   if (state.pickerBannerUi) return
+  const mount = Symbol('picker banner mount')
+  state.pendingBannerMount = mount
   try {
     // Import the React banner module first (before creating the shadow root)
     const { mountPickerBannerReact } = await import('@/entrypoints/content/ui/PickerBanner')
+    if (state.pendingBannerMount !== mount) return
 
     // Track the ready promise from React mount
     let reactReadyPromise: Promise<void> | undefined
@@ -153,6 +156,11 @@ export const mountPickerBanner = async (
         state.bannerSetData = null
       },
     })
+    // Nothing is attached to the page before `mount`, so a cancelled UI is
+    // dropped as it is. Its `remove` would run `onRemove`, which clears the
+    // state of the banner that superseded it.
+    if (state.pendingBannerMount !== mount) return
+    state.pendingBannerMount = null
     state.pickerBannerUi = ui
     ui.mount()
 
@@ -172,6 +180,7 @@ export const mountPickerBanner = async (
  * Unmount the picker banner UI
  */
 export const unmountPickerBanner = (state: ContentScriptState): void => {
+  state.pendingBannerMount = null
   try {
     if (state.pickerBannerUi) {
       state.pickerBannerUi.remove()
