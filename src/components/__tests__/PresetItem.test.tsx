@@ -60,7 +60,7 @@ describe('PresetItem', () => {
       preset: userPreset({ config: { mainSelector: longSelector, columns: [] } }),
     })
 
-    const selectorText = selectorLabel().textContent!
+    const selectorText = selectorLabel().textContent
     expect(selectorText).toHaveLength(101)
     expect(selectorText.endsWith('…')).toBe(true)
   })

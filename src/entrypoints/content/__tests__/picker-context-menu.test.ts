@@ -319,7 +319,7 @@ describe('handlePickerContextMenu', () => {
 
   it('leaves the native menu alone on the banner', () => {
     const banner = document.createElement('div')
-    state.bannerRootEl = banner as HTMLDivElement
+    state.bannerRootEl = banner
 
     const event = rightClick([banner])
 
@@ -329,7 +329,7 @@ describe('handlePickerContextMenu', () => {
 
   it('leaves the native menu alone on the picker menu itself', () => {
     const host = document.createElement('div')
-    state.pickerContextMenuHost = host as HTMLDivElement
+    state.pickerContextMenuHost = host
 
     rightClick([host])
 
@@ -352,8 +352,8 @@ describe('handlePickerContextMenu', () => {
   })
 
   it('still opens when the banner exists but was not clicked', () => {
-    state.bannerRootEl = document.createElement('div') as HTMLDivElement
-    state.pickerContextMenuHost = document.createElement('div') as HTMLDivElement
+    state.bannerRootEl = document.createElement('div')
+    state.pickerContextMenuHost = document.createElement('div')
 
     rightClick([document.querySelector('li')!])
 
@@ -373,7 +373,7 @@ describe('handlePickerContextMenuClickOutside', () => {
 
   beforeEach(() => {
     removeContextMenu = vi.fn<() => void>()
-    state.pickerContextMenuHost = document.createElement('div') as HTMLDivElement
+    state.pickerContextMenuHost = document.createElement('div')
     state.pickerContextMenuOpen = true
   })
 

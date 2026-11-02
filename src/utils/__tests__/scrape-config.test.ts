@@ -226,7 +226,7 @@ describe('resolveStoredConfig', () => {
 
   it('ignores element details with no xpath', () => {
     const config = resolveStoredConfig({
-      elementDetails: { xpath: '' } as { xpath: string },
+      elementDetails: { xpath: '' },
     })
 
     expect(config).toEqual(DEFAULT_SCRAPE_CONFIG)

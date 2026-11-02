@@ -34,9 +34,7 @@ describe('broadcastDebugMode', () => {
   it('messages every tab that has an id', async () => {
     await fakeBrowser.tabs.create({ url: 'https://example.com/a' })
     await fakeBrowser.tabs.create({ url: 'https://example.com/b' })
-    const sendMessage = vi
-      .spyOn(fakeBrowser.tabs, 'sendMessage')
-      .mockResolvedValue(undefined as never)
+    const sendMessage = vi.spyOn(fakeBrowser.tabs, 'sendMessage').mockResolvedValue(undefined)
 
     await broadcastDebugMode(true)
 
@@ -75,9 +73,7 @@ describe('initializeDebugMode', () => {
     modeFlags.isDev = false
     modeFlags.isTest = false
     modeFlags.isDevOrTest = false
-    sendMessage = spyOnBrowser(fakeBrowser.tabs, 'sendMessage').mockResolvedValue(
-      undefined as never,
-    )
+    sendMessage = spyOnBrowser(fakeBrowser.tabs, 'sendMessage').mockResolvedValue(undefined)
   })
 
   it('always logs at trace level in dev or test builds', async () => {

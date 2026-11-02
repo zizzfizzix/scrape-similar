@@ -6,9 +6,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
  * in `validatePresetImport` is only reachable with a higher current version.
  * These tests stand in a future v3 to exercise it.
  */
-const storageMock = vi.hoisted(() => ({
+const storageMock = vi.hoisted<{
+  USER_PRESETS_VERSION: number
+  PRESET_MIGRATIONS: typeof import('@/utils/storage').PRESET_MIGRATIONS
+}>(() => ({
   USER_PRESETS_VERSION: 3,
-  PRESET_MIGRATIONS: {} as Record<number, (old: unknown) => Preset[]>,
+  PRESET_MIGRATIONS: {},
 }))
 vi.mock('@/utils/storage', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/utils/storage')>()),

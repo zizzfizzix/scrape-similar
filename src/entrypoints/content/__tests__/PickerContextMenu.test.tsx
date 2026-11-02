@@ -152,7 +152,7 @@ describe('mountPickerContextMenuReact', () => {
     return mounted!
   }
 
-  const menuStyle = () => (container.querySelector('div[style]') as HTMLElement).style
+  const menuStyle = () => container.querySelector<HTMLElement>('div[style]')!.style
   const slider = () => container.querySelector<HTMLInputElement>('input[type="range"]')!
 
   beforeEach(() => {

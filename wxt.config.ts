@@ -1,6 +1,6 @@
 import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
-import { defineConfig, type WxtViteConfig } from 'wxt'
+import { defineConfig } from 'wxt'
 
 // See https://wxt.dev/api/config.html
 export default defineConfig({
@@ -80,15 +80,14 @@ export default defineConfig({
   autoIcons: {
     developmentIndicator: 'overlay',
   },
-  vite: () =>
-    ({
-      plugins: [tailwindcss()],
-      // FIXME: shouldn't do this but see https://github.com/wxt-dev/examples/tree/main/examples/react-shadcn#notes and https://github.com/shadcn-ui/ui/issues/6020
-      resolve: {
-        alias: {
-          '@': path.resolve(__dirname, './src'),
-          '@@': path.resolve(__dirname, './'),
-        },
+  vite: () => ({
+    plugins: [tailwindcss()],
+    // FIXME: shouldn't do this but see https://github.com/wxt-dev/examples/tree/main/examples/react-shadcn#notes and https://github.com/shadcn-ui/ui/issues/6020
+    resolve: {
+      alias: {
+        '@': path.resolve(__dirname, './src'),
+        '@@': path.resolve(__dirname, './'),
       },
-    }) as WxtViteConfig, // FIXME: WXT incompatible with vite v7, see https://github.com/wxt-dev/wxt/issues/1460#issuecomment-2841437586
+    },
+  }),
 })

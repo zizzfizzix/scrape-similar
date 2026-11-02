@@ -76,7 +76,7 @@ export function validatePresetImport(
       }
     }
     try {
-      candidates = migrate(candidates) as unknown[]
+      candidates = migrate(candidates)
     } catch (err) {
       return {
         error: `Failed to migrate presets: ${err instanceof Error ? err.message : String(err)}`,

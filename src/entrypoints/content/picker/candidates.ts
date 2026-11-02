@@ -18,7 +18,7 @@ export const generateSelectorCandidates = (start: HTMLElement, maxLevels = 10): 
     levels <= maxLevels
   ) {
     candidates.add(minimizeXPath(node))
-    node = node.parentElement as HTMLElement | null
+    node = node.parentElement
     levels += 1
   }
   return [...candidates]

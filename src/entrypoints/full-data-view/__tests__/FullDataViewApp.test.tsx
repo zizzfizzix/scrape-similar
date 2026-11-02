@@ -64,7 +64,7 @@ const openTabs = async (
   tabs: { id: number; title: string; url: string; state?: SidePanelConfig }[],
 ) => {
   const asTabs = tabs.map(({ id, title, url }) => ({ id, title, url }) as Browser.tabs.Tab)
-  spyOnBrowser(fakeBrowser.tabs, 'query').mockResolvedValue(asTabs as never)
+  spyOnBrowser(fakeBrowser.tabs, 'query').mockResolvedValue(asTabs)
   spyOnBrowser(fakeBrowser.tabs, 'get').mockImplementation((tabId: number) => {
     const found = asTabs.find((tab) => tab.id === tabId)
     return found ? Promise.resolve(found) : Promise.reject(new Error('No tab with id'))
@@ -122,7 +122,7 @@ beforeEach(async () => {
 
 describe('FullDataViewApp', () => {
   it('says it is loading before the scan finishes', async () => {
-    spyOnBrowser(fakeBrowser.tabs, 'query').mockReturnValue(new Promise(() => {}) as never)
+    spyOnBrowser(fakeBrowser.tabs, 'query').mockReturnValue(new Promise(() => {}))
 
     view = await render()
 
@@ -276,10 +276,8 @@ describe('FullDataViewApp', () => {
 
   describe('a row', () => {
     it('can be highlighted on the page it came from', async () => {
-      const update = spyOnBrowser(fakeBrowser.tabs, 'update').mockResolvedValue({} as never)
-      const sendMessage = spyOnBrowser(fakeBrowser.tabs, 'sendMessage').mockResolvedValue(
-        {} as never,
-      )
+      const update = spyOnBrowser(fakeBrowser.tabs, 'update').mockResolvedValue({})
+      const sendMessage = spyOnBrowser(fakeBrowser.tabs, 'sendMessage').mockResolvedValue({})
       await openSingleTab()
       await renderLoaded()
 
@@ -297,7 +295,7 @@ describe('FullDataViewApp', () => {
     })
 
     it('reports a content script that never answered', async () => {
-      spyOnBrowser(fakeBrowser.tabs, 'update').mockResolvedValue({} as never)
+      spyOnBrowser(fakeBrowser.tabs, 'update').mockResolvedValue({})
       spyOnBrowser(fakeBrowser.tabs, 'sendMessage').mockImplementation(
         (_tabId: number, _message: unknown, callback?: (response: unknown) => void) => {
           setLastError({ message: 'Receiving end does not exist' })
@@ -318,7 +316,7 @@ describe('FullDataViewApp', () => {
     })
 
     it('says nothing when the highlight lands', async () => {
-      spyOnBrowser(fakeBrowser.tabs, 'update').mockResolvedValue({} as never)
+      spyOnBrowser(fakeBrowser.tabs, 'update').mockResolvedValue({})
       spyOnBrowser(fakeBrowser.tabs, 'sendMessage').mockImplementation(
         (_tabId: number, _message: unknown, callback?: (response: unknown) => void) => {
           callback?.({ success: true })
@@ -630,12 +628,12 @@ describe('FullDataViewApp', () => {
 
   describe('going back to the scraped tab', () => {
     it('activates the tab, reopens the panel and closes itself', async () => {
-      const update = spyOnBrowser(fakeBrowser.tabs, 'update').mockResolvedValue({} as never)
-      const open = spyOnBrowser(fakeBrowser.sidePanel, 'open').mockResolvedValue(undefined as never)
+      const update = spyOnBrowser(fakeBrowser.tabs, 'update').mockResolvedValue({})
+      const open = spyOnBrowser(fakeBrowser.sidePanel, 'open').mockResolvedValue(undefined)
       const getCurrent = spyOnBrowser(fakeBrowser.tabs, 'getCurrent').mockResolvedValue({
         id: 99,
-      } as never)
-      const remove = spyOnBrowser(fakeBrowser.tabs, 'remove').mockResolvedValue(undefined as never)
+      })
+      const remove = spyOnBrowser(fakeBrowser.tabs, 'remove').mockResolvedValue(undefined)
       await openSingleTab()
       await renderLoaded()
 
@@ -652,10 +650,10 @@ describe('FullDataViewApp', () => {
     })
 
     it('still closes itself when the panel refuses to reopen', async () => {
-      spyOnBrowser(fakeBrowser.tabs, 'update').mockResolvedValue({} as never)
+      spyOnBrowser(fakeBrowser.tabs, 'update').mockResolvedValue({})
       spyOnBrowser(fakeBrowser.sidePanel, 'open').mockRejectedValue(new Error('no user gesture'))
-      spyOnBrowser(fakeBrowser.tabs, 'getCurrent').mockResolvedValue({ id: 99 } as never)
-      const remove = spyOnBrowser(fakeBrowser.tabs, 'remove').mockResolvedValue(undefined as never)
+      spyOnBrowser(fakeBrowser.tabs, 'getCurrent').mockResolvedValue({ id: 99 })
+      const remove = spyOnBrowser(fakeBrowser.tabs, 'remove').mockResolvedValue(undefined)
       await openSingleTab()
       await renderLoaded()
 
@@ -668,10 +666,10 @@ describe('FullDataViewApp', () => {
     })
 
     it('leaves itself open when the browser reports no current tab', async () => {
-      spyOnBrowser(fakeBrowser.tabs, 'update').mockResolvedValue({} as never)
-      spyOnBrowser(fakeBrowser.sidePanel, 'open').mockResolvedValue(undefined as never)
-      spyOnBrowser(fakeBrowser.tabs, 'getCurrent').mockResolvedValue(undefined as never)
-      const remove = spyOnBrowser(fakeBrowser.tabs, 'remove').mockResolvedValue(undefined as never)
+      spyOnBrowser(fakeBrowser.tabs, 'update').mockResolvedValue({})
+      spyOnBrowser(fakeBrowser.sidePanel, 'open').mockResolvedValue(undefined)
+      spyOnBrowser(fakeBrowser.tabs, 'getCurrent').mockResolvedValue(undefined)
+      const remove = spyOnBrowser(fakeBrowser.tabs, 'remove').mockResolvedValue(undefined)
       await openSingleTab()
       await renderLoaded()
 

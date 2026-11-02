@@ -24,7 +24,7 @@ describe('initializeContextMenus', () => {
       documentUrlPatterns: [
         'http://*/*',
         'https://*/*',
-        fakeBrowser.runtime.getURL('/onboarding.html' as never),
+        fakeBrowser.runtime.getURL('/onboarding.html'),
       ],
     })
     expect(create.mock.calls[1]?.[0]).toMatchObject({

@@ -29,11 +29,12 @@ import { noContentScriptLock } from './tools/eslint-rules/no-content-script-lock
  *
  * Type-aware linting is switched on (`projectService`). What is on from it is
  * the rules this codebase already passes (ALREADY_CLEAN), the correctness,
- * stylistic and promise rules (CORRECTNESS_RULES, TIDY_RULES, PROMISE_RULES)
- * and the boolean naming rule;
- * the rest is a backlog tracked in #282, and any rule held off with violations
- * to fix goes in DEFERRED below with the count it has. A rule that is wrong for this codebase rather than merely
- * unfixed goes in OFF_ON_MERITS instead, which is not a worklist.
+ * stylistic, assertion and promise rules (CORRECTNESS_RULES, TIDY_RULES,
+ * ASSERTION_RULES, PROMISE_RULES) and the boolean naming rule; the rest is a
+ * backlog tracked in #282, and any rule held off with violations to fix goes in
+ * DEFERRED below with the count it has. A rule that is wrong for this codebase
+ * rather than merely unfixed goes in OFF_ON_MERITS instead, which is not a
+ * worklist.
  */
 
 const TEST_FILES = [
@@ -227,6 +228,23 @@ const TIDY_RULES: Linter.RulesRecord = {
 }
 
 /**
+ * Type assertions that say nothing the checker does not already know (#377).
+ *
+ * Their fixers write code that does not compile in four places, each of which
+ * states its type another way. `no-unnecessary-type-assertion` misreads a `let`
+ * initialised to `null` with no annotation (it sees the narrowed type, not the
+ * evolving one: annotate it), a cast from `unknown` wrapped in `?? undefined`
+ * (cast the value itself), and a cast in a mock that widens a property later
+ * writes rely on (`vi.hoisted<T>`). `non-nullable-type-assertion-style` turns
+ * `querySelector(s) as HTMLElement` into `!`, which drops the type the call
+ * inferred from the cast (`querySelector<HTMLElement>(s)!`).
+ */
+const ASSERTION_RULES: Linter.RulesRecord = {
+  '@typescript-eslint/no-unnecessary-type-assertion': 'error',
+  '@typescript-eslint/non-nullable-type-assertion-style': 'error',
+}
+
+/**
  * None ships in `tseslint.configs.recommended`, so all are enabled here.
  */
 const PROMISE_RULES: Linter.RulesRecord = {
@@ -317,6 +335,7 @@ export default defineConfig([
       ...ALREADY_CLEAN,
       ...CORRECTNESS_RULES,
       ...TIDY_RULES,
+      ...ASSERTION_RULES,
       ...PROMISE_RULES,
       ...BOOLEAN_PREFIX,
       '@typescript-eslint/no-unused-vars': [

@@ -57,7 +57,7 @@ beforeEach(async () => {
   document.body.innerHTML = '<ul><li id="target">a</li><li>b</li></ul>'
   document.documentElement.className = ''
   // jsdom has no layout engine, so hit testing is not implemented.
-  document.elementFromPoint = vi.fn(() => null) as typeof document.elementFromPoint
+  document.elementFromPoint = vi.fn(() => null)
   state = createState()
   bannerMocks.mountPickerBanner.mockResolvedValue(undefined)
   await enablePickerMode(ctx, state, disable)

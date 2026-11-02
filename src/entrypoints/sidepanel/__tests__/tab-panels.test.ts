@@ -34,7 +34,7 @@ describe('getTabView', () => {
   })
 
   it('tells the full data view, an unsupported page and a supported one apart', () => {
-    expect(getTabView(fakeBrowser.runtime.getURL('/full-data-view.html?tabId=1' as never))).toBe(
+    expect(getTabView(fakeBrowser.runtime.getURL('/full-data-view.html?tabId=1'))).toBe(
       'full-data-view',
     )
     expect(getTabView(SETTINGS)).toBe('unsupported')

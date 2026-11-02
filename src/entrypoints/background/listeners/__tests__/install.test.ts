@@ -25,7 +25,7 @@ const stubManifest = () =>
     name: 'Scrape Similar',
     version: '0.0.0',
     content_scripts: [{ js: ['content.js'] }],
-  } as never)
+  })
 
 describe('setupUninstallUrl', () => {
   let mockSetUninstallURL: ReturnType<typeof vi.fn>
@@ -175,7 +175,7 @@ describe('setupInstallListener', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     fakeBrowser.reset()
-    create = spyOnBrowser(fakeBrowser.tabs, 'create').mockResolvedValue({} as Browser.tabs.Tab)
+    create = spyOnBrowser(fakeBrowser.tabs, 'create').mockResolvedValue({})
     setPanelBehavior = vi
       .spyOn(fakeBrowser.sidePanel, 'setPanelBehavior')
       .mockResolvedValue(undefined)
@@ -186,9 +186,7 @@ describe('setupInstallListener', () => {
   })
 
   const install = async (reason: 'install' | 'update') => {
-    await fakeBrowser.runtime.onInstalled.trigger({
-      reason,
-    } as Browser.runtime.InstalledDetails)
+    await fakeBrowser.runtime.onInstalled.trigger({ reason })
     await flushMicrotasks()
   }
 

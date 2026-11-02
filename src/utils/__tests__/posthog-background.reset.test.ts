@@ -127,7 +127,7 @@ describe('resetPostHogInstance', () => {
 
     expect(await getPostHogBackground()).toBeNull()
 
-    const retired = initSpy.mock.contexts[0] as unknown as { stopExceptionAutocapture: () => void }
+    const retired = initSpy.mock.contexts[0] as { stopExceptionAutocapture: () => void }
     expect(retired.stopExceptionAutocapture).toHaveBeenCalled()
   })
 

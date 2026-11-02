@@ -57,7 +57,7 @@ afterEach(() => {
 })
 
 const createWindow = ({
-  origin = fakeBrowser.runtime.getURL('/' as never).slice(0, -1),
+  origin = fakeBrowser.runtime.getURL('/').slice(0, -1),
   pathname,
 }: {
   origin?: string

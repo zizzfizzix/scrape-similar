@@ -98,7 +98,7 @@ export const startContentScript = (ctx: ContentScriptContext): ContentScriptStat
   requestTabId(state)
 
   document.addEventListener('contextmenu', (event) => {
-    trackContextMenuTarget(state, event as MouseEvent)
+    trackContextMenuTarget(state, event)
   })
 
   const enablePicker = (source?: AnalyticsSource) =>

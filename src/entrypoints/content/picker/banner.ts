@@ -8,7 +8,7 @@ import type { ContentScriptContext } from 'wxt/utils/content-script-context'
 export const getPickerBannerElement = (state: ContentScriptState): HTMLElement | null => {
   if (!state.bannerRootEl) return null
   const shadowRoot = state.bannerRootEl.shadowRoot || state.bannerRootEl.getRootNode()
-  return (shadowRoot as ShadowRoot)?.querySelector?.('.fixed') as HTMLElement | null
+  return (shadowRoot as ShadowRoot)?.querySelector?.<HTMLElement>('.fixed')
 }
 
 /**

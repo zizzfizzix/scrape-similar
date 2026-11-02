@@ -53,7 +53,7 @@ describe('TabPanel config edits', () => {
   it('writes nothing for an edit that leaves the config as it was', async () => {
     await render()
     const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
-      undefined as never,
+      undefined,
     )
     const shown = form.props!.config
 
@@ -70,7 +70,7 @@ describe('TabPanel config edits', () => {
   it('writes only the field an edit changed', async () => {
     await render()
     const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
-      undefined as never,
+      undefined,
     )
 
     act(() => {

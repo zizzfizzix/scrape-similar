@@ -76,7 +76,7 @@ describe('handleDemoScrape', () => {
   })
 
   it('reports failure when the sender has no tab', async () => {
-    await handleDemoScrape({} as Browser.runtime.MessageSender, sendResponse)
+    await handleDemoScrape({}, sendResponse)
 
     expect(sendResponse).toHaveBeenCalledWith({
       success: false,
