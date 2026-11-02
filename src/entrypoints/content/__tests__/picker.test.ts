@@ -794,6 +794,10 @@ describe('handlePickerClick', () => {
       'Error saving picker config to background:',
       expect.anything(),
     )
+    expect(errorSpy).toHaveBeenCalledWith(
+      'Error in picker click handler:',
+      expect.objectContaining({ message: 'port closed' }),
+    )
   })
 
   it('logs but does not reopen the panel when the result cannot be stored', async () => {

@@ -4,9 +4,10 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { ANALYTICS_EVENTS } from '@/utils/analytics'
 import type { ScrapeConfig, ScrapedData, ScrapedRow } from '@/utils/types'
 import { spyOnBrowser } from '@@/tests/support/fake-browser'
+import { stubClipboard } from '@@/tests/support/navigator'
 import { type RenderResult, act, render as renderComponent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 
 const trackEvent = vi.hoisted(() => vi.fn())
@@ -70,14 +71,7 @@ const manyRows = (count: number): ScrapedData =>
 
 beforeEach(() => {
   fakeBrowser.reset()
-  vi.stubGlobal('navigator', {
-    ...navigator,
-    clipboard: { writeText: vi.fn().mockResolvedValue(undefined) },
-  })
-})
-
-afterEach(async () => {
-  vi.unstubAllGlobals()
+  stubClipboard()
 })
 
 describe('DataTable', () => {

@@ -18,8 +18,10 @@ export const createLockManager = (): LockManager => {
     const lock = { name, mode: 'exclusive' } as Lock
 
     const granted = new Promise<void>((resolve, reject) => {
-      if (signal?.aborted) reject(signal.reason)
-      signal?.addEventListener('abort', () => reject(signal.reason), { once: true })
+      // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- the real API rejects with whatever the signal was aborted with
+      const abandon = () => reject(signal?.reason)
+      if (signal?.aborted) abandon()
+      signal?.addEventListener('abort', abandon, { once: true })
       previous.then(() => resolve(), resolve)
     })
     // An abort after the grant settles nothing, as in the real API.

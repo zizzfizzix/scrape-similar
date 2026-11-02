@@ -89,6 +89,7 @@ describe('readPresetFile', () => {
   })
 
   it('falls back to a generic reason when the failure is not an error', async () => {
+    // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- the case under test
     const outcome = await readPresetFile({ text: () => Promise.reject('nope') })
 
     expect(outcome).toEqual({ ok: false, error: 'Failed to read preset file: Invalid JSON' })

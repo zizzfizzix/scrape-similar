@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { getInjectableUrlPattern, isInjectableUrl } from '@/utils/isInjectableUrl'
+import { stubUserAgent } from '@@/tests/support/navigator'
 
 // Test data covering both injectable and non-injectable scenarios
 const NON_INJECTABLE_CASES: Array<{ url: string; pattern: string }> = [
@@ -118,10 +119,6 @@ describe('in Chrome', () => {
 })
 
 describe('in Edge', () => {
-  afterEach(() => {
-    vi.unstubAllGlobals()
-  })
-
   it.each([
     {
       url: 'https://microsoftedge.microsoft.com/addons/detail/odfafepnkmbhccpbejgmiehpchacaeak',
@@ -132,10 +129,7 @@ describe('in Edge', () => {
       pattern: 'https://chromewebstore.google.com/',
     },
   ])('refuses $url', ({ url, pattern }) => {
-    vi.stubGlobal('navigator', {
-      ...navigator,
-      userAgent: 'Mozilla/5.0 Chrome/130.0.0.0 Edg/130.0.0.0',
-    })
+    stubUserAgent('Mozilla/5.0 Chrome/130.0.0.0 Edg/130.0.0.0')
 
     expect(isInjectableUrl(url)).toBe(false)
     expect(getInjectableUrlPattern(url)).toBe(pattern)

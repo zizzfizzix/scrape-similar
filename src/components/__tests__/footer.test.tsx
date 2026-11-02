@@ -6,10 +6,11 @@ import { ThemeProvider } from '@/components/theme-provider'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ANALYTICS_EVENTS } from '@/utils/analytics'
 import { author } from '@@/package.json' with { type: 'json' }
+import { stubUserAgent } from '@@/tests/support/navigator'
 import { renderSettled } from '@@/tests/support/settle'
 import { render as renderComponent, type RenderResult } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 
 const trackEvent = vi.hoisted(() => vi.fn())
@@ -62,15 +63,8 @@ describe('Footer', () => {
   })
 
   describe('campaign', () => {
-    afterEach(() => {
-      vi.unstubAllGlobals()
-    })
-
     it('names the running browser, not the build', async () => {
-      vi.stubGlobal('navigator', {
-        ...navigator,
-        userAgent: 'Mozilla/5.0 Chrome/130.0.0.0 Edg/130.0.0.0',
-      })
+      stubUserAgent('Mozilla/5.0 Chrome/130.0.0.0 Edg/130.0.0.0')
       view = await render()
 
       expect(authorLink().href).toMatch(/utm_campaign=edge-/)

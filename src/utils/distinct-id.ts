@@ -1,8 +1,8 @@
 import { updateStorageItem } from '@/utils/storage-lock'
 import log from 'loglevel'
-import { type UUIDTypes, v7 as uuidv7 } from 'uuid'
+import { v7 as uuidv7 } from 'uuid'
 
-export type DistinctId = UUIDTypes
+export type DistinctId = string
 
 // Generate a sortable UUIDv7 (RFC 9562) matching PostHog's internal distinct_id format
 export const generateDistinctId = (): DistinctId => uuidv7()
