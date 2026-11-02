@@ -21,7 +21,7 @@ export const setupUninstallUrl = async (distinctId?: DistinctId | null): Promise
   try {
     // If undefined (no argument), read from storage; otherwise use the provided value (including null).
     // A statement rather than the ternary it reads like, because an `await` in a
-    // ternary arm miscounts the rest of the function — see `coverage-hazards.ts`.
+    // ternary arm miscounts the rest of the function — see `coverage/no-conditional-await`.
     let resolvedDistinctId = distinctId
     if (resolvedDistinctId === undefined) {
       resolvedDistinctId = await distinctIdItem.getValue()
