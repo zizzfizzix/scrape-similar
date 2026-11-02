@@ -70,8 +70,8 @@ const NO_VOID = {
 }
 
 // The extension origin differs per browser and per install: `moz-extension://<uuid>`
-// on Firefox, a different id on Edge and unpacked builds. The store id in
-// package.json only names the Chrome Web Store build.
+// on Firefox, a store-assigned id for the Edge Add-ons install. The id in
+// package.json only names the Chromium builds that carry the store key.
 const OWN_ORIGIN_MESSAGE =
   "Extension origins differ per browser and install. Build or match the extension's own URLs with `browser.runtime.getURL(path)`."
 const NO_HARD_CODED_EXTENSION_ORIGIN = [
