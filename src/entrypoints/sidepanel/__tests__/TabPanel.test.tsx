@@ -198,8 +198,8 @@ describe('TabPanel column edits', () => {
   }
   const guessedColumns = [{ name: 'Title', selector: './/h2' }]
   const storageKey = `session:sidepanel_config_${TAB_ID}`
-  const applied = { success: true, isColumnEditSuperseded: false }
-  const superseded = { success: true, isColumnEditSuperseded: true }
+  const applied = { success: true, isColumnEditDropped: false }
+  const superseded = { success: true, isColumnEditDropped: true }
 
   /** Store `columns` as the background would on applying an edit, then reply. */
   const applyAndReply = (columns: ColumnDefinition[]) => async () => {
@@ -459,6 +459,23 @@ describe('TabPanel column edits', () => {
       })
     },
   )
+
+  it('keeps a column edit when a selector commit from an earlier render lands after it', async () => {
+    await render()
+    spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockImplementation(
+      applyAndReply([rename.column]),
+    )
+    // The handler a deferred blur commit holds on to.
+    const commitFromBlurRender = form.props!.onMainSelectorChange
+
+    edit(rename)
+    await settleEffects()
+    act(() => {
+      commitFromBlurRender('//li')
+    })
+
+    expect(form.props!.config).toEqual({ mainSelector: '//li', columns: [rename.column] })
+  })
 
   it('sends nothing without a tab', async () => {
     await render(null)

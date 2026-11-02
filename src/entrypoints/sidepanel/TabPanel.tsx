@@ -76,10 +76,10 @@ export const TabPanel = memo(function TabPanel({
   const needsColumnReadBackRef = useRef(false)
   // Set when a whole-config write failed, so the read-back restores the selector too.
   const needsConfigRestoreRef = useRef(false)
-  const shownColumnsRef = useRef(config.columns)
+  const shownConfigRef = useRef(config)
   useEffect(() => {
-    shownColumnsRef.current = config.columns
-  }, [config.columns])
+    shownConfigRef.current = config
+  }, [config])
 
   const applyStoredState = useCallback(
     (stored: SidePanelConfig) => {
@@ -166,9 +166,12 @@ export const TabPanel = memo(function TabPanel({
     return newConfig
   }
 
+  // Built on the latest config: ConfigForm's deferred blur commit calls the
+  // handler from the render at blur time, which can predate a column edit.
   const handleMainSelectorChange = (mainSelector: string) => {
-    showConfig({ ...config, mainSelector }, (trimmed) =>
-      buildMainSelectorUpdates(config.mainSelector, trimmed.mainSelector),
+    const latest = shownConfigRef.current
+    showConfig({ ...latest, mainSelector }, (trimmed) =>
+      buildMainSelectorUpdates(latest.mainSelector, trimmed.mainSelector),
     )
   }
 
@@ -194,7 +197,7 @@ export const TabPanel = memo(function TabPanel({
       notify.error(failure, { id: failure })
       return 'failed'
     }
-    return reply.isColumnEditSuperseded ? 'dropped' : 'stored'
+    return reply.isColumnEditDropped ? 'dropped' : 'stored'
   }
 
   // Once the last pending write is answered, the columns the watcher held are
@@ -215,7 +218,7 @@ export const TabPanel = memo(function TabPanel({
 
     const held = heldColumnsRef.current
     heldColumnsRef.current = null
-    if (held !== null && !hasSameData(held, shownColumnsRef.current)) {
+    if (held !== null && !hasSameData(held, shownConfigRef.current.columns)) {
       needsColumnReadBackRef.current = true
     }
     if (!needsColumnReadBackRef.current) return

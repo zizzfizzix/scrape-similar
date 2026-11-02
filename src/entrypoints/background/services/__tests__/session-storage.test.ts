@@ -250,7 +250,7 @@ describe('applySidePanelDataUpdates with a column edit', () => {
   it('applies an edit to the column it was made against', async () => {
     const outcome = await applySidePanelDataUpdates(1, { columnEdit: renameText })
 
-    expect(outcome).toEqual({ isColumnEditSuperseded: false })
+    expect(outcome).toEqual({ isColumnEditDropped: false })
     expect((await read(1)).currentScrapeConfig).toEqual({
       mainSelector: '//div',
       columns: [renameText.column, link],
@@ -262,7 +262,7 @@ describe('applySidePanelDataUpdates with a column edit', () => {
 
     const outcome = await applySidePanelDataUpdates(1, { columnEdit: renameText })
 
-    expect(outcome).toEqual({ isColumnEditSuperseded: true })
+    expect(outcome).toEqual({ isColumnEditDropped: true })
     expect((await read(1)).currentScrapeConfig).toEqual({
       mainSelector: '//div',
       columns: guessedColumns,
@@ -284,7 +284,7 @@ describe('applySidePanelDataUpdates with a column edit', () => {
       columnEdit: { type: 'remove', index: 1, expected: link },
     })
 
-    expect(outcome).toEqual({ isColumnEditSuperseded: true })
+    expect(outcome).toEqual({ isColumnEditDropped: true })
     expect((await read(1)).currentScrapeConfig?.columns).toEqual(guessedColumns)
   })
 
@@ -292,7 +292,7 @@ describe('applySidePanelDataUpdates with a column edit', () => {
     await storeGuess()
     const outcome = await applySidePanelDataUpdates(1, { columnEdit: { type: 'add' } })
 
-    expect(outcome).toEqual({ isColumnEditSuperseded: false })
+    expect(outcome).toEqual({ isColumnEditDropped: false })
     expect((await read(1)).currentScrapeConfig?.columns).toEqual([
       ...guessedColumns,
       { name: 'Column 2', selector: '.' },
@@ -337,7 +337,7 @@ describe('applySidePanelDataUpdates with a column edit', () => {
       columnEdit: { type: 'rename', index: 0, expected: text } as unknown as ColumnEdit,
     })
 
-    expect(outcome).toEqual({ isColumnEditSuperseded: true })
+    expect(outcome).toEqual({ isColumnEditDropped: true })
     expect((await read(1)).currentScrapeConfig).toEqual(shownInPanel)
   })
 

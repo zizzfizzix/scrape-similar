@@ -25,9 +25,9 @@ const isTabClosed = (tabId: number, operation: string): boolean => {
 export const applySidePanelDataUpdates = async (
   tabId: number,
   updates: SidePanelConfigUpdate,
-): Promise<{ isColumnEditSuperseded: boolean }> => {
-  let isColumnEditSuperseded = false
-  if (isTabClosed(tabId, 'side panel update')) return { isColumnEditSuperseded }
+): Promise<{ isColumnEditDropped: boolean }> => {
+  let isColumnEditDropped = false
+  if (isTabClosed(tabId, 'side panel update')) return { isColumnEditDropped }
   await updateStorageItem(sidePanelConfigItem(tabId), (stored) => {
     const current = stored ?? {}
     const { currentScrapeConfig: incoming, columnEdit, ...topLevel } = updates
@@ -51,7 +51,7 @@ export const applySidePanelDataUpdates = async (
         next.currentScrapeConfig = { mainSelector: shown.mainSelector, columns }
       } else {
         log.debug(`Dropped a superseded or malformed column edit for tab ${String(tabId)}`)
-        isColumnEditSuperseded = true
+        isColumnEditDropped = true
         const hasNothingElse =
           next.currentScrapeConfig === current.currentScrapeConfig &&
           Object.keys(topLevel).length === 0
@@ -60,7 +60,7 @@ export const applySidePanelDataUpdates = async (
     }
     return next
   })
-  return { isColumnEditSuperseded }
+  return { isColumnEditDropped }
 }
 
 /**
