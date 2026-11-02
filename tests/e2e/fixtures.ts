@@ -318,10 +318,12 @@ export const TestHelpers = {
     intervalMs = 150,
   ): Promise<void> {
     for (let i = 0; i < samples; i++) {
+      if (i > 0) {
+        // eslint-disable-next-line playwright/no-wait-for-timeout, no-restricted-syntax -- the interval between samples, not a wait for a condition
+        await locator.page().waitForTimeout(intervalMs)
+      }
       // eslint-disable-next-line playwright/prefer-to-have-count -- `toHaveCount(0)` retries until a transient match is gone, which is what this rules out
       base.expect(await locator.count(), message).toBe(0)
-      // eslint-disable-next-line playwright/no-wait-for-timeout, no-restricted-syntax -- the interval between samples, not a wait for a condition
-      await locator.page().waitForTimeout(intervalMs)
     }
   },
 
