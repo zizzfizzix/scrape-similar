@@ -1,4 +1,4 @@
-import { trackEvent } from '@/utils/analytics'
+import { trackContentScriptEvent } from '@/utils/analytics'
 import log from 'loglevel'
 import type { AsyncMessageHandler, MessageHandler } from '../types'
 import { handleExportToSheets } from './sheets-export'
@@ -21,7 +21,7 @@ const handleTrackEvent: MessageHandler = (message, sender, sendResponse) => {
   const tabId = sender.tab?.id
   const { eventName, properties } = message.payload as TrackEventPayload
   if (eventName) {
-    trackEvent(eventName, { ...properties })
+    trackContentScriptEvent(eventName, { ...properties })
     log.debug(`Tracked event from content script in tab ${tabId}: ${eventName}`)
     sendResponse({ success: true })
   } else {

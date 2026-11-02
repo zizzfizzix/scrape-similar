@@ -1,3 +1,4 @@
+import { version } from '@@/package.json' with { type: 'json' }
 import log from 'loglevel'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { browser } from 'wxt/browser'
@@ -21,7 +22,7 @@ import * as consent from '@/utils/consent'
 import * as contextDetection from '@/utils/context-detection'
 import * as posthogBg from '@/utils/posthog-background'
 
-import { captureEvent, trackEvent } from '@/utils/analytics'
+import { captureEvent, trackContentScriptEvent, trackEvent } from '@/utils/analytics'
 
 const QUEUE_KEY = eventQueueItem.key
 const EVENT_NAME = ANALYTICS_EVENTS.SETTINGS_OPEN
@@ -85,15 +86,43 @@ describe('captureEvent – context specific behaviour', () => {
     expect(capturedProps.url).toBe('qux')
   })
 
-  it('retains existing extension_context in properties', async () => {
+  it('overwrites envelope properties a caller passes despite the type', async () => {
+    currentContext = contextDetection.EXTENSION_CONTEXTS.BACKGROUND
+    const captureSpy = vi.fn()
+    vi.spyOn(posthogBg, 'getPostHogBackground').mockResolvedValue({ capture: captureSpy } as any)
+    const smuggled = {
+      trigger: 'bar',
+      environment: 'fake_env',
+      extension_context: 'fake_context',
+      extension_version: '0.0.0',
+    }
+
+    await captureEvent(EVENT_NAME, smuggled)
+
+    const [, capturedProps] = captureSpy.mock.calls[0] ?? []
+    expect(capturedProps).toMatchObject({
+      environment: import.meta.env.MODE,
+      extension_context: contextDetection.EXTENSION_CONTEXTS.BACKGROUND,
+      extension_version: version,
+    })
+  })
+
+  it('tracks a forwarded content-script event with the content script as its context', async () => {
     currentContext = contextDetection.EXTENSION_CONTEXTS.BACKGROUND
     const captureSpy = vi.fn()
     vi.spyOn(posthogBg, 'getPostHogBackground').mockResolvedValue({ capture: captureSpy } as any)
 
-    await captureEvent(EVENT_NAME, { extension_context: 'custom_context' })
+    expect(trackContentScriptEvent(EVENT_NAME, { trigger: 'bar' })).toBeUndefined()
 
-    const [, capturedProps] = captureSpy.mock.calls[0] ?? []
-    expect(capturedProps.extension_context).toBe('custom_context')
+    await vi.waitFor(() =>
+      expect(captureSpy).toHaveBeenCalledWith(
+        EVENT_NAME,
+        expect.objectContaining({
+          trigger: 'bar',
+          extension_context: contextDetection.EXTENSION_CONTEXTS.CONTENT_SCRIPT,
+        }),
+      ),
+    )
   })
 
   it('warns instead of capturing when the background PostHog is unavailable', async () => {
@@ -108,7 +137,7 @@ describe('captureEvent – context specific behaviour', () => {
     expect(await getQueuedEvent()).toBeUndefined()
   })
 
-  it('sends a message from content-script context', async () => {
+  it('sends only the caller properties from content-script context', async () => {
     currentContext = contextDetection.EXTENSION_CONTEXTS.CONTENT_SCRIPT
     const sendMessage = vi.spyOn(browser.runtime, 'sendMessage').mockResolvedValue(undefined)
 
@@ -116,13 +145,7 @@ describe('captureEvent – context specific behaviour', () => {
 
     expect(sendMessage).toHaveBeenCalledWith({
       type: MESSAGE_TYPES.TRACK_EVENT,
-      payload: {
-        eventName: EVENT_NAME,
-        properties: expect.objectContaining({
-          trigger: 'bar',
-          extension_context: contextDetection.EXTENSION_CONTEXTS.CONTENT_SCRIPT,
-        }),
-      },
+      payload: { eventName: EVENT_NAME, properties: { trigger: 'bar' } },
     })
   })
 

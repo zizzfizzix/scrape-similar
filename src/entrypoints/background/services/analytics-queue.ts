@@ -45,7 +45,7 @@ const sendQueuedEvents = async (): Promise<void> => {
           event.name,
           {
             ...event.props,
-            [ANALYTICS_PROPERTIES.BUFFERED]: true,
+            [FLUSH_PROPERTIES.BUFFERED]: true,
           },
           {
             timestamp: new Date(event.timestamp),
