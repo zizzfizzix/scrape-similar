@@ -373,6 +373,17 @@ const OFF_ON_MERITS = {
   // unparseable code.
   'jest-dom/prefer-to-have-text-content': 'off',
   'jest-dom/prefer-to-have-style': 'off',
+  // 380 reports across 58 files, 342 of them in tests. Outside tests, a `!` with
+  // a comment saying why the value is present is how this codebase states a
+  // guarantee the types cannot (a capture group a successful match always
+  // fills, an index whose bounds were just checked, a tab id the router already
+  // required), in place of a defensive branch no test can reach. The rule would
+  // turn each one back into that branch or into a disable carrying the same
+  // comment. In tests, a `!` reads back what the test just rendered or set up,
+  // and a missing value fails the test with a TypeError on that line, as an
+  // `expect(x).not.toBeNull()` before it would. Only `tseslint.configs.strict`
+  // ships the rule; it is listed so the decision survives a move to `strict`.
+  '@typescript-eslint/no-non-null-assertion': 'off',
 } as const
 
 /**
@@ -614,8 +625,8 @@ export default defineConfig([
     languageOptions: { globals: globals.node },
   },
 
-  // These two last, so they win over the shared configs above that switch
-  // these rules on.
+  // These two last, so they win over any shared config above that switches
+  // one of these rules on.
   { files: ['**/*.{ts,tsx}'], rules: { ...DEFERRED, ...OFF_ON_MERITS } },
   { files: [...TEST_FILES, 'tests/e2e/**/*.ts'], rules: OFF_ON_MERITS_IN_TESTS },
 ])
