@@ -309,11 +309,11 @@ export const captureEvent = async (
     }
 
     // A content script cannot take the event queue's lock (it gets the page's
-    // lock manager), so the background it messages below queues for it.
-    // `content-script/no-lock` does not check this branch: `captureEvent` is a
-    // `boundary` in eslint.config.ts. An
+    // lock manager), so the background it messages below queues for it. An
     // unknown context still queues: Firefox's background and extension pages
     // detect as unknown.
+    // `content-script/no-lock` does not check this branch: `captureEvent` is a
+    // `boundary` in eslint.config.ts.
     if (consentState === undefined && context !== EXTENSION_CONTEXTS.CONTENT_SCRIPT) {
       await queueEvent({ name: eventName, props: eventProperties, timestamp: Date.now() })
       return

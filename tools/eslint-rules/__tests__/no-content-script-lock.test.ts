@@ -152,14 +152,52 @@ ruleTester.run('no-content-script-lock', noContentScriptLock, {
       filename: CONTENT,
       code: "import { destructured, indexed } from './helpers'\ndestructured()\nindexed()",
       errors: [
-        { messageId: 'reachesLock', data: { name: 'destructured', chain: 'destructured → query' } },
+        { messageId: 'reachesLock', data: { name: 'destructured', chain: 'destructured → locks' } },
         { messageId: 'reachesLock', data: { name: 'indexed', chain: 'indexed → query' } },
       ],
     },
     {
       filename: CONTENT,
       code: 'const { locks } = navigator\nlocks.query()',
-      errors: [{ messageId: 'reachesLock', data: { name: 'query', chain: 'query' } }],
+      errors: [
+        { messageId: 'reachesLock', data: { name: 'locks', chain: 'locks' } },
+        { messageId: 'reachesLock', data: { name: 'query', chain: 'query' } },
+      ],
+    },
+    {
+      // Destructured from a namespace: the binding is local, the property is not.
+      filename: CONTENT,
+      code: "import * as helpers from './helpers'\nconst { saveThing } = helpers\nsaveThing()",
+      errors: [chain('saveThing', 'saveThing', 'withLock')],
+    },
+    {
+      filename: CONTENT,
+      code: "const { saveThing: save } = await import('./helpers')\nawait save()",
+      errors: [chain('save', 'saveThing', 'withLock')],
+    },
+    {
+      filename: CONTENT,
+      code: "import { destructuredHelper } from './helpers'\ndestructuredHelper()",
+      // The second `saveThing` is the property of `actions` it is read from.
+      errors: [
+        chain('destructuredHelper', 'destructuredHelper', 'saveThing', 'saveThing', 'withLock'),
+      ],
+    },
+    {
+      // `f<T>` without a call, inside a walked declaration.
+      filename: CONTENT,
+      code: "import { lockStrings } from './instantiation'\nlockStrings('k', async () => '')",
+      errors: [chain('lockStrings', 'lockStrings', 'withLockOf')],
+    },
+    {
+      filename: VIEW,
+      code: "import { Banner } from './components'\nexport const view = <Banner></Banner>",
+      errors: [chain('Banner', 'Banner', 'saveThing', 'withLock')],
+    },
+    {
+      filename: VIEW,
+      code: "import * as components from './components'\nexport const view = <components.Banner />",
+      errors: [chain('Banner', 'Banner', 'saveThing', 'withLock')],
     },
   ],
 })

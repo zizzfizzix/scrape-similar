@@ -33,3 +33,8 @@ export const destructured = (): Promise<LockManagerSnapshot> => {
 }
 
 export const indexed = (): Promise<LockManagerSnapshot> => navigator['locks'].query()
+
+export const destructuredHelper = (): Promise<void> => {
+  const { saveThing: save } = actions
+  return save()
+}

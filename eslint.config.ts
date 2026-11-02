@@ -280,10 +280,30 @@ export default defineConfig([
     // A content script gets the page's lock manager, not the extension's, so a
     // storage lock it takes serialises nothing (#345). Its writes go through
     // the background instead.
-    files: ['src/entrypoints/content/**/*.{ts,tsx}'],
+    // Every layout WXT reads a content script from.
+    files: [
+      'src/entrypoints/content/**/*.{ts,tsx}',
+      'src/entrypoints/*.content.{ts,tsx}',
+      'src/entrypoints/*.content/**/*.{ts,tsx}',
+    ],
     ignores: TEST_FILES,
     plugins: { 'content-script': { rules: { 'no-lock': noContentScriptLock } } },
     rules: {
+      // `.wxt/types/imports-module.d.ts` re-exports with relative paths inside
+      // an ambient module, which TS cannot resolve, so what `#imports` names
+      // has no declaration for `content-script/no-lock` to walk.
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '#imports',
+              message:
+                'Import from the module itself or use the auto-import, so the lock check can follow it.',
+            },
+          ],
+        },
+      ],
       'content-script/no-lock': [
         'error',
         {

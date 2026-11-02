@@ -28,6 +28,9 @@ import ts from 'typescript'
  * only outside a content script reads as taking it everywhere. Those are listed
  * in the `boundaries` option, each with the reason the content-script path is
  * lock-free; the walk does not enter them.
+ *
+ * The walk starts from what a content script references, so a statement that
+ * runs at the top level of a module it imports is not followed.
  */
 const DOCUMENTATION =
   'https://github.com/zizzfizzix/scrape-similar/blob/main/tools/eslint-rules/no-content-script-lock.ts'
@@ -64,6 +67,7 @@ const IMPORT_SPECIFIERS = new Set([
 
 const RUNTIME_TS_NODES = new Set([
   'TSAsExpression',
+  'TSEnumBody',
   'TSEnumDeclaration',
   'TSEnumMember',
   'TSExportAssignment',
@@ -76,6 +80,16 @@ const RUNTIME_TS_NODES = new Set([
   'TSTypeAssertion',
 ])
 
+/** The fields `check` reads from an identifier's parent, whatever its type. */
+interface LooseNode {
+  type: string
+  key?: unknown
+  object?: object
+  parent?: { type: string } | null
+  property?: unknown
+  shorthand?: boolean
+}
+
 const isWithin = (inner: ts.Node, outer: ts.Node): boolean =>
   inner.getSourceFile() === outer.getSourceFile() &&
   inner.pos >= outer.pos &&
@@ -84,9 +98,10 @@ const isWithin = (inner: ts.Node, outer: ts.Node): boolean =>
 const isLockManagerDeclaration = (declaration: ts.Node): boolean =>
   ts.isInterfaceDeclaration(declaration) && declaration.name.text === 'LockManager'
 
-// A type that names a function (`typeof saveThing`) runs nothing.
+// A type that names a function (`typeof saveThing`) runs nothing. `f<T>` with
+// no call is an `ExpressionWithTypeArguments`, which TS counts as a type node.
 const forEachIdentifier = (node: ts.Node, visit: (identifier: ts.Identifier) => void): void => {
-  if (ts.isTypeNode(node)) return
+  if (ts.isTypeNode(node) && !ts.isExpressionWithTypeArguments(node)) return
   if (ts.isIdentifier(node)) visit(node)
   ts.forEachChild(node, (child) => forEachIdentifier(child, visit))
 }
@@ -157,14 +172,26 @@ export const noContentScriptLock: Rule.RuleModule = {
 
     /**
      * The name an identifier refers to. In `{ saveThing }` the checker answers
-     * with the property the shorthand declares, not the value it holds.
+     * with the property the shorthand declares, not the value it holds; in
+     * `const { saveThing } = ns` it answers with the new local binding, not
+     * the property of `ns` it is read from.
      */
     const symbolAt = (identifier: ts.Node): ts.Symbol | undefined => {
       const { parent } = identifier
-      const symbol =
-        ts.isShorthandPropertyAssignment(parent) && parent.name === identifier
-          ? checker.getShorthandAssignmentValueSymbol(parent)
-          : checker.getSymbolAtLocation(identifier)
+      let symbol: ts.Symbol | undefined
+      if (ts.isShorthandPropertyAssignment(parent) && parent.name === identifier) {
+        symbol = checker.getShorthandAssignmentValueSymbol(parent)
+      } else if (
+        ts.isBindingElement(parent) &&
+        parent.name === identifier &&
+        ts.isObjectBindingPattern(parent.parent)
+      ) {
+        const property = parent.propertyName ?? identifier
+        const name = ts.isIdentifier(property) ? property.text : property.getText()
+        symbol = checker.getTypeAtLocation(parent.parent).getProperty(name)
+      } else {
+        symbol = checker.getSymbolAtLocation(identifier)
+      }
       return symbol && resolveAlias(symbol)
     }
 
@@ -255,14 +282,23 @@ export const noContentScriptLock: Rule.RuleModule = {
 
     const check = (node: Rule.Node & { name: string }): void => {
       // An identifier is never the Program node, the only one without a parent.
-      const parent = node.parent!
+      const parent: LooseNode = node.parent!
       if (IMPORT_SPECIFIERS.has(parent.type) || isInType(node)) return
-      if (parent.type === 'MemberExpression' && parent.property === node) {
+      // `<Saver></Saver>` is reported at its opening tag.
+      if (parent.type === 'JSXClosingElement') return
+      if (
+        (parent.type === 'MemberExpression' || parent.type === 'JSXMemberExpression') &&
+        parent.property === node
+      ) {
         const { object } = parent
-        if (reported.has(object.type === 'MemberExpression' ? object.property : object)) return
+        const last: unknown = object && 'property' in object ? object.property : object
+        if (typeof last === 'object' && last !== null && reported.has(last)) return
       }
-      // `{ saveThing }` has a key and a value node; the value is checked.
-      if (parent.type === 'Property' && parent.shorthand && parent.key === node) return
+      // A property key in `{ saveThing }` or `{ saveThing: save } = ns` names
+      // what the value node resolves; the value is checked.
+      if (parent.type === 'Property' && parent.key === node) {
+        if (parent.shorthand === true || parent.parent?.type === 'ObjectPattern') return
+      }
       const resolved = symbolAt(esTreeNodeToTSNodeMap.get(node))
       if (!resolved) return
       // A local declaration's body is linted here too, so the identifiers
