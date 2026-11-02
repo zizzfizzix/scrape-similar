@@ -72,8 +72,8 @@ export const TabPanel = memo(function TabPanel({
       const storedResult = stored.scrapeResult
       if (storedResult) {
         setScrapeResult((previous) => reuseIfEqual(previous, storedResult))
-        const storedProducingConfig = stored.resultProducingConfig
-        if (storedProducingConfig) {
+        if (stored.resultProducingConfig) {
+          const storedProducingConfig = withTrimmedMainSelector(stored.resultProducingConfig)
           setResultProducingConfig((previous) => reuseIfEqual(previous, storedProducingConfig))
         }
       } else {
