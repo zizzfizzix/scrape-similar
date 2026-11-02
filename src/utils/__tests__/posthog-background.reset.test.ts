@@ -155,12 +155,14 @@ describe('resetPostHogInstance', () => {
     expect(retired.stopExceptionAutocapture).toHaveBeenCalled()
   })
 
-  it('resolves null when a reset overtakes an initialisation that found no consent', async () => {
-    vi.spyOn(consent, 'readConsentState').mockResolvedValue(undefined)
+  it('does not remember a missing consent that a reset overtook', async () => {
+    const consentSpy = vi.spyOn(consent, 'readConsentState').mockResolvedValue(undefined)
 
     const initialising = getPostHogBackground()
     resetPostHogInstance()
+    consentSpy.mockResolvedValue(true)
 
     expect(await initialising).toBeNull()
+    expect(await getPostHogBackground()).not.toBeNull()
   })
 })

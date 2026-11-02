@@ -138,7 +138,8 @@ const initializePostHog = async (startedIn: number): Promise<Initialisation> => 
 /**
  * Get PostHog instance for background service worker context with proper error handling and race condition protection
  * Returns existing instance if already initialized, otherwise creates and returns new instance
- * Returns null if initialization fails or environment variables are missing
+ * Returns null without consent or without the API key or host, and keeps returning it until
+ * `resetPostHogInstance`; a null from an initialisation that threw is retried on the next call
  */
 export const getPostHogBackground = async (): Promise<PostHog | null> => {
   if (posthogInstance) {
