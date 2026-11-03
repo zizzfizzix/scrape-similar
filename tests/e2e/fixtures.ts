@@ -115,10 +115,6 @@ export const TABLE_LAYOUTS_PAGE_COUNTS = {
   headerInTbody: 3,
   /** `#thead-filter-row`: the `td` filter row in `thead` is one of them. */
   theadFilterRow: 3,
-  /** Each `table.record`. */
-  recordTable: 1,
-  /** `table.record` elements. */
-  recordTables: 3,
   /** `#layout-outer`, without the rows of `#layout-inner` nested in its first cell. */
   layoutOuter: 2,
   /** `#layout-inner`. */
@@ -447,27 +443,38 @@ export const TestHelpers = {
         async ({ url, MESSAGE_TYPES }) => {
           const [tab] = await chrome.tabs.query({ url })
           if (!tab?.id) throw new Error(`No tab open at ${url}`)
-          const reply = (await chrome.tabs
-            .sendMessage(tab.id, { type: MESSAGE_TYPES.SAVE_ELEMENT_DETAILS_TO_STORAGE })
-            .catch(() => undefined)) as { success?: boolean } | undefined
-          if (!reply?.success) return null
+          let reply: { success?: boolean; error?: string } | undefined
+          try {
+            reply = await chrome.tabs.sendMessage(tab.id, {
+              type: MESSAGE_TYPES.SAVE_ELEMENT_DETAILS_TO_STORAGE,
+            })
+          } catch (error) {
+            // Rejects until the content script has registered its listener.
+            return { error: String(error) }
+          }
+          if (!reply?.success) return { error: reply?.error ?? 'No reply' }
 
           const key = `sidepanel_config_${String(tab.id)}`
           const stored = (await chrome.storage.session.get(key))[key] as
             { currentScrapeConfig?: { mainSelector: string } } | undefined
-          return stored?.currentScrapeConfig ?? null
+          return stored?.currentScrapeConfig
+            ? { config: stored.currentScrapeConfig }
+            : { error: 'No currentScrapeConfig in session storage' }
         },
         { url: page.url(), MESSAGE_TYPES },
       )
 
-    const saved: { config?: { mainSelector: string } | null } = {}
+    const saved: { config?: { mainSelector: string } } = {}
     await base
       .expect(async () => {
         await target.dispatchEvent('contextmenu')
-        saved.config = await saveFromServiceWorker()
-        if (!saved.config) throw new Error('The content script saved no right-clicked element')
+        const result = await saveFromServiceWorker()
+        if (!result.config) {
+          throw new Error(`Saving the right-clicked element: ${result.error}`)
+        }
+        saved.config = result.config
       })
-      .toPass()
+      .toPass({ timeout: 10_000 })
     // toPass only resolves once the callback has run without throwing.
     return saved.config!
   },
