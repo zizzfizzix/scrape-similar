@@ -21,12 +21,12 @@ interface HandlerDependencies {
 }
 
 /**
- * Human-readable reason an XPath expression could not be evaluated.
+ * Human-readable reason a message handler failed.
  *
- * A malformed expression surfaces as a DOMException from `document.evaluate`,
+ * A malformed XPath expression surfaces as a DOMException from `document.evaluate`,
  * whose own message is too implementation-specific to show a user.
  */
-export const describeXPathError = (error: unknown): string => {
+export const describeError = (error: unknown): string => {
   if (error instanceof DOMException) {
     if (
       error.name === 'SyntaxError' &&
@@ -39,7 +39,7 @@ export const describeXPathError = (error: unknown): string => {
   }
   if (error instanceof Error) return error.message
   if (typeof error === 'string') return error
-  return 'Evaluation failed'
+  return 'Unexpected error'
 }
 
 /**
@@ -74,7 +74,7 @@ const evaluateOrReply = (selector: string, sendResponse: SendResponse): HTMLElem
   try {
     return evaluateXPath(selector)
   } catch (error) {
-    sendResponse({ success: false, error: describeXPathError(error) })
+    sendResponse({ success: false, error: describeError(error) })
     return null
   }
 }
@@ -86,9 +86,16 @@ export const createMessageHandler = (state: ContentScriptState, deps: HandlerDep
   return (
     message: Message,
     sender: Browser.runtime.MessageSender,
-    sendResponse: SendResponse,
+    replyToSender: SendResponse,
   ): boolean | undefined => {
     log.debug('Content script received message:', message)
+
+    let hasReplied = false
+    const sendResponse: SendResponse = (response) => {
+      if (hasReplied) return
+      hasReplied = true
+      replyToSender(response)
+    }
 
     try {
       switch (message.type) {
@@ -144,7 +151,9 @@ export const createMessageHandler = (state: ContentScriptState, deps: HandlerDep
         }
       }
     } catch (error) {
-      log.error('Error in content script:', error)
+      log.error(`Error in content script handling ${message.type}:`, error)
+      // A handler that throws after starting async work has its later reply dropped by the guard.
+      sendResponse({ success: false, error: describeError(error) })
     }
   }
 }
@@ -280,32 +289,27 @@ const handleSaveElementDetails = (
     sendResponse({ success: false, error: errMsg })
     return true
   }
-  try {
-    const guessedConfig = guessScrapeConfigForElement(state.lastRightClickedElement)
-    const details = state.lastRightClickedElementDetails
-    browser.runtime.sendMessage(
-      {
-        type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
-        payload: {
-          tabId: state.tabId,
-          updates: { currentScrapeConfig: guessedConfig, elementDetails: details },
-        },
+  const guessedConfig = guessScrapeConfigForElement(state.lastRightClickedElement)
+  const details = state.lastRightClickedElementDetails
+  browser.runtime.sendMessage(
+    {
+      type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
+      payload: {
+        tabId: state.tabId,
+        updates: { currentScrapeConfig: guessedConfig, elementDetails: details },
       },
-      (response: StatusReply | undefined) => {
-        if (browser.runtime.lastError) {
-          log.error('Error sending element config to background:', browser.runtime.lastError)
-        }
-        sendResponse(
-          interpretStoreReply(browser.runtime.lastError, response, {
-            fallbackError: 'Failed to save config',
-          }),
-        )
-      },
-    )
-  } catch (err) {
-    log.error('Error guessing or saving ScrapeConfig:', err)
-    sendResponse({ success: false, error: (err as Error).message })
-  }
+    },
+    (response: StatusReply | undefined) => {
+      if (browser.runtime.lastError) {
+        log.error('Error sending element config to background:', browser.runtime.lastError)
+      }
+      sendResponse(
+        interpretStoreReply(browser.runtime.lastError, response, {
+          fallbackError: 'Failed to save config',
+        }),
+      )
+    },
+  )
   return true
 }
 
@@ -328,7 +332,9 @@ const handleGuessConfigFromSelector = (
     sendResponse({ success: false, error: errMsg })
     return true
   }
-  const [firstElement] = evaluateXPath(mainSelector)
+  const elements = evaluateOrReply(mainSelector, sendResponse)
+  if (!elements) return true
+  const [firstElement] = elements
   if (!firstElement) {
     sendResponse({ success: false, error: 'No elements found for selector' })
     return true

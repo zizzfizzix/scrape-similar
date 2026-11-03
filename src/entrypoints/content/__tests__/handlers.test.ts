@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import {
   createMessageHandler,
-  describeXPathError,
+  describeError,
   interpretStoreReply,
 } from '@/entrypoints/content/handlers'
 import { createState, type ContentScriptState } from '@/entrypoints/content/state'
@@ -26,39 +26,37 @@ vi.mock('@/entrypoints/content/highlight', async (importOriginal) => ({
   highlightMatchingElements: highlightMocks.highlightMatchingElements,
 }))
 
-describe('describeXPathError', () => {
+describe('describeError', () => {
   it('reports a malformed expression as invalid XPath', () => {
     const error = new DOMException(
       "Failed to execute 'evaluate' on 'Document': The string '//[' is not a valid XPath expression.",
       'SyntaxError',
     )
 
-    expect(describeXPathError(error)).toBe('Invalid XPath')
+    expect(describeError(error)).toBe('Invalid XPath')
   })
 
   it('passes through a DOMException from somewhere else', () => {
-    expect(describeXPathError(new DOMException('Node was not found', 'NotFoundError'))).toBe(
+    expect(describeError(new DOMException('Node was not found', 'NotFoundError'))).toBe(
       'Node was not found',
     )
   })
 
   it('passes through a SyntaxError with an unrelated message', () => {
-    expect(describeXPathError(new DOMException('something else', 'SyntaxError'))).toBe(
-      'something else',
-    )
+    expect(describeError(new DOMException('something else', 'SyntaxError'))).toBe('something else')
   })
 
   it('uses a plain error’s message', () => {
-    expect(describeXPathError(new Error('boom'))).toBe('boom')
+    expect(describeError(new Error('boom'))).toBe('boom')
   })
 
   it('uses a thrown string as-is', () => {
-    expect(describeXPathError('just a string')).toBe('just a string')
+    expect(describeError('just a string')).toBe('just a string')
   })
 
   it('falls back to a generic message for anything else', () => {
-    expect(describeXPathError({ code: 12 })).toBe('Evaluation failed')
-    expect(describeXPathError(undefined)).toBe('Evaluation failed')
+    expect(describeError({ code: 12 })).toBe('Unexpected error')
+    expect(describeError(undefined)).toBe('Unexpected error')
   })
 })
 
@@ -565,6 +563,13 @@ describe('createMessageHandler', () => {
       })
     })
 
+    it('reports an expression that does not parse', () => {
+      expect(guess('//[')).toBe(true)
+
+      expect(sendMessage).not.toHaveBeenCalled()
+      expectFailureReply()
+    })
+
     it('refuses a selector that matches nothing', () => {
       guess('//table')
 
@@ -601,7 +606,7 @@ describe('createMessageHandler', () => {
     expect(sendResponse).not.toHaveBeenCalled()
   })
 
-  it('logs and swallows an error thrown while handling a message', () => {
+  it('logs an error thrown while handling a message and replies with it', () => {
     const errorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
     const failure = new Error('picker unavailable')
     deps.enablePickerMode.mockImplementation(() => {
@@ -610,6 +615,25 @@ describe('createMessageHandler', () => {
 
     expect(dispatch({ type: MESSAGE_TYPES.ENABLE_PICKER_MODE })).toBeUndefined()
 
-    expect(errorSpy).toHaveBeenCalledWith('Error in content script:', failure)
+    expect(errorSpy).toHaveBeenCalledWith(
+      `Error in content script handling ${MESSAGE_TYPES.ENABLE_PICKER_MODE}:`,
+      failure,
+    )
+    expect(sendResponse).toHaveBeenCalledExactlyOnceWith({
+      success: false,
+      error: 'picker unavailable',
+    })
+  })
+
+  it('does not reply again when a handler throws after replying', () => {
+    vi.spyOn(log, 'error').mockImplementation(() => {})
+    sendMessage.mockImplementation((_message: unknown, callback?: (r: unknown) => void) => {
+      callback?.({ success: true })
+      throw new Error('late failure')
+    })
+
+    dispatch({ type: MESSAGE_TYPES.GUESS_CONFIG_FROM_SELECTOR, payload: { mainSelector: '//li' } })
+
+    expect(sendResponse).toHaveBeenCalledExactlyOnceWith({ success: true })
   })
 })
