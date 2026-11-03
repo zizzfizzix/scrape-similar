@@ -45,7 +45,7 @@ See the Development section below for step-by-step instructions.
 
 ### Prerequisites
 
-- Node.js >= 22.0.0
+- Node.js >= 22.0.0; `.nvmrc` names the current LTS line CI uses, so `nvm install` / `fnm install` picks it up
 - pnpm (recommended) or npm
 - A modern browser (Chromium-based, Firefox, or Edge) for testing
 
