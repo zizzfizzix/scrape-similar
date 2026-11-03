@@ -5,8 +5,8 @@ import {
   initializeSessionState,
 } from '@/entrypoints/background/services/session-storage'
 import { DEFAULT_SCRAPE_CONFIG } from '@/utils/scrape-config'
-import { buildConfigChangeUpdates } from '@/utils/sidepanel-state'
-import type { ScrapeConfig, SidePanelConfig } from '@/utils/types'
+import { buildMainSelectorUpdates } from '@/utils/sidepanel-state'
+import type { ColumnDefinition, ColumnEdit, ScrapeConfig, SidePanelConfig } from '@/utils/types'
 import log from 'loglevel'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
@@ -196,10 +196,7 @@ describe('applySidePanelDataUpdates', () => {
       currentScrapeConfig: { mainSelector: '//div', columns: guessedColumns },
     })
 
-    await applySidePanelDataUpdates(
-      1,
-      buildConfigChangeUpdates(shownInPanel, { ...shownInPanel, mainSelector: '//li' })!,
-    )
+    await applySidePanelDataUpdates(1, buildMainSelectorUpdates(shownInPanel.mainSelector, '//li')!)
 
     expect((await read(1)).currentScrapeConfig).toEqual({
       mainSelector: '//li',
@@ -219,6 +216,175 @@ describe('applySidePanelDataUpdates', () => {
       highlightMatchCount: 3,
       pickerModeActive: true,
     })
+  })
+})
+
+describe('applySidePanelDataUpdates with a column edit', () => {
+  const shownInPanel: ScrapeConfig = {
+    mainSelector: '//div',
+    columns: [
+      { name: 'Text', selector: '.' },
+      { name: 'Link', selector: '@href' },
+    ],
+  }
+  const guessedColumns = [{ name: 'Title', selector: './/h2' }]
+  const [text, link] = shownInPanel.columns as [ColumnDefinition, ColumnDefinition]
+  const renameText: ColumnEdit = {
+    type: 'update',
+    index: 0,
+    expected: text,
+    column: { name: 'Label', selector: '.' },
+  }
+
+  /** The content script stores a Guess reply the panel has not applied yet. */
+  const storeGuess = () =>
+    applySidePanelDataUpdates(1, {
+      currentScrapeConfig: { mainSelector: '//div', columns: guessedColumns },
+    })
+
+  beforeEach(async () => {
+    fakeBrowser.reset()
+    await applySidePanelDataUpdates(1, { currentScrapeConfig: shownInPanel })
+  })
+
+  it('applies an edit to the column it was made against', async () => {
+    await applySidePanelDataUpdates(1, { columnEdit: renameText })
+
+    expect((await read(1)).currentScrapeConfig).toEqual({
+      mainSelector: '//div',
+      columns: [renameText.column, link],
+    })
+  })
+
+  it('keeps guessed columns stored after the panel read its config when the panel renames a column', async () => {
+    await storeGuess()
+
+    await applySidePanelDataUpdates(1, { columnEdit: renameText })
+
+    expect((await read(1)).currentScrapeConfig).toEqual({
+      mainSelector: '//div',
+      columns: guessedColumns,
+    })
+  })
+
+  it('lets a Guess stored after a column edit replace the edited columns', async () => {
+    await applySidePanelDataUpdates(1, { columnEdit: renameText })
+
+    await storeGuess()
+
+    expect((await read(1)).currentScrapeConfig?.columns).toEqual(guessedColumns)
+  })
+
+  it('keeps guessed columns when the panel removes a column it no longer shows', async () => {
+    await storeGuess()
+
+    await applySidePanelDataUpdates(1, {
+      columnEdit: { type: 'remove', index: 1, expected: link },
+    })
+
+    expect((await read(1)).currentScrapeConfig?.columns).toEqual(guessedColumns)
+  })
+
+  it('numbers an added column after the columns stored since the panel read them', async () => {
+    await storeGuess()
+    await applySidePanelDataUpdates(1, { columnEdit: { type: 'add' } })
+
+    expect((await read(1)).currentScrapeConfig?.columns).toEqual([
+      ...guessedColumns,
+      { name: 'Column 2', selector: '.' },
+    ])
+  })
+
+  it('applies an edit to the default columns the panel shows before any are stored', async () => {
+    fakeBrowser.reset()
+    await applySidePanelDataUpdates(1, { elementDetails: { xpath: '//a' } })
+    const [shownColumn] = DEFAULT_SCRAPE_CONFIG.columns as [ColumnDefinition]
+    const column = { ...shownColumn, name: 'Label' }
+
+    await applySidePanelDataUpdates(1, {
+      columnEdit: { type: 'update', index: 0, expected: shownColumn, column },
+    })
+
+    expect((await read(1)).currentScrapeConfig).toEqual({ mainSelector: '//a', columns: [column] })
+  })
+
+  it('still writes the other fields of an update whose column edit is superseded', async () => {
+    await storeGuess()
+
+    await applySidePanelDataUpdates(1, { columnEdit: renameText, highlightMatchCount: 4 })
+
+    expect(await read(1)).toMatchObject({
+      currentScrapeConfig: { columns: guessedColumns },
+      highlightMatchCount: 4,
+    })
+  })
+
+  it('drops a malformed column edit', async () => {
+    await applySidePanelDataUpdates(1, {
+      columnEdit: { type: 'rename', index: 0, expected: text } as unknown as ColumnEdit,
+    })
+
+    expect((await read(1)).currentScrapeConfig).toEqual(shownInPanel)
+  })
+
+  it('still writes the config of an update whose column edit is superseded', async () => {
+    await storeGuess()
+
+    await applySidePanelDataUpdates(1, {
+      currentScrapeConfig: { mainSelector: '//li' },
+      columnEdit: renameText,
+    })
+
+    expect((await read(1)).currentScrapeConfig).toEqual({
+      mainSelector: '//li',
+      columns: guessedColumns,
+    })
+  })
+
+  it('records the panel write number whether the edit is applied or dropped', async () => {
+    await applySidePanelDataUpdates(1, { columnEdit: renameText, panelConfigSeq: 4 })
+
+    expect((await read(1)).panelConfigSeq).toBe(4)
+
+    await applySidePanelDataUpdates(1, { columnEdit: renameText, panelConfigSeq: 5 })
+
+    expect(await read(1)).toMatchObject({
+      panelConfigSeq: 5,
+      currentScrapeConfig: { columns: [renameText.column, link] },
+    })
+  })
+
+  it('keeps the recorded write number through a write that carries none', async () => {
+    await applySidePanelDataUpdates(1, { columnEdit: renameText, panelConfigSeq: 4 })
+
+    await storeGuess()
+
+    expect((await read(1)).panelConfigSeq).toBe(4)
+  })
+
+  it('never lowers the recorded write number', async () => {
+    await applySidePanelDataUpdates(1, { panelConfigSeq: 7 })
+
+    await applySidePanelDataUpdates(1, { columnEdit: renameText, panelConfigSeq: 1 })
+
+    expect(await read(1)).toMatchObject({
+      panelConfigSeq: 7,
+      currentScrapeConfig: { columns: [renameText.column, link] },
+    })
+  })
+
+  it('ignores a write number that is not an integer', async () => {
+    await applySidePanelDataUpdates(1, { panelConfigSeq: 4 })
+
+    await applySidePanelDataUpdates(1, { panelConfigSeq: '5' as unknown as number })
+
+    expect((await read(1)).panelConfigSeq).toBe(4)
+  })
+
+  it('never stores the edit itself', async () => {
+    await applySidePanelDataUpdates(1, { columnEdit: renameText })
+
+    expect(await read(1)).not.toHaveProperty('columnEdit')
   })
 })
 

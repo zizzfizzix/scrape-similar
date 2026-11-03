@@ -132,7 +132,8 @@ beforeEach(async () => {
   setLastError(undefined)
   await userPresetsItem.setValue([])
   await storage.setItem(analyticsConsentItem.key, true)
-  spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(undefined)
+  // A background that accepts every write: the panel reverts one it reports as failed.
+  spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue({ success: true })
   contentScriptReplies({ success: true, matchCount: 3 })
   await attachToTab()
 })
@@ -379,9 +380,9 @@ describe('without a tab to talk to', () => {
 
   it('does not try to persist a config change', async () => {
     view = await render()
-    const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
-      undefined,
-    )
+    const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue({
+      success: true,
+    })
 
     act(() =>
       view.container.querySelector<HTMLButtonElement>('button[aria-label="Add column"]')!.click(),
@@ -1128,9 +1129,9 @@ describe('one panel per tab', () => {
     view = await render()
     await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
     fireEvent.change(mainSelectorInput(), { target: { value: '//li' } })
-    const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
-      undefined,
-    )
+    const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue({
+      success: true,
+    })
 
     await switchTo(OTHER_TAB_ID)
     await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
@@ -1173,9 +1174,9 @@ describe('one panel per tab', () => {
     await act(async () => {
       await storage.setItem(`session:sidepanel_config_${TAB_ID}`, writtenWhileHidden)
     })
-    const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
-      undefined,
-    )
+    const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue({
+      success: true,
+    })
     let release: ((value: SidePanelConfig | null) => void) | undefined
     const getItem = vi
       .spyOn(sidePanelConfigItem(TAB_ID), 'getValue')
@@ -1197,6 +1198,7 @@ describe('one panel per tab', () => {
           currentScrapeConfig: { mainSelector: '//li' },
           highlightMatchCount: null,
           highlightError: null,
+          panelConfigSeq: 1,
         },
       }),
     )
@@ -1210,9 +1212,9 @@ describe('one panel per tab', () => {
     fireEvent.change(mainSelectorInput(), { target: { value: '//li' } })
     fireEvent.focusOut(mainSelectorInput())
     await switchTo(TAB_ID)
-    const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
-      undefined,
-    )
+    const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue({
+      success: true,
+    })
 
     await switchTo(OTHER_TAB_ID)
 
@@ -1223,6 +1225,7 @@ describe('one panel per tab', () => {
           currentScrapeConfig: { mainSelector: '//li' },
           highlightMatchCount: null,
           highlightError: null,
+          panelConfigSeq: 1,
         },
       }),
     )
@@ -1240,9 +1243,9 @@ describe('one panel per tab', () => {
       .mockImplementationOnce(() => new Promise((resolve) => (release = resolve)))
     await switchTo(TAB_ID)
     getItem.mockRestore()
-    const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
-      undefined,
-    )
+    const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue({
+      success: true,
+    })
 
     // Back in the field before the read lands: the user is editing again.
     act(() => mainSelectorInput().focus())
@@ -1265,9 +1268,9 @@ describe('one panel per tab', () => {
     await switchTo(TAB_ID)
     getItem.mockRestore()
     await switchTo(OTHER_TAB_ID)
-    const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
-      undefined,
-    )
+    const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue({
+      success: true,
+    })
 
     await switchTo(TAB_ID)
 
@@ -1278,6 +1281,7 @@ describe('one panel per tab', () => {
           currentScrapeConfig: { mainSelector: '//li' },
           highlightMatchCount: null,
           highlightError: null,
+          panelConfigSeq: 1,
         },
       }),
     )
@@ -1301,9 +1305,9 @@ describe('one panel per tab', () => {
     view = await render()
     await waitFor(() => expect(mainSelectorInput().value).toBe('//tr'))
     fireEvent.change(mainSelectorInput(), { target: { value: '//li' } })
-    const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
-      undefined,
-    )
+    const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue({
+      success: true,
+    })
 
     // The switch lands inside the blur's commit defer.
     fireEvent.focusOut(mainSelectorInput())
@@ -1320,14 +1324,17 @@ describe('one panel per tab', () => {
           currentScrapeConfig: { mainSelector: '//li' },
           highlightMatchCount: null,
           highlightError: null,
+          panelConfigSeq: 1,
         },
       }),
     )
-    // The highlight that follows the commit is stored for the same tab.
-    expect(sidePanelWrites(sendMessage)).toEqual([
-      expect.objectContaining({ tabId: TAB_ID }),
-      expect.objectContaining({ tabId: TAB_ID }),
-    ])
+    // The highlight that follows the stored commit is stored for the same tab.
+    await waitFor(() =>
+      expect(sidePanelWrites(sendMessage)).toEqual([
+        expect.objectContaining({ tabId: TAB_ID }),
+        expect.objectContaining({ tabId: TAB_ID }),
+      ]),
+    )
   })
 
   it('keeps an open save drawer and its typed name with its own tab', async () => {

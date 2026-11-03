@@ -99,7 +99,7 @@ beforeEach(async () => {
   await userPresetsItem.setValue([])
   // The panel is behind the consent gate.
   await storage.setItem(analyticsConsentItem.key, true)
-  spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(undefined)
+  spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue({ success: true })
   contentScriptReplies({ success: true, matchCount: 3 })
   await attachToTab()
 })
@@ -296,9 +296,9 @@ describe('SidePanel', () => {
   describe('highlighting', () => {
     it('records a successful match count', async () => {
       const sendMessage = contentScriptReplies({ success: true, matchCount: 7 })
-      const runtimeSend = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
-        undefined,
-      )
+      const runtimeSend = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue({
+        success: true,
+      })
       view = await render()
 
       fireEvent.change(mainSelectorInput(), { target: { value: '//li' } })
@@ -321,9 +321,9 @@ describe('SidePanel', () => {
 
     it('records a selector the content script rejected', async () => {
       contentScriptReplies({ success: false, error: 'Invalid XPath' })
-      const runtimeSend = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
-        undefined,
-      )
+      const runtimeSend = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue({
+        success: true,
+      })
       view = await render()
 
       fireEvent.change(mainSelectorInput(), { target: { value: '//[[' } })
@@ -361,9 +361,9 @@ describe('SidePanel', () => {
       }
       await userPresetsItem.setValue([preset])
       await attachToTab(PAGE_URL, { currentScrapeConfig: config })
-      const runtimeSend = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
-        undefined,
-      )
+      const runtimeSend = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue({
+        success: true,
+      })
       view = await render()
       await openPresetList()
 
@@ -377,6 +377,7 @@ describe('SidePanel', () => {
             currentScrapeConfig: preset.config,
             highlightMatchCount: null,
             highlightError: null,
+            panelConfigSeq: 1,
           },
         },
       })

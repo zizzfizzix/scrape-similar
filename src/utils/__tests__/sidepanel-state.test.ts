@@ -1,7 +1,7 @@
 import {
-  buildConfigChangeUpdates,
   buildConfigReplaceUpdates,
   buildExportFilename,
+  buildMainSelectorUpdates,
   hasConfigDrifted,
   isMainSelectorValidated,
   parseFullDataViewTabId,
@@ -15,55 +15,23 @@ const makeConfig = (mainSelector: string): ScrapeConfig => ({
   columns: [{ name: 'Text', selector: '.' }],
 })
 
-describe('buildConfigChangeUpdates', () => {
-  it('sends only the columns, without touching highlight state, when the main selector is unchanged', () => {
-    const previous = makeConfig('//span')
-    const columns = [{ name: 'Href', selector: '@href' }]
-
-    const updates = buildConfigChangeUpdates(previous, { ...previous, columns })
-
-    expect(updates).toEqual({ currentScrapeConfig: { columns } })
-  })
-
-  it('sends only the main selector, resetting stored highlight state, when it is cleared', () => {
-    const updates = buildConfigChangeUpdates(makeConfig('//span'), makeConfig(''))
-
-    expect(updates).toEqual({
-      currentScrapeConfig: { mainSelector: '' },
-      highlightMatchCount: null,
-      highlightError: null,
-    })
-  })
-
-  it('resets stored highlight state when the main selector is replaced', () => {
-    const updates = buildConfigChangeUpdates(makeConfig('//span'), makeConfig('//a'))
-
-    expect(updates).toMatchObject({ highlightMatchCount: null, highlightError: null })
-  })
-
-  it('returns null when nothing changed', () => {
-    const previous = makeConfig('//span')
-
-    expect(buildConfigChangeUpdates(previous, makeConfig('//span'))).toBeNull()
-  })
-
-  it('treats equal columns in a new array as unchanged', () => {
-    const previous = makeConfig('//span')
-    const next = { mainSelector: '//a', columns: previous.columns.map((column) => ({ ...column })) }
-
-    expect(buildConfigChangeUpdates(previous, next)).toEqual({
+describe('buildMainSelectorUpdates', () => {
+  it('sends only the main selector, resetting stored highlight state', () => {
+    expect(buildMainSelectorUpdates('//span', '//a')).toEqual({
       currentScrapeConfig: { mainSelector: '//a' },
       highlightMatchCount: null,
       highlightError: null,
     })
   })
 
-  it('sends both fields when both changed', () => {
-    const columns = [{ name: 'Href', selector: '@href' }]
+  it('sends a cleared main selector', () => {
+    expect(buildMainSelectorUpdates('//span', '')).toMatchObject({
+      currentScrapeConfig: { mainSelector: '' },
+    })
+  })
 
-    const updates = buildConfigChangeUpdates(makeConfig('//span'), { mainSelector: '//a', columns })
-
-    expect(updates).toMatchObject({ currentScrapeConfig: { mainSelector: '//a', columns } })
+  it('returns null when the main selector did not change', () => {
+    expect(buildMainSelectorUpdates('//span', '//span')).toBeNull()
   })
 })
 

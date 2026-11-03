@@ -6,43 +6,60 @@
 /** Selector a freshly added column starts with: the row's own text. */
 export const DEFAULT_COLUMN_SELECTOR = '.'
 
-/** Rename one column, leaving the config untouched if the index is out of range. */
-export const withColumnName = (config: ScrapeConfig, index: number, name: string): ScrapeConfig => {
-  const column = config.columns[index]
-  if (!column) return config
+const isSameColumn = (a: ColumnDefinition, b: ColumnDefinition): boolean =>
+  a.name === b.name && a.selector === b.selector && a.key === b.key
 
-  const columns = [...config.columns]
-  columns[index] = { ...column, name }
-  return { ...config, columns }
-}
+/**
+ * `columns` with `edit` applied, or `null` when the edit targets a column that
+ * is no longer at its index as it was when the edit was made, or would remove
+ * the only column. An added column is numbered after the list it lands on,
+ * which may be longer than the one the editor showed.
+ */
+export const applyColumnEdit = (
+  columns: ColumnDefinition[],
+  edit: ColumnEdit,
+): ColumnDefinition[] | null => {
+  if (edit.type === 'add') {
+    return [...columns, { name: `Column ${columns.length + 1}`, selector: DEFAULT_COLUMN_SELECTOR }]
+  }
 
-export const withColumnSelector = (
-  config: ScrapeConfig,
-  index: number,
-  selector: string,
-): ScrapeConfig => {
-  const column = config.columns[index]
-  if (!column) return config
+  const stored = columns[edit.index]
+  if (!stored || !isSameColumn(stored, edit.expected)) return null
 
-  const columns = [...config.columns]
-  columns[index] = { ...column, selector }
-  return { ...config, columns }
-}
-
-/** Append a column named `name`. Blank names are ignored. */
-export const withAddedColumn = (config: ScrapeConfig, name: string): ScrapeConfig => {
-  if (!name.trim()) return config
-
-  return {
-    ...config,
-    columns: [...config.columns, { name, selector: DEFAULT_COLUMN_SELECTOR }],
+  switch (edit.type) {
+    case 'remove':
+      // The form never removes the last column, and neither may an edit that lands on a shorter list.
+      return columns.length > 1 ? columns.filter((_, i) => i !== edit.index) : null
+    case 'update':
+      return columns.map((column, i) => (i === edit.index ? edit.column : column))
   }
 }
 
-export const withoutColumn = (config: ScrapeConfig, index: number): ScrapeConfig => ({
-  ...config,
-  columns: config.columns.filter((_, i) => i !== index),
-})
+const isColumnDefinition = (value: unknown): value is ColumnDefinition => {
+  if (typeof value !== 'object' || value === null) return false
+  const { name, selector, key } = value as Record<string, unknown>
+  return (
+    typeof name === 'string' &&
+    typeof selector === 'string' &&
+    (key === undefined || typeof key === 'string')
+  )
+}
+
+/** Whether a message's `columnEdit` has the shape `applyColumnEdit` expects. */
+export const isColumnEdit = (value: unknown): value is ColumnEdit => {
+  if (typeof value !== 'object' || value === null) return false
+  const { type, index, expected, column } = value as Record<string, unknown>
+  switch (type) {
+    case 'add':
+      return true
+    case 'remove':
+      return Number.isInteger(index) && isColumnDefinition(expected)
+    case 'update':
+      return Number.isInteger(index) && isColumnDefinition(expected) && isColumnDefinition(column)
+    default:
+      return false
+  }
+}
 
 /**
  * Collapse newlines to spaces.

@@ -43,6 +43,8 @@ export interface SidePanelConfig {
   highlightMatchCount?: number | null
   highlightError?: string | null
   pickerModeActive?: boolean
+  /** Number of the last side panel config write applied (see `TabPanel`). */
+  panelConfigSeq?: number
 }
 
 /**
@@ -57,7 +59,20 @@ export interface SidePanelConfigUpdate extends Omit<
   'currentScrapeConfig'
 > {
   currentScrapeConfig?: Partial<ScrapeConfig>
+  /** Applied to the stored columns after `currentScrapeConfig`; never stored itself. */
+  columnEdit?: ColumnEdit
 }
+
+/**
+ * One edit to the column list, applied to whatever list is stored when it
+ * lands. An edit that targets an existing column carries that column as the
+ * editor saw it, and is dropped when the stored column at `index` differs, so
+ * it cannot change a column another context has since replaced.
+ */
+export type ColumnEdit =
+  | { type: 'update'; index: number; expected: ColumnDefinition; column: ColumnDefinition }
+  | { type: 'remove'; index: number; expected: ColumnDefinition }
+  | { type: 'add' }
 
 export type ElementDetailsPayload = {
   xpath: string

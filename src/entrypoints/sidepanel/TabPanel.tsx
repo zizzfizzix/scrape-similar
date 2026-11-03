@@ -2,19 +2,24 @@ import { useShownToast } from '@/hooks/use-shown-toast'
 import { isSelectorAPreset } from '@/utils/autosuggest'
 import { reportRejection } from '@/utils/report-rejection'
 import {
+  applyColumnEdit,
   DEFAULT_SCRAPE_CONFIG,
   resolveStoredConfig,
   withTrimmedMainSelector,
 } from '@/utils/scrape-config'
 import {
-  buildConfigChangeUpdates,
   buildConfigReplaceUpdates,
   buildExportFilename,
+  buildMainSelectorUpdates,
   hasConfigDrifted,
   reuseIfEqual,
 } from '@/utils/sidepanel-state'
 import log from 'loglevel'
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
+
+export const COLUMN_EDIT_NOT_SAVED = 'Could not save the column change.'
+export const PRESET_NOT_SAVED = 'Could not load the preset.'
+export const MAIN_SELECTOR_NOT_SAVED = 'Could not save the main selector.'
 
 export const CONTENT_SCRIPT_UNREACHABLE =
   'Could not connect to the content script. Please reload the page or ensure the extension is enabled for this site.'
@@ -60,13 +65,51 @@ export const TabPanel = memo(function TabPanel({
 
   const buildFilename = useCallback((now: Date) => buildExportFilename(tabUrl, now), [tabUrl])
 
+  // Every config write the panel sends is numbered, and storage records the
+  // number of the last one applied. A stored state recording an earlier number
+  // predates a write still on its way, so it is skipped rather than shown: it
+  // would put back what the panel already shows as changed, and every column
+  // edit built on that would fail its check. States are cumulative, so the one
+  // recording the awaited write carries whatever was skipped. Numbering starts
+  // after the stored number only once the panel has read it, so a write sent
+  // before the first read is not protected this way.
+  const lastConfigSeqRef = useRef(0)
+  const awaitedConfigSeqRef = useRef(0)
+  // Each write still on its way, by number, in the order they were sent.
+  const inFlightConfigWritesRef = useRef(new Map<number, SidePanelConfigUpdate>())
+  // Set wherever the config is, not from an effect: ConfigForm's effects run
+  // before this component's, and its held blur commit reads the config from one.
+  const shownConfigRef = useRef(config)
+  // The write that last set the selector, which every highlight of that selector waits for.
+  const selectorWriteRef = useRef<{ selector: string; isStored: Promise<boolean> } | null>(null)
+  // ConfigForm finishes a blur commit held over a hide once storage is shown
+  // again. A re-read skipped for a write still on its way shows nothing, so
+  // the catch-up is reported with the next stored state shown instead, and
+  // only while subscribed: one shown while hidden would release the commit
+  // on the next show before that show's read.
+  const wasLastStoredStateSkippedRef = useRef(false)
+  const isCatchUpHeldRef = useRef(false)
+  const isSubscribedRef = useRef(false)
+
   const applyStoredState = useCallback(
     (stored: SidePanelConfig) => {
+      const storedSeq = stored.panelConfigSeq ?? 0
+      if (storedSeq < awaitedConfigSeqRef.current) {
+        log.debug(
+          `Skipped stored state for tab ${String(tabId)} older than write ${String(awaitedConfigSeqRef.current)}`,
+        )
+        wasLastStoredStateSkippedRef.current = true
+        return
+      }
+      wasLastStoredStateSkippedRef.current = false
+      // Once it has read storage, a panel opened after earlier ones numbers its writes after theirs.
+      lastConfigSeqRef.current = Math.max(lastConfigSeqRef.current, storedSeq)
       log.debug(`Applying stored state for tab ${String(tabId)}:`, stored)
       const storedConfig = resolveStoredConfig(stored)
       // Showing a hidden panel re-reads its storage, which nearly always holds
       // what is already on screen; keeping the same references lets React skip
       // re-rendering the form and the table.
+      shownConfigRef.current = storedConfig
       setConfig((previous) => reuseIfEqual(previous, storedConfig))
 
       const storedResult = stored.scrapeResult
@@ -84,6 +127,11 @@ export const TabPanel = memo(function TabPanel({
       setHighlightMatchCount(stored.highlightMatchCount ?? undefined)
       setHighlightError(stored.highlightError ?? undefined)
       setIsPickerModeActive(stored.pickerModeActive ?? false)
+
+      if (isCatchUpHeldRef.current && isSubscribedRef.current) {
+        isCatchUpHeldRef.current = false
+        setStoredConfigVersion((version) => version + 1)
+      }
     },
     [tabId],
   )
@@ -94,11 +142,24 @@ export const TabPanel = memo(function TabPanel({
   useEffect(() => {
     if (tabId === null) return
     const item = sidePanelConfigItem(tabId)
-    return subscribeWithBackfill<SidePanelConfig>(
+    isSubscribedRef.current = true
+    // This subscription's own catch-up replaces one held from an earlier show.
+    isCatchUpHeldRef.current = false
+    const unsubscribe = subscribeWithBackfill<SidePanelConfig>(
       { watch: (callback) => item.watch(callback), read: () => item.getValue() },
       applyStoredState,
-      () => setStoredConfigVersion((version) => version + 1),
+      () => {
+        if (wasLastStoredStateSkippedRef.current) {
+          isCatchUpHeldRef.current = true
+          return
+        }
+        setStoredConfigVersion((version) => version + 1)
+      },
     )
+    return () => {
+      isSubscribedRef.current = false
+      unsubscribe()
+    }
   }, [tabId, applyStoredState])
 
   const saveSidePanelState = (id: number, updates: SidePanelConfigUpdate) => {
@@ -110,14 +171,11 @@ export const TabPanel = memo(function TabPanel({
     )
   }
 
-  const showConfig = (
-    incomingConfig: ScrapeConfig,
-    buildUpdates: (newConfig: ScrapeConfig) => SidePanelConfigUpdate | null,
-  ) => {
+  const showConfig = (incomingConfig: ScrapeConfig) => {
     const newConfig = withTrimmedMainSelector(incomingConfig)
-    const updates = buildUpdates(newConfig)
-    const hasMainSelectorChanged = newConfig.mainSelector !== config.mainSelector
+    const hasMainSelectorChanged = newConfig.mainSelector !== shownConfigRef.current.mainSelector
 
+    shownConfigRef.current = newConfig
     setConfig(newConfig)
 
     // The row count belongs to the scrape that produced the current results.
@@ -129,15 +187,97 @@ export const TabPanel = memo(function TabPanel({
       setHighlightMatchCount(undefined)
       setHighlightError(undefined)
     }
-
-    if (tabId !== null && updates) {
-      saveSidePanelState(tabId, updates)
-    }
     return newConfig
   }
 
-  const handleConfigChange = (newConfig: ScrapeConfig) => {
-    showConfig(newConfig, (trimmed) => buildConfigChangeUpdates(config, trimmed))
+  /**
+   * Send a config write, numbered as described at `lastConfigSeqRef`.
+   * Resolves to whether it was stored; one that was not is toasted as `failure`.
+   */
+  const writeConfig = async (
+    id: number,
+    updates: SidePanelConfigUpdate,
+    failure: string,
+  ): Promise<boolean> => {
+    lastConfigSeqRef.current += 1
+    const seq = lastConfigSeqRef.current
+    awaitedConfigSeqRef.current = seq
+    inFlightConfigWritesRef.current.set(seq, updates)
+    let reply: StatusReply | undefined
+    try {
+      reply = await browser.runtime.sendMessage({
+        type: MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
+        payload: { tabId: id, updates: { ...updates, panelConfigSeq: seq } },
+      })
+    } catch (error) {
+      reply = { success: false, error: String(error) }
+    }
+    inFlightConfigWritesRef.current.delete(seq)
+    if (reply?.success === true) return true
+
+    log.error(`Could not store config write ${String(seq)} for tab ${String(id)}:`, reply?.error)
+    notify.error(failure, { id: failure })
+    // A later write is still awaited, or was stored and its state is shown or on
+    // its way. The awaited write is never older than one still on its way.
+    if (awaitedConfigSeqRef.current > seq) {
+      // Later column edits built on this one's change are dropped too, so the
+      // columns are shown as the background will leave them, and the next edit
+      // is built on those.
+      if (updates.columnEdit) await showStoredColumns(id)
+      return false
+    }
+    // No stored state will record this write, so wait for the newest write still
+    // on its way instead, or for none. The state recording that write may already
+    // have arrived and been skipped, so storage is read now as well; the read is
+    // skipped in turn if it predates that write.
+    const inFlight = [...inFlightConfigWritesRef.current.keys()]
+    awaitedConfigSeqRef.current = inFlight.length > 0 ? Math.max(...inFlight) : 0
+    const stored = await sidePanelConfigItem(id).getValue()
+    // With nothing stored, show the default config, as a panel opened on this tab would.
+    applyStoredState(stored ?? {})
+    return false
+  }
+
+  // The stored columns with the writes still on their way applied as the
+  // background applies them. Only the columns: the selector shown may belong
+  // to a write still on its way.
+  const showStoredColumns = async (id: number) => {
+    const stored = await sidePanelConfigItem(id).getValue()
+    const storedSeq = stored?.panelConfigSeq ?? 0
+    let { columns } = resolveStoredConfig(stored ?? {})
+    // Writes are applied in the order they were sent, so one numbered up to
+    // the stored number is already in storage.
+    for (const [seq, pending] of inFlightConfigWritesRef.current) {
+      if (seq <= storedSeq) continue
+      columns = pending.currentScrapeConfig?.columns ?? columns
+      if (pending.columnEdit) columns = applyColumnEdit(columns, pending.columnEdit) ?? columns
+    }
+    shownConfigRef.current = { ...shownConfigRef.current, columns }
+    setConfig((previous) => reuseIfEqual(previous, { ...previous, columns }))
+  }
+
+  // Built on the latest config: ConfigForm's deferred blur commit calls the
+  // handler from the render at blur time, which can predate a column edit.
+  const handleMainSelectorChange = (mainSelector: string) => {
+    const latest = shownConfigRef.current
+    const shown = showConfig({ ...latest, mainSelector })
+    const updates = buildMainSelectorUpdates(latest.mainSelector, shown.mainSelector)
+    if (tabId !== null && updates) {
+      const isStored = writeConfig(tabId, updates, MAIN_SELECTOR_NOT_SAVED)
+      selectorWriteRef.current = { selector: shown.mainSelector, isStored }
+      reportRejection(isStored)
+    }
+  }
+
+  const handleColumnEdit = (edit: ColumnEdit) => {
+    const latest = shownConfigRef.current
+    const columns = applyColumnEdit(latest.columns, edit)
+    // Made on columns since replaced in storage, so the background would drop it too.
+    if (!columns) return
+    showConfig({ ...latest, columns })
+    if (tabId !== null) {
+      reportRejection(writeConfig(tabId, { columnEdit: edit }, COLUMN_EDIT_NOT_SAVED))
+    }
   }
 
   // The button only scrapes a selector the page has already matched, and that
@@ -192,13 +332,40 @@ export const TabPanel = memo(function TabPanel({
     }
   }, [scrapedRowCount])
 
+  // A highlight waits for the write that set its selector, so a write that
+  // fails leaves neither the highlight on the page nor its match count stored,
+  // and one superseded on its way is not sent.
+  const highlightOnceStored = async (selector: string, isStored: Promise<boolean>) => {
+    // The caller reports a rejected write; here it only means "not stored".
+    const wasStored = await isStored.catch(() => false)
+    // Once settled, a highlight of this selector has nothing to wait for; one
+    // that failed would otherwise hold it back after storage sets it again.
+    if (selectorWriteRef.current?.isStored === isStored) selectorWriteRef.current = null
+    if (wasStored && selector) sendHighlight(selector)
+  }
+
   const handleHighlight = (selector: string) => {
-    if (tabId === null) return
+    const write = selectorWriteRef.current
+    if (write?.selector === selector) {
+      reportRejection(highlightOnceStored(selector, write.isStored))
+      return
+    }
+    sendHighlight(selector)
+  }
+
+  // Only the selector shown is highlighted, so the page never lights up one the panel does not show.
+  const sendHighlight = (selector: string) => {
+    if (tabId === null || shownConfigRef.current.mainSelector !== selector) return
     browser.tabs.sendMessage(
       tabId,
       { type: MESSAGE_TYPES.HIGHLIGHT_ELEMENTS, payload: { selector } },
       (response: HighlightReply | undefined) => {
-        if (!response && browser.runtime.lastError) {
+        // Read before anything returns: Chromium logs an error a callback leaves unread.
+        const isUnreachable = !response && browser.runtime.lastError !== undefined
+        // A reply for a selector replaced meanwhile would validate the newer one
+        // with its count, and its failure concerns a request already abandoned.
+        if (shownConfigRef.current.mainSelector !== selector) return
+        if (isUnreachable) {
           notify.error(CONTENT_SCRIPT_UNREACHABLE)
           return
         }
@@ -254,10 +421,13 @@ export const TabPanel = memo(function TabPanel({
   }
 
   const handleLoadPreset = (preset: Preset) => {
-    const loaded = showConfig(preset.config, buildConfigReplaceUpdates)
-
-    if (loaded.mainSelector) {
-      handleHighlight(loaded.mainSelector)
+    // Resolved as a stored config is, so a preset with no columns shows and stores the default ones.
+    const loaded = showConfig(resolveStoredConfig({ currentScrapeConfig: preset.config }))
+    if (tabId !== null) {
+      const isStored = writeConfig(tabId, buildConfigReplaceUpdates(loaded), PRESET_NOT_SAVED)
+      selectorWriteRef.current = { selector: loaded.mainSelector, isStored }
+      reportRejection(isStored)
+      reportRejection(highlightOnceStored(loaded.mainSelector, isStored))
     }
 
     // User presets are named by the user, so only a system preset's name and id are sent.
@@ -276,7 +446,8 @@ export const TabPanel = memo(function TabPanel({
           tabId={tabId}
           storedConfigVersion={storedConfigVersion}
           config={config}
-          onChange={handleConfigChange}
+          onMainSelectorChange={handleMainSelectorChange}
+          onColumnEdit={handleColumnEdit}
           onScrape={handleScrape}
           onHighlight={handleHighlight}
           onPickerMode={handlePickerMode}

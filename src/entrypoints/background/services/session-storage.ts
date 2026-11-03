@@ -1,4 +1,4 @@
-import { resolveStoredConfig } from '@/utils/scrape-config'
+import { applyColumnEdit, isColumnEdit, resolveStoredConfig } from '@/utils/scrape-config'
 import { updateStorageItem, withStorageLock } from '@/utils/storage-lock'
 import log from 'loglevel'
 
@@ -19,7 +19,10 @@ const isTabClosed = (tabId: number, operation: string): boolean => {
  * Atomically merge updates into a tab's session storage blob. A field that a
  * `currentScrapeConfig` update omits keeps the value the side panel shows for
  * the stored state (`resolveStoredConfig`), so the panel's own partial writes
- * never change a field the user did not edit.
+ * never change a field the user did not edit. A `columnEdit` is applied to the
+ * columns shown for the merged state, and dropped when it no longer matches;
+ * the update's `panelConfigSeq` is recorded either way, so the panel sees its
+ * write answered by the stored state that replaced its edit.
  */
 export const applySidePanelDataUpdates = async (
   tabId: number,
@@ -28,7 +31,7 @@ export const applySidePanelDataUpdates = async (
   if (isTabClosed(tabId, 'side panel update')) return
   await updateStorageItem(sidePanelConfigItem(tabId), (stored) => {
     const current = stored ?? {}
-    const { currentScrapeConfig: incoming, ...topLevel } = updates
+    const { currentScrapeConfig: incoming, columnEdit, panelConfigSeq, ...topLevel } = updates
     const next: SidePanelConfig = { ...current, ...topLevel }
     if (incoming && (incoming.mainSelector !== undefined || incoming.columns !== undefined)) {
       const shown = resolveStoredConfig(current)
@@ -39,6 +42,21 @@ export const applySidePanelDataUpdates = async (
           typeof incoming.mainSelector === 'string' ? incoming.mainSelector : shown.mainSelector,
         columns: Array.isArray(incoming.columns) ? incoming.columns : shown.columns,
       }
+    }
+    // Checked for the same reason as the config fields above.
+    const edit: unknown = columnEdit
+    if (edit !== undefined) {
+      const shown = resolveStoredConfig(next)
+      const columns = isColumnEdit(edit) ? applyColumnEdit(shown.columns, edit) : null
+      if (columns) {
+        next.currentScrapeConfig = { mainSelector: shown.mainSelector, columns }
+      } else {
+        log.debug(`Dropped a superseded or malformed column edit for tab ${String(tabId)}`)
+      }
+    }
+    // Never lowered: a panel that writes before its first read numbers from 0.
+    if (typeof panelConfigSeq === 'number' && Number.isInteger(panelConfigSeq)) {
+      next.panelConfigSeq = Math.max(current.panelConfigSeq ?? 0, panelConfigSeq)
     }
     return next
   })

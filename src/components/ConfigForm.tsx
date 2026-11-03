@@ -33,13 +33,7 @@ import {
 } from '@/utils/autosuggest'
 import { isImeComposing } from '@/utils/ime'
 import { reportRejection } from '@/utils/report-rejection'
-import {
-  sanitizeToSingleLine,
-  withAddedColumn,
-  withColumnName,
-  withColumnSelector,
-  withoutColumn,
-} from '@/utils/scrape-config'
+import { sanitizeToSingleLine } from '@/utils/scrape-config'
 import log from 'loglevel'
 
 import {
@@ -68,10 +62,14 @@ const ZERO_FOUND_FEEDBACK_MS = 1500
 interface ConfigFormProps {
   /** The tab the form belongs to; `null` while there is none. */
   tabId: number | null
-  /** Changes each time the panel has finished reading its stored state. */
+  /**
+   * Changes once the panel shows its stored state after subscribing to it; a
+   * re-read skipped for a write still on its way does not count.
+   */
   storedConfigVersion: number
   config: ScrapeConfig
-  onChange: (config: ScrapeConfig) => void
+  onMainSelectorChange: (mainSelector: string) => void
+  onColumnEdit: (edit: ColumnEdit) => void
   onScrape: () => void
   onHighlight: (selector: string) => void
   onPickerMode: () => void
@@ -94,7 +92,8 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
   tabId,
   storedConfigVersion,
   config,
-  onChange,
+  onMainSelectorChange,
+  onColumnEdit,
   onScrape,
   onHighlight,
   onPickerMode,
@@ -158,7 +157,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
 
   /**
    * Local draft state for the main selector input. We keep the user’s typing
-   * here and only propagate it to the parent (handleConfigChange) when the
+   * here and only propagate it to the parent (onMainSelectorChange) when the
    * input loses focus or the user presses Enter. This prevents a flurry of
    * UPDATE_SIDEPANEL_DATA messages for every keystroke.
    */
@@ -291,28 +290,21 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
     setMainSelectorDraft(value)
     const latest = latestConfigRef.current
     if (value !== latest.mainSelector) {
-      onChange({ ...latest, mainSelector: value })
+      onMainSelectorChange(value)
     }
     if (value) {
       onHighlight(value)
     }
   }
 
-  // Handle column name change
-  const handleColumnNameChange = (index: number, value: string) => {
-    onChange(withColumnName(config, index, value))
+  const updateColumn = (index: number, expected: ColumnDefinition, column: ColumnDefinition) => {
+    onColumnEdit({ type: 'update', index, expected, column })
   }
 
-  // Handle column selector change
-  const handleColumnSelectorChange = (index: number, value: string) => {
-    onChange(withColumnSelector(config, index, value))
-  }
-
-  // Remove a column
-  const removeColumn = (index: number) => {
+  const removeColumn = (index: number, expected: ColumnDefinition) => {
     trackEvent(ANALYTICS_EVENTS.REMOVE_COLUMN_BUTTON_PRESS)
 
-    onChange(withoutColumn(config, index))
+    onColumnEdit({ type: 'remove', index, expected })
   }
 
   /**
@@ -1116,14 +1108,18 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
                   <Input
                     type="text"
                     value={column.name}
-                    onChange={(e) => handleColumnNameChange(index, e.target.value)}
+                    onChange={(e) =>
+                      updateColumn(index, column, { ...column, name: e.target.value })
+                    }
                     placeholder="Column name"
                     className="p-2 border rounded text-sm ph_hidden"
                   />
                   <Input
                     type="text"
                     value={column.selector}
-                    onChange={(e) => handleColumnSelectorChange(index, e.target.value)}
+                    onChange={(e) =>
+                      updateColumn(index, column, { ...column, selector: e.target.value })
+                    }
                     placeholder="Selector"
                     className="p-2 border rounded text-sm ph_hidden"
                   />
@@ -1134,7 +1130,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
                           variant="ghost"
                           size="icon"
                           className="bg-transparent border-none cursor-pointer p-1 rounded"
-                          onClick={() => removeColumn(index)}
+                          onClick={() => removeColumn(index, column)}
                           disabled={config.columns.length <= 1}
                           aria-label="Remove column"
                         >
@@ -1176,7 +1172,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
                   onClick={() => {
                     trackEvent(ANALYTICS_EVENTS.ADD_COLUMN_BUTTON_PRESS)
 
-                    onChange(withAddedColumn(config, `Column ${config.columns.length + 1}`))
+                    onColumnEdit({ type: 'add' })
                     setShouldScrollToEnd(true)
                   }}
                   aria-label="Add column"
