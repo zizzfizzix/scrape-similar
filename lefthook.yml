@@ -35,9 +35,30 @@ pre-push:
       run: pnpm test:coverage
       fail_text: 'Push blocked: unit tests failed or coverage dropped below the threshold.'
 
+# Every git operation that can move package.json or pnpm-lock.yaml under the
+# working tree re-syncs it: checkout (including creating a worktree), merge
+# (`git pull`) and rewrite (`git pull --rebase`, `git rebase`). The script is a
+# no-op when the dependency files match the last install, so running it often
+# costs nothing.
+#
+# A rebase needs both hooks: it fires post-checkout once for the commit it starts
+# from, which is all a fast-forward (`git pull --rebase` with no local commits)
+# ever fires, and post-rewrite once after replaying the commits on top.
 post-checkout:
-  # Stream the setup progress instead of buffering it until the hook finishes.
+  # Stream the install progress instead of buffering it until the hook finishes.
   follow: true
-  scripts:
-    'worktree-setup.sh':
-      runner: bash
+  commands:
+    worktree-sync:
+      run: bash scripts/sync-worktree.sh
+
+post-merge:
+  follow: true
+  commands:
+    worktree-sync:
+      run: bash scripts/sync-worktree.sh
+
+post-rewrite:
+  follow: true
+  commands:
+    worktree-sync:
+      run: bash scripts/sync-worktree.sh
