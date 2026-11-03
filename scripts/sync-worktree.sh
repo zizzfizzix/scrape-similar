@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Brings a checkout up to date with the commit it is on: copies the env files a
 # new worktree lacks and reinstalls dependencies when their inputs changed.
-# Run by lefthook after checkout, merge and rewrite (see lefthook.yml).
+# Run by lefthook after checkout, merge, rewrite and commit (see lefthook.yml).
 #
 # It works from the state of the checkout rather than from git's hook arguments,
 # because tools create worktrees differently: `git worktree add` passes an
@@ -22,8 +22,8 @@ cd "$toplevel" || exit 0
 # in the same form on Windows, where bash's $PWD reads /c/… and git's C:/….
 origin_root=""
 {
-  read -r first_line
-  read -r second_line
+  IFS= read -r first_line
+  IFS= read -r second_line
 } < <(git worktree list --porcelain)
 if [[ "$second_line" != bare ]]; then
   origin_root=${first_line#worktree }
@@ -38,10 +38,14 @@ if [[ -n "$origin_root" && "$origin_root" != "$toplevel" ]]; then
   done
 fi
 
+# Vite's dotenv parser also accepts `export KEY=…`, spaces around `=` and
+# indented lines.
+env_keys() {
+  sed -nE 's/^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*=.*/\2/p' "$1" | sort -u
+}
+
 if [[ -f .env.example && -f .env ]]; then
-  missing_keys=$(comm -23 \
-    <(sed -nE 's/^([A-Za-z_][A-Za-z0-9_]*)=.*/\1/p' .env.example | sort -u) \
-    <(sed -nE 's/^([A-Za-z_][A-Za-z0-9_]*)=.*/\1/p' .env | sort -u))
+  missing_keys=$(comm -23 <(env_keys .env.example) <(env_keys .env))
   if [[ -n "$missing_keys" ]]; then
     log "Warning: .env lacks keys that .env.example defines: $(echo "$missing_keys" | tr '\n' ' ')"
   fi
