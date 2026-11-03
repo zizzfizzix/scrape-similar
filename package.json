@@ -23,7 +23,7 @@
     "prepare": "node scripts/install-git-hooks.mjs",
     "test": "vitest --run",
     "test:coverage": "vitest --run --coverage && node scripts/check-coverage-fidelity.mjs",
-    "test:e2e": "playwright test --project=e2e",
+    "test:e2e": "pnpm build:test && NODE_ENV=test playwright test --project=e2e",
     "store-assets": "wxt build --mode test && STORE_ASSETS=1 NODE_ENV=test playwright test --project=store-assets",
     "update:shadcn": "bash scripts/update-shadcn.sh"
   },
