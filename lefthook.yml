@@ -9,9 +9,9 @@
 #
 # Every command only reads, so they run concurrently: ~35s sequential against
 # ~28s in parallel, since Prettier's ~10s, tsc's ~1s and shellcheck's (run only
-# when a shell script is staged) hide inside ESLint's. That holds only while every command here is read-only — a `pnpm fmt`
-# that writes would race the linter reading the same files, and would have to go
-# back to serial.
+# when a shell script is staged) hide inside ESLint's. That holds only while
+# every command here is read-only — a `pnpm fmt` that writes would race the
+# linter reading the same files, and would have to go back to serial.
 pre-commit:
   parallel: true
   commands:
