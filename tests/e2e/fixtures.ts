@@ -102,6 +102,31 @@ export const FIXTURE_PAGE_COUNTS = {
   divWithClassOrH2NonEmpty: 2,
 } as const
 
+/** Table shapes the table-row scrape paths have to tell apart. */
+export const TABLE_LAYOUTS_PAGE = 'table-layouts.html'
+
+/**
+ * Data rows (`tr` with a `td`) of each table in
+ * tests/e2e/fixtures/pages/table-layouts.html, counting only the table's own
+ * rows and not those of tables nested in it. Keep in sync when editing that file.
+ */
+export const TABLE_LAYOUTS_PAGE_COUNTS = {
+  /** `#header-in-tbody`: its `th` header row sits in `tbody` and is not a data row. */
+  headerInTbody: 3,
+  /** `#thead-filter-row`: the `td` filter row in `thead` is one of them. */
+  theadFilterRow: 3,
+  /** Each `table.record`. */
+  recordTable: 1,
+  /** `table.record` elements. */
+  recordTables: 3,
+  /** `#layout-outer`, without the rows of `#layout-inner` nested in its first cell. */
+  layoutOuter: 2,
+  /** `#layout-inner`. */
+  layoutInner: 2,
+  /** Each of `#sibling-first` and `#sibling-second`. */
+  siblingTable: 2,
+} as const
+
 /** Default scrape target selector of TestHelpers.prepareSidepanelWithData. */
 export const DEFAULT_SCRAPE_SELECTOR = '(//a)[position() <= 10]'
 
@@ -401,6 +426,50 @@ export const TestHelpers = {
    */
   async getCopiedText(page: Page): Promise<string | null> {
     return await page.evaluate(() => (window as ClipboardStubWindow).__copied ?? null)
+  },
+
+  /**
+   * Right-clicks `target` and has the content script guess a scrape config
+   * from it, as the "Scrape similar" context menu entry does, and returns the
+   * guessed config. Chrome's native menu cannot be driven from Playwright, so
+   * the background's first message to the tab is sent from here instead.
+   *
+   * Retried until the content script has both recorded the right-click and
+   * learned its tab id, which it does asynchronously after the page loads.
+   */
+  async guessConfigFromContextMenu(
+    serviceWorker: Worker,
+    page: Page,
+    target: Locator,
+  ): Promise<{ mainSelector: string }> {
+    const saveFromServiceWorker = () =>
+      serviceWorker.evaluate(
+        async ({ url, MESSAGE_TYPES }) => {
+          const [tab] = await chrome.tabs.query({ url })
+          if (!tab?.id) throw new Error(`No tab open at ${url}`)
+          const reply = (await chrome.tabs
+            .sendMessage(tab.id, { type: MESSAGE_TYPES.SAVE_ELEMENT_DETAILS_TO_STORAGE })
+            .catch(() => undefined)) as { success?: boolean } | undefined
+          if (!reply?.success) return null
+
+          const key = `sidepanel_config_${String(tab.id)}`
+          const stored = (await chrome.storage.session.get(key))[key] as
+            { currentScrapeConfig?: { mainSelector: string } } | undefined
+          return stored?.currentScrapeConfig ?? null
+        },
+        { url: page.url(), MESSAGE_TYPES },
+      )
+
+    const saved: { config?: { mainSelector: string } | null } = {}
+    await base
+      .expect(async () => {
+        await target.dispatchEvent('contextmenu')
+        saved.config = await saveFromServiceWorker()
+        if (!saved.config) throw new Error('The content script saved no right-clicked element')
+      })
+      .toPass()
+    // toPass only resolves once the callback has run without throwing.
+    return saved.config!
   },
 
   /**

@@ -100,13 +100,19 @@ const findTableHeaderCells = (table: HTMLTableElement, row: HTMLElement): Elemen
 /**
  * Selector matching every data row of the table `row` belongs to, or null when
  * the row is not inside a table (in which case the caller keeps its own path).
+ *
+ * Child steps rather than `//tr`, which would also match the rows of tables
+ * nested in its cells. The `/tr` branch covers tables built through the DOM,
+ * which have no `tbody` unless one is added. `/descendant::table[n]` means the
+ * same as `(//table)[n]`, which jsdom evaluates as `//table[n]`.
  */
 export const buildTableRowSelector = (row: HTMLElement): string | null => {
   const table = row.closest('table')
   if (!table) return null
 
   const tableIndex = Array.from(document.querySelectorAll('table')).indexOf(table) + 1
-  return `(//table)[${tableIndex}]//tr[td]`
+  const tablePath = `/descendant::table[${tableIndex}]`
+  return `${tablePath}/*/tr[td] | ${tablePath}/tr[td]`
 }
 
 /**

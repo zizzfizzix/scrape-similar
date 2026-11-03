@@ -8,6 +8,7 @@ import {
   findScrapeAncestor,
   getDataAttributes,
 } from '@/utils/scrape-guess'
+import { evaluateXPath } from '@/utils/scraper'
 import { beforeEach, describe, expect, it } from 'vitest'
 
 /** Render `html` into the document body and return the element matching `selector`. */
@@ -180,7 +181,34 @@ describe('buildTableRowSelector', () => {
       '#r',
     )
 
-    expect(buildTableRowSelector(row)).toBe('(//table)[2]//tr[td]')
+    expect(buildTableRowSelector(row)).toBe(
+      '/descendant::table[2]/*/tr[td] | /descendant::table[2]/tr[td]',
+    )
+  })
+
+  it('leaves out the rows of tables nested in its cells', () => {
+    const row = render(
+      `<table>
+         <tr id="r"><td>outer 1<table><tr><td>inner 1</td></tr><tr><td>inner 2</td></tr></table></td></tr>
+         <tr id="r2"><td>outer 2</td></tr>
+       </table>`,
+      '#r',
+    )
+
+    const matched = evaluateXPath(buildTableRowSelector(row)!)
+    expect(matched.map((tr) => tr.id)).toEqual(['r', 'r2'])
+  })
+
+  it('matches the rows of a table built without a tbody', () => {
+    const table = document.createElement('table')
+    for (const text of ['one', 'two']) {
+      const tr = table.appendChild(document.createElement('tr'))
+      tr.appendChild(document.createElement('td')).textContent = text
+    }
+    document.body.replaceChildren(table)
+
+    const matched = evaluateXPath(buildTableRowSelector(table.rows[0]!)!)
+    expect(matched).toEqual(Array.from(table.rows))
   })
 
   it('returns null for a row outside any table', () => {
