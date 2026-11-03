@@ -229,7 +229,7 @@ describe('generateXPath & minimizeXPath', () => {
     expect(evaluateXPath(minimizeXPath(target))).toEqual([target])
   })
 
-  it.each(readdirSync(FIXTURE_PAGES))(
+  it.each(readdirSync(FIXTURE_PAGES).filter((name) => name.endsWith('.html')))(
     'minimizes every element of %s to a path that matches it',
     (page) => {
       const fixture = readFileSync(join(FIXTURE_PAGES, page), 'utf8')
@@ -243,8 +243,10 @@ describe('generateXPath & minimizeXPath', () => {
       ).documentElement.innerHTML
 
       const elements = Array.from(document.querySelectorAll('*'))
-      for (const element of elements)
-        expect(evaluateXPath(minimizeXPath(element))).toContain(element)
+      for (const element of elements) {
+        const xpath = minimizeXPath(element)
+        expect(evaluateXPath(xpath), xpath).toContain(element)
+      }
     },
   )
 
