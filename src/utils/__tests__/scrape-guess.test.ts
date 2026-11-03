@@ -245,6 +245,43 @@ describe('buildTableRowSelector', () => {
 })
 
 describe('buildTableRowColumns', () => {
+  it('skips the header row of a table nested above the row', () => {
+    const row = render(
+      `<table>
+         <tr><td>outer 1<table><tr><th>Inner H</th></tr><tr><td>inner 1</td></tr></table></td></tr>
+         <tr id="r"><td>outer 2</td></tr>
+       </table>`,
+      '#r',
+    )
+
+    expect(names(buildTableRowColumns(row))).toEqual(['Column 1'])
+  })
+
+  it('skips the thead of a nested table', () => {
+    const row = render(
+      `<table>
+         <thead><tr><th>Outer H</th></tr></thead>
+         <tbody>
+           <tr id="r"><td>outer<table><thead><tr><th>Inner H</th></tr></thead></table></td></tr>
+         </tbody>
+       </table>`,
+      '#r',
+    )
+
+    expect(names(buildTableRowColumns(row))).toEqual(['Outer H'])
+  })
+
+  it('skips the th cells of a nested table when the table has none above the row', () => {
+    const row = render(
+      `<table>
+         <tr id="r"><td>outer<table><tr><td>x</td><th>Inner H</th></tr></table></td></tr>
+       </table>`,
+      '#r',
+    )
+
+    expect(names(buildTableRowColumns(row))).toEqual(['Column 1'])
+  })
+
   it('names columns after the thead header cells', () => {
     const row = render(
       `<table>

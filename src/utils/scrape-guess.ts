@@ -78,23 +78,26 @@ export const findScrapeAncestor = (element: HTMLElement): HTMLElement =>
  * cells, then any `th` in the table.
  */
 const findTableHeaderCells = (table: HTMLTableElement, row: HTMLElement): Element[] => {
+  // Leaves out what belongs to tables nested in this one's cells.
+  const own = (selector: string) =>
+    Array.from(table.querySelectorAll(selector)).filter((el) => el.closest('table') === table)
   const thsIn = (headerRow: Element) =>
     Array.from(headerRow.children).filter((child) => child.tagName.toLowerCase() === 'th')
 
-  const theadRow = Array.from(table.querySelectorAll('thead tr')).at(-1)
+  const theadRow = own('thead tr').at(-1)
   if (theadRow) {
     const cells = thsIn(theadRow)
     if (cells.length > 0) return cells
   }
 
-  const allRows = Array.from(table.querySelectorAll('tr'))
-  const rowsAbove = allRows.slice(0, allRows.indexOf(row as HTMLTableRowElement)).reverse()
+  const allRows = own('tr')
+  const rowsAbove = allRows.slice(0, allRows.indexOf(row)).reverse()
   for (const headerRow of rowsAbove) {
     const cells = thsIn(headerRow)
     if (cells.length > 0) return cells
   }
 
-  return Array.from(table.querySelectorAll('th'))
+  return own('th')
 }
 
 /**
