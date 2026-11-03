@@ -271,6 +271,19 @@ describe('buildTableRowColumns', () => {
     expect(names(buildTableRowColumns(row))).toEqual(['Outer H'])
   })
 
+  it('does not take the thead of a table it is nested in for its own', () => {
+    const row = render(
+      `<table>
+         <thead><tr><th>Outer<table>
+           <tr><th>Name</th></tr><tr id="r"><td>a</td></tr><tr><th>Total</th></tr>
+         </table></th></tr></thead>
+       </table>`,
+      '#r',
+    )
+
+    expect(names(buildTableRowColumns(row))).toEqual(['Name'])
+  })
+
   it('skips the th cells of a nested table when the table has none above the row', () => {
     const row = render(
       `<table>

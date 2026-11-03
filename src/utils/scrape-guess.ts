@@ -84,7 +84,7 @@ const findTableHeaderCells = (table: HTMLTableElement, row: HTMLElement): Elemen
   const thsIn = (headerRow: Element) =>
     Array.from(headerRow.children).filter((child) => child.tagName.toLowerCase() === 'th')
 
-  const theadRow = own('thead tr').at(-1)
+  const theadRow = own(':scope thead tr').at(-1)
   if (theadRow) {
     const cells = thsIn(theadRow)
     if (cells.length > 0) return cells
