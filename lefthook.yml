@@ -64,8 +64,9 @@ pre-push:
 # otherwise. A commit made with `git commit` is usually covered by pre-commit's
 # run, which records the stamp; cherry-pick and revert skip pre-commit, so their
 # post-commit regenerates. On a machine that has built for the E2E suite, the
-# first run after a dependency change also runs `playwright install`, which
-# downloads a new Chromium when the Playwright version moved.
+# first run after a dependency change, or after the first `pnpm build:test` in
+# any worktree, also runs `playwright install`, which downloads a new Chromium
+# when the Playwright version moved.
 #
 # `git reset --hard` and `git stash pop` run no hook, so after those the next of
 # these operations catches up.

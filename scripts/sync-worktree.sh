@@ -212,17 +212,18 @@ if [[ "$is_wxt_current" == false && -f node_modules/.bin/wxt ]]; then
 fi
 
 # Only against a current install, so the stamp names the Playwright version that
-# was registered. The stamp records the attempt, not just a success: a machine
-# that cannot reach Playwright's CDN would otherwise wait out its timeouts on
-# every later commit. A browser removed later by other means (a cache cleaner,
+# was registered. The stamp records a finished attempt, not just a success: a
+# machine that cannot reach Playwright's CDN would otherwise wait out its
+# timeouts on every later commit. It is written after the install returns, so a
+# download cut short by Ctrl-C, which ends this script too, is retried. A browser removed later by other means (a cache cleaner,
 # `playwright uninstall`) comes back with the next dependency change; until then
 # Playwright's launch error names the install command.
 current_state_hash=$(dependency_state_hash)
 if [[ -f node_modules/.bin/playwright && "$(cat "$stamp_file" 2>/dev/null)" == "$current_state_hash" ]]; then
   if [[ "$has_e2e_build" == true && "$(cat "$playwright_stamp_file" 2>/dev/null)" != "$current_state_hash" ]]; then
-    echo "$current_state_hash" >"$playwright_stamp_file"
     node_modules/.bin/playwright "${playwright_args[@]}" ||
       log "Warning: Chromium install failed; run '$playwright_command' by hand"
+    echo "$current_state_hash" >"$playwright_stamp_file"
   elif [[ "$has_e2e_build" == false && "$was_installed" == true ]]; then
     hint_missing_browser
   fi
