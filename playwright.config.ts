@@ -1,5 +1,11 @@
 import { defineConfig } from '@playwright/test'
 
+// The fixtures load `.output/chrome-mv3-test` only when NODE_ENV is `test`, and
+// the E2E suite only ever runs against that build. Setting it here rather than
+// in the package script keeps it working on Windows, whose default script shell
+// has no `VAR=value cmd` syntax, and for a bare `playwright test`.
+process.env.NODE_ENV ??= 'test'
+
 export default defineConfig({
   testDir: './tests/e2e',
   // CI runners launch every worker's persistent context at once, and a browser

@@ -38,10 +38,7 @@ jobs:
       - name: Install Playwright Browsers
         run: pnpm exec playwright install chromium --with-deps
 
-      - name: Build extension in test mode
-        run: pnpm build:test
-
-      - name: Run Playwright tests
+      - name: Build extension in test mode and run Playwright tests
         run: pnpm test:e2e
 
       - uses: actions/upload-artifact@v7
