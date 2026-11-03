@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Brings a checkout up to date with the commit it is on: copies the env files a
-# new worktree lacks, reinstalls dependencies when their inputs changed, and
-# regenerates the .wxt types when the sources they come from changed.
+# new worktree lacks, reinstalls dependencies when their inputs changed,
+# regenerates the .wxt types when the sources they come from changed, and keeps
+# Playwright's Chromium available for the E2E suite.
 # Run by lefthook after checkout, merge, rewrite and commit (see lefthook.yml).
 #
 # It works from the state of the checkout rather than from git's hook arguments,
@@ -92,12 +93,44 @@ dependency_state_hash() {
 }
 inputs_hash=$(dependency_state_hash)
 
+# The E2E suite launches the full Chromium build pinned by the installed
+# Playwright version. Playwright's browser cache is shared by every project on the
+# machine, so a test build of this repository in any of its worktrees
+# (`pnpm build:test` writes .output/chrome-mv3-test) is what says the suite runs
+# here. On such a machine every checkout runs `playwright install` once per
+# installed dependency state, even when the browser is present: it downloads only
+# what is missing, and it is what registers the checkout's playwright-core in the
+# cache's .links. Every install on the machine deletes browsers no registered
+# checkout still uses, so an unregistered checkout could lose its browser to
+# another project's install. `--no-shell` leaves out the headless shell, which
+# the suite never launches.
+#
+# Any other machine is only told how, after an install, when `--dry-run` (which
+# lists the install directories without downloading) shows one lacking the
+# INSTALLATION_COMPLETE marker Playwright writes once a download has finished.
+playwright_args=(install --no-shell chromium)
+playwright_command="pnpm exec playwright ${playwright_args[*]}"
+playwright_stamp_file=node_modules/.worktree-sync-playwright-stamp
+
+has_e2e_build=false
+while IFS= read -r worktree_line; do
+  if [[ "$worktree_line" == "worktree "* && -d "${worktree_line#worktree }/.output/chrome-mv3-test" ]]; then
+    has_e2e_build=true
+    break
+  fi
+done < <(git worktree list --porcelain)
+
 is_install_current=false
 [[ -f "$stamp_file" && "$(cat "$stamp_file")" == "$inputs_hash" ]] && is_install_current=true
 is_wxt_current=false
 [[ -f "$wxt_stamp_file" && "$(cat "$wxt_stamp_file")" == "$wxt_inputs_hash" ]] && is_wxt_current=true
+is_browser_current=true
+if [[ "$has_e2e_build" == true ]]; then
+  [[ -f "$playwright_stamp_file" && "$(cat "$playwright_stamp_file")" == "$inputs_hash" ]] ||
+    is_browser_current=false
+fi
 
-if [[ "$is_install_current" == true && "$is_wxt_current" == true ]]; then
+if [[ "$is_install_current" == true && "$is_wxt_current" == true && "$is_browser_current" == true ]]; then
   exit 0
 fi
 
@@ -114,6 +147,25 @@ if [[ -f "$failed_stamp_file" && node_modules/.modules.yaml -nt "$failed_stamp_f
   rm -f "$failed_stamp_file"
 fi
 
+hint_missing_browser() {
+  local install_locations location
+  # Playwright prints Windows paths with backslashes; Git Bash takes C:/… paths.
+  install_locations=$(node_modules/.bin/playwright install --dry-run "${playwright_args[@]:1}" 2>/dev/null |
+    sed -nE 's/^[[:space:]]*Install location:[[:space:]]*//p' | tr '\\' '/')
+  if [[ -z "$install_locations" ]]; then
+    log "Could not find where Playwright keeps its Chromium; if the E2E suite fails, run '$playwright_command'"
+    return 0
+  fi
+  while IFS= read -r location; do
+    if [[ ! -f "$location/INSTALLATION_COMPLETE" ]]; then
+      log "To run the E2E suite, first run '$playwright_command'"
+      return 0
+    fi
+  done <<<"$install_locations"
+}
+
+was_installed=false
+
 if [[ "$is_install_current" == false ]]; then
   if [[ -f "$failed_stamp_file" && "$(cat "$failed_stamp_file")" == "$inputs_hash" ]]; then
     log "Warning: pnpm install failed for these dependency files; fix the cause (it may have been the network) and run 'pnpm install'"
@@ -127,6 +179,7 @@ if [[ "$is_install_current" == false ]]; then
     if SKIP_GIT_HOOKS_INSTALL=1 pnpm install --frozen-lockfile --prefer-offline --config.confirm-modules-purge=false; then
       dependency_state_hash >"$stamp_file"
       rm -f "$failed_stamp_file"
+      was_installed=true
       log "Done"
     else
       # The state after the attempt, which a partly finished install may have changed.
@@ -155,6 +208,23 @@ if [[ "$is_wxt_current" == false && -f node_modules/.bin/wxt ]]; then
     echo "$wxt_output"
     echo "$wxt_inputs_hash" >"$wxt_failed_stamp_file"
     log "Warning: 'wxt prepare' failed; run 'pnpm exec wxt prepare' by hand"
+  fi
+fi
+
+# Only against a current install, so the stamp names the Playwright version that
+# was registered. The stamp records the attempt, not just a success: a machine
+# that cannot reach Playwright's CDN would otherwise wait out its timeouts on
+# every later commit. A browser removed later by other means (a cache cleaner,
+# `playwright uninstall`) comes back with the next dependency change; until then
+# Playwright's launch error names the install command.
+current_state_hash=$(dependency_state_hash)
+if [[ -f node_modules/.bin/playwright && "$(cat "$stamp_file" 2>/dev/null)" == "$current_state_hash" ]]; then
+  if [[ "$has_e2e_build" == true && "$(cat "$playwright_stamp_file" 2>/dev/null)" != "$current_state_hash" ]]; then
+    echo "$current_state_hash" >"$playwright_stamp_file"
+    node_modules/.bin/playwright "${playwright_args[@]}" ||
+      log "Warning: Chromium install failed; run '$playwright_command' by hand"
+  elif [[ "$has_e2e_build" == false && "$was_installed" == true ]]; then
+    hint_missing_browser
   fi
 fi
 
