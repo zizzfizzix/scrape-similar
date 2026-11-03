@@ -82,6 +82,11 @@ export const TabPanel = memo(function TabPanel({
   const shownConfigRef = useRef(config)
   // The write a selector commit sent, which the commit's highlight waits for.
   const selectorWriteRef = useRef<{ selector: string; isStored: Promise<boolean> } | null>(null)
+  // ConfigForm finishes a blur commit held over a hide once storage is shown
+  // again. A re-read skipped for a write still on its way shows nothing, so
+  // the catch-up is reported with the next stored state shown instead.
+  const wasLastStoredStateSkippedRef = useRef(false)
+  const isCatchUpHeldRef = useRef(false)
 
   const applyStoredState = useCallback(
     (stored: SidePanelConfig) => {
@@ -90,8 +95,10 @@ export const TabPanel = memo(function TabPanel({
         log.debug(
           `Skipped stored state for tab ${String(tabId)} older than write ${String(awaitedConfigSeqRef.current)}`,
         )
+        wasLastStoredStateSkippedRef.current = true
         return
       }
+      wasLastStoredStateSkippedRef.current = false
       // Once it has read storage, a panel opened after earlier ones numbers its writes after theirs.
       lastConfigSeqRef.current = Math.max(lastConfigSeqRef.current, storedSeq)
       log.debug(`Applying stored state for tab ${String(tabId)}:`, stored)
@@ -117,6 +124,11 @@ export const TabPanel = memo(function TabPanel({
       setHighlightMatchCount(stored.highlightMatchCount ?? undefined)
       setHighlightError(stored.highlightError ?? undefined)
       setIsPickerModeActive(stored.pickerModeActive ?? false)
+
+      if (isCatchUpHeldRef.current) {
+        isCatchUpHeldRef.current = false
+        setStoredConfigVersion((version) => version + 1)
+      }
     },
     [tabId],
   )
@@ -130,7 +142,13 @@ export const TabPanel = memo(function TabPanel({
     return subscribeWithBackfill<SidePanelConfig>(
       { watch: (callback) => item.watch(callback), read: () => item.getValue() },
       applyStoredState,
-      () => setStoredConfigVersion((version) => version + 1),
+      () => {
+        if (wasLastStoredStateSkippedRef.current) {
+          isCatchUpHeldRef.current = true
+          return
+        }
+        setStoredConfigVersion((version) => version + 1)
+      },
     )
   }, [tabId, applyStoredState])
 
@@ -388,7 +406,8 @@ export const TabPanel = memo(function TabPanel({
   }
 
   const handleLoadPreset = (preset: Preset) => {
-    const loaded = showConfig(preset.config)
+    // Resolved as a stored config is, so a preset with no columns shows and stores the default ones.
+    const loaded = showConfig(resolveStoredConfig({ currentScrapeConfig: preset.config }))
     if (tabId !== null) {
       const isStored = writeConfig(tabId, buildConfigReplaceUpdates(loaded), PRESET_NOT_SAVED)
       reportRejection(isStored)

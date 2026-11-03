@@ -25,6 +25,7 @@ import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 import { renderSettled, settleEffects } from '@@/tests/support/settle'
 import { act, waitFor } from '@testing-library/react'
 import log from 'loglevel'
+import { Activity } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeBrowser } from 'wxt/testing/fake-browser'
 import { storage } from 'wxt/utils/storage'
@@ -59,6 +60,21 @@ const sidePanelWrites = (sendMessage: ReturnType<typeof spyOnBrowser>) =>
   sendMessage.mock.calls.filter(
     ([message]) => (message as { type: string }).type === MESSAGE_TYPES.UPDATE_SIDEPANEL_DATA,
   )
+
+/** The panel inside an `<Activity>`, as the shell keeps one per tab. */
+const panelIn = (mode: 'visible' | 'hidden') => (
+  <TooltipProvider>
+    <Activity mode={mode}>
+      <TabPanel
+        tabId={TAB_ID}
+        tabUrl="https://example.com/table"
+        presets={[]}
+        onSavePreset={() => Promise.resolve()}
+        onDeletePreset={() => {}}
+      />
+    </Activity>
+  </TooltipProvider>
+)
 
 const render = (tabId: number | null = TAB_ID) =>
   renderSettled(
@@ -827,6 +843,57 @@ describe('TabPanel numbered config writes', () => {
     })
 
     expect(highlightRequests(tabsSendMessage)).toEqual([])
+  })
+
+  it('shows and stores the default columns for a preset with none', async () => {
+    await render()
+    const { sendMessage } = heldBackground()
+    spyOnBrowser(fakeBrowser.tabs, 'sendMessage').mockResolvedValue(undefined)
+
+    loadPreset(preset('//li', []))
+
+    expect(form.props!.config).toEqual({
+      mainSelector: '//li',
+      columns: DEFAULT_SCRAPE_CONFIG.columns,
+    })
+    const [[message]] = sidePanelWrites(sendMessage) as [[Message<UpdatePayload>]]
+    expect(message.payload!.updates.currentScrapeConfig).toEqual({
+      mainSelector: '//li',
+      columns: DEFAULT_SCRAPE_CONFIG.columns,
+    })
+  })
+
+  it('reports storage caught up after a hide only once a stored state is shown', async () => {
+    const { rerender } = await renderSettled(panelIn('visible'))
+    const { release } = heldBackground()
+    const caughtUpAtMount = form.props!.storedConfigVersion
+
+    edit(rename)
+    rerender(panelIn('hidden'))
+    await storeGuess('//li')
+    rerender(panelIn('visible'))
+    await settleEffects()
+
+    // The re-read predates the rename, so it is skipped and nothing new is shown.
+    expect(form.props!.storedConfigVersion).toBe(caughtUpAtMount)
+
+    await release()
+
+    expect(form.props!.config.mainSelector).toBe('//li')
+    expect(form.props!.storedConfigVersion).toBe(caughtUpAtMount + 1)
+  })
+
+  it('reports storage caught up after a hide at once when the re-read is shown', async () => {
+    const { rerender } = await renderSettled(panelIn('visible'))
+    const caughtUpAtMount = form.props!.storedConfigVersion
+
+    rerender(panelIn('hidden'))
+    await storeGuess('//li')
+    rerender(panelIn('visible'))
+    await settleEffects()
+
+    expect(form.props!.config.mainSelector).toBe('//li')
+    expect(form.props!.storedConfigVersion).toBe(caughtUpAtMount + 1)
   })
 
   it('leaves out a column edit made on columns replaced before it rendered', async () => {
