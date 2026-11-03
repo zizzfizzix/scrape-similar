@@ -13,12 +13,23 @@ set -uo pipefail
 
 log() { echo "[worktree-sync] $*"; }
 
-cd "$(git rev-parse --show-toplevel)" || exit 0
+toplevel=$(git rev-parse --show-toplevel) || exit 0
+cd "$toplevel" || exit 0
 
-# The main checkout is the parent of the common git dir; every worktree shares it.
-origin_root=$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")
+# git lists the main worktree first. A bare repository has no main checkout to
+# copy from, and the parent of the common git dir is not one either in that
+# layout or with --separate-git-dir. Both paths come from git, so they compare
+# in the same form on Windows, where bash's $PWD reads /c/… and git's C:/….
+origin_root=""
+{
+  read -r first_line
+  read -r second_line
+} < <(git worktree list --porcelain)
+if [[ "$second_line" != bare ]]; then
+  origin_root=${first_line#worktree }
+fi
 
-if [[ "$origin_root" != "$PWD" ]]; then
+if [[ -n "$origin_root" && "$origin_root" != "$toplevel" ]]; then
   for env_file in .env .env.test; do
     if [[ ! -e "$env_file" && -f "$origin_root/$env_file" ]]; then
       log "Copying $env_file from $origin_root"
