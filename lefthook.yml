@@ -44,8 +44,8 @@ pre-push:
 # after those the next of these operations catches up.
 #
 # A rebase needs both hooks: it fires post-checkout once for the commit it starts
-# from, which is all a fast-forward (`git pull --rebase` with no local commits)
-# ever fires, and post-rewrite once after replaying the commits on top.
+# from, which is all a fast-forward (`git rebase <upstream>` with no local
+# commits) ever fires, and post-rewrite once after replaying the commits on top.
 post-checkout:
   # Stream the install progress instead of buffering it until the hook finishes.
   follow: true

@@ -39,10 +39,10 @@ if [[ -n "$origin_root" && -e "$origin_root/.git" && "$origin_root" != "$topleve
   done
 fi
 
-# Vite's dotenv parser also accepts `export KEY=…`, spaces around `=` and
-# indented lines.
+# The key forms dotenv, which Vite loads .env with, accepts: an optional
+# `export`, indentation, `.` and `-` in names, and `=` or `: ` with spaces.
 env_keys() {
-  sed -nE 's/^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*=.*/\2/p' "$1" | sort -u
+  sed -nE 's/^[[:space:]]*(export[[:space:]]+)?([A-Za-z0-9_.-]+)[[:space:]]*(=|:[[:space:]]).*/\2/p' "$1" | sort -u
 }
 
 if [[ -f .env.example && -f .env ]]; then
@@ -82,7 +82,7 @@ fi
 failed_stamp_file=$(git rev-parse --git-path worktree-sync-install-failed)
 
 if [[ -f "$failed_stamp_file" && "$(cat "$failed_stamp_file")" == "$inputs_hash" ]]; then
-  log "Warning: pnpm install failed for these dependency files; fix it and run 'pnpm install' by hand"
+  log "Warning: pnpm install failed for these dependency files; fix the cause (it may have been the network) and run 'pnpm install'"
   exit 0
 fi
 
@@ -102,7 +102,7 @@ if SKIP_GIT_HOOKS_INSTALL=1 pnpm install --frozen-lockfile --prefer-offline --co
 else
   # The state after the attempt, which a partly finished install may have changed.
   dependency_state_hash >"$failed_stamp_file"
-  log "Warning: pnpm install failed; fix it and run 'pnpm install' by hand"
+  log "Warning: pnpm install failed and is not retried until the dependency files change; fix the cause (it may have been the network) and run 'pnpm install'"
 fi
 
 # A failed sync must not make git report the checkout, merge or rebase as failed.

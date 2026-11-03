@@ -4,8 +4,9 @@
 //
 // `lefthook install` exits non-zero when there is no git repository to install
 // hooks into, which would break `pnpm install` from a source archive without a
-// .git directory - e.g. the sources bundle submitted to AMO. Skip that one case
-// explicitly, so that every other lefthook failure still fails the install.
+// .git directory - e.g. the sources bundle submitted to AMO. That case and the
+// worktree sync's own install (below) are skipped explicitly, so that every
+// other lefthook failure still fails the install.
 
 import { spawnSync } from 'node:child_process'
 
