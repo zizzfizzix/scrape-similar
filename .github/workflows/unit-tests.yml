@@ -49,6 +49,11 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      # The runner image ships shellcheck; the script fails rather than skips
+      # when CI is set.
+      - name: Lint shell scripts
+        run: pnpm lint:sh
+
       # Enforces the `coverage.thresholds` block in `vitest.config.ts`: the run
       # exits non-zero if coverage drops below it, so a PR cannot lower it. It
       # then runs `scripts/check-coverage-fidelity.mjs`, which catches what a
