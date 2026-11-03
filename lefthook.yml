@@ -58,11 +58,17 @@ pre-push:
 # commit (a merge concluded after a conflict, `cherry-pick`, `revert`). The same
 # script regenerates the .wxt types when the tracked files under src/, public/ or
 # wxt.config.ts changed. It is a no-op when neither its dependency nor its type
-# inputs changed since its last run, so running it often costs little: ~0.8s of
-# `wxt prepare` after an operation that changes tracked files under src/,
-# public/ or wxt.config.ts, nothing otherwise. A commit made with `git commit` is
-# usually covered by pre-commit's run, which records the stamp; cherry-pick and
-# revert skip pre-commit, so their post-commit regenerates.
+# inputs changed since its last run and, on a machine with an E2E test build,
+# Playwright's install has run for the current dependency state (it cannot while
+# node is missing from PATH, which warns on every run instead), so running it
+# often costs little: ~0.8s of `wxt prepare` after an operation that changes
+# tracked files under src/, public/ or wxt.config.ts, nothing otherwise. A
+# commit made with `git commit` is usually covered by pre-commit's run, which
+# records the stamp; cherry-pick and revert skip pre-commit, so their
+# post-commit regenerates. On a machine that has built for the E2E suite, the
+# first run after a dependency change, or after the first `pnpm build:test` in
+# any worktree, also runs `playwright install`, which downloads a new Chromium
+# when the Playwright version moved.
 #
 # `git reset --hard` and `git stash pop` run no hook, so after those the next of
 # these operations catches up.
