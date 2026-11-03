@@ -1,5 +1,16 @@
 // @vitest-environment jsdom
-import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  onTestFinished,
+  vi,
+  type MockInstance,
+} from 'vitest'
 
 import {
   countXPathMatches,
@@ -202,6 +213,39 @@ describe('generateXPath & minimizeXPath', () => {
     expect(elementsFromMin).toHaveLength(2)
     expect(elementsFromMin[0]).toBe(target)
     expect(elementsFromMin[1]).toBeInstanceOf(HTMLElement)
+  })
+
+  // The sibling div gives each target's path a positional step.
+  it.each([
+    ['h1', '<h1 id="x">Title</h1>'],
+    ['tr', '<table><tr id="x"><td>only</td></tr></table>'],
+    ['li', '<ul><li id="x">only</li></ul>'],
+    ['td', '<table><tr><td id="x">only</td></tr></table>'],
+  ])('minimizes a unique %s behind a positional ancestor to a path matching it', (_tag, html) => {
+    document.body.innerHTML = `<div></div><div>${html}</div>`
+    const target = document.getElementById('x')!
+
+    expect(evaluateXPath(minimizeXPath(target))).toEqual([target])
+  })
+
+  // A guard for shapes other than the cases above: nothing on this page is unique behind a positional step.
+  it('minimizes every element of the scrape-target fixture to a path that matches it', () => {
+    const fixture = readFileSync(
+      join(import.meta.dirname, '../../../tests/e2e/fixtures/pages/scrape-target.html'),
+      'utf8',
+    )
+    const originalPage = document.documentElement.innerHTML
+    onTestFinished(() => {
+      document.documentElement.innerHTML = originalPage
+    })
+    document.documentElement.innerHTML = new DOMParser().parseFromString(
+      fixture,
+      'text/html',
+    ).documentElement.innerHTML
+
+    const elements = Array.from(document.querySelectorAll('*'))
+    expect(elements.length).toBeGreaterThan(50)
+    for (const element of elements) expect(evaluateXPath(minimizeXPath(element))).toContain(element)
   })
 
   it('returns /html/body when called with document.body', () => {

@@ -222,7 +222,10 @@ export const minimizeXPath = (node: Element): string => {
 
   // Trim the front of the path until we have the smallest XPath that returns the same number of elements
   while ((result = xpathFirstSegmentRegex.exec(xpath))) {
-    // As above: a successful match always fills group 2.
+    // As above: a successful match always fills group 2. An empty group 2
+    // means this is the last step; trimming it leaves "/", the document node,
+    // which also counts as one match.
+    if (result[2] === '') break
     const trimmed = `/${result[2]!}`
     const trimmedCount = countXPathMatches(trimmed)
     if (trimmedCount !== selection) {
