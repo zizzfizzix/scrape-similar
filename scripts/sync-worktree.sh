@@ -29,8 +29,9 @@ wxt_stamp_file=.wxt/.worktree-sync-stamp
 wxt_inputs_hash=$(git ls-files -s -- src public wxt.config.ts | git hash-object --stdin)
 
 # Pre-commit has just run `wxt prepare` against the working tree; recording the
-# index it is committing lets post-commit find the types current instead of
-# regenerating them a second time.
+# index it is committing usually lets post-commit find the types current instead
+# of regenerating them a second time (not after `git commit <paths>` with other
+# changes staged, whose pre-commit sees a temporary index).
 if [[ "${1:-}" == --stamp-types ]]; then
   echo "$wxt_inputs_hash" >"$wxt_stamp_file"
   exit 0
@@ -140,12 +141,19 @@ fi
 # wxt from node_modules needs only node on PATH, not pnpm, which git GUIs often
 # run hooks without. Its output is shown only on failure: Node prints warnings
 # on every run.
+# A failure is recorded like a failed install, so a branch whose wxt.config.ts
+# does not load prints wxt's output once, not on every checkout.
+wxt_failed_stamp_file=$(git rev-parse --git-path worktree-sync-types-failed)
 if [[ "$is_wxt_current" == false && -f node_modules/.bin/wxt ]]; then
-  if wxt_output=$(node_modules/.bin/wxt prepare 2>&1); then
+  if [[ -f "$wxt_failed_stamp_file" && "$(cat "$wxt_failed_stamp_file")" == "$wxt_inputs_hash" ]]; then
+    log "Warning: 'wxt prepare' failed for these sources; run 'pnpm exec wxt prepare' by hand"
+  elif wxt_output=$(node_modules/.bin/wxt prepare 2>&1); then
     echo "$wxt_inputs_hash" >"$wxt_stamp_file"
+    rm -f "$wxt_failed_stamp_file"
     log "Regenerated .wxt types"
   else
     echo "$wxt_output"
+    echo "$wxt_inputs_hash" >"$wxt_failed_stamp_file"
     log "Warning: 'wxt prepare' failed; run 'pnpm exec wxt prepare' by hand"
   fi
 fi

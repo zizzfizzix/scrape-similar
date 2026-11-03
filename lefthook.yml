@@ -61,8 +61,8 @@ pre-push:
 # inputs changed since its last run, so running it often costs little: ~0.8s of
 # `wxt prepare` after an operation that changes tracked files under src/,
 # public/ or wxt.config.ts, nothing otherwise. A commit made with `git commit` is
-# covered by pre-commit's run, which records the stamp; cherry-pick and revert
-# skip pre-commit, so their post-commit regenerates.
+# usually covered by pre-commit's run, which records the stamp; cherry-pick and
+# revert skip pre-commit, so their post-commit regenerates.
 #
 # `git reset --hard` and `git stash pop` run no hook, so after those the next of
 # these operations catches up.
