@@ -1,0 +1,3 @@
+# Bash rejects CRLF line endings, which Git for Windows checks text out with by
+# default; the git hooks run these scripts on every checkout and commit.
+*.sh text eol=lf

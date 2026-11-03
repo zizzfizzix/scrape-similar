@@ -17,9 +17,10 @@ toplevel=$(git rev-parse --show-toplevel) || exit 0
 cd "$toplevel" || exit 0
 
 # git lists the main worktree first. A bare repository has no main checkout to
-# copy from, and the parent of the common git dir is not one either in that
-# layout or with --separate-git-dir. Both paths come from git, so they compare
-# in the same form on Windows, where bash's $PWD reads /c/… and git's C:/….
+# copy from, and with --separate-git-dir git lists the git dir in its place;
+# neither has a .git entry, so nothing is copied in those layouts. Both paths
+# come from git, so they compare in the same form on Windows, where bash's $PWD
+# reads /c/… and git's C:/….
 origin_root=""
 {
   IFS= read -r first_line
@@ -29,7 +30,7 @@ if [[ "$second_line" != bare ]]; then
   origin_root=${first_line#worktree }
 fi
 
-if [[ -n "$origin_root" && "$origin_root" != "$toplevel" ]]; then
+if [[ -n "$origin_root" && -e "$origin_root/.git" && "$origin_root" != "$toplevel" ]]; then
   for env_file in .env .env.test; do
     if [[ ! -e "$env_file" && -f "$origin_root/$env_file" ]]; then
       log "Copying $env_file from $origin_root"
@@ -53,14 +54,22 @@ elif [[ -f .env.example ]]; then
   log "Warning: no .env; run 'cp .env.example .env' (the unit tests need it)"
 fi
 
-# Everything pnpm resolves the install from. The stamp lives inside node_modules,
-# so deleting node_modules also forces a reinstall.
-dependency_inputs=(package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc)
+# Everything pnpm resolves the install from, plus pnpm's own record of what is
+# installed, which it rewrites whenever an install changes node_modules. That
+# record makes a `pnpm add` or `pnpm update` run outside the hook count as a
+# change, so reverting its edits to package.json reinstalls rather than leaving
+# its packages behind. The stamp lives inside node_modules, so deleting
+# node_modules also forces a reinstall.
+dependency_inputs=(package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc node_modules/.pnpm/lock.yaml)
 stamp_file=node_modules/.worktree-sync-stamp
 
-inputs_hash=$(for input in "${dependency_inputs[@]}"; do
-  [[ -f "$input" ]] && git hash-object "$input"
-done | git hash-object --stdin)
+dependency_state_hash() {
+  local input
+  for input in "${dependency_inputs[@]}"; do
+    [[ -f "$input" ]] && git hash-object "$input"
+  done | git hash-object --stdin
+}
+inputs_hash=$(dependency_state_hash)
 
 if [[ -f "$stamp_file" && "$(cat "$stamp_file")" == "$inputs_hash" ]]; then
   exit 0
@@ -75,7 +84,7 @@ log "Dependency files changed or node_modules is missing; running pnpm install"
 # --frozen-lockfile: a hook must never rewrite the lockfile it was handed.
 # confirmModulesPurge=false: without a TTY pnpm aborts instead of asking.
 if pnpm install --frozen-lockfile --prefer-offline --config.confirm-modules-purge=false; then
-  echo "$inputs_hash" >"$stamp_file"
+  dependency_state_hash >"$stamp_file"
   log "Done"
 else
   log "Warning: pnpm install failed; fix it and run 'pnpm install' by hand"

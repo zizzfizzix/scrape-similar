@@ -41,7 +41,7 @@ pre-push:
 # commit (a merge concluded after a conflict, `cherry-pick`, `revert`). The
 # script is a no-op when the dependency files match the last install, so running
 # it often costs nothing. `git reset --hard` and `git stash pop` run no hook, so
-# after those the next of these operations, or `pnpm install`, catches up.
+# after those the next of these operations catches up.
 #
 # A rebase needs both hooks: it fires post-checkout once for the commit it starts
 # from, which is all a fast-forward (`git pull --rebase` with no local commits)
