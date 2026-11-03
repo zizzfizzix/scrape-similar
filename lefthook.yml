@@ -12,22 +12,35 @@
 # when a shell script is staged) hide inside ESLint's. That holds only while
 # every command here is read-only — a `pnpm fmt` that writes would race the
 # linter reading the same files, and would have to go back to serial.
+#
+# `pnpm lint` and `pnpm compile` each start with `wxt prepare`, which rewrites the
+# auto-import declarations in .wxt/ that ESLint and tsc read. Running it once
+# beforehand is what keeps the parallel group read-only: WXT writes a file only
+# when its content differs, so the two runs inside the group find nothing to do.
 pre-commit:
-  parallel: true
-  commands:
-    fmt-check:
-      run: pnpm fmt-check
-      fail_text: "Commit blocked: please run 'pnpm fmt' before staging your changes."
-    lint:
-      run: pnpm lint
-      fail_text: "Commit blocked: run 'pnpm lint:fix', then fix what is left by hand."
-    compile:
-      run: pnpm compile
-      fail_text: "Commit blocked: fix the type errors 'pnpm compile' reports."
-    shellcheck:
-      glob: ['*.sh', '**/*.sh']
-      run: bash scripts/lint-shell.sh {staged_files}
-      fail_text: 'Commit blocked: fix what shellcheck reports in the staged shell scripts.'
+  # Stop before the group when `wxt prepare` fails, rather than have lint and
+  # compile repeat the same failure under their own fail_text.
+  piped: true
+  jobs:
+    - name: wxt-types
+      run: pnpm exec wxt prepare && bash scripts/sync-worktree.sh --stamp-types
+      fail_text: "Commit blocked: 'wxt prepare' failed; fix wxt.config.ts or the auto-imported sources it reports."
+    - group:
+        parallel: true
+        jobs:
+          - name: fmt-check
+            run: pnpm fmt-check
+            fail_text: "Commit blocked: please run 'pnpm fmt' before staging your changes."
+          - name: lint
+            run: pnpm lint
+            fail_text: "Commit blocked: run 'pnpm lint:fix', then fix what is left by hand."
+          - name: compile
+            run: pnpm compile
+            fail_text: "Commit blocked: fix the type errors 'pnpm compile' reports."
+          - name: shellcheck
+            glob: ['*.sh', '**/*.sh']
+            run: bash scripts/lint-shell.sh {staged_files}
+            fail_text: 'Commit blocked: fix what shellcheck reports in the staged shell scripts.'
 
 # The test suite takes ~40s and coverage is a property of the branch as a whole,
 # not of each work-in-progress commit, so it gates the push instead.
@@ -42,10 +55,17 @@ pre-push:
 # These hooks re-sync the working tree after the git operations that move
 # package.json or pnpm-lock.yaml under it: checkout (including creating a
 # worktree), merge (`git pull`), rewrite (`git pull --rebase`, `git rebase`) and
-# commit (a merge concluded after a conflict, `cherry-pick`, `revert`). The
-# script is a no-op when the dependency files match the last install, so running
-# it often costs nothing. `git reset --hard` and `git stash pop` run no hook, so
-# after those the next of these operations catches up.
+# commit (a merge concluded after a conflict, `cherry-pick`, `revert`). The same
+# script regenerates the .wxt types when the tracked files under src/, public/ or
+# wxt.config.ts changed. It is a no-op when neither its dependency nor its type
+# inputs changed since its last run, so running it often costs little: ~0.8s of
+# `wxt prepare` after an operation that changes tracked files under src/,
+# public/ or wxt.config.ts, nothing otherwise. A commit made with `git commit` is
+# usually covered by pre-commit's run, which records the stamp; cherry-pick and
+# revert skip pre-commit, so their post-commit regenerates.
+#
+# `git reset --hard` and `git stash pop` run no hook, so after those the next of
+# these operations catches up.
 #
 # A rebase needs both hooks: it fires post-checkout once for the commit it starts
 # from, which is all a fast-forward (`git rebase <upstream>` with no local
