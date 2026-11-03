@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Brings a checkout up to date with the commit it is on: copies the env files a
-# new worktree lacks and reinstalls dependencies when their inputs changed.
+# new worktree lacks, reinstalls dependencies when their inputs changed, and
+# regenerates the .wxt types when the sources they come from changed.
 # Run by lefthook after checkout, merge, rewrite and commit (see lefthook.yml).
 #
 # It works from the state of the checkout rather than from git's hook arguments,
@@ -15,6 +16,22 @@ log() { echo "[worktree-sync] $*"; }
 
 toplevel=$(git rev-parse --show-toplevel) || exit 0
 cd "$toplevel" || exit 0
+
+# `.wxt/` holds the auto-import declarations generated from the exports under
+# src/ and from wxt.config.ts. `pnpm compile` and `pnpm lint` regenerate it
+# themselves; this keeps it current for the editor, whose TypeScript server and
+# ESLint read it directly. Hashing the index rather than the files keeps this
+# cheap, and the index changes whenever a git operation moves these files.
+wxt_stamp_file=.wxt/.worktree-sync-stamp
+wxt_inputs_hash=$(git ls-files -s -- src public wxt.config.ts | git hash-object --stdin)
+
+# Pre-commit has just run `wxt prepare` against the index being committed, so it
+# records that here; post-commit then finds the types current instead of
+# regenerating them a second time.
+if [[ "${1:-}" == --stamp-types ]]; then
+  echo "$wxt_inputs_hash" >"$wxt_stamp_file"
+  exit 0
+fi
 
 # git lists the main worktree first. A bare repository has no main checkout to
 # copy from, and with --separate-git-dir git lists the git dir in its place;
@@ -71,7 +88,13 @@ dependency_state_hash() {
 }
 inputs_hash=$(dependency_state_hash)
 
-if [[ -f "$stamp_file" && "$(cat "$stamp_file")" == "$inputs_hash" ]]; then
+
+is_install_current=false
+[[ -f "$stamp_file" && "$(cat "$stamp_file")" == "$inputs_hash" ]] && is_install_current=true
+is_wxt_current=false
+[[ -f "$wxt_stamp_file" && "$(cat "$wxt_stamp_file")" == "$wxt_inputs_hash" ]] && is_wxt_current=true
+
+if [[ "$is_install_current" == true && "$is_wxt_current" == true ]]; then
   exit 0
 fi
 
@@ -88,28 +111,41 @@ if [[ -f "$failed_stamp_file" && node_modules/.modules.yaml -nt "$failed_stamp_f
   rm -f "$failed_stamp_file"
 fi
 
-if [[ -f "$failed_stamp_file" && "$(cat "$failed_stamp_file")" == "$inputs_hash" ]]; then
-  log "Warning: pnpm install failed for these dependency files; fix the cause (it may have been the network) and run 'pnpm install'"
-  exit 0
+if [[ "$is_install_current" == false ]]; then
+  if [[ -f "$failed_stamp_file" && "$(cat "$failed_stamp_file")" == "$inputs_hash" ]]; then
+    log "Warning: pnpm install failed for these dependency files; fix the cause (it may have been the network) and run 'pnpm install'"
+  elif ! command -v pnpm >/dev/null 2>&1; then
+    log "Warning: pnpm is not on PATH; run 'pnpm install' yourself"
+  else
+    log "Dependency files changed or node_modules is missing; running pnpm install"
+    # --frozen-lockfile: a hook must never rewrite the lockfile it was handed.
+    # confirmModulesPurge=false: without a TTY pnpm aborts instead of asking.
+    # SKIP_GIT_HOOKS_INSTALL: see scripts/install-git-hooks.mjs.
+    if SKIP_GIT_HOOKS_INSTALL=1 pnpm install --frozen-lockfile --prefer-offline --config.confirm-modules-purge=false; then
+      dependency_state_hash >"$stamp_file"
+      rm -f "$failed_stamp_file"
+      log "Done"
+    else
+      # The state after the attempt, which a partly finished install may have changed.
+      dependency_state_hash >"$failed_stamp_file"
+      log "Warning: pnpm install failed and is not retried until the dependency files change or you run 'pnpm install'; fix the cause (it may have been the network) and run it"
+    fi
+  fi
 fi
 
-if ! command -v pnpm >/dev/null 2>&1; then
-  log "Warning: pnpm is not on PATH; run 'pnpm install' yourself"
-  exit 0
-fi
-
-log "Dependency files changed or node_modules is missing; running pnpm install"
-# --frozen-lockfile: a hook must never rewrite the lockfile it was handed.
-# confirmModulesPurge=false: without a TTY pnpm aborts instead of asking.
-# SKIP_GIT_HOOKS_INSTALL: see scripts/install-git-hooks.mjs.
-if SKIP_GIT_HOOKS_INSTALL=1 pnpm install --frozen-lockfile --prefer-offline --config.confirm-modules-purge=false; then
-  dependency_state_hash >"$stamp_file"
-  rm -f "$failed_stamp_file"
-  log "Done"
-else
-  # The state after the attempt, which a partly finished install may have changed.
-  dependency_state_hash >"$failed_stamp_file"
-  log "Warning: pnpm install failed and is not retried until the dependency files change or you run 'pnpm install'; fix the cause (it may have been the network) and run it"
+# Separate from the install, whose postinstall also runs `wxt prepare` unless
+# scripts are disabled, so the stamp records only a run seen to succeed. Calling
+# wxt from node_modules needs only node on PATH, not pnpm, which git GUIs often
+# run hooks without. Its output is shown only on failure: Node prints warnings
+# on every run.
+if [[ "$is_wxt_current" == false && -f node_modules/.bin/wxt ]]; then
+  if wxt_output=$(node_modules/.bin/wxt prepare 2>&1); then
+    echo "$wxt_inputs_hash" >"$wxt_stamp_file"
+    log "Regenerated .wxt types"
+  else
+    echo "$wxt_output"
+    log "Warning: 'wxt prepare' failed; run 'pnpm exec wxt prepare' by hand"
+  fi
 fi
 
 # A failed sync must not make git report the checkout, merge or rebase as failed.

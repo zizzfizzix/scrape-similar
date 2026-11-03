@@ -77,9 +77,9 @@ pnpm dev            # or npm run dev
 pnpm dev:firefox    # or npm run dev:firefox
 
 # Type-check, lint and format
-pnpm compile        # tsc --noEmit (TypeScript 7)
-pnpm lint           # ESLint, warnings included
-pnpm lint:fix       # apply the fixes ESLint can make itself
+pnpm compile        # wxt prepare, then tsc --noEmit (TypeScript 7)
+pnpm lint           # wxt prepare, then ESLint, warnings included
+pnpm lint:fix       # wxt prepare, then apply the fixes ESLint can make itself
 pnpm fmt            # Prettier
 
 # Production build
