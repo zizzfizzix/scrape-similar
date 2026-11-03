@@ -151,7 +151,7 @@ hint_missing_browser() {
   local install_locations location
   # Playwright prints Windows paths with backslashes; Git Bash takes C:/… paths.
   install_locations=$(node_modules/.bin/playwright install --dry-run "${playwright_args[@]:1}" 2>/dev/null |
-    sed -nE 's/^[[:space:]]*Install location:[[:space:]]*//p' | tr '\\' '/')
+    sed -nE 's/^[[:space:]]*Install location:[[:space:]]*//p' | tr '\134' '/')
   if [[ -z "$install_locations" ]]; then
     log "Could not find where Playwright keeps its Chromium; if the E2E suite fails, run '$playwright_command'"
     return 0
