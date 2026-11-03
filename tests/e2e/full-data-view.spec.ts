@@ -7,6 +7,7 @@ import {
   getBoundingBox,
   getFirstWorksheet,
   SCRAPE_TARGET_PAGE,
+  SIDE_PANEL_CONFIG_KEY_PREFIX,
   test,
   TestHelpers,
 } from './fixtures'
@@ -703,9 +704,7 @@ test.describe('Full Data View', () => {
 
     // Simulate new scrape data being added to storage (this would normally happen
     // when user scrapes again in the original tab)
-    await serviceWorker.evaluate(async (tabId) => {
-      const sessionKey = `sidepanel_config_${tabId}`
-
+    await serviceWorker.evaluate(async (sessionKey) => {
       // Get current stored data
       const currentData = await chrome.storage.session.get(sessionKey)
       const storedConfig = currentData[sessionKey] as SidePanelConfig | undefined
@@ -731,7 +730,7 @@ test.describe('Full Data View', () => {
         // Save back to storage - this should trigger the real-time update
         await chrome.storage.session.set({ [sessionKey]: storedConfig })
       }
-    }, tabId)
+    }, `${SIDE_PANEL_CONFIG_KEY_PREFIX}${tabId}`)
 
     // Wait for the full data view to update with the new row
     // The storage watcher should detect the change and update the UI
@@ -741,9 +740,7 @@ test.describe('Full Data View', () => {
     await expect(fullDataViewPage.getByText('New Test Link Added')).toBeVisible()
 
     // Test data removal as well
-    await serviceWorker.evaluate(async (tabId) => {
-      const sessionKey = `sidepanel_config_${tabId}`
-
+    await serviceWorker.evaluate(async (sessionKey) => {
       // Get current stored data and remove the last row
       const currentData = await chrome.storage.session.get(sessionKey)
       const storedConfig = currentData[sessionKey] as SidePanelConfig | undefined
@@ -755,7 +752,7 @@ test.describe('Full Data View', () => {
         // Save back to storage
         await chrome.storage.session.set({ [sessionKey]: storedConfig })
       }
-    }, tabId)
+    }, `${SIDE_PANEL_CONFIG_KEY_PREFIX}${tabId}`)
 
     // Wait for the row to be removed from the full data view
     await expect(fullDataViewPage.getByRole('row')).toHaveCount(initialRowCount)

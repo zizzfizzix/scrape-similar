@@ -102,6 +102,12 @@ export const FIXTURE_PAGE_COUNTS = {
   divWithClassOrH2NonEmpty: 2,
 } as const
 
+/**
+ * Session storage key of a tab's `SidePanelConfig`, less the tab id
+ * (`sidePanelConfigItem` in src/utils/storage.ts, without its `session:` area).
+ */
+export const SIDE_PANEL_CONFIG_KEY_PREFIX = 'sidepanel_config_'
+
 /** Table shapes the table-row scrape paths have to tell apart. */
 export const TABLE_LAYOUTS_PAGE = 'table-layouts.html'
 
@@ -440,7 +446,7 @@ export const TestHelpers = {
   ): Promise<{ mainSelector: string }> {
     const saveFromServiceWorker = () =>
       serviceWorker.evaluate(
-        async ({ url, MESSAGE_TYPES }) => {
+        async ({ url, MESSAGE_TYPES, keyPrefix }) => {
           const [tab] = await chrome.tabs.query({ url })
           if (!tab?.id) throw new Error(`No tab open at ${url}`)
           let reply: { success?: boolean; error?: string } | undefined
@@ -454,14 +460,14 @@ export const TestHelpers = {
           }
           if (!reply?.success) return { error: reply?.error ?? 'No reply' }
 
-          const key = `sidepanel_config_${String(tab.id)}`
+          const key = `${keyPrefix}${String(tab.id)}`
           const stored = (await chrome.storage.session.get(key))[key] as
             { currentScrapeConfig?: { mainSelector: string } } | undefined
           return stored?.currentScrapeConfig
             ? { config: stored.currentScrapeConfig }
             : { error: 'No currentScrapeConfig in session storage' }
         },
-        { url: page.url(), MESSAGE_TYPES },
+        { url: page.url(), MESSAGE_TYPES, keyPrefix: SIDE_PANEL_CONFIG_KEY_PREFIX },
       )
 
     const saved: { config?: { mainSelector: string } } = {}
