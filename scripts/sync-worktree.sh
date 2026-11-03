@@ -48,7 +48,7 @@ env_keys() {
 if [[ -f .env.example && -f .env ]]; then
   missing_keys=$(comm -23 <(env_keys .env.example) <(env_keys .env))
   if [[ -n "$missing_keys" ]]; then
-    log "Warning: .env lacks keys that .env.example defines: $(echo "$missing_keys" | tr '\n' ' ')"
+    log "Warning: .env lacks keys that .env.example defines: $(paste -sd ' ' - <<<"$missing_keys")"
   fi
 elif [[ -f .env.example ]]; then
   log "Warning: no .env; run 'cp .env.example .env' (the unit tests need it)"
@@ -75,6 +75,17 @@ if [[ -f "$stamp_file" && "$(cat "$stamp_file")" == "$inputs_hash" ]]; then
   exit 0
 fi
 
+# A failed install is not retried until the dependency files change: a
+# hand-edited package.json or a stale lockfile would otherwise make every commit
+# wait for pnpm to fail again. The record lives in this worktree's git dir, since
+# node_modules may not exist.
+failed_stamp_file=$(git rev-parse --git-path worktree-sync-install-failed)
+
+if [[ -f "$failed_stamp_file" && "$(cat "$failed_stamp_file")" == "$inputs_hash" ]]; then
+  log "Warning: pnpm install failed for these dependency files; fix it and run 'pnpm install' by hand"
+  exit 0
+fi
+
 if ! command -v pnpm >/dev/null 2>&1; then
   log "Warning: pnpm is not on PATH; run 'pnpm install' yourself"
   exit 0
@@ -83,10 +94,13 @@ fi
 log "Dependency files changed or node_modules is missing; running pnpm install"
 # --frozen-lockfile: a hook must never rewrite the lockfile it was handed.
 # confirmModulesPurge=false: without a TTY pnpm aborts instead of asking.
-if pnpm install --frozen-lockfile --prefer-offline --config.confirm-modules-purge=false; then
+# SKIP_GIT_HOOKS_INSTALL: see scripts/install-git-hooks.mjs.
+if SKIP_GIT_HOOKS_INSTALL=1 pnpm install --frozen-lockfile --prefer-offline --config.confirm-modules-purge=false; then
   dependency_state_hash >"$stamp_file"
+  rm -f "$failed_stamp_file"
   log "Done"
 else
+  echo "$inputs_hash" >"$failed_stamp_file"
   log "Warning: pnpm install failed; fix it and run 'pnpm install' by hand"
 fi
 

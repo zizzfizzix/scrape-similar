@@ -17,6 +17,14 @@ if (!isGitRepository) {
   process.exit(0)
 }
 
+// The worktree sync hook sets this for the install it runs. The hooks are
+// installed already, and `lefthook install` would rewrite the lefthook path
+// recorded in the hooks every worktree shares to this worktree's node_modules,
+// leaving them pointing at nothing once the worktree is removed.
+if (process.env.SKIP_GIT_HOOKS_INSTALL === '1') {
+  process.exit(0)
+}
+
 // Windows needs a shell to resolve the `lefthook.cmd` shim in node_modules/.bin.
 const { status, error } = spawnSync('lefthook', ['install'], {
   stdio: 'inherit',
