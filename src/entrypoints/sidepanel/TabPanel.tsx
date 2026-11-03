@@ -75,8 +75,8 @@ export const TabPanel = memo(function TabPanel({
   // before the first read is not protected this way.
   const lastConfigSeqRef = useRef(0)
   const awaitedConfigSeqRef = useRef(0)
-  // Each write still on its way, mapped to whether it replaces the column list.
-  const inFlightConfigWritesRef = useRef(new Map<number, boolean>())
+  // Each write still on its way, by number, in the order they were sent.
+  const inFlightConfigWritesRef = useRef(new Map<number, SidePanelConfigUpdate>())
   // Set wherever the config is, not from an effect: ConfigForm's effects run
   // before this component's, and its held blur commit reads the config from one.
   const shownConfigRef = useRef(config)
@@ -174,7 +174,7 @@ export const TabPanel = memo(function TabPanel({
     lastConfigSeqRef.current += 1
     const seq = lastConfigSeqRef.current
     awaitedConfigSeqRef.current = seq
-    inFlightConfigWritesRef.current.set(seq, updates.currentScrapeConfig?.columns !== undefined)
+    inFlightConfigWritesRef.current.set(seq, updates)
     let reply: StatusReply | undefined
     try {
       reply = await browser.runtime.sendMessage({
@@ -190,15 +190,12 @@ export const TabPanel = memo(function TabPanel({
     log.error(`Could not store config write ${String(seq)} for tab ${String(id)}:`, reply?.error)
     notify.error(failure, { id: failure })
     const inFlight = [...inFlightConfigWritesRef.current.keys()]
-    // A later write is still awaited, or was stored and is already shown.
+    // A later write is still awaited, or was stored and its state is shown or on its way.
     if (inFlight.some((other) => other > seq) || awaitedConfigSeqRef.current > seq) {
-      // Later column edits were built on this one's columns and are dropped too,
-      // so the stored columns are shown now and the next edit is built on them.
-      // A later write that replaces the columns brings its own once stored.
-      const isColumnListReplacedLater = [...inFlightConfigWritesRef.current].some(
-        ([other, replacesColumns]) => other > seq && replacesColumns,
-      )
-      if (updates.columnEdit && !isColumnListReplacedLater) await showStoredColumns(id)
+      // Later column edits built on this one's change are dropped too, so the
+      // columns are shown as the background will leave them, and the next edit
+      // is built on those.
+      if (updates.columnEdit) await showStoredColumns(id)
       return false
     }
     // No stored state will record this write, so wait for the newest write still
@@ -212,10 +209,20 @@ export const TabPanel = memo(function TabPanel({
     return false
   }
 
-  // Only the columns: the selector shown may belong to a write still on its way.
+  // The stored columns with the writes still on their way applied as the
+  // background applies them. Only the columns: the selector shown may belong
+  // to a write still on its way.
   const showStoredColumns = async (id: number) => {
     const stored = await sidePanelConfigItem(id).getValue()
-    const { columns } = resolveStoredConfig(stored ?? {})
+    const storedSeq = stored?.panelConfigSeq ?? 0
+    let { columns } = resolveStoredConfig(stored ?? {})
+    // Writes are applied in the order they were sent, so one numbered up to
+    // the stored number is already in storage.
+    for (const [seq, pending] of inFlightConfigWritesRef.current) {
+      if (seq <= storedSeq) continue
+      columns = pending.currentScrapeConfig?.columns ?? columns
+      if (pending.columnEdit) columns = applyColumnEdit(columns, pending.columnEdit) ?? columns
+    }
     shownConfigRef.current = { ...shownConfigRef.current, columns }
     setConfig((previous) => reuseIfEqual(previous, { ...previous, columns }))
   }

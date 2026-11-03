@@ -467,12 +467,50 @@ describe('TabPanel numbered config writes', () => {
     edit({ type: 'add' })
     await answer(0, 'fail')
 
-    // The add was built on the rename, so the next keystroke is built on storage instead.
-    expect(form.props!.config.columns).toEqual(config.columns)
+    // An add checks nothing, so it lands on the stored list without the rename.
+    expect(form.props!.config.columns).toEqual([rank, added])
 
     await answer(1, 'store')
 
-    // An add checks nothing, so it lands on the stored list.
+    expect(form.props!.config.columns).toEqual([rank, added])
+  })
+
+  it('leaves out a later column edit built on a failed one, as the background does', async () => {
+    await render()
+    const { answer } = scriptedBackground()
+    vi.spyOn(log, 'error').mockImplementation(() => {})
+
+    edit(rename)
+    edit({
+      type: 'update',
+      index: 0,
+      expected: rename.column,
+      column: { name: 'Positions', selector: './td[1]' },
+    })
+    await answer(0, 'fail')
+
+    expect(form.props!.config.columns).toEqual(config.columns)
+  })
+
+  it('does not apply a later column edit twice when it was stored before a failed one was answered', async () => {
+    await render()
+    const renameReply = Promise.withResolvers<unknown>()
+    const addReply = Promise.withResolvers<unknown>()
+    vi.spyOn(log, 'error').mockImplementation(() => {})
+    spyOnBrowser(fakeBrowser.runtime, 'sendMessage')
+      .mockReturnValueOnce(renameReply.promise)
+      .mockImplementationOnce(async (message: unknown) => {
+        const { tabId, updates } = (message as Message<UpdatePayload>).payload!
+        await applySidePanelDataUpdates(tabId, updates)
+        return await addReply.promise
+      })
+
+    edit(rename)
+    edit({ type: 'add' })
+    await settleEffects()
+    renameReply.resolve({ success: false, error: 'Lock timed out' })
+    await settleEffects()
+
     expect(form.props!.config.columns).toEqual([rank, added])
   })
 
@@ -504,7 +542,7 @@ describe('TabPanel numbered config writes', () => {
     await storage.removeItem(storageKey)
     await answer(0, 'fail')
 
-    expect(form.props!.config.columns).toEqual(DEFAULT_SCRAPE_CONFIG.columns)
+    expect(form.props!.config.columns).toEqual([...DEFAULT_SCRAPE_CONFIG.columns, added])
   })
 
   it('leaves the panel alone when a selector write fails with a column edit on its way', async () => {
