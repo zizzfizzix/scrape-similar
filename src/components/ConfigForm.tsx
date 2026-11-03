@@ -62,7 +62,10 @@ const ZERO_FOUND_FEEDBACK_MS = 1500
 interface ConfigFormProps {
   /** The tab the form belongs to; `null` while there is none. */
   tabId: number | null
-  /** Changes each time the panel has finished reading its stored state. */
+  /**
+   * Changes once the panel shows its stored state after subscribing to it; a
+   * re-read skipped for a write still on its way does not count.
+   */
   storedConfigVersion: number
   config: ScrapeConfig
   onMainSelectorChange: (mainSelector: string) => void

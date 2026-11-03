@@ -217,9 +217,9 @@ export const TabPanel = memo(function TabPanel({
 
     log.error(`Could not store config write ${String(seq)} for tab ${String(id)}:`, reply?.error)
     notify.error(failure, { id: failure })
-    const inFlight = [...inFlightConfigWritesRef.current.keys()]
-    // A later write is still awaited, or was stored and its state is shown or on its way.
-    if (inFlight.some((other) => other > seq) || awaitedConfigSeqRef.current > seq) {
+    // A later write is still awaited, or was stored and its state is shown or on
+    // its way. The awaited write is never older than one still on its way.
+    if (awaitedConfigSeqRef.current > seq) {
       // Later column edits built on this one's change are dropped too, so the
       // columns are shown as the background will leave them, and the next edit
       // is built on those.
@@ -230,6 +230,7 @@ export const TabPanel = memo(function TabPanel({
     // on its way instead, or for none. The state recording that write may already
     // have arrived and been skipped, so storage is read now as well; the read is
     // skipped in turn if it predates that write.
+    const inFlight = [...inFlightConfigWritesRef.current.keys()]
     awaitedConfigSeqRef.current = inFlight.length > 0 ? Math.max(...inFlight) : 0
     const stored = await sidePanelConfigItem(id).getValue()
     // With nothing stored, show the default config, as a panel opened on this tab would.
