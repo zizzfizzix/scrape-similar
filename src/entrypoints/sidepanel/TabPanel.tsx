@@ -17,11 +17,9 @@ import {
 import log from 'loglevel'
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
 
-export const COLUMN_EDIT_NOT_SAVED =
-  'Could not save the column change. The saved columns are shown.'
-export const PRESET_NOT_SAVED = 'Could not load the preset. The saved configuration is shown.'
-export const MAIN_SELECTOR_NOT_SAVED =
-  'Could not save the main selector. The saved configuration is shown.'
+export const COLUMN_EDIT_NOT_SAVED = 'Could not save the column change.'
+export const PRESET_NOT_SAVED = 'Could not load the preset.'
+export const MAIN_SELECTOR_NOT_SAVED = 'Could not save the main selector.'
 
 export const CONTENT_SCRIPT_UNREACHABLE =
   'Could not connect to the content script. Please reload the page or ensure the extension is enabled for this site.'
@@ -77,7 +75,8 @@ export const TabPanel = memo(function TabPanel({
   // before the first read is not protected this way.
   const lastConfigSeqRef = useRef(0)
   const awaitedConfigSeqRef = useRef(0)
-  const inFlightConfigSeqsRef = useRef(new Set<number>())
+  // Each write still on its way, mapped to whether it replaces the column list.
+  const inFlightConfigWritesRef = useRef(new Map<number, boolean>())
   // Set wherever the config is, not from an effect: ConfigForm's effects run
   // before this component's, and its held blur commit reads the config from one.
   const shownConfigRef = useRef(config)
@@ -175,7 +174,7 @@ export const TabPanel = memo(function TabPanel({
     lastConfigSeqRef.current += 1
     const seq = lastConfigSeqRef.current
     awaitedConfigSeqRef.current = seq
-    inFlightConfigSeqsRef.current.add(seq)
+    inFlightConfigWritesRef.current.set(seq, updates.currentScrapeConfig?.columns !== undefined)
     let reply: StatusReply | undefined
     try {
       reply = await browser.runtime.sendMessage({
@@ -185,17 +184,21 @@ export const TabPanel = memo(function TabPanel({
     } catch (error) {
       reply = { success: false, error: String(error) }
     }
-    inFlightConfigSeqsRef.current.delete(seq)
+    inFlightConfigWritesRef.current.delete(seq)
     if (reply?.success === true) return true
 
     log.error(`Could not store config write ${String(seq)} for tab ${String(id)}:`, reply?.error)
     notify.error(failure, { id: failure })
-    const inFlight = [...inFlightConfigSeqsRef.current]
+    const inFlight = [...inFlightConfigWritesRef.current.keys()]
     // A later write is still awaited, or was stored and is already shown.
     if (inFlight.some((other) => other > seq) || awaitedConfigSeqRef.current > seq) {
       // Later column edits were built on this one's columns and are dropped too,
       // so the stored columns are shown now and the next edit is built on them.
-      if (updates.columnEdit) await showStoredColumns(id)
+      // A later write that replaces the columns brings its own once stored.
+      const isColumnListReplacedLater = [...inFlightConfigWritesRef.current].some(
+        ([other, replacesColumns]) => other > seq && replacesColumns,
+      )
+      if (updates.columnEdit && !isColumnListReplacedLater) await showStoredColumns(id)
       return false
     }
     // No stored state will record this write, so wait for the newest write still
@@ -232,9 +235,10 @@ export const TabPanel = memo(function TabPanel({
 
   const handleColumnEdit = (edit: ColumnEdit) => {
     const latest = shownConfigRef.current
-    // An edit made on columns since replaced in storage does not apply to the
-    // latest ones, and the background drops it as well.
-    showConfig({ ...latest, columns: applyColumnEdit(latest.columns, edit) ?? latest.columns })
+    const columns = applyColumnEdit(latest.columns, edit)
+    // Made on columns since replaced in storage, so the background would drop it too.
+    if (!columns) return
+    showConfig({ ...latest, columns })
     if (tabId !== null) {
       reportRejection(writeConfig(tabId, { columnEdit: edit }, COLUMN_EDIT_NOT_SAVED))
     }

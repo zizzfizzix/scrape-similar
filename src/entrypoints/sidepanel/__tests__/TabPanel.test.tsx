@@ -476,6 +476,24 @@ describe('TabPanel numbered config writes', () => {
     expect(form.props!.config.columns).toEqual([rank, added])
   })
 
+  it('keeps the columns of a preset on its way when a column edit before it fails', async () => {
+    await render()
+    const { answer } = scriptedBackground()
+    spyOnBrowser(fakeBrowser.tabs, 'sendMessage').mockResolvedValue(undefined)
+    vi.spyOn(log, 'error').mockImplementation(() => {})
+    const loaded = preset('//li', guessedColumns)
+
+    edit(rename)
+    loadPreset(loaded)
+    await answer(0, 'fail')
+
+    expect(form.props!.config).toEqual(loaded.config)
+
+    await answer(1, 'store')
+
+    expect(form.props!.config).toEqual(loaded.config)
+  })
+
   it('shows the default columns when a column edit fails with later ones on their way and nothing is stored', async () => {
     await render()
     const { answer } = scriptedBackground()
@@ -775,7 +793,7 @@ describe('TabPanel numbered config writes', () => {
 
   it('leaves out a column edit made on columns replaced before it rendered', async () => {
     await render()
-    heldBackground()
+    const { sendMessage } = heldBackground()
 
     await act(async () => {
       await storage.setItem(storageKey, {
@@ -787,6 +805,7 @@ describe('TabPanel numbered config writes', () => {
     })
 
     expect(form.props!.config.columns).toEqual(guessedColumns)
+    expect(sendMessage).not.toHaveBeenCalled()
   })
 
   it('does not report an unreachable content script for a highlight already abandoned', async () => {
