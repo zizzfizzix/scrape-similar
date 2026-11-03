@@ -75,11 +75,18 @@ if [[ -f "$stamp_file" && "$(cat "$stamp_file")" == "$inputs_hash" ]]; then
   exit 0
 fi
 
-# A failed install is not retried until the dependency files change: a
-# hand-edited package.json or a stale lockfile would otherwise make every commit
-# wait for pnpm to fail again. The record lives in this worktree's git dir, since
-# node_modules may not exist.
+# A failed install is not retried until the dependency files change or someone
+# installs by hand: a hand-edited package.json or a stale lockfile would
+# otherwise make every commit wait for pnpm to fail again. The record lives in
+# this worktree's git dir, since node_modules may not exist.
 failed_stamp_file=$(git rev-parse --git-path worktree-sync-install-failed)
+# pnpm rewrites .modules.yaml on every install it gets as far as linking, even
+# one with nothing to change, so a newer one means someone has installed since
+# the failure (as the warning asks); a failure in a lifecycle script leaves the
+# hashed files as they were, so the hash alone would not notice.
+if [[ -f "$failed_stamp_file" && node_modules/.modules.yaml -nt "$failed_stamp_file" ]]; then
+  rm -f "$failed_stamp_file"
+fi
 
 if [[ -f "$failed_stamp_file" && "$(cat "$failed_stamp_file")" == "$inputs_hash" ]]; then
   log "Warning: pnpm install failed for these dependency files; fix the cause (it may have been the network) and run 'pnpm install'"
@@ -102,7 +109,7 @@ if SKIP_GIT_HOOKS_INSTALL=1 pnpm install --frozen-lockfile --prefer-offline --co
 else
   # The state after the attempt, which a partly finished install may have changed.
   dependency_state_hash >"$failed_stamp_file"
-  log "Warning: pnpm install failed and is not retried until the dependency files change; fix the cause (it may have been the network) and run 'pnpm install'"
+  log "Warning: pnpm install failed and is not retried until the dependency files change or you run 'pnpm install'; fix the cause (it may have been the network) and run it"
 fi
 
 # A failed sync must not make git report the checkout, merge or rebase as failed.
