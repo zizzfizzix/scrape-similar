@@ -215,8 +215,8 @@ fi
 # was registered. The stamp records a finished attempt, not just a success: a
 # machine that cannot reach Playwright's CDN would otherwise wait out its
 # timeouts on every later commit. It is written after the install returns, so a
-# download cut short by Ctrl-C, which ends this script too, is retried, and not
-# at all when node is missing from PATH (as in some git GUIs), since Playwright
+# download cut short by Ctrl-C, which ends this script too, is retried. It is not
+# written when node is missing from PATH (as in some git GUIs), since Playwright
 # never ran. A browser removed later by other means (a cache cleaner,
 # `playwright uninstall`) comes back with the next dependency change; until then
 # Playwright's launch error names the install command.
