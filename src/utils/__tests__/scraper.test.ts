@@ -1,5 +1,16 @@
 // @vitest-environment jsdom
-import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
+import { readdirSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  onTestFinished,
+  vi,
+  type MockInstance,
+} from 'vitest'
 
 import {
   countXPathMatches,
@@ -15,6 +26,7 @@ import type { ColumnDefinition, ScrapeConfig } from '@/utils/types'
 import log from 'loglevel'
 
 const malformedXPath = '//*['
+const FIXTURE_PAGES = join(import.meta.dirname, '../../../tests/e2e/fixtures/pages')
 
 // Reset the DOM between tests to ensure isolation
 beforeEach(() => {
@@ -203,6 +215,40 @@ describe('generateXPath & minimizeXPath', () => {
     expect(elementsFromMin[0]).toBe(target)
     expect(elementsFromMin[1]).toBeInstanceOf(HTMLElement)
   })
+
+  // The sibling div gives each target's path a positional step.
+  it.each([
+    ['h1', '<h1 id="x">Title</h1>'],
+    ['tr', '<table><tr id="x"><td>only</td></tr></table>'],
+    ['li', '<ul><li id="x">only</li></ul>'],
+    ['td', '<table><tr><td id="x">only</td></tr></table>'],
+  ])('minimizes a unique %s behind a positional ancestor to a path matching it', (_tag, html) => {
+    document.body.innerHTML = `<div></div><div>${html}</div>`
+    const target = document.getElementById('x')!
+
+    expect(evaluateXPath(minimizeXPath(target))).toEqual([target])
+  })
+
+  it.each(readdirSync(FIXTURE_PAGES).filter((name) => name.endsWith('.html')))(
+    'minimizes every element of %s to a path that matches it',
+    (page) => {
+      const fixture = readFileSync(join(FIXTURE_PAGES, page), 'utf8')
+      const originalPage = document.documentElement.innerHTML
+      onTestFinished(() => {
+        document.documentElement.innerHTML = originalPage
+      })
+      document.documentElement.innerHTML = new DOMParser().parseFromString(
+        fixture,
+        'text/html',
+      ).documentElement.innerHTML
+
+      const elements = Array.from(document.querySelectorAll('*'))
+      for (const element of elements) {
+        const xpath = minimizeXPath(element)
+        expect(evaluateXPath(xpath), xpath).toContain(element)
+      }
+    },
+  )
 
   it('returns /html/body when called with document.body', () => {
     const bodyXPath = generateXPath(document.body)

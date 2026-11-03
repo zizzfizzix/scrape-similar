@@ -6,8 +6,7 @@ import { evaluateXPath, minimizeXPath } from '@/utils/scraper'
 // path the filter would leave empty.
 const candidateFor = (node: HTMLElement): string => {
   const path = minimizeXPath(node)
-  // False for a non-row and for a unique row minimized to "/", where an
-  // appended predicate would be invalid XPath.
+  // A `[td]` predicate only applies to a path ending in a row step.
   const hasRowStep = path.endsWith('/tr')
   if (!hasRowStep || node.parentElement?.localName === 'thead') return path
   const dataRows = `${path}[td]`
