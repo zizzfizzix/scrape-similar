@@ -337,6 +337,9 @@ export const TabPanel = memo(function TabPanel({
   const highlightOnceStored = async (selector: string, isStored: Promise<boolean>) => {
     // The caller reports a rejected write; here it only means "not stored".
     const wasStored = await isStored.catch(() => false)
+    // Once settled, a highlight of this selector has nothing to wait for; one
+    // that failed would otherwise hold it back after storage sets it again.
+    if (selectorWriteRef.current?.isStored === isStored) selectorWriteRef.current = null
     if (wasStored && selector) sendHighlight(selector)
   }
 
@@ -356,10 +359,12 @@ export const TabPanel = memo(function TabPanel({
       tabId,
       { type: MESSAGE_TYPES.HIGHLIGHT_ELEMENTS, payload: { selector } },
       (response: HighlightReply | undefined) => {
+        // Read before anything returns: Chromium logs an error a callback leaves unread.
+        const isUnreachable = !response && browser.runtime.lastError !== undefined
         // A reply for a selector replaced meanwhile would validate the newer one
         // with its count, and its failure concerns a request already abandoned.
         if (shownConfigRef.current.mainSelector !== selector) return
-        if (!response && browser.runtime.lastError) {
+        if (isUnreachable) {
           notify.error(CONTENT_SCRIPT_UNREACHABLE)
           return
         }

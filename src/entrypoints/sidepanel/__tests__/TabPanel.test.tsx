@@ -20,7 +20,7 @@ import {
   type ScrapeConfig,
   type SidePanelConfigUpdate,
 } from '@/utils/types'
-import { setLastError, spyOnBrowser } from '@@/tests/support/fake-browser'
+import { spyOnBrowser } from '@@/tests/support/fake-browser'
 import { flushMicrotasks } from '@@/tests/support/flush-microtasks'
 import { renderSettled, settleEffects } from '@@/tests/support/settle'
 import { act, waitFor } from '@testing-library/react'
@@ -974,14 +974,43 @@ describe('TabPanel numbered config writes', () => {
     act(() => {
       form.props!.onMainSelectorChange('//b')
     })
-    setLastError({ message: 'Could not establish connection' })
+    const readLastError = vi.fn(() => ({ message: 'Could not establish connection' }))
+    Object.defineProperty(fakeBrowser.runtime, 'lastError', {
+      get: readLastError,
+      configurable: true,
+    })
     act(() => {
       answerHighlight(undefined)
     })
 
-    setLastError(undefined)
+    Object.defineProperty(fakeBrowser.runtime, 'lastError', {
+      value: undefined,
+      writable: true,
+      configurable: true,
+    })
 
     expect(toastMocks.toast.error).not.toHaveBeenCalledWith(CONTENT_SCRIPT_UNREACHABLE)
+    // Chromium logs an error the callback leaves unread.
+    expect(readLastError).toHaveBeenCalled()
+  })
+
+  it('highlights a selector storage sets again after its own write failed', async () => {
+    await render()
+    const { answer } = scriptedBackground()
+    const tabsSendMessage = spyOnBrowser(fakeBrowser.tabs, 'sendMessage').mockResolvedValue(
+      undefined,
+    )
+    vi.spyOn(log, 'error').mockImplementation(() => {})
+
+    commitSelector('//li')
+    await answer(0, 'fail')
+    await storeGuess('//li')
+    act(() => {
+      form.props!.onHighlight('//li')
+    })
+    await settleEffects()
+
+    expect(highlightRequests(tabsSendMessage)).toHaveLength(1)
   })
 
   it('sends nothing without a tab', async () => {
