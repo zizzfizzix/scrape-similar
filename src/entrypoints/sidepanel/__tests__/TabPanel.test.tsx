@@ -832,6 +832,30 @@ describe('TabPanel numbered config writes', () => {
     expect(reported).toHaveLength(1)
   })
 
+  it.each([
+    ['a selector commit', () => commitSelector('//li')],
+    ['a preset load', () => loadPreset(preset('//li', guessedColumns))],
+  ])('holds a repeated highlight until the write of %s is stored', async (_, write) => {
+    await render()
+    const { answer } = scriptedBackground()
+    const tabsSendMessage = spyOnBrowser(fakeBrowser.tabs, 'sendMessage').mockResolvedValue(
+      undefined,
+    )
+    vi.spyOn(log, 'error').mockImplementation(() => {})
+
+    write()
+    act(() => {
+      form.props!.onHighlight('//li')
+    })
+    await settleEffects()
+
+    expect(highlightRequests(tabsSendMessage)).toEqual([])
+
+    await answer(0, 'fail')
+
+    expect(highlightRequests(tabsSendMessage)).toEqual([])
+  })
+
   it('does not highlight a selector the panel does not show', async () => {
     await render()
     const tabsSendMessage = spyOnBrowser(fakeBrowser.tabs, 'sendMessage').mockResolvedValue(
@@ -880,6 +904,28 @@ describe('TabPanel numbered config writes', () => {
     await release()
 
     expect(form.props!.config.mainSelector).toBe('//li')
+    expect(form.props!.storedConfigVersion).toBe(caughtUpAtMount + 1)
+  })
+
+  it('does not report storage caught up for a state shown while hidden', async () => {
+    const { rerender } = await renderSettled(panelIn('visible'))
+    const { answer } = scriptedBackground()
+    vi.spyOn(log, 'error').mockImplementation(() => {})
+    const caughtUpAtMount = form.props!.storedConfigVersion
+
+    edit(rename)
+    rerender(panelIn('hidden'))
+    rerender(panelIn('visible'))
+    await settleEffects()
+    rerender(panelIn('hidden'))
+    // Fails while hidden, so its read-back is shown while hidden.
+    await answer(0, 'fail')
+
+    expect(form.props!.storedConfigVersion).toBe(caughtUpAtMount)
+
+    rerender(panelIn('visible'))
+    await settleEffects()
+
     expect(form.props!.storedConfigVersion).toBe(caughtUpAtMount + 1)
   })
 

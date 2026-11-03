@@ -80,13 +80,16 @@ export const TabPanel = memo(function TabPanel({
   // Set wherever the config is, not from an effect: ConfigForm's effects run
   // before this component's, and its held blur commit reads the config from one.
   const shownConfigRef = useRef(config)
-  // The write a selector commit sent, which the commit's highlight waits for.
+  // The write that last set the selector, which every highlight of that selector waits for.
   const selectorWriteRef = useRef<{ selector: string; isStored: Promise<boolean> } | null>(null)
   // ConfigForm finishes a blur commit held over a hide once storage is shown
   // again. A re-read skipped for a write still on its way shows nothing, so
-  // the catch-up is reported with the next stored state shown instead.
+  // the catch-up is reported with the next stored state shown instead, and
+  // only while subscribed: one shown while hidden would release the commit
+  // on the next show before that show's read.
   const wasLastStoredStateSkippedRef = useRef(false)
   const isCatchUpHeldRef = useRef(false)
+  const isSubscribedRef = useRef(false)
 
   const applyStoredState = useCallback(
     (stored: SidePanelConfig) => {
@@ -125,7 +128,7 @@ export const TabPanel = memo(function TabPanel({
       setHighlightError(stored.highlightError ?? undefined)
       setIsPickerModeActive(stored.pickerModeActive ?? false)
 
-      if (isCatchUpHeldRef.current) {
+      if (isCatchUpHeldRef.current && isSubscribedRef.current) {
         isCatchUpHeldRef.current = false
         setStoredConfigVersion((version) => version + 1)
       }
@@ -139,7 +142,10 @@ export const TabPanel = memo(function TabPanel({
   useEffect(() => {
     if (tabId === null) return
     const item = sidePanelConfigItem(tabId)
-    return subscribeWithBackfill<SidePanelConfig>(
+    isSubscribedRef.current = true
+    // This subscription's own catch-up replaces one held from an earlier show.
+    isCatchUpHeldRef.current = false
+    const unsubscribe = subscribeWithBackfill<SidePanelConfig>(
       { watch: (callback) => item.watch(callback), read: () => item.getValue() },
       applyStoredState,
       () => {
@@ -150,6 +156,10 @@ export const TabPanel = memo(function TabPanel({
         setStoredConfigVersion((version) => version + 1)
       },
     )
+    return () => {
+      isSubscribedRef.current = false
+      unsubscribe()
+    }
   }, [tabId, applyStoredState])
 
   const saveSidePanelState = (id: number, updates: SidePanelConfigUpdate) => {
@@ -333,7 +343,6 @@ export const TabPanel = memo(function TabPanel({
   const handleHighlight = (selector: string) => {
     const write = selectorWriteRef.current
     if (write?.selector === selector) {
-      selectorWriteRef.current = null
       reportRejection(highlightOnceStored(selector, write.isStored))
       return
     }
@@ -410,6 +419,7 @@ export const TabPanel = memo(function TabPanel({
     const loaded = showConfig(resolveStoredConfig({ currentScrapeConfig: preset.config }))
     if (tabId !== null) {
       const isStored = writeConfig(tabId, buildConfigReplaceUpdates(loaded), PRESET_NOT_SAVED)
+      selectorWriteRef.current = { selector: loaded.mainSelector, isStored }
       reportRejection(isStored)
       reportRejection(highlightOnceStored(loaded.mainSelector, isStored))
     }
