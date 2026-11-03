@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Scrape Similar is a cross-browser (Chromium / Firefox / Edge) Manifest V3 web extension built with **WXT** + Vite + React 19 + TypeScript + Tailwind 4 + shadcn-ui. It extracts structured data from web pages via XPath selectors, with a visual point-and-click element picker, and exports to Google Sheets, .xlsx, CSV, TSV, or the clipboard.
 
-Package manager: **pnpm** (Node >= 22). `.nvmrc` holds `lts/*`, the line CI installs through `node-version-file`. nvm and fnm read it (mise only with `node` in its `idiomatic_version_file_enable_tools` setting); they resolve `lts/*` from their own release cache, so after a new major turns LTS, `nvm install` (or `fnm install`) moves a local checkout onto the line CI already uses. Do not use npm/yarn for installs.
+Package manager: **pnpm** (Node >= 22). `.nvmrc` holds `lts/*`, the line CI installs through `node-version-file`. `nvm use` and fnm's auto-switch pick the newest LTS already installed, so after a new major turns LTS, `nvm install` (or `fnm install`) moves onto the line CI uses. Do not use npm/yarn for installs.
 
 ## Commands
 
