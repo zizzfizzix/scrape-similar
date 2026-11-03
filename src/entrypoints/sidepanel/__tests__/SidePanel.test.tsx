@@ -99,7 +99,7 @@ beforeEach(async () => {
   await userPresetsItem.setValue([])
   // The panel is behind the consent gate.
   await storage.setItem(analyticsConsentItem.key, true)
-  spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(undefined)
+  spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue({ success: true })
   contentScriptReplies({ success: true, matchCount: 3 })
   await attachToTab()
 })
@@ -361,9 +361,9 @@ describe('SidePanel', () => {
       }
       await userPresetsItem.setValue([preset])
       await attachToTab(PAGE_URL, { currentScrapeConfig: config })
-      const runtimeSend = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
-        undefined,
-      )
+      const runtimeSend = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue({
+        success: true,
+      })
       view = await render()
       await openPresetList()
 

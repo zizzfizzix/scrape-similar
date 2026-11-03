@@ -98,9 +98,9 @@ describe('TabPanel config edits', () => {
 
   it('writes nothing for an edit that leaves the config as it was', async () => {
     await render()
-    const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
-      undefined,
-    )
+    const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue({
+      success: true,
+    })
     act(() => {
       form.props!.onMainSelectorChange(form.props!.config.mainSelector)
     })
@@ -110,9 +110,9 @@ describe('TabPanel config edits', () => {
 
   it('writes only the field an edit changed', async () => {
     await render()
-    const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
-      undefined,
-    )
+    const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue({
+      success: true,
+    })
 
     act(() => {
       form.props!.onMainSelectorChange('//li')
@@ -138,9 +138,9 @@ describe('TabPanel config edits', () => {
 
   it('trims the selector of an edit before writing it', async () => {
     await render()
-    const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
-      undefined,
-    )
+    const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue({
+      success: true,
+    })
 
     act(() => {
       form.props!.onMainSelectorChange('  //li ')
@@ -1015,9 +1015,9 @@ describe('TabPanel numbered config writes', () => {
 
   it('sends nothing without a tab', async () => {
     await render(null)
-    const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue(
-      undefined,
-    )
+    const sendMessage = spyOnBrowser(fakeBrowser.runtime, 'sendMessage').mockResolvedValue({
+      success: true,
+    })
     const loaded = preset('', guessedColumns)
 
     edit({ type: 'add' })
