@@ -100,7 +100,8 @@ if SKIP_GIT_HOOKS_INSTALL=1 pnpm install --frozen-lockfile --prefer-offline --co
   rm -f "$failed_stamp_file"
   log "Done"
 else
-  echo "$inputs_hash" >"$failed_stamp_file"
+  # The state after the attempt, which a partly finished install may have changed.
+  dependency_state_hash >"$failed_stamp_file"
   log "Warning: pnpm install failed; fix it and run 'pnpm install' by hand"
 fi
 
