@@ -182,7 +182,7 @@ describe('buildTableRowSelector', () => {
     )
 
     expect(buildTableRowSelector(row)).toBe(
-      '/descendant::table[2]//tr[td][count(ancestor::table[1] | /descendant::table[2]) = 1]',
+      '/descendant::table[2]//tr[td][count(ancestor::table) = 1]',
     )
   })
 
@@ -197,6 +197,21 @@ describe('buildTableRowSelector', () => {
 
     const matched = evaluateXPath(buildTableRowSelector(row)!)
     expect(matched.map((tr) => tr.id)).toEqual(['r', 'r2'])
+  })
+
+  it('matches only the rows of a table nested in another', () => {
+    const row = render(
+      `<table>
+         <tr><td>outer 1<table><tr id="i1"><td>inner 1</td></tr><tr id="i2"><td>inner 2</td></tr></table></td></tr>
+         <tr><td>outer 2</td></tr>
+       </table>`,
+      '#i1',
+    )
+
+    expect(buildTableRowSelector(row)).toBe(
+      '/descendant::table[2]//tr[td][count(ancestor::table) = 2]',
+    )
+    expect(evaluateXPath(buildTableRowSelector(row)!).map((tr) => tr.id)).toEqual(['i1', 'i2'])
   })
 
   it('matches the rows of a table built without a tbody', () => {

@@ -101,19 +101,27 @@ const findTableHeaderCells = (table: HTMLTableElement, row: HTMLElement): Elemen
  * Selector matching every data row of the table `row` belongs to, or null when
  * the row is not inside a table (in which case the caller keeps its own path).
  *
- * The `count(...) = 1` predicate keeps a row only when its nearest table is
- * this one, leaving out the rows of tables nested in its cells; it compares
- * node identity, which `=` between node-sets does not. `/descendant::table[n]`
- * selects the same node as `(//table)[n]`, which jsdom evaluates as
- * `//table[n]`.
+ * A row belongs to this table when it has as many table ancestors as the
+ * table's own depth, which leaves out the rows of tables nested in its cells.
+ * Counting ancestors only walks up from each row; comparing the row's nearest
+ * table to an absolute path re-scans the document per row, seconds on a table
+ * of thousands of rows. `/descendant::table[n]` selects the same node as
+ * `(//table)[n]`, which jsdom evaluates as `//table[n]`.
  */
 export const buildTableRowSelector = (row: HTMLElement): string | null => {
   const table = row.closest('table')
   if (!table) return null
 
   const tableIndex = Array.from(document.querySelectorAll('table')).indexOf(table) + 1
-  const tablePath = `/descendant::table[${tableIndex}]`
-  return `${tablePath}//tr[td][count(ancestor::table[1] | ${tablePath}) = 1]`
+  let depth = 1
+  for (
+    let outer = table.parentElement?.closest('table');
+    outer;
+    outer = outer.parentElement?.closest('table')
+  ) {
+    depth++
+  }
+  return `/descendant::table[${tableIndex}]//tr[td][count(ancestor::table) = ${depth}]`
 }
 
 /**
