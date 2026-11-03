@@ -1,5 +1,19 @@
 import { evaluateXPath, minimizeXPath } from '@/utils/scraper'
 
+// A row's own path can also match `th`-only header rows, which then scrape as
+// data, so it is filtered to rows with `td` cells. A `thead` row is left alone,
+// since its `td` rows are filter or input rows rather than records, and so is a
+// path the filter would leave empty.
+const candidateFor = (node: HTMLElement): string => {
+  const path = minimizeXPath(node)
+  // False for a non-row and for a unique row minimized to "/", where an
+  // appended predicate would be invalid XPath.
+  const hasRowStep = path.endsWith('/tr')
+  if (!hasRowStep || node.parentElement?.localName === 'thead') return path
+  const dataRows = `${path}[td]`
+  return evaluateXPath(dataRows).length > 0 ? dataRows : path
+}
+
 /**
  * Generate selector candidates by walking up the DOM tree from a starting element
  */
@@ -17,7 +31,7 @@ export const generateSelectorCandidates = (start: HTMLElement, maxLevels = 10): 
     node !== document.documentElement &&
     levels <= maxLevels
   ) {
-    candidates.add(minimizeXPath(node))
+    candidates.add(candidateFor(node))
     node = node.parentElement
     levels += 1
   }

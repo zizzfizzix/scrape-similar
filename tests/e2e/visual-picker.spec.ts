@@ -193,5 +193,41 @@ test.describe('Visual Element Picker', () => {
         DEMO_TARGET_PAGE_FACTS.firstCountry,
       )
     })
+
+    test('widening to the row level scrapes the data rows without the header', async ({
+      openSidePanel,
+      context,
+      serviceWorker,
+      fixturePageUrl,
+    }) => {
+      await TestHelpers.dismissAnalyticsConsent(serviceWorker)
+      const sidePanel = await openSidePanel()
+
+      const testPage = await context.newPage()
+      await testPage.goto(fixturePageUrl(DEMO_TARGET_PAGE))
+      await testPage.bringToFront()
+
+      await sidePanel.getByLabel(/open visual picker/i).click()
+      await testPage.bringToFront()
+      // Mounting the banner pushes the page down, so hovering any earlier would
+      // leave the cursor over a different row.
+      await expect(testPage.getByRole('button', { name: 'Close picker' })).toBeVisible()
+
+      await testPage.getByRole('cell', { name: '1', exact: true }).hover()
+      const bannerSelector = testPage.getByPlaceholder('Hover over the page to select elements')
+      await expect(bannerSelector).toHaveValue(/\/td(\[\d+\])?$/)
+      await testPage.keyboard.press('-')
+      await expect(bannerSelector).toHaveValue(/\/tr\[td\]$/)
+      await testPage.getByRole('cell', { name: '1', exact: true }).click()
+
+      await expect(sidePanel.getByRole('heading', { name: /extracted data/i })).toBeVisible()
+      await expect(sidePanel.locator('#mainSelector')).toHaveValue(/\/tr\[td\]$/)
+      await expect(
+        sidePanel.getByText(`${DEMO_TARGET_PAGE_FACTS.tableRows} rows with data`),
+      ).toBeVisible()
+      await expect(sidePanel.locator('tbody tr').first()).toContainText(
+        DEMO_TARGET_PAGE_FACTS.firstCountry,
+      )
+    })
   })
 })
