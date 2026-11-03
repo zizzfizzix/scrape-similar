@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Scrape Similar fixture: Table layouts</title>
+  </head>
+  <body>
+    <!--
+      Table shapes the table-row scrape paths have to tell apart. The own data
+      rows (`tr` with a `td`, nested tables' rows not included) of the tables
+      the specs assert on are recorded in TABLE_LAYOUTS_PAGE_COUNTS in
+      tests/e2e/fixtures.ts.
+    -->
+    <h1>Scrape Similar fixture: Table layouts</h1>
+
+    <h2>Header row inside tbody</h2>
+    <table id="header-in-tbody">
+      <tbody>
+        <tr>
+          <th>Name</th>
+          <th>Age</th>
+        </tr>
+        <tr>
+          <td id="header-in-tbody-cell">Ada</td>
+          <td>36</td>
+        </tr>
+        <tr>
+          <td>Grace</td>
+          <td>85</td>
+        </tr>
+        <tr>
+          <td>Linus</td>
+          <td>54</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>thead with a filter row</h2>
+    <table id="thead-filter-row">
+      <thead>
+        <tr>
+          <th>City</th>
+          <th>Country</th>
+        </tr>
+        <tr>
+          <td><input aria-label="Filter city" /></td>
+          <td><input aria-label="Filter country" /></td>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td id="thead-filter-row-cell">Lisbon</td>
+          <td>Portugal</td>
+        </tr>
+        <tr>
+          <td>Oslo</td>
+          <td>Norway</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>One record per table</h2>
+    <div id="record-tables">
+      <table class="record">
+        <tr>
+          <td id="record-cell">Widget</td>
+          <td>9.99</td>
+        </tr>
+      </table>
+      <table class="record">
+        <tr>
+          <td>Gadget</td>
+          <td>19.99</td>
+        </tr>
+      </table>
+      <table class="record">
+        <tr>
+          <td>Gizmo</td>
+          <td>29.99</td>
+        </tr>
+      </table>
+    </div>
+
+    <h2>Nested layout table</h2>
+    <table id="layout-outer">
+      <tr>
+        <td id="layout-outer-cell">
+          Outer one
+          <table id="layout-inner">
+            <tr>
+              <td id="layout-inner-cell">Inner one</td>
+            </tr>
+            <tr>
+              <td>Inner two</td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+      <tr>
+        <td>Outer two</td>
+      </tr>
+    </table>
+
+    <h2>Sibling tables with the same structure</h2>
+    <table id="sibling-first">
+      <tr>
+        <td id="sibling-first-cell">First A</td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td>First B</td>
+        <td>2</td>
+      </tr>
+    </table>
+    <table id="sibling-second">
+      <tr>
+        <td id="sibling-second-cell">Second A</td>
+        <td>3</td>
+      </tr>
+      <tr>
+        <td>Second B</td>
+        <td>4</td>
+      </tr>
+    </table>
+  </body>
+</html>

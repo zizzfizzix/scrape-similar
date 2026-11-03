@@ -78,35 +78,53 @@ export const findScrapeAncestor = (element: HTMLElement): HTMLElement =>
  * cells, then any `th` in the table.
  */
 const findTableHeaderCells = (table: HTMLTableElement, row: HTMLElement): Element[] => {
+  // Leaves out what belongs to tables nested in this one's cells.
+  const own = (selector: string) =>
+    Array.from(table.querySelectorAll(selector)).filter((el) => el.closest('table') === table)
   const thsIn = (headerRow: Element) =>
     Array.from(headerRow.children).filter((child) => child.tagName.toLowerCase() === 'th')
 
-  const theadRow = Array.from(table.querySelectorAll('thead tr')).at(-1)
+  const theadRow = own(':scope thead tr').at(-1)
   if (theadRow) {
     const cells = thsIn(theadRow)
     if (cells.length > 0) return cells
   }
 
-  const allRows = Array.from(table.querySelectorAll('tr'))
-  const rowsAbove = allRows.slice(0, allRows.indexOf(row as HTMLTableRowElement)).reverse()
+  const allRows = own('tr')
+  const rowsAbove = allRows.slice(0, allRows.indexOf(row)).reverse()
   for (const headerRow of rowsAbove) {
     const cells = thsIn(headerRow)
     if (cells.length > 0) return cells
   }
 
-  return Array.from(table.querySelectorAll('th'))
+  return own('th')
 }
 
 /**
  * Selector matching every data row of the table `row` belongs to, or null when
  * the row is not inside a table (in which case the caller keeps its own path).
+ *
+ * A row belongs to this table when it has as many table ancestors as the
+ * table's own depth, which leaves out the rows of tables nested in its cells.
+ * Counting ancestors only walks up from each row; comparing the row's nearest
+ * table to an absolute path re-scans the document per row, seconds on a table
+ * of thousands of rows. `/descendant::table[n]` selects the same node as
+ * `(//table)[n]`, which jsdom evaluates as `//table[n]`.
  */
 export const buildTableRowSelector = (row: HTMLElement): string | null => {
   const table = row.closest('table')
   if (!table) return null
 
   const tableIndex = Array.from(document.querySelectorAll('table')).indexOf(table) + 1
-  return `(//table)[${tableIndex}]//tr[td]`
+  let depth = 1
+  for (
+    let outer = table.parentElement?.closest('table');
+    outer;
+    outer = outer.parentElement?.closest('table')
+  ) {
+    depth++
+  }
+  return `/descendant::table[${tableIndex}]//tr[td][count(ancestor::table) = ${depth}]`
 }
 
 /**

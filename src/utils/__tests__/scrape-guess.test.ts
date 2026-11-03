@@ -8,6 +8,7 @@ import {
   findScrapeAncestor,
   getDataAttributes,
 } from '@/utils/scrape-guess'
+import { evaluateXPath } from '@/utils/scraper'
 import { beforeEach, describe, expect, it } from 'vitest'
 
 /** Render `html` into the document body and return the element matching `selector`. */
@@ -180,7 +181,62 @@ describe('buildTableRowSelector', () => {
       '#r',
     )
 
-    expect(buildTableRowSelector(row)).toBe('(//table)[2]//tr[td]')
+    expect(buildTableRowSelector(row)).toBe(
+      '/descendant::table[2]//tr[td][count(ancestor::table) = 1]',
+    )
+  })
+
+  it('leaves out the rows of tables nested in its cells', () => {
+    const row = render(
+      `<table>
+         <tr id="r"><td>outer 1<table><tr><td>inner 1</td></tr><tr><td>inner 2</td></tr></table></td></tr>
+         <tr id="r2"><td>outer 2</td></tr>
+       </table>`,
+      '#r',
+    )
+
+    const matched = evaluateXPath(buildTableRowSelector(row)!)
+    expect(matched.map((tr) => tr.id)).toEqual(['r', 'r2'])
+  })
+
+  it('matches only the rows of a table nested in another', () => {
+    const row = render(
+      `<table>
+         <tr><td>outer 1<table><tr id="i1"><td>inner 1</td></tr><tr id="i2"><td>inner 2</td></tr></table></td></tr>
+         <tr><td>outer 2</td></tr>
+       </table>`,
+      '#i1',
+    )
+
+    expect(buildTableRowSelector(row)).toBe(
+      '/descendant::table[2]//tr[td][count(ancestor::table) = 2]',
+    )
+    expect(evaluateXPath(buildTableRowSelector(row)!).map((tr) => tr.id)).toEqual(['i1', 'i2'])
+  })
+
+  it('matches the rows of a table built without a tbody', () => {
+    const table = document.createElement('table')
+    for (const text of ['one', 'two']) {
+      const tr = table.appendChild(document.createElement('tr'))
+      tr.appendChild(document.createElement('td')).textContent = text
+    }
+    document.body.replaceChildren(table)
+
+    const matched = evaluateXPath(buildTableRowSelector(table.rows[0]!)!)
+    expect(matched).toEqual(Array.from(table.rows))
+  })
+
+  it('matches rows a script wrapped in a non-section element', () => {
+    const table = document.createElement('table')
+    const group = table.appendChild(document.createElement('x-row-group'))
+    for (const text of ['one', 'two']) {
+      const tr = group.appendChild(document.createElement('tr'))
+      tr.appendChild(document.createElement('td')).textContent = text
+    }
+    document.body.replaceChildren(table)
+
+    const rows = Array.from(group.children) as HTMLElement[]
+    expect(evaluateXPath(buildTableRowSelector(rows[0]!)!)).toEqual(rows)
   })
 
   it('returns null for a row outside any table', () => {
@@ -189,6 +245,56 @@ describe('buildTableRowSelector', () => {
 })
 
 describe('buildTableRowColumns', () => {
+  it('skips the header row of a table nested above the row', () => {
+    const row = render(
+      `<table>
+         <tr><td>outer 1<table><tr><th>Inner H</th></tr><tr><td>inner 1</td></tr></table></td></tr>
+         <tr id="r"><td>outer 2</td></tr>
+       </table>`,
+      '#r',
+    )
+
+    expect(names(buildTableRowColumns(row))).toEqual(['Column 1'])
+  })
+
+  it('skips the thead of a nested table', () => {
+    const row = render(
+      `<table>
+         <thead><tr><th>Outer H</th></tr></thead>
+         <tbody>
+           <tr id="r"><td>outer<table><thead><tr><th>Inner H</th></tr></thead></table></td></tr>
+         </tbody>
+       </table>`,
+      '#r',
+    )
+
+    expect(names(buildTableRowColumns(row))).toEqual(['Outer H'])
+  })
+
+  it('does not take the thead of a table it is nested in for its own', () => {
+    const row = render(
+      `<table>
+         <thead><tr><th>Outer<table>
+           <tr><th>Name</th></tr><tr id="r"><td>a</td></tr><tr><th>Total</th></tr>
+         </table></th></tr></thead>
+       </table>`,
+      '#r',
+    )
+
+    expect(names(buildTableRowColumns(row))).toEqual(['Name'])
+  })
+
+  it('skips the th cells of a nested table when the table has none above the row', () => {
+    const row = render(
+      `<table>
+         <tr id="r"><td>outer<table><tr><td>x</td><th>Inner H</th></tr></table></td></tr>
+       </table>`,
+      '#r',
+    )
+
+    expect(names(buildTableRowColumns(row))).toEqual(['Column 1'])
+  })
+
   it('names columns after the thead header cells', () => {
     const row = render(
       `<table>

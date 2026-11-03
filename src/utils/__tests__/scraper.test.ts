@@ -336,6 +336,22 @@ describe('guessScrapeConfigForElement', () => {
     expect(matchedRows[1]).not.toBe(row)
   })
 
+  it('scrapes only the outer rows of a nested layout table', () => {
+    document.body.innerHTML = `
+      <table>
+        <tr><td id="o">outer 1<table><tr><td>inner 1</td></tr><tr><td>inner 2</td></tr></table></td></tr>
+        <tr><td>outer 2</td></tr>
+      </table>
+    `
+    const config = guessScrapeConfigForElement(document.getElementById('o')!)
+
+    const rows = scrapePage(config)
+    expect(rows.map((row) => row.data)).toEqual([
+      { col1: 'outer 1inner 1inner 2' },
+      { col1: 'outer 2' },
+    ])
+  })
+
   it('uses the last header row when thead holds several', () => {
     document.body.innerHTML = `
       <table>
