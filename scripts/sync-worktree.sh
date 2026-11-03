@@ -21,12 +21,15 @@ cd "$toplevel" || exit 0
 # src/ and from wxt.config.ts. `pnpm compile` and `pnpm lint` regenerate it
 # themselves; this keeps it current for the editor, whose TypeScript server and
 # ESLint read it directly. Hashing the index rather than the files keeps this
-# cheap, and the index changes whenever a git operation moves these files.
+# cheap, and the index changes whenever a git operation moves these files. It
+# misses a change to the files alone, such as discarding an unstaged edit with
+# `git checkout -- <path>`; the editor then sees the old types until the next
+# compile, lint or dev server run regenerates them.
 wxt_stamp_file=.wxt/.worktree-sync-stamp
 wxt_inputs_hash=$(git ls-files -s -- src public wxt.config.ts | git hash-object --stdin)
 
-# Pre-commit has just run `wxt prepare` against the index being committed, so it
-# records that here; post-commit then finds the types current instead of
+# Pre-commit has just run `wxt prepare` against the working tree; recording the
+# index it is committing lets post-commit find the types current instead of
 # regenerating them a second time.
 if [[ "${1:-}" == --stamp-types ]]; then
   echo "$wxt_inputs_hash" >"$wxt_stamp_file"
@@ -87,7 +90,6 @@ dependency_state_hash() {
   done | git hash-object --stdin
 }
 inputs_hash=$(dependency_state_hash)
-
 
 is_install_current=false
 [[ -f "$stamp_file" && "$(cat "$stamp_file")" == "$inputs_hash" ]] && is_install_current=true
