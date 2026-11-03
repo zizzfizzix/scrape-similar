@@ -182,7 +182,7 @@ describe('buildTableRowSelector', () => {
     )
 
     expect(buildTableRowSelector(row)).toBe(
-      '/descendant::table[2]/*/tr[td] | /descendant::table[2]/tr[td]',
+      '/descendant::table[2]//tr[td][count(ancestor::table[1] | /descendant::table[2]) = 1]',
     )
   })
 
@@ -209,6 +209,19 @@ describe('buildTableRowSelector', () => {
 
     const matched = evaluateXPath(buildTableRowSelector(table.rows[0]!)!)
     expect(matched).toEqual(Array.from(table.rows))
+  })
+
+  it('matches rows a script wrapped in a non-section element', () => {
+    const table = document.createElement('table')
+    const group = table.appendChild(document.createElement('x-row-group'))
+    for (const text of ['one', 'two']) {
+      const tr = group.appendChild(document.createElement('tr'))
+      tr.appendChild(document.createElement('td')).textContent = text
+    }
+    document.body.replaceChildren(table)
+
+    const rows = Array.from(group.children) as HTMLElement[]
+    expect(evaluateXPath(buildTableRowSelector(rows[0]!)!)).toEqual(rows)
   })
 
   it('returns null for a row outside any table', () => {
